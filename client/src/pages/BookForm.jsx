@@ -36,11 +36,17 @@ export default function BookForm() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [pastSources, setPastSources] = useState([]);
+  const [pastAuthors, setPastAuthors] = useState([]);
+  const [pastPublishers, setPastPublishers] = useState([]);
 
   useEffect(() => {
     api.getBooks().then(books => {
       const sources = [...new Set(books.map(b => b.acquisition_source).filter(Boolean))].sort();
+      const authors = [...new Set(books.map(b => b.author).filter(Boolean))].sort();
+      const publishers = [...new Set(books.map(b => b.publisher).filter(Boolean))].sort();
       setPastSources(sources);
+      setPastAuthors(authors);
+      setPastPublishers(publishers);
     });
   }, []);
 
@@ -199,10 +205,14 @@ export default function BookForm() {
           <label className={label}>Author</label>
           <input
             className={input}
+            list="authors-list"
             value={form.author}
             onChange={(e) => set('author', e.target.value)}
             placeholder="Author name"
           />
+          <datalist id="authors-list">
+            {pastAuthors.map((a) => <option key={a} value={a} />)}
+          </datalist>
         </div>
 
         {/* Status */}
@@ -278,10 +288,14 @@ export default function BookForm() {
           <label className={label}>Publisher</label>
           <input
             className={input}
+            list="publishers-list"
             value={form.publisher}
             onChange={(e) => set('publisher', e.target.value)}
             placeholder="e.g. Penguin, Tor, Bloomsbury…"
           />
+          <datalist id="publishers-list">
+            {pastPublishers.map((p) => <option key={p} value={p} />)}
+          </datalist>
         </div>
 
         {/* Format */}
