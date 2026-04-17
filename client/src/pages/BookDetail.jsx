@@ -209,10 +209,12 @@ export default function BookDetail() {
                 </dd>
               </div>
             )}
-            {book.acquisition_source && (
+            {(book.acquisition_source || book.acquisition_date) && (
               <div className="flex gap-2">
                 <dt className="text-neutral-500 w-24 flex-shrink-0">Acquired</dt>
-                <dd className="text-neutral-300">{book.acquisition_source}</dd>
+                <dd className="text-neutral-300">
+                  {[book.acquisition_source, book.acquisition_date].filter(Boolean).join(' · ')}
+                </dd>
               </div>
             )}
             {book.date_started && (

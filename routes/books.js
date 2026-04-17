@@ -23,6 +23,7 @@ function validateBook(body) {
   if (duration_minutes != null && (duration_minutes < 1 || !Number.isInteger(Number(duration_minutes)))) errors.push('Duration must be a positive integer');
   if (date_started && !DATE_RE.test(date_started)) errors.push('Invalid date started');
   if (date_finished && !DATE_RE.test(date_finished)) errors.push('Invalid date finished');
+  if (body.acquisition_date && !DATE_RE.test(body.acquisition_date)) errors.push('Invalid acquisition date');
 
   return errors;
 }
@@ -77,13 +78,13 @@ router.get('/:id', (req, res) => {
 });
 
 router.post('/', (req, res) => {
-  const { title, author, status, owned, cover_path, rating, date_started, date_finished, acquisition_source, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, tags } = req.body;
+  const { title, author, status, owned, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, tags } = req.body;
   const errors = validateBook(req.body);
   if (errors.length) return res.status(400).json({ error: errors[0] });
 
   const result = db.prepare(`
-    INSERT INTO books (title, author, status, owned, cover_path, rating, date_started, date_finished, acquisition_source, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO books (title, author, status, owned, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     title.trim(),
     author || null,
@@ -94,6 +95,7 @@ router.post('/', (req, res) => {
     date_started || null,
     date_finished || null,
     acquisition_source || null,
+    acquisition_date || null,
     format || null,
     binding || null,
     condition || null,
@@ -115,7 +117,7 @@ router.put('/:id', (req, res) => {
     return res.status(404).json({ error: 'Not found' });
   }
 
-  const { title, author, status, owned, cover_path, rating, date_started, date_finished, acquisition_source, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, tags } = req.body;
+  const { title, author, status, owned, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, tags } = req.body;
   const errors = validateBook(req.body);
   if (errors.length) return res.status(400).json({ error: errors[0] });
 
@@ -123,7 +125,8 @@ router.put('/:id', (req, res) => {
     UPDATE books SET
       title = ?, author = ?, status = ?, owned = ?, cover_path = ?,
       rating = ?, date_started = ?, date_finished = ?,
-      acquisition_source = ?, format = ?, binding = ?, condition = ?,
+      acquisition_source = ?, acquisition_date = ?,
+      format = ?, binding = ?, condition = ?,
       description = ?, notes = ?, page_count = ?, duration_minutes = ?,
       publisher = ?, series = ?,
       updated_at = datetime('now')
@@ -138,6 +141,7 @@ router.put('/:id', (req, res) => {
     date_started || null,
     date_finished || null,
     acquisition_source || null,
+    acquisition_date || null,
     format || null,
     binding || null,
     condition || null,

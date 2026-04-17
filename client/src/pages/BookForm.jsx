@@ -15,6 +15,7 @@ const EMPTY = {
   publisher: '',
   series: '',
   acquisition_source: '',
+  acquisition_date: '',
   format: '',
   binding: '',
   condition: '',
@@ -73,6 +74,7 @@ export default function BookForm() {
         publisher: book.publisher || '',
         series: book.series || '',
         acquisition_source: book.acquisition_source || '',
+        acquisition_date: book.acquisition_date || '',
         description: book.description || '',
         format: book.format || '',
         binding: book.binding || '',
@@ -362,6 +364,17 @@ export default function BookForm() {
           <datalist id="sources-list">
             {pastSources.map((s) => <option key={s} value={s} />)}
           </datalist>
+        </div>
+
+        {/* Acquisition date */}
+        <div>
+          <label className={label}>Acquisition date</label>
+          <input
+            type="date"
+            className={input}
+            value={form.acquisition_date}
+            onChange={(e) => set('acquisition_date', e.target.value)}
+          />
         </div>
 
         {/* Publisher */}
