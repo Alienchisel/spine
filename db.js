@@ -23,6 +23,7 @@ db.exec(`
     format TEXT CHECK(format IS NULL OR format IN ('physical', 'ebook', 'audiobook')),
     binding TEXT CHECK(binding IS NULL OR binding IN ('paperback', 'hardcover')),
     condition TEXT CHECK(condition IS NULL OR condition IN ('new', 'used')),
+    description TEXT,
     notes TEXT,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now'))

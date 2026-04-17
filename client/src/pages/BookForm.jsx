@@ -17,6 +17,7 @@ const EMPTY = {
   format: '',
   binding: '',
   condition: '',
+  description: '',
   notes: '',
   tags: [],
   cover_path: null,
@@ -45,6 +46,7 @@ export default function BookForm() {
         date_started: book.date_started || '',
         date_finished: book.date_finished || '',
         acquisition_source: book.acquisition_source || '',
+        description: book.description || '',
         format: book.format || '',
         binding: book.binding || '',
         condition: book.condition || '',
@@ -231,26 +233,30 @@ export default function BookForm() {
         </div>
 
         {/* Dates */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className={label}>Date started</label>
-            <input
-              type="date"
-              className={input}
-              value={form.date_started}
-              onChange={(e) => set('date_started', e.target.value)}
-            />
+        {(form.status === 'reading' || form.status === 'finished') && (
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={label}>Date started</label>
+              <input
+                type="date"
+                className={input}
+                value={form.date_started}
+                onChange={(e) => set('date_started', e.target.value)}
+              />
+            </div>
+            {form.status === 'finished' && (
+              <div>
+                <label className={label}>Date finished</label>
+                <input
+                  type="date"
+                  className={input}
+                  value={form.date_finished}
+                  onChange={(e) => set('date_finished', e.target.value)}
+                />
+              </div>
+            )}
           </div>
-          <div>
-            <label className={label}>Date finished</label>
-            <input
-              type="date"
-              className={input}
-              value={form.date_finished}
-              onChange={(e) => set('date_finished', e.target.value)}
-            />
-          </div>
-        </div>
+        )}
 
         {/* Acquisition source */}
         <div>
@@ -345,6 +351,18 @@ export default function BookForm() {
             onChange={(e) => setTagInput(e.target.value)}
             onKeyDown={addTag}
             placeholder="Type a tag, press Enter or comma to add"
+          />
+        </div>
+
+        {/* Description */}
+        <div>
+          <label className={label}>Description</label>
+          <textarea
+            className={`${input} resize-none`}
+            rows={4}
+            value={form.description}
+            onChange={(e) => set('description', e.target.value)}
+            placeholder="Publisher or back-cover description…"
           />
         </div>
 
