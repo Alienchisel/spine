@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../api.js';
 import StarRating from '../components/StarRating.jsx';
 
-const SOURCES = ['Gift', 'Library', 'Borrowed', 'Amazon', 'eBay', 'Bought new', 'Bought used'];
+const SOURCES = ['Gift', 'Borrowed', 'Amazon', 'Bought new', 'Bought used'];
 
 const EMPTY = {
   title: '',
