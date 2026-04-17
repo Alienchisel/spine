@@ -111,18 +111,26 @@ export default function BookForm() {
     }, 400);
   }
 
-  function applyResult(result) {
+  async function applyResult(result) {
     setForm(f => ({
       ...f,
       title: result.title || f.title,
       author: result.author || f.author,
       publisher: result.publisher || f.publisher,
       page_count: result.page_count || f.page_count,
-      cover_path: result.cover_url || f.cover_path,
     }));
-    if (result.cover_url) setCoverPreview(result.cover_url);
     setSearchQuery('');
     setSearchResults([]);
+    if (result.cover_url) {
+      setCoverPreview(result.cover_url);
+      try {
+        const { path } = await api.fetchCover(result.cover_url);
+        setCoverPreview(path);
+        set('cover_path', path);
+      } catch {
+        set('cover_path', result.cover_url);
+      }
+    }
   }
 
   async function uploadFile(file) {
