@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../api.js';
 import StarRating from '../components/StarRating.jsx';
@@ -41,6 +41,10 @@ export default function BookForm() {
   const [pastAuthors, setPastAuthors] = useState([]);
   const [pastPublishers, setPastPublishers] = useState([]);
   const [pastSeries, setPastSeries] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const searchTimeout = useRef(null);
 
   useEffect(() => {
     api.getBooks().then(books => {
@@ -86,6 +90,37 @@ export default function BookForm() {
 
   function set(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
+  }
+
+  function handleSearchInput(e) {
+    const q = e.target.value;
+    setSearchQuery(q);
+    setSearchResults([]);
+    clearTimeout(searchTimeout.current);
+    if (!q.trim()) return;
+    searchTimeout.current = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const results = await api.searchBooks(q);
+        setSearchResults(results);
+      } finally {
+        setSearching(false);
+      }
+    }, 400);
+  }
+
+  function applyResult(result) {
+    setForm(f => ({
+      ...f,
+      title: result.title || f.title,
+      author: result.author || f.author,
+      publisher: result.publisher || f.publisher,
+      page_count: result.page_count || f.page_count,
+      cover_path: result.cover_url || f.cover_path,
+    }));
+    if (result.cover_url) setCoverPreview(result.cover_url);
+    setSearchQuery('');
+    setSearchResults([]);
   }
 
   async function uploadFile(file) {
@@ -173,6 +208,45 @@ export default function BookForm() {
       <h1 className="text-xl font-bold text-white mb-8">
         {isEdit ? 'Edit book' : 'Add book'}
       </h1>
+
+      {!isEdit && (
+        <div className="relative mb-8">
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={handleSearchInput}
+            placeholder="Search Open Library to auto-fill…"
+            className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-4 py-2.5 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-500 transition-colors"
+          />
+          {searching && (
+            <p className="absolute right-3 top-2.5 text-xs text-neutral-600">Searching…</p>
+          )}
+          {searchResults.length > 0 && (
+            <ul className="absolute z-10 w-full mt-1 bg-neutral-900 border border-neutral-700 rounded-lg overflow-hidden shadow-xl">
+              {searchResults.map((r) => (
+                <li key={r.key}>
+                  <button
+                    type="button"
+                    onClick={() => applyResult(r)}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-neutral-800 transition-colors"
+                  >
+                    {r.cover_url ? (
+                      <img src={r.cover_url} alt="" className="w-8 h-12 object-cover rounded flex-shrink-0" />
+                    ) : (
+                      <div className="w-8 h-12 bg-neutral-800 rounded flex-shrink-0" />
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-sm text-white truncate">{r.title}</p>
+                      {r.author && <p className="text-xs text-neutral-500 truncate">{r.author}</p>}
+                      {r.publisher && <p className="text-xs text-neutral-600 truncate">{r.publisher}</p>}
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Cover */}

@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import booksRouter from './routes/books.js';
 import uploadsRouter from './routes/uploads.js';
+import searchRouter from './routes/search.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -13,6 +14,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.use('/api/books', booksRouter);
 app.use('/api/upload', uploadsRouter);
+app.use('/api/search', searchRouter);
 
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, 'client/dist')));
