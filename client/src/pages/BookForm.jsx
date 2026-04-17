@@ -3,7 +3,6 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../api.js';
 import StarRating from '../components/StarRating.jsx';
 
-const SOURCES = ['Gift', 'Borrowed', 'Amazon', 'Bought new', 'Bought used'];
 
 const EMPTY = {
   title: '',
@@ -35,6 +34,14 @@ export default function BookForm() {
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [pastSources, setPastSources] = useState([]);
+
+  useEffect(() => {
+    api.getBooks().then(books => {
+      const sources = [...new Set(books.map(b => b.acquisition_source).filter(Boolean))].sort();
+      setPastSources(sources);
+    });
+  }, []);
 
   useEffect(() => {
     if (!isEdit) return;
@@ -260,7 +267,7 @@ export default function BookForm() {
             placeholder="e.g. Waterstones, Amazon, gift…"
           />
           <datalist id="sources-list">
-            {SOURCES.map((s) => <option key={s} value={s} />)}
+            {pastSources.map((s) => <option key={s} value={s} />)}
           </datalist>
         </div>
 
