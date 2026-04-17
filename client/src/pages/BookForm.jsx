@@ -204,34 +204,6 @@ export default function BookForm() {
           </select>
         </div>
 
-        {/* Owned */}
-        <div>
-          <label className="flex items-center gap-3 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={form.owned}
-              onChange={(e) => set('owned', e.target.checked)}
-              className="w-4 h-4 rounded border-neutral-700 bg-neutral-900 text-amber-500 focus:ring-0 focus:ring-offset-0"
-            />
-            <span className="text-sm text-neutral-300">I own this book</span>
-          </label>
-        </div>
-
-        {/* Rating */}
-        <div>
-          <label className={label}>Rating</label>
-          <StarRating value={form.rating} onChange={(v) => set('rating', v)} />
-          {form.rating && (
-            <button
-              type="button"
-              onClick={() => set('rating', null)}
-              className="text-xs text-neutral-600 hover:text-neutral-400 mt-1.5"
-            >
-              Clear rating
-            </button>
-          )}
-        </div>
-
         {/* Dates */}
         {(form.status === 'reading' || form.status === 'finished') && (
           <div className="grid grid-cols-2 gap-4">
@@ -257,6 +229,19 @@ export default function BookForm() {
             )}
           </div>
         )}
+
+        {/* Owned */}
+        <div>
+          <label className="flex items-center gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={form.owned}
+              onChange={(e) => set('owned', e.target.checked)}
+              className="w-4 h-4 rounded border-neutral-700 bg-neutral-900 text-amber-500 focus:ring-0 focus:ring-offset-0"
+            />
+            <span className="text-sm text-neutral-300">I own this book</span>
+          </label>
+        </div>
 
         {/* Acquisition source */}
         <div>
@@ -352,6 +337,21 @@ export default function BookForm() {
             onKeyDown={addTag}
             placeholder="Type a tag, press Enter or comma to add"
           />
+        </div>
+
+        {/* Rating */}
+        <div>
+          <label className={label}>Rating</label>
+          <StarRating value={form.rating} onChange={(v) => set('rating', v)} />
+          {form.rating && (
+            <button
+              type="button"
+              onClick={() => set('rating', null)}
+              className="text-xs text-neutral-600 hover:text-neutral-400 mt-1.5"
+            >
+              Clear rating
+            </button>
+          )}
         </div>
 
         {/* Description */}
