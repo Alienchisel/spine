@@ -325,6 +325,7 @@ export default function BookForm() {
               <input
                 type="number"
                 min="1"
+                max="99999"
                 className={input}
                 value={form.page_count}
                 onChange={(e) => set('page_count', e.target.value)}
@@ -340,6 +341,7 @@ export default function BookForm() {
             <input
               type="number"
               min="1"
+              max="99999"
               className={input}
               value={form.page_count}
               onChange={(e) => set('page_count', e.target.value)}
@@ -354,6 +356,7 @@ export default function BookForm() {
             <input
               type="number"
               min="1"
+              max="99999"
               className={input}
               value={form.duration_minutes}
               onChange={(e) => set('duration_minutes', e.target.value)}

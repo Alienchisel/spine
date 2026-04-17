@@ -3,6 +3,30 @@ import db from '../db.js';
 
 const router = express.Router();
 
+const VALID_STATUSES = ['reading', 'finished', 'unread'];
+const VALID_FORMATS = ['physical', 'ebook', 'audiobook'];
+const VALID_BINDINGS = ['paperback', 'hardcover'];
+const VALID_CONDITIONS = ['new', 'used'];
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function validateBook(body) {
+  const { title, status, format, binding, condition, rating, page_count, duration_minutes, date_started, date_finished } = body;
+  const errors = [];
+
+  if (!title?.trim()) errors.push('Title is required');
+  if (status && !VALID_STATUSES.includes(status)) errors.push('Invalid status');
+  if (format && !VALID_FORMATS.includes(format)) errors.push('Invalid format');
+  if (binding && !VALID_BINDINGS.includes(binding)) errors.push('Invalid binding');
+  if (condition && !VALID_CONDITIONS.includes(condition)) errors.push('Invalid condition');
+  if (rating != null && (rating < 1 || rating > 5 || !Number.isInteger(Number(rating)))) errors.push('Rating must be 1–5');
+  if (page_count != null && (page_count < 1 || !Number.isInteger(Number(page_count)))) errors.push('Page count must be a positive integer');
+  if (duration_minutes != null && (duration_minutes < 1 || !Number.isInteger(Number(duration_minutes)))) errors.push('Duration must be a positive integer');
+  if (date_started && !DATE_RE.test(date_started)) errors.push('Invalid date started');
+  if (date_finished && !DATE_RE.test(date_finished)) errors.push('Invalid date finished');
+
+  return errors;
+}
+
 function getBookWithTags(id) {
   const book = db.prepare('SELECT * FROM books WHERE id = ?').get(id);
   if (!book) return null;
@@ -54,7 +78,8 @@ router.get('/:id', (req, res) => {
 
 router.post('/', (req, res) => {
   const { title, author, status, owned, cover_path, rating, date_started, date_finished, acquisition_source, format, binding, condition, description, notes, page_count, duration_minutes, tags } = req.body;
-  if (!title?.trim()) return res.status(400).json({ error: 'Title is required' });
+  const errors = validateBook(req.body);
+  if (errors.length) return res.status(400).json({ error: errors[0] });
 
   const result = db.prepare(`
     INSERT INTO books (title, author, status, owned, cover_path, rating, date_started, date_finished, acquisition_source, format, binding, condition, description, notes, page_count, duration_minutes)
@@ -89,7 +114,8 @@ router.put('/:id', (req, res) => {
   }
 
   const { title, author, status, owned, cover_path, rating, date_started, date_finished, acquisition_source, format, binding, condition, description, notes, page_count, duration_minutes, tags } = req.body;
-  if (!title?.trim()) return res.status(400).json({ error: 'Title is required' });
+  const errors = validateBook(req.body);
+  if (errors.length) return res.status(400).json({ error: errors[0] });
 
   db.prepare(`
     UPDATE books SET
