@@ -3,6 +3,7 @@ import Nav from './components/Nav.jsx';
 import Library from './pages/Library.jsx';
 import BookDetail from './pages/BookDetail.jsx';
 import BookForm from './pages/BookForm.jsx';
+import BrowsePage from './pages/BrowsePage.jsx';
 
 export default function App() {
   return (
@@ -14,6 +15,7 @@ export default function App() {
           <Route path="/books/new" element={<BookForm />} />
           <Route path="/books/:id" element={<BookDetail />} />
           <Route path="/books/:id/edit" element={<BookForm />} />
+          <Route path="/browse/:field/:value" element={<BrowsePage />} />
         </Routes>
       </main>
     </div>

@@ -51,7 +51,11 @@ export default function BookDetail() {
         <div className="flex-1 min-w-0 pt-1">
           <h1 className="text-2xl font-bold text-white leading-tight mb-1">{book.title}</h1>
           {book.author && (
-            <p className="text-neutral-400 text-base mb-5">{book.author}</p>
+            <p className="text-neutral-400 text-base mb-5">
+              <Link to={`/browse/author/${encodeURIComponent(book.author)}`} className="hover:text-neutral-200 transition-colors">
+                {book.author}
+              </Link>
+            </p>
           )}
 
           <div className="flex flex-wrap items-center gap-2 mb-6">
@@ -94,13 +98,21 @@ export default function BookDetail() {
             {book.publisher && (
               <div className="flex gap-2">
                 <dt className="text-neutral-500 w-24 flex-shrink-0">Publisher</dt>
-                <dd className="text-neutral-300">{book.publisher}</dd>
+                <dd className="text-neutral-300">
+                  <Link to={`/browse/publisher/${encodeURIComponent(book.publisher)}`} className="hover:text-white transition-colors">
+                    {book.publisher}
+                  </Link>
+                </dd>
               </div>
             )}
             {book.series && (
               <div className="flex gap-2">
                 <dt className="text-neutral-500 w-24 flex-shrink-0">Series</dt>
-                <dd className="text-neutral-300">{book.series}</dd>
+                <dd className="text-neutral-300">
+                  <Link to={`/browse/series/${encodeURIComponent(book.series)}`} className="hover:text-white transition-colors">
+                    {book.series}
+                  </Link>
+                </dd>
               </div>
             )}
             {book.acquisition_source && (
@@ -126,9 +138,9 @@ export default function BookDetail() {
           {book.tags?.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mb-6">
               {book.tags.map((t) => (
-                <span key={t.id} className="text-xs bg-neutral-800 text-neutral-400 px-2.5 py-1 rounded-full">
+                <Link key={t.id} to={`/browse/tag/${encodeURIComponent(t.name)}`} className="text-xs bg-neutral-800 text-neutral-400 px-2.5 py-1 rounded-full hover:bg-neutral-700 hover:text-neutral-200 transition-colors">
                   {t.name}
-                </span>
+                </Link>
               ))}
             </div>
           )}
