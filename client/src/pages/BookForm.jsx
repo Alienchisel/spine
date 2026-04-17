@@ -401,11 +401,15 @@ export default function BookForm() {
             className={input}
             value={form.format}
             onChange={(e) => {
-              set('format', e.target.value);
-              if (e.target.value !== 'physical') {
-                set('binding', '');
-                set('condition', '');
-              }
+              const f = e.target.value;
+              setForm(prev => ({
+                ...prev,
+                format: f,
+                binding: f === 'physical' ? prev.binding : '',
+                condition: f === 'physical' ? prev.condition : '',
+                page_count: f === 'audiobook' ? '' : prev.page_count,
+                duration_minutes: f !== 'audiobook' ? '' : prev.duration_minutes,
+              }));
             }}
           >
             <option value="">—</option>

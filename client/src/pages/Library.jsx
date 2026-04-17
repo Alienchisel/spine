@@ -38,7 +38,7 @@ export default function Library() {
       b.title.toLowerCase().includes(query.toLowerCase()) ||
       (b.author && b.author.toLowerCase().includes(query.toLowerCase()))
     )) return false;
-    if (formats.length > 0 && !formats.includes(b.format)) return false;
+    if (formats.length > 0 && b.format && !formats.includes(b.format)) return false;
     if (ownedOnly && !b.owned) return false;
     return true;
   });
