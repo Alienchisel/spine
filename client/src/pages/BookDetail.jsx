@@ -11,15 +11,20 @@ const STATUS_COLOR = {
 };
 
 function ProgressSection({ book, onChange }) {
-  const [mode, setMode] = useState('page');
+  const modeKey = `spine-progress-mode-${book.id}`;
+  const [mode, setMode] = useState(() => localStorage.getItem(modeKey) || 'page');
   const [inputVal, setInputVal] = useState('');
   const [saving, setSaving] = useState(false);
 
   const pct = book.page_count && book.current_page
     ? Math.min(100, Math.round((book.current_page / book.page_count) * 100))
     : null;
-
   const hasPct = Boolean(book.page_count);
+
+  function changeMode(m) {
+    setMode(m);
+    localStorage.setItem(modeKey, m);
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -60,24 +65,14 @@ function ProgressSection({ book, onChange }) {
       </p>
 
       <form onSubmit={handleSubmit} className="flex items-center gap-2">
-        {hasPct && (
-          <div className="flex rounded-md overflow-hidden border border-neutral-700 text-xs">
-            <button
-              type="button"
-              onClick={() => setMode('page')}
-              className={`px-3 py-1.5 transition-colors ${mode === 'page' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
-            >
-              Page
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode('pct')}
-              className={`px-3 py-1.5 transition-colors ${mode === 'pct' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
-            >
-              %
-            </button>
-          </div>
-        )}
+        <select
+          value={mode}
+          onChange={(e) => changeMode(e.target.value)}
+          className="bg-neutral-900 border border-neutral-700 text-neutral-300 text-sm rounded px-2 py-1.5 focus:outline-none"
+        >
+          <option value="page">Page</option>
+          {hasPct && <option value="pct">Percent</option>}
+        </select>
         <input
           type="number"
           min="0"
