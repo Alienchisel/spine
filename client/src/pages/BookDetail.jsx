@@ -10,6 +10,95 @@ const STATUS_COLOR = {
   unread: 'text-neutral-400 bg-neutral-800',
 };
 
+function ProgressSection({ book, onChange }) {
+  const [mode, setMode] = useState('page');
+  const [inputVal, setInputVal] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const pct = book.page_count && book.current_page
+    ? Math.min(100, Math.round((book.current_page / book.page_count) * 100))
+    : null;
+
+  const hasPct = Boolean(book.page_count);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (inputVal === '') return;
+    setSaving(true);
+    try {
+      let current_page;
+      if (mode === 'pct') {
+        current_page = Math.round((Math.min(100, Math.max(0, parseFloat(inputVal))) / 100) * book.page_count);
+      } else {
+        current_page = Math.max(0, parseInt(inputVal));
+      }
+      const updated = await api.patchBook(book.id, { current_page });
+      onChange(updated);
+      setInputVal('');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="border border-neutral-800 rounded-lg p-4 mb-6">
+      <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Reading progress</p>
+
+      <div className="h-2 bg-neutral-800 rounded-full overflow-hidden mb-2">
+        <div
+          className="h-full bg-emerald-500 rounded-full transition-all duration-300"
+          style={{ width: `${pct ?? 0}%` }}
+        />
+      </div>
+
+      <p className="text-sm text-neutral-400 mb-4">
+        {book.current_page
+          ? hasPct
+            ? `Page ${book.current_page} of ${book.page_count} · ${pct}%`
+            : `Page ${book.current_page}`
+          : 'No progress recorded yet'}
+      </p>
+
+      <form onSubmit={handleSubmit} className="flex items-center gap-2">
+        {hasPct && (
+          <div className="flex rounded-md overflow-hidden border border-neutral-700 text-xs">
+            <button
+              type="button"
+              onClick={() => setMode('page')}
+              className={`px-3 py-1.5 transition-colors ${mode === 'page' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
+            >
+              Page
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('pct')}
+              className={`px-3 py-1.5 transition-colors ${mode === 'pct' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
+            >
+              %
+            </button>
+          </div>
+        )}
+        <input
+          type="number"
+          min="0"
+          max={mode === 'pct' ? 100 : (book.page_count || undefined)}
+          value={inputVal}
+          onChange={(e) => setInputVal(e.target.value)}
+          placeholder={mode === 'pct' ? 'e.g. 42' : 'e.g. 123'}
+          className="flex-1 bg-neutral-900 border border-neutral-700 rounded px-3 py-1.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-500 transition-colors"
+        />
+        <button
+          type="submit"
+          disabled={saving || inputVal === ''}
+          className="text-sm bg-emerald-800 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-default text-white px-4 py-1.5 rounded transition-colors"
+        >
+          {saving ? 'Saving…' : 'Update'}
+        </button>
+      </form>
+    </div>
+  );
+}
+
 export default function BookDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -69,6 +158,10 @@ export default function BookDetail() {
             )}
             {book.rating && <StarRating value={book.rating} readOnly />}
           </div>
+
+          {book.status === 'reading' && (
+            <ProgressSection book={book} onChange={setBook} />
+          )}
 
           <dl className="space-y-2.5 text-sm mb-6">
             {book.format && (
