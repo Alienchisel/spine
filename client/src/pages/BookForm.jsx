@@ -13,6 +13,7 @@ const EMPTY = {
   date_started: '',
   date_finished: '',
   publisher: '',
+  series: '',
   acquisition_source: '',
   format: '',
   binding: '',
@@ -38,15 +39,18 @@ export default function BookForm() {
   const [pastSources, setPastSources] = useState([]);
   const [pastAuthors, setPastAuthors] = useState([]);
   const [pastPublishers, setPastPublishers] = useState([]);
+  const [pastSeries, setPastSeries] = useState([]);
 
   useEffect(() => {
     api.getBooks().then(books => {
       const sources = [...new Set(books.map(b => b.acquisition_source).filter(Boolean))].sort();
       const authors = [...new Set(books.map(b => b.author).filter(Boolean))].sort();
       const publishers = [...new Set(books.map(b => b.publisher).filter(Boolean))].sort();
+      const series = [...new Set(books.map(b => b.series).filter(Boolean))].sort();
       setPastSources(sources);
       setPastAuthors(authors);
       setPastPublishers(publishers);
+      setPastSeries(series);
     });
   }, []);
 
@@ -62,6 +66,7 @@ export default function BookForm() {
         date_started: book.date_started || '',
         date_finished: book.date_finished || '',
         publisher: book.publisher || '',
+        series: book.series || '',
         acquisition_source: book.acquisition_source || '',
         description: book.description || '',
         format: book.format || '',
@@ -295,6 +300,21 @@ export default function BookForm() {
           />
           <datalist id="publishers-list">
             {pastPublishers.map((p) => <option key={p} value={p} />)}
+          </datalist>
+        </div>
+
+        {/* Series */}
+        <div>
+          <label className={label}>Series</label>
+          <input
+            className={input}
+            list="series-list"
+            value={form.series}
+            onChange={(e) => set('series', e.target.value)}
+            placeholder="e.g. The Stormlight Archive…"
+          />
+          <datalist id="series-list">
+            {pastSeries.map((s) => <option key={s} value={s} />)}
           </datalist>
         </div>
 

@@ -97,6 +97,12 @@ export default function BookDetail() {
                 <dd className="text-neutral-300">{book.publisher}</dd>
               </div>
             )}
+            {book.series && (
+              <div className="flex gap-2">
+                <dt className="text-neutral-500 w-24 flex-shrink-0">Series</dt>
+                <dd className="text-neutral-300">{book.series}</dd>
+              </div>
+            )}
             {book.acquisition_source && (
               <div className="flex gap-2">
                 <dt className="text-neutral-500 w-24 flex-shrink-0">Acquired</dt>

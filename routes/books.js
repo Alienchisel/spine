@@ -77,13 +77,13 @@ router.get('/:id', (req, res) => {
 });
 
 router.post('/', (req, res) => {
-  const { title, author, status, owned, cover_path, rating, date_started, date_finished, acquisition_source, format, binding, condition, description, notes, page_count, duration_minutes, publisher, tags } = req.body;
+  const { title, author, status, owned, cover_path, rating, date_started, date_finished, acquisition_source, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, tags } = req.body;
   const errors = validateBook(req.body);
   if (errors.length) return res.status(400).json({ error: errors[0] });
 
   const result = db.prepare(`
-    INSERT INTO books (title, author, status, owned, cover_path, rating, date_started, date_finished, acquisition_source, format, binding, condition, description, notes, page_count, duration_minutes, publisher)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO books (title, author, status, owned, cover_path, rating, date_started, date_finished, acquisition_source, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     title.trim(),
     author || null,
@@ -101,7 +101,8 @@ router.post('/', (req, res) => {
     notes || null,
     page_count || null,
     duration_minutes || null,
-    publisher || null
+    publisher || null,
+    series || null
   );
 
   if (tags?.length) syncTags(result.lastInsertRowid, tags);
@@ -114,7 +115,7 @@ router.put('/:id', (req, res) => {
     return res.status(404).json({ error: 'Not found' });
   }
 
-  const { title, author, status, owned, cover_path, rating, date_started, date_finished, acquisition_source, format, binding, condition, description, notes, page_count, duration_minutes, publisher, tags } = req.body;
+  const { title, author, status, owned, cover_path, rating, date_started, date_finished, acquisition_source, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, tags } = req.body;
   const errors = validateBook(req.body);
   if (errors.length) return res.status(400).json({ error: errors[0] });
 
@@ -124,7 +125,7 @@ router.put('/:id', (req, res) => {
       rating = ?, date_started = ?, date_finished = ?,
       acquisition_source = ?, format = ?, binding = ?, condition = ?,
       description = ?, notes = ?, page_count = ?, duration_minutes = ?,
-      publisher = ?,
+      publisher = ?, series = ?,
       updated_at = datetime('now')
     WHERE id = ?
   `).run(
@@ -145,6 +146,7 @@ router.put('/:id', (req, res) => {
     page_count || null,
     duration_minutes || null,
     publisher || null,
+    series || null,
     id
   );
 
