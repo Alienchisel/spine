@@ -6,6 +6,7 @@ import BookCard from '../components/BookCard.jsx';
 const TABS = [
   { key: 'reading', label: 'Reading' },
   { key: 'finished', label: 'Finished' },
+  { key: 'unread', label: 'Unread' },
   { key: 'all', label: 'All' },
 ];
 

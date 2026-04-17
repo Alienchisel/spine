@@ -3,10 +3,11 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../api.js';
 import StarRating from '../components/StarRating.jsx';
 
-const STATUS_LABEL = { reading: 'Reading', finished: 'Finished' };
+const STATUS_LABEL = { reading: 'Reading', finished: 'Finished', unread: 'Unread' };
 const STATUS_COLOR = {
   reading: 'text-emerald-400 bg-emerald-950/60',
   finished: 'text-sky-400 bg-sky-950/60',
+  unread: 'text-neutral-400 bg-neutral-800',
 };
 
 export default function BookDetail() {

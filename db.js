@@ -13,7 +13,7 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
     author TEXT,
-    status TEXT DEFAULT 'finished' CHECK(status IN ('reading', 'finished')),
+    status TEXT DEFAULT 'unread' CHECK(status IN ('reading', 'finished', 'unread')),
     owned INTEGER NOT NULL DEFAULT 0,
     cover_path TEXT,
     rating INTEGER CHECK(rating IS NULL OR (rating >= 1 AND rating <= 5)),

@@ -62,7 +62,7 @@ router.post('/', (req, res) => {
   `).run(
     title.trim(),
     author || null,
-    status || 'finished',
+    status || 'unread',
     owned ? 1 : 0,
     cover_path || null,
     rating || null,
@@ -95,7 +95,7 @@ router.put('/:id', (req, res) => {
   `).run(
     title.trim(),
     author || null,
-    status || 'finished',
+    status || 'unread',
     owned ? 1 : 0,
     cover_path || null,
     rating || null,

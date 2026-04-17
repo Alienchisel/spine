@@ -8,7 +8,7 @@ const SOURCES = ['Bought new', 'Bought used', 'Gift', 'Library', 'Borrowed', 'Ot
 const EMPTY = {
   title: '',
   author: '',
-  status: 'finished',
+  status: 'unread',
   owned: false,
   rating: null,
   date_started: '',
@@ -190,6 +190,7 @@ export default function BookForm() {
             value={form.status}
             onChange={(e) => set('status', e.target.value)}
           >
+            <option value="unread">Unread</option>
             <option value="reading">Reading</option>
             <option value="finished">Finished</option>
           </select>

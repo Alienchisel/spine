@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 const STATUS_BAR = {
   reading: 'bg-emerald-500',
   finished: 'bg-sky-500',
+  unread: 'bg-neutral-600',
 };
 
 export default function BookCard({ book }) {
