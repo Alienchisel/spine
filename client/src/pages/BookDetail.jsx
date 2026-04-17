@@ -77,6 +77,20 @@ export default function BookDetail() {
                 </dd>
               </div>
             )}
+            {book.page_count && (
+              <div className="flex gap-2">
+                <dt className="text-neutral-500 w-24 flex-shrink-0">Pages</dt>
+                <dd className="text-neutral-300">{book.page_count}</dd>
+              </div>
+            )}
+            {book.duration_minutes && (
+              <div className="flex gap-2">
+                <dt className="text-neutral-500 w-24 flex-shrink-0">Duration</dt>
+                <dd className="text-neutral-300">
+                  {Math.floor(book.duration_minutes / 60)}h {book.duration_minutes % 60}m
+                </dd>
+              </div>
+            )}
             {book.acquisition_source && (
               <div className="flex gap-2">
                 <dt className="text-neutral-500 w-24 flex-shrink-0">Acquired</dt>

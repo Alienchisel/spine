@@ -17,6 +17,8 @@ const EMPTY = {
   format: '',
   binding: '',
   condition: '',
+  page_count: '',
+  duration_minutes: '',
   description: '',
   notes: '',
   tags: [],
@@ -50,6 +52,8 @@ export default function BookForm() {
         format: book.format || '',
         binding: book.binding || '',
         condition: book.condition || '',
+        page_count: book.page_count ?? '',
+        duration_minutes: book.duration_minutes ?? '',
         notes: book.notes || '',
         tags: book.tags?.map((t) => t.name) || [],
         cover_path: book.cover_path || null,
@@ -117,6 +121,8 @@ export default function BookForm() {
         date_finished: form.date_finished || null,
         acquisition_source: form.acquisition_source || null,
         notes: form.notes || null,
+        page_count: form.page_count ? parseInt(form.page_count) : null,
+        duration_minutes: form.duration_minutes ? parseInt(form.duration_minutes) : null,
       };
       if (isEdit) {
         await api.updateBook(id, payload);
@@ -280,31 +286,72 @@ export default function BookForm() {
         </div>
 
         {form.format === 'physical' && (
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={label}>Binding</label>
-              <select
-                className={input}
-                value={form.binding}
-                onChange={(e) => set('binding', e.target.value)}
-              >
-                <option value="">—</option>
-                <option value="paperback">Paperback</option>
-                <option value="hardcover">Hardcover</option>
-              </select>
+          <>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={label}>Binding</label>
+                <select
+                  className={input}
+                  value={form.binding}
+                  onChange={(e) => set('binding', e.target.value)}
+                >
+                  <option value="">—</option>
+                  <option value="paperback">Paperback</option>
+                  <option value="hardcover">Hardcover</option>
+                </select>
+              </div>
+              <div>
+                <label className={label}>Condition</label>
+                <select
+                  className={input}
+                  value={form.condition}
+                  onChange={(e) => set('condition', e.target.value)}
+                >
+                  <option value="">—</option>
+                  <option value="new">New</option>
+                  <option value="used">Used</option>
+                </select>
+              </div>
             </div>
             <div>
-              <label className={label}>Condition</label>
-              <select
+              <label className={label}>Page count</label>
+              <input
+                type="number"
+                min="1"
                 className={input}
-                value={form.condition}
-                onChange={(e) => set('condition', e.target.value)}
-              >
-                <option value="">—</option>
-                <option value="new">New</option>
-                <option value="used">Used</option>
-              </select>
+                value={form.page_count}
+                onChange={(e) => set('page_count', e.target.value)}
+                placeholder="e.g. 342"
+              />
             </div>
+          </>
+        )}
+
+        {form.format === 'ebook' && (
+          <div>
+            <label className={label}>Page count</label>
+            <input
+              type="number"
+              min="1"
+              className={input}
+              value={form.page_count}
+              onChange={(e) => set('page_count', e.target.value)}
+              placeholder="e.g. 342"
+            />
+          </div>
+        )}
+
+        {form.format === 'audiobook' && (
+          <div>
+            <label className={label}>Duration (minutes)</label>
+            <input
+              type="number"
+              min="1"
+              className={input}
+              value={form.duration_minutes}
+              onChange={(e) => set('duration_minutes', e.target.value)}
+              placeholder="e.g. 680"
+            />
           </div>
         )}
 

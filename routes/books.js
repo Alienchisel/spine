@@ -53,12 +53,12 @@ router.get('/:id', (req, res) => {
 });
 
 router.post('/', (req, res) => {
-  const { title, author, status, owned, cover_path, rating, date_started, date_finished, acquisition_source, format, binding, condition, description, notes, tags } = req.body;
+  const { title, author, status, owned, cover_path, rating, date_started, date_finished, acquisition_source, format, binding, condition, description, notes, page_count, duration_minutes, tags } = req.body;
   if (!title?.trim()) return res.status(400).json({ error: 'Title is required' });
 
   const result = db.prepare(`
-    INSERT INTO books (title, author, status, owned, cover_path, rating, date_started, date_finished, acquisition_source, format, binding, condition, description, notes)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO books (title, author, status, owned, cover_path, rating, date_started, date_finished, acquisition_source, format, binding, condition, description, notes, page_count, duration_minutes)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     title.trim(),
     author || null,
@@ -73,7 +73,9 @@ router.post('/', (req, res) => {
     binding || null,
     condition || null,
     description || null,
-    notes || null
+    notes || null,
+    page_count || null,
+    duration_minutes || null
   );
 
   if (tags?.length) syncTags(result.lastInsertRowid, tags);
@@ -86,7 +88,7 @@ router.put('/:id', (req, res) => {
     return res.status(404).json({ error: 'Not found' });
   }
 
-  const { title, author, status, owned, cover_path, rating, date_started, date_finished, acquisition_source, format, binding, condition, description, notes, tags } = req.body;
+  const { title, author, status, owned, cover_path, rating, date_started, date_finished, acquisition_source, format, binding, condition, description, notes, page_count, duration_minutes, tags } = req.body;
   if (!title?.trim()) return res.status(400).json({ error: 'Title is required' });
 
   db.prepare(`
@@ -94,7 +96,7 @@ router.put('/:id', (req, res) => {
       title = ?, author = ?, status = ?, owned = ?, cover_path = ?,
       rating = ?, date_started = ?, date_finished = ?,
       acquisition_source = ?, format = ?, binding = ?, condition = ?,
-      description = ?, notes = ?,
+      description = ?, notes = ?, page_count = ?, duration_minutes = ?,
       updated_at = datetime('now')
     WHERE id = ?
   `).run(
@@ -112,6 +114,8 @@ router.put('/:id', (req, res) => {
     condition || null,
     description || null,
     notes || null,
+    page_count || null,
+    duration_minutes || null,
     id
   );
 
