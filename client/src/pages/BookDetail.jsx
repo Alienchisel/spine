@@ -67,16 +67,20 @@ export default function BookDetail() {
           </div>
 
           <dl className="space-y-2.5 text-sm mb-6">
+            {book.format && (
+              <div className="flex gap-2">
+                <dt className="text-neutral-500 w-24 flex-shrink-0">Format</dt>
+                <dd className="text-neutral-300 capitalize">
+                  {book.format === 'ebook' ? 'E-book' : book.format.charAt(0).toUpperCase() + book.format.slice(1)}
+                  {book.binding && ` — ${book.binding.charAt(0).toUpperCase() + book.binding.slice(1)}`}
+                  {book.condition && ` (${book.condition})`}
+                </dd>
+              </div>
+            )}
             {book.acquisition_source && (
               <div className="flex gap-2">
                 <dt className="text-neutral-500 w-24 flex-shrink-0">Acquired</dt>
                 <dd className="text-neutral-300">{book.acquisition_source}</dd>
-              </div>
-            )}
-            {book.condition && (
-              <div className="flex gap-2">
-                <dt className="text-neutral-500 w-24 flex-shrink-0">Condition</dt>
-                <dd className="text-neutral-300 capitalize">{book.condition}</dd>
               </div>
             )}
             {book.date_started && (

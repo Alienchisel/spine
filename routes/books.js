@@ -53,12 +53,12 @@ router.get('/:id', (req, res) => {
 });
 
 router.post('/', (req, res) => {
-  const { title, author, status, owned, cover_path, rating, date_started, date_finished, acquisition_source, condition, notes, tags } = req.body;
+  const { title, author, status, owned, cover_path, rating, date_started, date_finished, acquisition_source, format, binding, condition, notes, tags } = req.body;
   if (!title?.trim()) return res.status(400).json({ error: 'Title is required' });
 
   const result = db.prepare(`
-    INSERT INTO books (title, author, status, owned, cover_path, rating, date_started, date_finished, acquisition_source, condition, notes)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO books (title, author, status, owned, cover_path, rating, date_started, date_finished, acquisition_source, format, binding, condition, notes)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     title.trim(),
     author || null,
@@ -69,6 +69,8 @@ router.post('/', (req, res) => {
     date_started || null,
     date_finished || null,
     acquisition_source || null,
+    format || null,
+    binding || null,
     condition || null,
     notes || null
   );
@@ -83,14 +85,14 @@ router.put('/:id', (req, res) => {
     return res.status(404).json({ error: 'Not found' });
   }
 
-  const { title, author, status, owned, cover_path, rating, date_started, date_finished, acquisition_source, condition, notes, tags } = req.body;
+  const { title, author, status, owned, cover_path, rating, date_started, date_finished, acquisition_source, format, binding, condition, notes, tags } = req.body;
   if (!title?.trim()) return res.status(400).json({ error: 'Title is required' });
 
   db.prepare(`
     UPDATE books SET
       title = ?, author = ?, status = ?, owned = ?, cover_path = ?,
       rating = ?, date_started = ?, date_finished = ?,
-      acquisition_source = ?, condition = ?, notes = ?,
+      acquisition_source = ?, format = ?, binding = ?, condition = ?, notes = ?,
       updated_at = datetime('now')
     WHERE id = ?
   `).run(
@@ -103,6 +105,8 @@ router.put('/:id', (req, res) => {
     date_started || null,
     date_finished || null,
     acquisition_source || null,
+    format || null,
+    binding || null,
     condition || null,
     notes || null,
     id

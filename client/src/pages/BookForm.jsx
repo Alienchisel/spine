@@ -14,6 +14,8 @@ const EMPTY = {
   date_started: '',
   date_finished: '',
   acquisition_source: '',
+  format: '',
+  binding: '',
   condition: '',
   notes: '',
   tags: [],
@@ -43,6 +45,8 @@ export default function BookForm() {
         date_started: book.date_started || '',
         date_finished: book.date_finished || '',
         acquisition_source: book.acquisition_source || '',
+        format: book.format || '',
+        binding: book.binding || '',
         condition: book.condition || '',
         notes: book.notes || '',
         tags: book.tags?.map((t) => t.name) || [],
@@ -263,19 +267,55 @@ export default function BookForm() {
           </datalist>
         </div>
 
-        {/* Condition */}
+        {/* Format */}
         <div>
-          <label className={label}>Condition</label>
+          <label className={label}>Format</label>
           <select
             className={input}
-            value={form.condition}
-            onChange={(e) => set('condition', e.target.value)}
+            value={form.format}
+            onChange={(e) => {
+              set('format', e.target.value);
+              if (e.target.value !== 'physical') {
+                set('binding', '');
+                set('condition', '');
+              }
+            }}
           >
             <option value="">—</option>
-            <option value="new">New</option>
-            <option value="used">Used</option>
+            <option value="physical">Physical</option>
+            <option value="ebook">E-book</option>
+            <option value="audiobook">Audiobook</option>
           </select>
         </div>
+
+        {form.format === 'physical' && (
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={label}>Binding</label>
+              <select
+                className={input}
+                value={form.binding}
+                onChange={(e) => set('binding', e.target.value)}
+              >
+                <option value="">—</option>
+                <option value="paperback">Paperback</option>
+                <option value="hardcover">Hardcover</option>
+              </select>
+            </div>
+            <div>
+              <label className={label}>Condition</label>
+              <select
+                className={input}
+                value={form.condition}
+                onChange={(e) => set('condition', e.target.value)}
+              >
+                <option value="">—</option>
+                <option value="new">New</option>
+                <option value="used">Used</option>
+              </select>
+            </div>
+          </div>
+        )}
 
         {/* Tags */}
         <div>
