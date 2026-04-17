@@ -73,6 +73,12 @@ export default function BookDetail() {
                 <dd className="text-neutral-300">{book.acquisition_source}</dd>
               </div>
             )}
+            {book.condition && (
+              <div className="flex gap-2">
+                <dt className="text-neutral-500 w-24 flex-shrink-0">Condition</dt>
+                <dd className="text-neutral-300 capitalize">{book.condition}</dd>
+              </div>
+            )}
             {book.date_started && (
               <div className="flex gap-2">
                 <dt className="text-neutral-500 w-24 flex-shrink-0">Started</dt>

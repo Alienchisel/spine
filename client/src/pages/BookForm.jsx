@@ -14,6 +14,7 @@ const EMPTY = {
   date_started: '',
   date_finished: '',
   acquisition_source: '',
+  condition: '',
   notes: '',
   tags: [],
   cover_path: null,
@@ -42,6 +43,7 @@ export default function BookForm() {
         date_started: book.date_started || '',
         date_finished: book.date_finished || '',
         acquisition_source: book.acquisition_source || '',
+        condition: book.condition || '',
         notes: book.notes || '',
         tags: book.tags?.map((t) => t.name) || [],
         cover_path: book.cover_path || null,
@@ -259,6 +261,20 @@ export default function BookForm() {
           <datalist id="sources-list">
             {SOURCES.map((s) => <option key={s} value={s} />)}
           </datalist>
+        </div>
+
+        {/* Condition */}
+        <div>
+          <label className={label}>Condition</label>
+          <select
+            className={input}
+            value={form.condition}
+            onChange={(e) => set('condition', e.target.value)}
+          >
+            <option value="">—</option>
+            <option value="new">New</option>
+            <option value="used">Used</option>
+          </select>
         </div>
 
         {/* Tags */}

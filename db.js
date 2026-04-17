@@ -20,6 +20,7 @@ db.exec(`
     date_started TEXT,
     date_finished TEXT,
     acquisition_source TEXT,
+    condition TEXT CHECK(condition IS NULL OR condition IN ('new', 'used')),
     notes TEXT,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now'))
