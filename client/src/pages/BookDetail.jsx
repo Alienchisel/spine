@@ -13,7 +13,6 @@ const STATUS_COLOR = {
 function ProgressSection({ book, onChange }) {
   const modeKey = `spine-progress-mode-${book.id}`;
   const [mode, setMode] = useState(() => localStorage.getItem(modeKey) || 'page');
-  const [inputVal, setInputVal] = useState('');
   const [saving, setSaving] = useState(false);
 
   const pct = book.page_count && book.current_page
@@ -21,9 +20,13 @@ function ProgressSection({ book, onChange }) {
     : null;
   const hasPct = Boolean(book.page_count);
 
+  const currentVal = mode === 'pct' ? (pct !== null ? String(pct) : '') : (book.current_page != null ? String(book.current_page) : '');
+  const [inputVal, setInputVal] = useState(currentVal);
+
   function changeMode(m) {
     setMode(m);
     localStorage.setItem(modeKey, m);
+    setInputVal(m === 'pct' ? (pct !== null ? String(pct) : '') : (book.current_page != null ? String(book.current_page) : ''));
   }
 
   async function handleSubmit(e) {
@@ -39,7 +42,10 @@ function ProgressSection({ book, onChange }) {
       }
       const updated = await api.patchBook(book.id, { current_page });
       onChange(updated);
-      setInputVal('');
+      const newPct = updated.page_count && updated.current_page
+        ? Math.min(100, Math.round((updated.current_page / updated.page_count) * 100))
+        : null;
+      setInputVal(mode === 'pct' ? (newPct !== null ? String(newPct) : '') : (updated.current_page != null ? String(updated.current_page) : ''));
     } finally {
       setSaving(false);
     }

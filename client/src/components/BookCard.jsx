@@ -38,9 +38,13 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
 
   function openEditor(e) {
     e.preventDefault();
-    setInputVal('');
+    if (mode === 'pct') {
+      setInputVal(pct !== null ? String(pct) : '');
+    } else {
+      setInputVal(book.current_page !== null && book.current_page !== undefined ? String(book.current_page) : '');
+    }
     setOpen(true);
-    setTimeout(() => inputRef.current?.focus(), 0);
+    setTimeout(() => inputRef.current?.select(), 0);
   }
 
   function changeMode(m) {
@@ -142,7 +146,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
                 value={inputVal}
                 onChange={(e) => setInputVal(e.target.value)}
                 placeholder={mode === 'pct' ? '0–100' : 'page #'}
-                className="flex-1 min-w-0 bg-neutral-800 border border-neutral-700 text-white text-xs rounded px-2 py-1 focus:outline-none focus:border-neutral-500"
+                className="flex-1 min-w-0 bg-neutral-800 border border-neutral-700 text-white text-xs rounded px-2 py-1 focus:outline-none focus:border-neutral-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
               <button
                 type="submit"
