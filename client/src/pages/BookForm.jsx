@@ -54,9 +54,7 @@ export default function BookForm() {
     setForm((f) => ({ ...f, [field]: value }));
   }
 
-  async function handleCoverChange(e) {
-    const file = e.target.files[0];
-    if (!file) return;
+  async function uploadFile(file) {
     setCoverPreview(URL.createObjectURL(file));
     setUploading(true);
     try {
@@ -66,6 +64,22 @@ export default function BookForm() {
       setUploading(false);
     }
   }
+
+  async function handleCoverChange(e) {
+    const file = e.target.files[0];
+    if (file) uploadFile(file);
+  }
+
+  useEffect(() => {
+    function handlePaste(e) {
+      const item = Array.from(e.clipboardData?.items || []).find(
+        (i) => i.type.startsWith('image/')
+      );
+      if (item) uploadFile(item.getAsFile());
+    }
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, []);
 
   function addTag(e) {
     if (e.key !== 'Enter' && e.key !== ',') return;
@@ -138,6 +152,7 @@ export default function BookForm() {
             </div>
             <label className="cursor-pointer text-sm text-neutral-500 hover:text-neutral-200 border border-dashed border-neutral-700 hover:border-neutral-500 rounded-md px-4 py-2.5 transition-colors mt-1">
               {uploading ? 'Uploading…' : coverPreview ? 'Change image' : 'Choose image'}
+              <span className="block text-xs text-neutral-600 mt-0.5">or paste from clipboard</span>
               <input type="file" accept="image/*" className="hidden" onChange={handleCoverChange} />
             </label>
           </div>
