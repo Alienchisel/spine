@@ -154,6 +154,22 @@ router.put('/:id', (req, res) => {
   res.json(getBookWithTags(id));
 });
 
+router.patch('/:id', (req, res) => {
+  const id = parseInt(req.params.id);
+  if (!db.prepare('SELECT id FROM books WHERE id = ?').get(id)) {
+    return res.status(404).json({ error: 'Not found' });
+  }
+  const { current_page } = req.body;
+  if (current_page !== null && current_page !== undefined && (current_page < 0 || !Number.isInteger(Number(current_page)))) {
+    return res.status(400).json({ error: 'Invalid page number' });
+  }
+  db.prepare('UPDATE books SET current_page = ?, updated_at = datetime(\'now\') WHERE id = ?').run(
+    current_page ?? null,
+    id
+  );
+  res.json(getBookWithTags(id));
+});
+
 router.delete('/:id', (req, res) => {
   const result = db.prepare('DELETE FROM books WHERE id = ?').run(parseInt(req.params.id));
   if (result.changes === 0) return res.status(404).json({ error: 'Not found' });
