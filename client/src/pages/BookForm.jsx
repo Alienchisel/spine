@@ -12,6 +12,7 @@ const EMPTY = {
   rating: null,
   date_started: '',
   date_finished: '',
+  publisher: '',
   acquisition_source: '',
   format: '',
   binding: '',
@@ -54,6 +55,7 @@ export default function BookForm() {
         rating: book.rating ?? null,
         date_started: book.date_started || '',
         date_finished: book.date_finished || '',
+        publisher: book.publisher || '',
         acquisition_source: book.acquisition_source || '',
         description: book.description || '',
         format: book.format || '',
@@ -271,6 +273,17 @@ export default function BookForm() {
           </datalist>
         </div>
 
+        {/* Publisher */}
+        <div>
+          <label className={label}>Publisher</label>
+          <input
+            className={input}
+            value={form.publisher}
+            onChange={(e) => set('publisher', e.target.value)}
+            placeholder="e.g. Penguin, Tor, Bloomsbury…"
+          />
+        </div>
+
         {/* Format */}
         <div>
           <label className={label}>Format</label>
@@ -419,7 +432,7 @@ export default function BookForm() {
             rows={4}
             value={form.description}
             onChange={(e) => set('description', e.target.value)}
-            placeholder="Publisher or back-cover description…"
+            placeholder="Back-cover description…"
           />
         </div>
 
