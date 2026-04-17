@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../api.js';
 import StarRating from '../components/StarRating.jsx';
 
-const SOURCES = ['Bought new', 'Bought used', 'Gift', 'Library', 'Borrowed', 'Other'];
+const SOURCES = ['Gift', 'Library', 'Borrowed', 'Amazon', 'eBay', 'Bought new', 'Bought used'];
 
 const EMPTY = {
   title: '',
@@ -249,16 +249,16 @@ export default function BookForm() {
         {/* Acquisition source */}
         <div>
           <label className={label}>Acquisition source</label>
-          <select
+          <input
             className={input}
+            list="sources-list"
             value={form.acquisition_source}
             onChange={(e) => set('acquisition_source', e.target.value)}
-          >
-            <option value="">—</option>
-            {SOURCES.map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
+            placeholder="e.g. Waterstones, Amazon, gift…"
+          />
+          <datalist id="sources-list">
+            {SOURCES.map((s) => <option key={s} value={s} />)}
+          </datalist>
         </div>
 
         {/* Tags */}
