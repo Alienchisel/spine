@@ -473,7 +473,7 @@ export default function BookForm() {
                       <label className={label}>Narrator</label>
                       <input className={input} list="narrators-list" value={form.narrator}
                         onChange={(e) => set('narrator', e.target.value)}
-                        placeholder="e.g. Stephen Fry" />
+                        placeholder="e.g. J. R. R. Tolkien" />
                       <datalist id="narrators-list">
                         {pastNarrators.map(n => <option key={n} value={n} />)}
                       </datalist>
@@ -500,7 +500,7 @@ export default function BookForm() {
                   <label className={label}>Series</label>
                   <input className={input} list="series-list" value={form.series}
                     onChange={(e) => set('series', e.target.value)}
-                    placeholder="e.g. The Stormlight Archive…" />
+                    placeholder="e.g. The Wheel of Time…" />
                   <datalist id="series-list">
                     {pastSeries.map(s => <option key={s} value={s} />)}
                   </datalist>
