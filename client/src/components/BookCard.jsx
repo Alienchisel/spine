@@ -29,6 +29,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
   const [inputM, setInputM] = useState('');
   const [mode, setMode] = useState(() => localStorage.getItem(getModeKey(initialBook.id)) || (initialBook.format === 'audiobook' ? 'min' : 'page'));
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
   const inputRef = useRef(null);
   const formRef = useRef(null);
 
@@ -76,9 +77,16 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
   const isHMMode = isAudiobook && mode === 'min';
   const isEmpty = isHMMode ? (inputH === '' && inputM === '') : inputVal === '';
 
+  function clampMinutes(val) {
+    const n = parseInt(val);
+    if (isNaN(n)) return '';
+    return String(Math.min(59, Math.max(0, n)));
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     if (isEmpty) return;
+    setError(null);
     setSaving(true);
     try {
       let patchData;
@@ -86,11 +94,13 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
         const current_minutes = mode === 'pct'
           ? Math.round((Math.min(100, Math.max(0, parseFloat(inputVal))) / 100) * book.duration_minutes)
           : (parseInt(inputH) || 0) * 60 + (parseInt(inputM) || 0);
+        if (isNaN(current_minutes)) { setError('Invalid value'); return; }
         patchData = { current_minutes };
       } else {
         const current_page = mode === 'pct'
           ? Math.round((Math.min(100, Math.max(0, parseFloat(inputVal))) / 100) * book.page_count)
           : Math.max(0, parseInt(inputVal));
+        if (isNaN(current_page)) { setError('Invalid value'); return; }
         patchData = { current_page };
       }
       const updated = await api.patchBook(book.id, patchData);
@@ -100,6 +110,8 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
       setInputVal('');
       setInputH('');
       setInputM('');
+    } catch {
+      setError('Failed to save');
     } finally {
       setSaving(false);
     }
@@ -183,7 +195,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
                     ref={inputRef}
                     type="number" min="0" max="999"
                     value={inputH}
-                    onChange={(e) => setInputH(e.target.value)}
+                    onChange={(e) => { setError(null); setInputH(e.target.value); }}
                     placeholder="h"
                     className={`w-10 ${numCls}`}
                   />
@@ -191,7 +203,8 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
                   <input
                     type="number" min="0" max="59"
                     value={inputM}
-                    onChange={(e) => setInputM(e.target.value)}
+                    onChange={(e) => { setError(null); setInputM(e.target.value); }}
+                    onBlur={(e) => setInputM(clampMinutes(e.target.value))}
                     placeholder="m"
                     className={`w-10 ${numCls}`}
                   />
@@ -204,7 +217,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
                   min="0"
                   max={mode === 'pct' ? 100 : (book.page_count || undefined)}
                   value={inputVal}
-                  onChange={(e) => setInputVal(e.target.value)}
+                  onChange={(e) => { setError(null); setInputVal(e.target.value); }}
                   placeholder={mode === 'pct' ? '0–100' : '#'}
                   className={`flex-1 min-w-[3rem] ${numCls}`}
                 />
@@ -223,6 +236,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
               >
                 ✕
               </button>
+              {error && <p className="w-full text-xs text-warn mt-0.5">{error}</p>}
             </form>
           )}
         </div>

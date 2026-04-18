@@ -198,6 +198,7 @@ export default function BookForm() {
       page_count: result.page_count || f.page_count,
       isbn_10: result.isbn_10 || f.isbn_10,
       isbn_13: result.isbn_13 || f.isbn_13,
+      description: result.description || f.description,
     }));
     setSearchQuery('');
     setSearchResults([]);

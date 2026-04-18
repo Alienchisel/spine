@@ -2,6 +2,19 @@ import express from 'express';
 
 const router = express.Router();
 
+async function fetchDescription(key) {
+  try {
+    const res = await fetch(`https://openlibrary.org${key}.json`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const desc = data.description;
+    if (!desc) return null;
+    return typeof desc === 'string' ? desc : (desc.value || null);
+  } catch {
+    return null;
+  }
+}
+
 router.get('/', async (req, res) => {
   const { q } = req.query;
   if (!q?.trim()) return res.json([]);
@@ -15,8 +28,11 @@ router.get('/', async (req, res) => {
     if (!response.ok) return res.status(502).json({ error: 'Open Library unavailable' });
 
     const data = await response.json();
-    const results = (data.docs || []).map(doc => {
+    const docs = data.docs || [];
+
+    const results = await Promise.all(docs.map(async (doc) => {
       const isbns = doc.isbn || [];
+      const description = doc.key ? await fetchDescription(doc.key) : null;
       return {
         key: doc.key,
         title: doc.title,
@@ -26,8 +42,9 @@ router.get('/', async (req, res) => {
         cover_url: doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg` : null,
         isbn_10: isbns.find(i => i.length === 10) || null,
         isbn_13: isbns.find(i => i.length === 13) || null,
+        description,
       };
-    });
+    }));
 
     res.json(results);
   } catch {

@@ -17,6 +17,7 @@ function ProgressSection({ book, onChange }) {
   const modeKey = `spine-progress-mode-${book.id}`;
   const [mode, setMode] = useState(() => localStorage.getItem(modeKey) || (isAudiobook ? 'min' : 'page'));
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
 
   const pct = isAudiobook
     ? (book.duration_minutes && book.current_minutes != null
@@ -56,9 +57,16 @@ function ProgressSection({ book, onChange }) {
   const isHMMode = isAudiobook && mode !== 'pct';
   const isEmpty = isHMMode ? (inputH === '' && inputM === '') : inputVal === '';
 
+  function clampMinutes(val) {
+    const n = parseInt(val);
+    if (isNaN(n)) return '';
+    return String(Math.min(59, Math.max(0, n)));
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     if (isEmpty) return;
+    setError(null);
     setSaving(true);
     try {
       let patchData;
@@ -66,11 +74,13 @@ function ProgressSection({ book, onChange }) {
         const current_minutes = mode === 'pct'
           ? Math.round((Math.min(100, Math.max(0, parseFloat(inputVal))) / 100) * book.duration_minutes)
           : (parseInt(inputH) || 0) * 60 + (parseInt(inputM) || 0);
+        if (isNaN(current_minutes)) { setError('Invalid value'); return; }
         patchData = { current_minutes };
       } else {
         const current_page = mode === 'pct'
           ? Math.round((Math.min(100, Math.max(0, parseFloat(inputVal))) / 100) * book.page_count)
           : Math.max(0, parseInt(inputVal));
+        if (isNaN(current_page)) { setError('Invalid value'); return; }
         patchData = { current_page };
       }
       const updated = await api.patchBook(book.id, patchData);
@@ -88,6 +98,8 @@ function ProgressSection({ book, onChange }) {
       } else {
         setInputVal(updated.current_page != null ? String(updated.current_page) : '');
       }
+    } catch {
+      setError('Failed to save');
     } finally {
       setSaving(false);
     }
@@ -117,7 +129,7 @@ function ProgressSection({ book, onChange }) {
 
       <p className="text-sm text-neutral-400 mb-4">{progressText}</p>
 
-      <form onSubmit={handleSubmit} className="flex items-center gap-2">
+      <form onSubmit={handleSubmit} className="flex flex-wrap items-center gap-2">
         <select value={mode} onChange={(e) => changeMode(e.target.value)}
           className="bg-neutral-900 border border-neutral-700 text-neutral-300 text-sm rounded px-2 py-1.5 focus:outline-none">
           {isAudiobook
@@ -129,14 +141,17 @@ function ProgressSection({ book, onChange }) {
           <>
             <input
               type="number" min="0" max="999"
-              value={inputH} onChange={(e) => setInputH(e.target.value)}
+              value={inputH}
+              onChange={(e) => { setError(null); setInputH(e.target.value); }}
               placeholder="0"
               className="w-16 bg-neutral-900 border border-neutral-700 rounded px-3 py-1.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-500 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
             <span className="text-neutral-500 text-sm">h</span>
             <input
               type="number" min="0" max="59"
-              value={inputM} onChange={(e) => setInputM(e.target.value)}
+              value={inputM}
+              onChange={(e) => { setError(null); setInputM(e.target.value); }}
+              onBlur={(e) => setInputM(clampMinutes(e.target.value))}
               placeholder="0"
               className="w-16 bg-neutral-900 border border-neutral-700 rounded px-3 py-1.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-500 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
@@ -146,7 +161,8 @@ function ProgressSection({ book, onChange }) {
           <input
             type="number" min="0"
             max={mode === 'pct' ? 100 : (book.page_count || undefined)}
-            value={inputVal} onChange={(e) => setInputVal(e.target.value)}
+            value={inputVal}
+            onChange={(e) => { setError(null); setInputVal(e.target.value); }}
             placeholder={mode === 'pct' ? 'e.g. 42' : 'e.g. 123'}
             className="flex-1 bg-neutral-900 border border-neutral-700 rounded px-3 py-1.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-500 transition-colors"
           />
@@ -155,6 +171,7 @@ function ProgressSection({ book, onChange }) {
           className="text-sm bg-binding hover:bg-binding/80 active:scale-[0.98] disabled:opacity-40 disabled:cursor-default text-parchment px-4 py-1.5 rounded transition-[transform,background-color] ease-out duration-150">
           {saving ? 'Saving…' : 'Update'}
         </button>
+        {error && <p className="w-full text-xs text-warn mt-1">{error}</p>}
       </form>
     </div>
   );
