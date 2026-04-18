@@ -410,33 +410,35 @@ export default function BookForm() {
 
                 {form.format === 'physical' && (
                   <>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className={label}>Binding</label>
-                        <select className={input} value={form.binding}
-                          onChange={(e) => set('binding', e.target.value)}>
-                          <option value="">—</option>
-                          <option value="paperback">Paperback</option>
-                          <option value="hardcover">Hardcover</option>
-                        </select>
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-1.5 mb-1.5">
-                          <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Condition</span>
-                          <ConditionGuide />
+                    {form.owned && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className={label}>Binding</label>
+                          <select className={input} value={form.binding}
+                            onChange={(e) => set('binding', e.target.value)}>
+                            <option value="">—</option>
+                            <option value="paperback">Paperback</option>
+                            <option value="hardcover">Hardcover</option>
+                          </select>
                         </div>
-                        <select className={input} value={form.condition}
-                          onChange={(e) => set('condition', e.target.value)}>
-                          <option value="">—</option>
-                          <option value="new">New</option>
-                          <option value="fine">Fine</option>
-                          <option value="very good">Very Good</option>
-                          <option value="good">Good</option>
-                          <option value="fair">Fair</option>
-                          <option value="poor">Poor</option>
-                        </select>
+                        <div>
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Condition</span>
+                            <ConditionGuide />
+                          </div>
+                          <select className={input} value={form.condition}
+                            onChange={(e) => set('condition', e.target.value)}>
+                            <option value="">—</option>
+                            <option value="new">New</option>
+                            <option value="fine">Fine</option>
+                            <option value="very good">Very Good</option>
+                            <option value="good">Good</option>
+                            <option value="fair">Fair</option>
+                            <option value="poor">Poor</option>
+                          </select>
+                        </div>
                       </div>
-                    </div>
+                    )}
                     <div>
                       <label className={label}>Page count</label>
                       <input type="number" min="1" max="99999" className={input}
@@ -519,7 +521,10 @@ export default function BookForm() {
                 <div className="space-y-2.5">
                   <label className="flex items-center gap-3 cursor-pointer select-none">
                     <input type="checkbox" checked={form.owned}
-                      onChange={(e) => set('owned', e.target.checked)}
+                      onChange={(e) => {
+                        const owned = e.target.checked;
+                        setForm(f => ({ ...f, owned, ...(!owned && { binding: '', condition: '' }) }));
+                      }}
                       className="w-4 h-4 rounded border-neutral-700 bg-neutral-900 text-oak focus:ring-0 focus:ring-offset-0" />
                     <span className="text-sm text-neutral-300">I own this book</span>
                   </label>
