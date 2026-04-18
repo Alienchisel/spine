@@ -82,7 +82,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
     : null;
 
   return (
-    <div onKeyDown={handleKeyDown} className="bg-card rounded-lg p-2 pb-2.5">
+    <div onKeyDown={handleKeyDown} className="bg-card rounded-lg p-2 pb-2.5 hover:-translate-y-0.5 transition-[transform,background-color] ease-out duration-150">
       <Link to={`/books/${book.id}`} className="group block">
         <div className="relative aspect-[2/3] bg-neutral-800 rounded overflow-hidden mb-2.5 shadow-xl ring-1 ring-white/5">
           {book.cover_path ? (
@@ -151,7 +151,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
               <button
                 type="submit"
                 disabled={saving || inputVal === ''}
-                className="text-xs bg-binding hover:bg-binding/80 disabled:opacity-40 text-parchment px-2 py-1 rounded transition-colors"
+                className="text-xs bg-binding hover:bg-binding/80 active:scale-[0.98] disabled:opacity-40 text-parchment px-2 py-1 rounded transition-[transform,background-color] ease-out duration-150"
               >
                 {saving ? '…' : '✓'}
               </button>

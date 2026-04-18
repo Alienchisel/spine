@@ -676,7 +676,7 @@ export default function BookForm() {
         <button
           type="submit"
           disabled={saving || uploading}
-          className="w-full bg-oak hover:bg-leather disabled:opacity-40 text-neutral-950 font-semibold py-3 rounded-md transition-colors"
+          className="w-full bg-oak hover:bg-leather active:scale-[0.98] disabled:opacity-40 text-neutral-950 font-semibold py-3 rounded-md transition-[transform,background-color] ease-out duration-150"
         >
           {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add to library'}
         </button>
@@ -688,7 +688,7 @@ export default function BookForm() {
           form="book-form"
           type="submit"
           disabled={saving || uploading}
-          className="ml-auto bg-oak hover:bg-leather disabled:opacity-40 text-neutral-950 font-semibold px-6 py-2 rounded-md transition-colors text-sm"
+          className="ml-auto bg-oak hover:bg-leather active:scale-[0.98] disabled:opacity-40 text-neutral-950 font-semibold px-6 py-2 rounded-md transition-[transform,background-color] ease-out duration-150 text-sm"
         >
           {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add to library'}
         </button>

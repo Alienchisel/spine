@@ -54,7 +54,7 @@ export default function Library() {
               <button
                 key={t.key}
                 onClick={() => setTab(t.key)}
-                className={`px-5 py-2 text-sm rounded-md transition-colors duration-150 ${
+                className={`px-5 py-2 text-sm rounded-md transition-[transform,background-color,color] ease-out duration-150 active:scale-[0.98] ${
                   tab === t.key
                     ? 'bg-binding/25 text-parchment font-semibold'
                     : 'font-medium text-neutral-400 hover:text-neutral-200'
@@ -79,7 +79,7 @@ export default function Library() {
             <button
               key={f.key}
               onClick={() => toggleFormat(f.key)}
-              className={`text-xs px-3 py-1.5 rounded-full border transition-colors duration-150 ${
+              className={`text-xs px-3 py-1.5 rounded-full border transition-[transform,background-color,color,border-color] ease-out duration-150 active:scale-[0.98] ${
                 formats.includes(f.key)
                   ? 'bg-binding/50 text-parchment border-binding/70'
                   : 'border-leather/30 text-leather/80 hover:bg-binding/20 hover:text-parchment hover:border-leather/50'
@@ -91,7 +91,7 @@ export default function Library() {
 
           <button
             onClick={() => setOwnedOnly(o => !o)}
-            className={`text-xs px-3 py-1.5 rounded-full border transition-colors duration-150 ${
+            className={`text-xs px-3 py-1.5 rounded-full border transition-[transform,background-color,color,border-color] ease-out duration-150 active:scale-[0.98] ${
               ownedOnly
                 ? 'bg-binding/50 text-parchment border-binding/70'
                 : 'border-leather/30 text-leather/80 hover:bg-binding/20 hover:text-parchment hover:border-leather/50'

@@ -91,7 +91,7 @@ function ProgressSection({ book, onChange }) {
         <button
           type="submit"
           disabled={saving || inputVal === ''}
-          className="text-sm bg-binding hover:bg-binding/80 disabled:opacity-40 disabled:cursor-default text-parchment px-4 py-1.5 rounded transition-colors"
+          className="text-sm bg-binding hover:bg-binding/80 active:scale-[0.98] disabled:opacity-40 disabled:cursor-default text-parchment px-4 py-1.5 rounded transition-[transform,background-color] ease-out duration-150"
         >
           {saving ? 'Saving…' : 'Update'}
         </button>
@@ -272,7 +272,7 @@ export default function BookDetail() {
           <div className="flex gap-3 mt-8 pt-6 border-t border-neutral-800/60">
             <Link
               to={`/books/${book.id}/edit`}
-              className="text-sm bg-neutral-800 hover:bg-neutral-700 text-white px-5 py-2 rounded transition-colors"
+              className="text-sm bg-neutral-800 hover:bg-neutral-700 active:scale-[0.98] text-white px-5 py-2 rounded transition-[transform,background-color] ease-out duration-150"
             >
               Edit
             </Link>
