@@ -5,13 +5,15 @@
 @layer base {
   :root {
     /* ── Depth layers (role-based) ─────────────────────────────
-       Tweak these to shift the entire depth system at once.     */
-    --bg-base:       8   14  13;   /* #080e0d  page background  */
-    --bg-deep:       15  31  29;   /* #0f1f1d  recessed/inputs  */
-    --bg-surface:    23  46  43;   /* #172e2b  general surfaces */
-    --bg-manuscript: 30  66  63;   /* #1e423f  Manuscript green */
-    --bg-elev-1:     26  51  48;   /* #1a3330  card layer       */
-    --bg-elev-2:     36  74  70;   /* #244a46  hover/active     */
+       Tweak these to shift the entire depth system at once.
+       Target OKLCH lightness: base 4%, deep 6%, surface 9%,
+       elev-1 11%, elev-2 15% — consistent ~3–4pt steps.        */
+    --bg-base:       8   14  13;   /* #080e0d  L≈4%  page bg   */
+    --bg-deep:       15  31  29;   /* #0f1f1d  L≈6%  recessed  */
+    --bg-surface:    23  46  43;   /* #172e2b  L≈9%  surfaces  */
+    --bg-manuscript: 30  66  63;   /* #1e423f  L≈12% mid-green */
+    --bg-elev-1:     26  51  48;   /* #1a3330  L≈11% cards     */
+    --bg-elev-2:     36  74  70;   /* #244a46  L≈15% hover     */
 
     /* ── Palette tokens ─────────────────────────────────────── */
     --color-parchment:     246 242 234;   /* #f6f2ea */

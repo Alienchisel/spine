@@ -222,7 +222,7 @@ export default function BookForm() {
     }
   }
 
-  const input = 'w-full bg-neutral-900 border border-neutral-800 rounded-md px-3 py-2.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-600 transition-colors';
+  const input = 'w-full bg-neutral-800 border border-neutral-700 rounded-md px-3 py-2.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 transition-colors duration-150';
   const label = 'block text-xs font-semibold text-neutral-500 mb-1.5 uppercase tracking-wider';
 
   return (
@@ -244,7 +244,7 @@ export default function BookForm() {
             value={searchQuery}
             onChange={handleSearchInput}
             placeholder="Search Open Library to auto-fill…"
-            className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-4 py-2.5 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-500 transition-colors"
+            className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2.5 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-oak/60 focus:ring-1 focus:ring-oak/25 transition-colors duration-150"
           />
           {searching && (
             <p className="absolute right-3 top-2.5 text-xs text-neutral-600">Searching…</p>

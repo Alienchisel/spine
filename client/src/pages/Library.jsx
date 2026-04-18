@@ -54,10 +54,10 @@ export default function Library() {
               <button
                 key={t.key}
                 onClick={() => setTab(t.key)}
-                className={`px-5 py-2 text-sm font-medium rounded-md transition-colors ${
+                className={`px-5 py-2 text-sm rounded-md transition-colors duration-150 ${
                   tab === t.key
-                    ? 'bg-binding/70 text-parchment'
-                    : 'text-neutral-400 hover:text-neutral-200'
+                    ? 'bg-binding/25 text-parchment font-semibold'
+                    : 'font-medium text-neutral-400 hover:text-neutral-200'
                 }`}
               >
                 {t.label}
@@ -70,7 +70,7 @@ export default function Library() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by title or author…"
-            className="bg-neutral-800 border border-leather/30 rounded-lg px-4 py-2 text-sm text-parchment placeholder-neutral-500 focus:outline-none focus:border-leather/70 transition-colors w-full sm:w-64"
+            className="bg-neutral-800 border border-leather/30 rounded-lg px-4 py-2 text-sm text-parchment placeholder-neutral-500 focus:outline-none focus:border-leather/70 focus:ring-1 focus:ring-oak/25 transition-colors duration-150 w-full sm:w-64"
           />
         </div>
 
@@ -79,10 +79,10 @@ export default function Library() {
             <button
               key={f.key}
               onClick={() => toggleFormat(f.key)}
-              className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+              className={`text-xs px-3 py-1.5 rounded-full border transition-colors duration-150 ${
                 formats.includes(f.key)
-                  ? 'bg-leather/20 text-parchment border-leather/60'
-                  : 'border-leather/30 text-leather hover:bg-binding/20 hover:text-parchment hover:border-leather/60'
+                  ? 'bg-binding/50 text-parchment border-binding/70'
+                  : 'border-leather/30 text-leather/80 hover:bg-binding/20 hover:text-parchment hover:border-leather/50'
               }`}
             >
               {f.label}
@@ -91,10 +91,10 @@ export default function Library() {
 
           <button
             onClick={() => setOwnedOnly(o => !o)}
-            className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+            className={`text-xs px-3 py-1.5 rounded-full border transition-colors duration-150 ${
               ownedOnly
-                ? 'bg-binding/60 text-parchment border-binding'
-                : 'border-leather/30 text-leather hover:bg-binding/20 hover:text-parchment hover:border-leather/60'
+                ? 'bg-binding/50 text-parchment border-binding/70'
+                : 'border-leather/30 text-leather/80 hover:bg-binding/20 hover:text-parchment hover:border-leather/50'
             }`}
           >
             Owned
