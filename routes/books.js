@@ -17,7 +17,7 @@ const router = express.Router();
 const VALID_STATUSES = ['reading', 'paused', 'finished', 'unread'];
 const VALID_FORMATS = ['physical', 'ebook', 'audiobook'];
 const VALID_BINDINGS = ['paperback', 'hardcover'];
-const VALID_CONDITIONS = ['new', 'used'];
+const VALID_CONDITIONS = ['new', 'fine', 'very good', 'good', 'fair', 'poor'];
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 function validateBook(body) {

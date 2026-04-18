@@ -377,7 +377,11 @@ export default function BookForm() {
                           onChange={(e) => set('condition', e.target.value)}>
                           <option value="">—</option>
                           <option value="new">New</option>
-                          <option value="used">Used</option>
+                          <option value="fine">Fine</option>
+                          <option value="very good">Very Good</option>
+                          <option value="good">Good</option>
+                          <option value="fair">Fair</option>
+                          <option value="poor">Poor</option>
                         </select>
                       </div>
                     </div>

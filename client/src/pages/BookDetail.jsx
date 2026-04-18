@@ -177,7 +177,7 @@ export default function BookDetail() {
                 <dd className="text-neutral-300 capitalize">
                   {book.format === 'ebook' ? 'E-book' : book.format.charAt(0).toUpperCase() + book.format.slice(1)}
                   {book.binding && ` — ${book.binding.charAt(0).toUpperCase() + book.binding.slice(1)}`}
-                  {book.condition && ` (${book.condition})`}
+                  {book.condition && ` (${book.condition.replace(/\b\w/g, c => c.toUpperCase())})`}
                 </dd>
               </div>
             )}
