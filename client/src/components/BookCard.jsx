@@ -141,7 +141,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
                 onChange={(e) => changeMode(e.target.value)}
                 className="bg-neutral-800 border border-neutral-700 text-neutral-300 text-xs rounded px-1.5 py-1 focus:outline-none"
               >
-                <option value="page">Page</option>
+                <option value="page">pg</option>
                 {hasPct && <option value="pct">%</option>}
               </select>
               <input
@@ -151,8 +151,8 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
                 max={mode === 'pct' ? 100 : (book.page_count || undefined)}
                 value={inputVal}
                 onChange={(e) => setInputVal(e.target.value)}
-                placeholder={mode === 'pct' ? '0–100' : 'page #'}
-                className="flex-1 min-w-0 bg-neutral-800 border border-neutral-700 text-parchment text-xs rounded px-2 py-1 focus:outline-none focus:border-leather [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                placeholder={mode === 'pct' ? '0–100' : '#'}
+                className="flex-1 min-w-[3rem] bg-neutral-800 border border-neutral-700 text-parchment text-xs rounded px-2 py-1 focus:outline-none focus:border-leather [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
               <button
                 type="submit"
