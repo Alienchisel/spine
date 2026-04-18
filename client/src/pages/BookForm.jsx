@@ -257,7 +257,7 @@ export default function BookForm() {
 
       <div className="flex gap-8 items-start">
         {/* Cover sidebar */}
-        <div className="w-32 sm:w-36 flex-shrink-0 sticky top-20">
+        <div className="w-44 sm:w-52 flex-shrink-0 sticky top-20">
           <p className={label}>Cover</p>
           <div className="aspect-[2/3] bg-neutral-800 rounded overflow-hidden ring-1 ring-white/5 mb-3">
             {coverPreview
