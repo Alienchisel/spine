@@ -18,6 +18,9 @@ const EMPTY = {
   acquisition_date: '',
   isbn_10: '',
   isbn_13: '',
+  shelf_room: '',
+  shelf_unit: '',
+  shelf_number: '',
   format: '',
   binding: '',
   condition: '',
@@ -44,6 +47,8 @@ export default function BookForm() {
   const [pastAuthors, setPastAuthors] = useState([]);
   const [pastPublishers, setPastPublishers] = useState([]);
   const [pastSeries, setPastSeries] = useState([]);
+  const [pastRooms, setPastRooms] = useState([]);
+  const [pastUnits, setPastUnits] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -55,10 +60,14 @@ export default function BookForm() {
       const authors = [...new Set(books.map(b => b.author).filter(Boolean))].sort();
       const publishers = [...new Set(books.map(b => b.publisher).filter(Boolean))].sort();
       const series = [...new Set(books.map(b => b.series).filter(Boolean))].sort();
+      const rooms = [...new Set(books.map(b => b.shelf_room).filter(Boolean))].sort();
+      const units = [...new Set(books.map(b => b.shelf_unit).filter(Boolean))].sort();
       setPastSources(sources);
       setPastAuthors(authors);
       setPastPublishers(publishers);
       setPastSeries(series);
+      setPastRooms(rooms);
+      setPastUnits(units);
     });
   }, []);
 
@@ -79,6 +88,9 @@ export default function BookForm() {
         acquisition_date: book.acquisition_date || '',
         isbn_10: book.isbn_10 || '',
         isbn_13: book.isbn_13 || '',
+        shelf_room: book.shelf_room || '',
+        shelf_unit: book.shelf_unit || '',
+        shelf_number: book.shelf_number ?? '',
         description: book.description || '',
         format: book.format || '',
         binding: book.binding || '',
@@ -364,6 +376,52 @@ export default function BookForm() {
             <span className="text-sm text-neutral-300">I own this book</span>
           </label>
         </div>
+
+        {/* Shelf location */}
+        {form.owned && (
+          <div className="space-y-3 pl-4 border-l-2 border-neutral-800">
+            <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Shelf location</p>
+            <div>
+              <label className={label}>Room</label>
+              <input
+                className={input}
+                list="rooms-list"
+                value={form.shelf_room}
+                onChange={(e) => set('shelf_room', e.target.value)}
+                placeholder="e.g. Reading Room, Living Room…"
+              />
+              <datalist id="rooms-list">
+                {pastRooms.map(r => <option key={r} value={r} />)}
+              </datalist>
+            </div>
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label className={label}>Unit</label>
+                <input
+                  className={input}
+                  list="units-list"
+                  value={form.shelf_unit}
+                  onChange={(e) => set('shelf_unit', e.target.value)}
+                  placeholder="e.g. Unit 3, Bookcase A…"
+                />
+                <datalist id="units-list">
+                  {pastUnits.map(u => <option key={u} value={u} />)}
+                </datalist>
+              </div>
+              <div className="w-24">
+                <label className={label}>Shelf</label>
+                <input
+                  type="number"
+                  min="1"
+                  className={`${input} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+                  value={form.shelf_number}
+                  onChange={(e) => set('shelf_number', e.target.value)}
+                  placeholder="1"
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Acquisition source */}
         <div>

@@ -1,0 +1,3 @@
+ALTER TABLE books ADD COLUMN shelf_room TEXT;
+ALTER TABLE books ADD COLUMN shelf_unit TEXT;
+ALTER TABLE books ADD COLUMN shelf_number INTEGER;

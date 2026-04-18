@@ -209,6 +209,14 @@ export default function BookDetail() {
                 </dd>
               </div>
             )}
+            {Boolean(book.owned) && (book.shelf_room || book.shelf_unit || book.shelf_number) && (
+              <div className="flex gap-2">
+                <dt className="text-neutral-500 w-24 flex-shrink-0">Location</dt>
+                <dd className="text-neutral-300">
+                  {[book.shelf_room, book.shelf_unit, book.shelf_number ? `Shelf ${book.shelf_number}` : null].filter(Boolean).join(' · ')}
+                </dd>
+              </div>
+            )}
             {(book.isbn_13 || book.isbn_10) && (
               <div className="flex gap-2">
                 <dt className="text-neutral-500 w-24 flex-shrink-0">ISBN</dt>
