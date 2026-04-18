@@ -312,7 +312,7 @@ export default function BookForm() {
         {/* Cover sidebar */}
         <div className="w-44 sm:w-52 flex-shrink-0 sticky top-20">
           <p className={label}>Cover</p>
-          <div className="aspect-[2/3] bg-neutral-800 rounded overflow-hidden ring-1 ring-white/5 mb-3">
+          <div className={`${form.format === 'audiobook' ? 'aspect-square' : 'aspect-[2/3]'} bg-neutral-800 rounded overflow-hidden ring-1 ring-white/5 mb-3`}>
             {coverPreview
               ? <img src={coverPreview} alt="Preview" className="w-full h-full object-cover" />
               : <div className="w-full h-full" />}
@@ -401,6 +401,9 @@ export default function BookForm() {
                         ...prev, format: f,
                         binding: f === 'physical' ? prev.binding : '',
                         condition: f === 'physical' ? prev.condition : '',
+                        shelf_room: f === 'physical' ? prev.shelf_room : '',
+                        shelf_unit: f === 'physical' ? prev.shelf_unit : '',
+                        shelf_number: f === 'physical' ? prev.shelf_number : '',
                         page_count: f === 'audiobook' ? '' : prev.page_count,
                         duration_minutes: f !== 'audiobook' ? '' : prev.duration_minutes,
                       }));
@@ -557,7 +560,7 @@ export default function BookForm() {
                   </label>
                 </div>
 
-                {form.owned && (
+                {form.owned && form.format === 'physical' && (
                   <div className="space-y-3 pl-4 border-l-2 border-neutral-800">
                     <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Shelf location</p>
                     <div>

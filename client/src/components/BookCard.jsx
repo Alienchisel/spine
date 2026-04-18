@@ -98,7 +98,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
   return (
     <div onKeyDown={handleKeyDown} className="bg-card rounded-lg p-2 pb-2.5 hover:-translate-y-0.5 transition-[transform,background-color] ease-out duration-150">
       <Link to={`/books/${book.id}`} className="group block">
-        <div className="relative aspect-[2/3] bg-neutral-800 rounded overflow-hidden mb-2.5 shadow-xl ring-1 ring-white/5">
+        <div className={`relative ${book.format === 'audiobook' ? 'aspect-square' : 'aspect-[2/3]'} bg-neutral-800 rounded overflow-hidden mb-2.5 shadow-xl ring-1 ring-white/5`}>
           {book.cover_path ? (
             <img
               src={book.cover_path}

@@ -149,7 +149,7 @@ export default function BookDetail() {
 
       <div className="flex gap-8 sm:gap-10">
         <div className="w-36 sm:w-44 flex-shrink-0">
-          <div className="aspect-[2/3] bg-neutral-800 rounded overflow-hidden shadow-2xl ring-1 ring-white/5">
+          <div className={`${book.format === 'audiobook' ? 'aspect-square' : 'aspect-[2/3]'} bg-neutral-800 rounded overflow-hidden shadow-2xl ring-1 ring-white/5`}>
             {book.cover_path ? (
               <img src={book.cover_path} alt={book.title} className="w-full h-full object-cover" />
             ) : (
