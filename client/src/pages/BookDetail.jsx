@@ -222,6 +222,23 @@ export default function BookDetail() {
                 <dd className="text-neutral-300">{book.narrator}</dd>
               </div>
             )}
+            {book.year_published && (
+              <div className="flex gap-2">
+                <dt className="text-neutral-500 w-24 flex-shrink-0">Published</dt>
+                <dd className="text-neutral-300">
+                  {book.year_published}
+                  {book.year_edition && book.year_edition !== book.year_published
+                    ? ` (this edition ${book.year_edition})`
+                    : ''}
+                </dd>
+              </div>
+            )}
+            {!book.year_published && book.year_edition && (
+              <div className="flex gap-2">
+                <dt className="text-neutral-500 w-24 flex-shrink-0">Edition</dt>
+                <dd className="text-neutral-300">{book.year_edition}</dd>
+              </div>
+            )}
             {book.publisher && (
               <div className="flex gap-2">
                 <dt className="text-neutral-500 w-24 flex-shrink-0">Publisher</dt>

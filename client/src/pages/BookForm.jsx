@@ -16,6 +16,8 @@ const EMPTY = {
   series: '',
   acquisition_source: '',
   acquisition_date: '',
+  year_published: '',
+  year_edition: '',
   isbn_10: '',
   isbn_13: '',
   shelf_room: '',
@@ -143,6 +145,8 @@ export default function BookForm() {
         acquisition_date: book.acquisition_date || '',
         isbn_10: book.isbn_10 || '',
         isbn_13: book.isbn_13 || '',
+        year_published: book.year_published ?? '',
+        year_edition: book.year_edition ?? '',
         shelf_room: book.shelf_room || '',
         shelf_unit: book.shelf_unit || '',
         shelf_number: book.shelf_number ?? '',
@@ -247,6 +251,8 @@ export default function BookForm() {
         notes: form.notes || null,
         page_count: form.page_count ? parseInt(form.page_count) : null,
         duration_minutes: form.duration_minutes ? parseInt(form.duration_minutes) : null,
+        year_published: form.year_published ? parseInt(form.year_published) : null,
+        year_edition: form.year_edition ? parseInt(form.year_edition) : null,
       };
       if (isEdit) {
         await api.updateBook(id, payload);
@@ -507,6 +513,21 @@ export default function BookForm() {
                   <datalist id="series-list">
                     {pastSeries.map(s => <option key={s} value={s} />)}
                   </datalist>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className={label}>Year published</label>
+                    <input type="number" min="1" max="9999" className={input}
+                      value={form.year_published} onChange={(e) => set('year_published', e.target.value)}
+                      placeholder="e.g. 1965" />
+                  </div>
+                  <div>
+                    <label className={label}>Edition year</label>
+                    <input type="number" min="1" max="9999" className={input}
+                      value={form.year_edition} onChange={(e) => set('year_edition', e.target.value)}
+                      placeholder="e.g. 1999" />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">

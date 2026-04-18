@@ -21,7 +21,7 @@ const VALID_CONDITIONS = ['new', 'fine', 'very good', 'good', 'fair', 'poor'];
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 function validateBook(body) {
-  const { title, status, format, binding, condition, rating, page_count, duration_minutes, date_started, date_finished } = body;
+  const { title, status, format, binding, condition, rating, page_count, duration_minutes, date_started, date_finished, year_published, year_edition } = body;
   const errors = [];
 
   if (!title?.trim()) errors.push('Title is required');
@@ -35,6 +35,8 @@ function validateBook(body) {
   if (date_started && !DATE_RE.test(date_started)) errors.push('Invalid date started');
   if (date_finished && !DATE_RE.test(date_finished)) errors.push('Invalid date finished');
   if (body.acquisition_date && !DATE_RE.test(body.acquisition_date)) errors.push('Invalid acquisition date');
+  if (year_published != null && (year_published < 1 || !Number.isInteger(Number(year_published)))) errors.push('Invalid publication year');
+  if (year_edition != null && (year_edition < 1 || !Number.isInteger(Number(year_edition)))) errors.push('Invalid edition year');
 
   return errors;
 }
@@ -89,13 +91,13 @@ router.get('/:id', (req, res) => {
 });
 
 router.post('/', (req, res) => {
-  const { title, author, status, owned, is_custom, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, isbn_10, isbn_13, shelf_room, shelf_unit, shelf_number, narrator, tags } = req.body;
+  const { title, author, status, owned, is_custom, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, isbn_10, isbn_13, shelf_room, shelf_unit, shelf_number, narrator, year_published, year_edition, tags } = req.body;
   const errors = validateBook(req.body);
   if (errors.length) return res.status(400).json({ error: errors[0] });
 
   const result = db.prepare(`
-    INSERT INTO books (title, author, status, owned, is_custom, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, isbn_10, isbn_13, shelf_room, shelf_unit, shelf_number, narrator)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO books (title, author, status, owned, is_custom, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, isbn_10, isbn_13, shelf_room, shelf_unit, shelf_number, narrator, year_published, year_edition)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     title.trim(),
     author || null,
@@ -122,7 +124,9 @@ router.post('/', (req, res) => {
     shelf_room || null,
     shelf_unit || null,
     shelf_number || null,
-    narrator || null
+    narrator || null,
+    year_published || null,
+    year_edition || null
   );
 
   if (tags?.length) syncTags(result.lastInsertRowid, tags);
@@ -134,7 +138,7 @@ router.put('/:id', (req, res) => {
   const existing = db.prepare('SELECT cover_path FROM books WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ error: 'Not found' });
 
-  const { title, author, status, owned, is_custom, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, isbn_10, isbn_13, shelf_room, shelf_unit, shelf_number, narrator, tags } = req.body;
+  const { title, author, status, owned, is_custom, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, isbn_10, isbn_13, shelf_room, shelf_unit, shelf_number, narrator, year_published, year_edition, tags } = req.body;
   const errors = validateBook(req.body);
   if (errors.length) return res.status(400).json({ error: errors[0] });
 
@@ -147,6 +151,7 @@ router.put('/:id', (req, res) => {
       description = ?, notes = ?, page_count = ?, duration_minutes = ?,
       publisher = ?, series = ?, isbn_10 = ?, isbn_13 = ?,
       shelf_room = ?, shelf_unit = ?, shelf_number = ?, narrator = ?,
+      year_published = ?, year_edition = ?,
       updated_at = datetime('now')
     WHERE id = ?
   `).run(
@@ -176,6 +181,8 @@ router.put('/:id', (req, res) => {
     shelf_unit || null,
     shelf_number || null,
     narrator || null,
+    year_published || null,
+    year_edition || null,
     id
   );
 
