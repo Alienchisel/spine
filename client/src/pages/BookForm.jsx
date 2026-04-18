@@ -264,7 +264,7 @@ export default function BookForm() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form id="book-form" onSubmit={handleSubmit} className="space-y-6 pb-20">
         {/* Cover */}
         <div>
           <label className={label}>Cover</label>
@@ -623,6 +623,18 @@ export default function BookForm() {
           {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add to library'}
         </button>
       </form>
+
+      <div className="fixed bottom-0 left-0 right-0 bg-neutral-950/90 backdrop-blur border-t border-neutral-800 px-4 py-3 flex items-center justify-between gap-4">
+        {error && <p className="text-sm text-red-400 truncate">{error}</p>}
+        <button
+          form="book-form"
+          type="submit"
+          disabled={saving || uploading}
+          className="ml-auto bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-black font-semibold px-6 py-2 rounded-md transition-colors text-sm"
+        >
+          {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add to library'}
+        </button>
+      </div>
     </div>
   );
 }
