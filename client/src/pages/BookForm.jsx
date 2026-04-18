@@ -490,7 +490,7 @@ export default function BookForm() {
                   <label className={label}>Publisher</label>
                   <input className={input} list="publishers-list" value={form.publisher}
                     onChange={(e) => set('publisher', e.target.value)}
-                    placeholder="e.g. Penguin, Tor, Bloomsbury…" />
+                    placeholder="e.g. Penguin, Tor, Faber…" />
                   <datalist id="publishers-list">
                     {pastPublishers.map(p => <option key={p} value={p} />)}
                   </datalist>
@@ -594,7 +594,7 @@ export default function BookForm() {
                   <label className={label}>Acquisition source</label>
                   <input className={input} list="sources-list" value={form.acquisition_source}
                     onChange={(e) => set('acquisition_source', e.target.value)}
-                    placeholder="e.g. Waterstones, Amazon, gift…" />
+                    placeholder="e.g. Chapters, Amazon, gift…" />
                   <datalist id="sources-list">
                     {pastSources.map(s => <option key={s} value={s} />)}
                   </datalist>
