@@ -25,6 +25,8 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
   const [book, setBook] = useState(initialBook);
   const [open, setOpen] = useState(false);
   const [inputVal, setInputVal] = useState('');
+  const [inputH, setInputH] = useState('');
+  const [inputM, setInputM] = useState('');
   const [mode, setMode] = useState(() => localStorage.getItem(getModeKey(initialBook.id)) || (initialBook.format === 'audiobook' ? 'min' : 'page'));
   const [saving, setSaving] = useState(false);
   const inputRef = useRef(null);
@@ -47,7 +49,9 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
     if (mode === 'pct') {
       setInputVal(pct !== null ? String(pct) : '');
     } else if (isAudiobook) {
-      setInputVal(book.current_minutes != null ? String(book.current_minutes) : '');
+      const mins = book.current_minutes;
+      setInputH(mins != null ? String(Math.floor(mins / 60)) : '');
+      setInputM(mins != null ? String(mins % 60) : '');
     } else {
       setInputVal(book.current_page != null ? String(book.current_page) : '');
     }
@@ -58,18 +62,30 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
   function changeMode(m) {
     setMode(m);
     localStorage.setItem(getModeKey(book.id), m);
+    if (m === 'pct') {
+      setInputVal(pct !== null ? String(pct) : '');
+    } else if (isAudiobook) {
+      const mins = book.current_minutes;
+      setInputH(mins != null ? String(Math.floor(mins / 60)) : '');
+      setInputM(mins != null ? String(mins % 60) : '');
+    } else {
+      setInputVal(book.current_page != null ? String(book.current_page) : '');
+    }
   }
+
+  const isHMMode = isAudiobook && mode === 'min';
+  const isEmpty = isHMMode ? (inputH === '' && inputM === '') : inputVal === '';
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (inputVal === '') return;
+    if (isEmpty) return;
     setSaving(true);
     try {
       let patchData;
       if (isAudiobook) {
         const current_minutes = mode === 'pct'
           ? Math.round((Math.min(100, Math.max(0, parseFloat(inputVal))) / 100) * book.duration_minutes)
-          : Math.max(0, parseInt(inputVal));
+          : (parseInt(inputH) || 0) * 60 + (parseInt(inputM) || 0);
         patchData = { current_minutes };
       } else {
         const current_page = mode === 'pct'
@@ -82,6 +98,8 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
       onProgressUpdate?.(updated);
       setOpen(false);
       setInputVal('');
+      setInputH('');
+      setInputM('');
     } finally {
       setSaving(false);
     }
@@ -94,6 +112,8 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
   const progressLabel = isAudiobook
     ? (book.current_minutes != null ? `${pct}%` : null)
     : (book.current_page ? (hasPct ? `${pct}%` : `p. ${book.current_page}`) : null);
+
+  const numCls = 'bg-neutral-800 border border-neutral-700 text-parchment text-xs rounded px-2 py-1 focus:outline-none focus:border-leather [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none';
 
   return (
     <div onKeyDown={handleKeyDown} className="bg-card rounded-lg p-2 pb-2.5 hover:-translate-y-0.5 transition-[transform,background-color] ease-out duration-150">
@@ -148,28 +168,50 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
           </button>
 
           {open && (
-            <form ref={formRef} onSubmit={handleSubmit} className="mt-1.5 flex gap-1 items-center">
+            <form ref={formRef} onSubmit={handleSubmit} className="mt-1.5 flex gap-1 items-center flex-wrap">
               <select
                 value={mode}
                 onChange={(e) => changeMode(e.target.value)}
                 className="bg-neutral-800 border border-neutral-700 text-neutral-300 text-xs rounded px-1.5 py-1 focus:outline-none"
               >
-                {isAudiobook ? <option value="min">min</option> : <option value="page">pg</option>}
+                {isAudiobook ? <option value="min">h/m</option> : <option value="page">pg</option>}
                 {hasPct && <option value="pct">%</option>}
               </select>
-              <input
-                ref={inputRef}
-                type="number"
-                min="0"
-                max={mode === 'pct' ? 100 : (isAudiobook ? (book.duration_minutes || undefined) : (book.page_count || undefined))}
-                value={inputVal}
-                onChange={(e) => setInputVal(e.target.value)}
-                placeholder={mode === 'pct' ? '0–100' : '#'}
-                className="flex-1 min-w-[3rem] bg-neutral-800 border border-neutral-700 text-parchment text-xs rounded px-2 py-1 focus:outline-none focus:border-leather [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              />
+              {isHMMode ? (
+                <>
+                  <input
+                    ref={inputRef}
+                    type="number" min="0" max="999"
+                    value={inputH}
+                    onChange={(e) => setInputH(e.target.value)}
+                    placeholder="h"
+                    className={`w-10 ${numCls}`}
+                  />
+                  <span className="text-neutral-500 text-xs">h</span>
+                  <input
+                    type="number" min="0" max="59"
+                    value={inputM}
+                    onChange={(e) => setInputM(e.target.value)}
+                    placeholder="m"
+                    className={`w-10 ${numCls}`}
+                  />
+                  <span className="text-neutral-500 text-xs">m</span>
+                </>
+              ) : (
+                <input
+                  ref={inputRef}
+                  type="number"
+                  min="0"
+                  max={mode === 'pct' ? 100 : (book.page_count || undefined)}
+                  value={inputVal}
+                  onChange={(e) => setInputVal(e.target.value)}
+                  placeholder={mode === 'pct' ? '0–100' : '#'}
+                  className={`flex-1 min-w-[3rem] ${numCls}`}
+                />
+              )}
               <button
                 type="submit"
-                disabled={saving || inputVal === ''}
+                disabled={saving || isEmpty}
                 className="text-xs bg-binding hover:bg-binding/80 active:scale-[0.98] disabled:opacity-40 text-parchment px-2 py-1 rounded transition-[transform,background-color] ease-out duration-150"
               >
                 {saving ? '…' : '✓'}

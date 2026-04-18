@@ -29,29 +29,43 @@ function ProgressSection({ book, onChange }) {
 
   const rawVal = () => {
     if (mode === 'pct') return pct !== null ? String(pct) : '';
-    if (isAudiobook) return book.current_minutes != null ? String(book.current_minutes) : '';
+    if (isAudiobook) return '';
     return book.current_page != null ? String(book.current_page) : '';
   };
   const [inputVal, setInputVal] = useState(rawVal);
+  const [inputH, setInputH] = useState(() =>
+    isAudiobook && mode !== 'pct' && book.current_minutes != null
+      ? String(Math.floor(book.current_minutes / 60)) : '');
+  const [inputM, setInputM] = useState(() =>
+    isAudiobook && mode !== 'pct' && book.current_minutes != null
+      ? String(book.current_minutes % 60) : '');
 
   function changeMode(m) {
     setMode(m);
     localStorage.setItem(modeKey, m);
-    if (m === 'pct') setInputVal(pct !== null ? String(pct) : '');
-    else if (isAudiobook) setInputVal(book.current_minutes != null ? String(book.current_minutes) : '');
-    else setInputVal(book.current_page != null ? String(book.current_page) : '');
+    if (m === 'pct') {
+      setInputVal(pct !== null ? String(pct) : '');
+    } else if (isAudiobook) {
+      setInputH(book.current_minutes != null ? String(Math.floor(book.current_minutes / 60)) : '');
+      setInputM(book.current_minutes != null ? String(book.current_minutes % 60) : '');
+    } else {
+      setInputVal(book.current_page != null ? String(book.current_page) : '');
+    }
   }
+
+  const isHMMode = isAudiobook && mode !== 'pct';
+  const isEmpty = isHMMode ? (inputH === '' && inputM === '') : inputVal === '';
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (inputVal === '') return;
+    if (isEmpty) return;
     setSaving(true);
     try {
       let patchData;
       if (isAudiobook) {
         const current_minutes = mode === 'pct'
           ? Math.round((Math.min(100, Math.max(0, parseFloat(inputVal))) / 100) * book.duration_minutes)
-          : Math.max(0, parseInt(inputVal));
+          : (parseInt(inputH) || 0) * 60 + (parseInt(inputM) || 0);
         patchData = { current_minutes };
       } else {
         const current_page = mode === 'pct'
@@ -66,9 +80,14 @@ function ProgressSection({ book, onChange }) {
             ? Math.min(100, Math.round((updated.current_minutes / updated.duration_minutes) * 100)) : null)
         : (updated.page_count && updated.current_page != null
             ? Math.min(100, Math.round((updated.current_page / updated.page_count) * 100)) : null);
-      if (mode === 'pct') setInputVal(newPct !== null ? String(newPct) : '');
-      else if (isAudiobook) setInputVal(updated.current_minutes != null ? String(updated.current_minutes) : '');
-      else setInputVal(updated.current_page != null ? String(updated.current_page) : '');
+      if (mode === 'pct') {
+        setInputVal(newPct !== null ? String(newPct) : '');
+      } else if (isAudiobook) {
+        setInputH(updated.current_minutes != null ? String(Math.floor(updated.current_minutes / 60)) : '');
+        setInputM(updated.current_minutes != null ? String(updated.current_minutes % 60) : '');
+      } else {
+        setInputVal(updated.current_page != null ? String(updated.current_page) : '');
+      }
     } finally {
       setSaving(false);
     }
@@ -102,18 +121,37 @@ function ProgressSection({ book, onChange }) {
         <select value={mode} onChange={(e) => changeMode(e.target.value)}
           className="bg-neutral-900 border border-neutral-700 text-neutral-300 text-sm rounded px-2 py-1.5 focus:outline-none">
           {isAudiobook
-            ? <option value="min">Minutes</option>
+            ? <option value="min">Time</option>
             : <option value="page">Page</option>}
           {hasPct && <option value="pct">Percent</option>}
         </select>
-        <input
-          type="number" min="0"
-          max={mode === 'pct' ? 100 : (isAudiobook ? (book.duration_minutes || undefined) : (book.page_count || undefined))}
-          value={inputVal} onChange={(e) => setInputVal(e.target.value)}
-          placeholder={mode === 'pct' ? 'e.g. 42' : isAudiobook ? 'e.g. 240' : 'e.g. 123'}
-          className="flex-1 bg-neutral-900 border border-neutral-700 rounded px-3 py-1.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-500 transition-colors"
-        />
-        <button type="submit" disabled={saving || inputVal === ''}
+        {isHMMode ? (
+          <>
+            <input
+              type="number" min="0" max="999"
+              value={inputH} onChange={(e) => setInputH(e.target.value)}
+              placeholder="0"
+              className="w-16 bg-neutral-900 border border-neutral-700 rounded px-3 py-1.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-500 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            />
+            <span className="text-neutral-500 text-sm">h</span>
+            <input
+              type="number" min="0" max="59"
+              value={inputM} onChange={(e) => setInputM(e.target.value)}
+              placeholder="0"
+              className="w-16 bg-neutral-900 border border-neutral-700 rounded px-3 py-1.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-500 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            />
+            <span className="text-neutral-500 text-sm">m</span>
+          </>
+        ) : (
+          <input
+            type="number" min="0"
+            max={mode === 'pct' ? 100 : (book.page_count || undefined)}
+            value={inputVal} onChange={(e) => setInputVal(e.target.value)}
+            placeholder={mode === 'pct' ? 'e.g. 42' : 'e.g. 123'}
+            className="flex-1 bg-neutral-900 border border-neutral-700 rounded px-3 py-1.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-500 transition-colors"
+          />
+        )}
+        <button type="submit" disabled={saving || isEmpty}
           className="text-sm bg-binding hover:bg-binding/80 active:scale-[0.98] disabled:opacity-40 disabled:cursor-default text-parchment px-4 py-1.5 rounded transition-[transform,background-color] ease-out duration-150">
           {saving ? 'Saving…' : 'Update'}
         </button>
