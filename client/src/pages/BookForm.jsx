@@ -3,7 +3,6 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../api.js';
 import StarRating from '../components/StarRating.jsx';
 
-
 const EMPTY = {
   title: '',
   author: '',
@@ -34,11 +33,19 @@ const EMPTY = {
   cover_path: null,
 };
 
+const TABS = [
+  { key: 'core',        label: 'Core' },
+  { key: 'details',     label: 'Details' },
+  { key: 'acquisition', label: 'Acquisition' },
+  { key: 'personal',    label: 'Personal' },
+];
+
 export default function BookForm() {
   const { id } = useParams();
   const navigate = useNavigate();
   const isEdit = Boolean(id);
   const [form, setForm] = useState(EMPTY);
+  const [activeTab, setActiveTab] = useState('core');
   const [tagInput, setTagInput] = useState('');
   const [coverPreview, setCoverPreview] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -57,18 +64,12 @@ export default function BookForm() {
 
   useEffect(() => {
     api.getBooks().then(books => {
-      const sources = [...new Set(books.map(b => b.acquisition_source).filter(Boolean))].sort();
-      const authors = [...new Set(books.map(b => b.author).filter(Boolean))].sort();
-      const publishers = [...new Set(books.map(b => b.publisher).filter(Boolean))].sort();
-      const series = [...new Set(books.map(b => b.series).filter(Boolean))].sort();
-      const rooms = [...new Set(books.map(b => b.shelf_room).filter(Boolean))].sort();
-      const units = [...new Set(books.map(b => b.shelf_unit).filter(Boolean))].sort();
-      setPastSources(sources);
-      setPastAuthors(authors);
-      setPastPublishers(publishers);
-      setPastSeries(series);
-      setPastRooms(rooms);
-      setPastUnits(units);
+      setPastSources([...new Set(books.map(b => b.acquisition_source).filter(Boolean))].sort());
+      setPastAuthors([...new Set(books.map(b => b.author).filter(Boolean))].sort());
+      setPastPublishers([...new Set(books.map(b => b.publisher).filter(Boolean))].sort());
+      setPastSeries([...new Set(books.map(b => b.series).filter(Boolean))].sort());
+      setPastRooms([...new Set(books.map(b => b.shelf_room).filter(Boolean))].sort());
+      setPastUnits([...new Set(books.map(b => b.shelf_unit).filter(Boolean))].sort());
     });
   }, []);
 
@@ -120,12 +121,8 @@ export default function BookForm() {
     if (!q.trim()) return;
     searchTimeout.current = setTimeout(async () => {
       setSearching(true);
-      try {
-        const results = await api.searchBooks(q);
-        setSearchResults(results);
-      } finally {
-        setSearching(false);
-      }
+      try { setSearchResults(await api.searchBooks(q)); }
+      finally { setSearching(false); }
     }, 400);
   }
 
@@ -164,16 +161,9 @@ export default function BookForm() {
     }
   }
 
-  async function handleCoverChange(e) {
-    const file = e.target.files[0];
-    if (file) uploadFile(file);
-  }
-
   useEffect(() => {
     function handlePaste(e) {
-      const item = Array.from(e.clipboardData?.items || []).find(
-        (i) => i.type.startsWith('image/')
-      );
+      const item = Array.from(e.clipboardData?.items || []).find(i => i.type.startsWith('image/'));
       if (item) uploadFile(item.getAsFile());
     }
     window.addEventListener('paste', handlePaste);
@@ -184,19 +174,13 @@ export default function BookForm() {
     if (e.key !== 'Enter' && e.key !== ',') return;
     e.preventDefault();
     const tag = tagInput.trim().replace(/,$/, '');
-    if (tag && !form.tags.includes(tag)) {
-      set('tags', [...form.tags, tag]);
-    }
+    if (tag && !form.tags.includes(tag)) set('tags', [...form.tags, tag]);
     setTagInput('');
-  }
-
-  function removeTag(tag) {
-    set('tags', form.tags.filter((t) => t !== tag));
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!form.title.trim()) return;
+    if (!form.title.trim()) { setActiveTab('core'); return; }
     setSaving(true);
     setError(null);
     try {
@@ -248,23 +232,16 @@ export default function BookForm() {
             placeholder="Search Open Library to auto-fill…"
             className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2.5 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-oak/60 focus:ring-1 focus:ring-oak/25 transition-colors duration-150"
           />
-          {searching && (
-            <p className="absolute right-3 top-2.5 text-xs text-neutral-600">Searching…</p>
-          )}
+          {searching && <p className="absolute right-3 top-2.5 text-xs text-neutral-600">Searching…</p>}
           {searchResults.length > 0 && (
             <ul className="absolute z-10 w-full mt-1 bg-neutral-900 border border-neutral-700 rounded-lg overflow-hidden shadow-xl">
               {searchResults.map((r) => (
                 <li key={r.key}>
-                  <button
-                    type="button"
-                    onClick={() => applyResult(r)}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-neutral-800 transition-colors"
-                  >
-                    {r.cover_url ? (
-                      <img src={r.cover_url} alt="" className="w-8 h-12 object-cover rounded flex-shrink-0" />
-                    ) : (
-                      <div className="w-8 h-12 bg-neutral-800 rounded flex-shrink-0" />
-                    )}
+                  <button type="button" onClick={() => applyResult(r)}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-neutral-800 transition-colors">
+                    {r.cover_url
+                      ? <img src={r.cover_url} alt="" className="w-8 h-12 object-cover rounded flex-shrink-0" />
+                      : <div className="w-8 h-12 bg-neutral-800 rounded flex-shrink-0" />}
                     <div className="min-w-0">
                       <p className="text-sm text-white truncate">{r.title}</p>
                       {r.author && <p className="text-xs text-neutral-500 truncate">{r.author}</p>}
@@ -283,419 +260,319 @@ export default function BookForm() {
         <div className="w-32 sm:w-36 flex-shrink-0 sticky top-20">
           <p className={label}>Cover</p>
           <div className="aspect-[2/3] bg-neutral-800 rounded overflow-hidden ring-1 ring-white/5 mb-3">
-            {coverPreview ? (
-              <img src={coverPreview} alt="Preview" className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full" />
-            )}
+            {coverPreview
+              ? <img src={coverPreview} alt="Preview" className="w-full h-full object-cover" />
+              : <div className="w-full h-full" />}
           </div>
           <label className="cursor-pointer block text-center text-xs text-neutral-500 hover:text-neutral-200 border border-dashed border-neutral-700 hover:border-neutral-500 rounded-md px-2 py-2 transition-colors">
             {uploading ? 'Uploading…' : coverPreview ? 'Change' : 'Choose image'}
             <span className="block text-neutral-600 mt-0.5">or paste</span>
-            <input type="file" accept="image/*" className="hidden" onChange={handleCoverChange} />
+            <input type="file" accept="image/*" className="hidden" onChange={(e) => { if (e.target.files[0]) uploadFile(e.target.files[0]); }} />
           </label>
         </div>
 
-        {/* Form fields */}
-        <form id="book-form" onSubmit={handleSubmit} className="flex-1 min-w-0 space-y-6 pb-20">
-          {/* Title */}
-          <div>
-            <label className={label}>Title *</label>
-            <input
-              className={input}
-              value={form.title}
-              onChange={(e) => set('title', e.target.value)}
-              placeholder="Book title"
-              required
-              autoFocus={!isEdit}
-            />
+        {/* Tabs + form */}
+        <div className="flex-1 min-w-0">
+          {/* Tab nav */}
+          <div className="flex gap-6 border-b border-neutral-800 mb-7">
+            {TABS.map(t => (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setActiveTab(t.key)}
+                className={`pb-3 text-sm border-b-2 -mb-px transition-colors duration-150 ${
+                  activeTab === t.key
+                    ? 'border-oak text-parchment font-medium'
+                    : 'border-transparent text-neutral-500 hover:text-neutral-300'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
           </div>
 
-          {/* Author */}
-          <div>
-            <label className={label}>Author</label>
-            <input
-              className={input}
-              list="authors-list"
-              value={form.author}
-              onChange={(e) => set('author', e.target.value)}
-              placeholder="Author name"
-            />
-            <datalist id="authors-list">
-              {pastAuthors.map((a) => <option key={a} value={a} />)}
-            </datalist>
-          </div>
-
-          {/* Status */}
-          <div>
-            <label className={label}>Status</label>
-            <select
-              className={input}
-              value={form.status}
-              onChange={(e) => set('status', e.target.value)}
-            >
-              <option value="unread">Unread</option>
-              <option value="reading">Reading</option>
-              <option value="paused">Paused</option>
-              <option value="finished">Finished</option>
-            </select>
-          </div>
-
-          {/* Dates */}
-          {(form.status === 'reading' || form.status === 'paused' || form.status === 'finished') && (
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className={label}>Date started</label>
-                <input
-                  type="date"
-                  className={input}
-                  value={form.date_started}
-                  onChange={(e) => set('date_started', e.target.value)}
-                />
-              </div>
-              {form.status === 'finished' && (
+          <form id="book-form" onSubmit={handleSubmit} className="pb-20">
+            {/* ── Core ── */}
+            {activeTab === 'core' && (
+              <div className="space-y-6">
                 <div>
-                  <label className={label}>Date finished</label>
-                  <input
-                    type="date"
-                    className={input}
-                    value={form.date_finished}
-                    onChange={(e) => set('date_finished', e.target.value)}
-                  />
+                  <label className={label}>Title *</label>
+                  <input className={input} value={form.title}
+                    onChange={(e) => set('title', e.target.value)}
+                    placeholder="Book title" required autoFocus={!isEdit} />
                 </div>
-              )}
-            </div>
-          )}
 
-          {/* Owned & Custom */}
-          <div className="space-y-2.5">
-            <label className="flex items-center gap-3 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={form.owned}
-                onChange={(e) => set('owned', e.target.checked)}
-                className="w-4 h-4 rounded border-neutral-700 bg-neutral-900 text-oak focus:ring-0 focus:ring-offset-0"
-              />
-              <span className="text-sm text-neutral-300">I own this book</span>
-            </label>
-            <label className="flex items-center gap-3 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={form.is_custom}
-                onChange={(e) => set('is_custom', e.target.checked)}
-                className="w-4 h-4 rounded border-neutral-700 bg-neutral-900 text-oak focus:ring-0 focus:ring-offset-0"
-              />
-              <span className="text-sm text-neutral-300">
-                Custom collection
-                <span className="text-neutral-600 ml-1.5">— assembled by me, not commercially published</span>
-              </span>
-            </label>
-          </div>
-
-          {/* Shelf location */}
-          {form.owned && (
-            <div className="space-y-3 pl-4 border-l-2 border-neutral-800">
-              <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Shelf location</p>
-              <div>
-                <label className={label}>Room</label>
-                <input
-                  className={input}
-                  list="rooms-list"
-                  value={form.shelf_room}
-                  onChange={(e) => set('shelf_room', e.target.value)}
-                  placeholder="e.g. Reading Room, Living Room…"
-                />
-                <datalist id="rooms-list">
-                  {pastRooms.map(r => <option key={r} value={r} />)}
-                </datalist>
-              </div>
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <label className={label}>Unit</label>
-                  <input
-                    className={input}
-                    list="units-list"
-                    value={form.shelf_unit}
-                    onChange={(e) => set('shelf_unit', e.target.value)}
-                    placeholder="e.g. Unit 3, Bookcase A…"
-                  />
-                  <datalist id="units-list">
-                    {pastUnits.map(u => <option key={u} value={u} />)}
+                <div>
+                  <label className={label}>Author</label>
+                  <input className={input} list="authors-list" value={form.author}
+                    onChange={(e) => set('author', e.target.value)} placeholder="Author name" />
+                  <datalist id="authors-list">
+                    {pastAuthors.map(a => <option key={a} value={a} />)}
                   </datalist>
                 </div>
-                <div className="w-24">
-                  <label className={label}>Shelf</label>
-                  <input
-                    type="number"
-                    min="1"
-                    className={`${input} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
-                    value={form.shelf_number}
-                    onChange={(e) => set('shelf_number', e.target.value)}
-                    placeholder="1"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
 
-          {/* Acquisition source */}
-          <div>
-            <label className={label}>Acquisition source</label>
-            <input
-              className={input}
-              list="sources-list"
-              value={form.acquisition_source}
-              onChange={(e) => set('acquisition_source', e.target.value)}
-              placeholder="e.g. Waterstones, Amazon, gift…"
-            />
-            <datalist id="sources-list">
-              {pastSources.map((s) => <option key={s} value={s} />)}
-            </datalist>
-          </div>
-
-          {/* Acquisition date */}
-          <div>
-            <label className={label}>Acquisition date</label>
-            <input
-              type="date"
-              className={input}
-              value={form.acquisition_date}
-              onChange={(e) => set('acquisition_date', e.target.value)}
-            />
-          </div>
-
-          {/* Publisher */}
-          <div>
-            <label className={label}>Publisher</label>
-            <input
-              className={input}
-              list="publishers-list"
-              value={form.publisher}
-              onChange={(e) => set('publisher', e.target.value)}
-              placeholder="e.g. Penguin, Tor, Bloomsbury…"
-            />
-            <datalist id="publishers-list">
-              {pastPublishers.map((p) => <option key={p} value={p} />)}
-            </datalist>
-          </div>
-
-          {/* ISBNs */}
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <label className={label}>ISBN-10</label>
-              <input
-                className={input}
-                value={form.isbn_10}
-                onChange={(e) => set('isbn_10', e.target.value)}
-                placeholder="0000000000"
-                maxLength={10}
-              />
-            </div>
-            <div className="flex-1">
-              <label className={label}>ISBN-13</label>
-              <input
-                className={input}
-                value={form.isbn_13}
-                onChange={(e) => set('isbn_13', e.target.value)}
-                placeholder="0000000000000"
-                maxLength={13}
-              />
-            </div>
-          </div>
-
-          {/* Series */}
-          <div>
-            <label className={label}>Series</label>
-            <input
-              className={input}
-              list="series-list"
-              value={form.series}
-              onChange={(e) => set('series', e.target.value)}
-              placeholder="e.g. The Stormlight Archive…"
-            />
-            <datalist id="series-list">
-              {pastSeries.map((s) => <option key={s} value={s} />)}
-            </datalist>
-          </div>
-
-          {/* Format */}
-          <div>
-            <label className={label}>Format</label>
-            <select
-              className={input}
-              value={form.format}
-              onChange={(e) => {
-                const f = e.target.value;
-                setForm(prev => ({
-                  ...prev,
-                  format: f,
-                  binding: f === 'physical' ? prev.binding : '',
-                  condition: f === 'physical' ? prev.condition : '',
-                  page_count: f === 'audiobook' ? '' : prev.page_count,
-                  duration_minutes: f !== 'audiobook' ? '' : prev.duration_minutes,
-                }));
-              }}
-            >
-              <option value="">—</option>
-              <option value="physical">Physical</option>
-              <option value="ebook">E-book</option>
-              <option value="audiobook">Audiobook</option>
-            </select>
-          </div>
-
-          {form.format === 'physical' && (
-            <>
-              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className={label}>Binding</label>
-                  <select
-                    className={input}
-                    value={form.binding}
-                    onChange={(e) => set('binding', e.target.value)}
-                  >
-                    <option value="">—</option>
-                    <option value="paperback">Paperback</option>
-                    <option value="hardcover">Hardcover</option>
+                  <label className={label}>Status</label>
+                  <select className={input} value={form.status}
+                    onChange={(e) => set('status', e.target.value)}>
+                    <option value="unread">Unread</option>
+                    <option value="reading">Reading</option>
+                    <option value="paused">Paused</option>
+                    <option value="finished">Finished</option>
                   </select>
                 </div>
+
+                {(form.status === 'reading' || form.status === 'paused' || form.status === 'finished') && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className={label}>Date started</label>
+                      <input type="date" className={input} value={form.date_started}
+                        onChange={(e) => set('date_started', e.target.value)} />
+                    </div>
+                    {form.status === 'finished' && (
+                      <div>
+                        <label className={label}>Date finished</label>
+                        <input type="date" className={input} value={form.date_finished}
+                          onChange={(e) => set('date_finished', e.target.value)} />
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div>
-                  <label className={label}>Condition</label>
-                  <select
-                    className={input}
-                    value={form.condition}
-                    onChange={(e) => set('condition', e.target.value)}
-                  >
+                  <label className={label}>Format</label>
+                  <select className={input} value={form.format}
+                    onChange={(e) => {
+                      const f = e.target.value;
+                      setForm(prev => ({
+                        ...prev, format: f,
+                        binding: f === 'physical' ? prev.binding : '',
+                        condition: f === 'physical' ? prev.condition : '',
+                        page_count: f === 'audiobook' ? '' : prev.page_count,
+                        duration_minutes: f !== 'audiobook' ? '' : prev.duration_minutes,
+                      }));
+                    }}>
                     <option value="">—</option>
-                    <option value="new">New</option>
-                    <option value="used">Used</option>
+                    <option value="physical">Physical</option>
+                    <option value="ebook">E-book</option>
+                    <option value="audiobook">Audiobook</option>
                   </select>
                 </div>
+
+                {form.format === 'physical' && (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className={label}>Binding</label>
+                        <select className={input} value={form.binding}
+                          onChange={(e) => set('binding', e.target.value)}>
+                          <option value="">—</option>
+                          <option value="paperback">Paperback</option>
+                          <option value="hardcover">Hardcover</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className={label}>Condition</label>
+                        <select className={input} value={form.condition}
+                          onChange={(e) => set('condition', e.target.value)}>
+                          <option value="">—</option>
+                          <option value="new">New</option>
+                          <option value="used">Used</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <label className={label}>Page count</label>
+                      <input type="number" min="1" max="99999" className={input}
+                        value={form.page_count} onChange={(e) => set('page_count', e.target.value)}
+                        placeholder="e.g. 342" />
+                    </div>
+                  </>
+                )}
+
+                {form.format === 'ebook' && (
+                  <div>
+                    <label className={label}>Page count</label>
+                    <input type="number" min="1" max="99999" className={input}
+                      value={form.page_count} onChange={(e) => set('page_count', e.target.value)}
+                      placeholder="e.g. 342" />
+                  </div>
+                )}
+
+                {form.format === 'audiobook' && (
+                  <div>
+                    <label className={label}>Duration (minutes)</label>
+                    <input type="number" min="1" max="99999" className={input}
+                      value={form.duration_minutes} onChange={(e) => set('duration_minutes', e.target.value)}
+                      placeholder="e.g. 680" />
+                  </div>
+                )}
               </div>
-              <div>
-                <label className={label}>Page count</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="99999"
-                  className={input}
-                  value={form.page_count}
-                  onChange={(e) => set('page_count', e.target.value)}
-                  placeholder="e.g. 342"
-                />
+            )}
+
+            {/* ── Details ── */}
+            {activeTab === 'details' && (
+              <div className="space-y-6">
+                <div>
+                  <label className={label}>Publisher</label>
+                  <input className={input} list="publishers-list" value={form.publisher}
+                    onChange={(e) => set('publisher', e.target.value)}
+                    placeholder="e.g. Penguin, Tor, Bloomsbury…" />
+                  <datalist id="publishers-list">
+                    {pastPublishers.map(p => <option key={p} value={p} />)}
+                  </datalist>
+                </div>
+
+                <div>
+                  <label className={label}>Series</label>
+                  <input className={input} list="series-list" value={form.series}
+                    onChange={(e) => set('series', e.target.value)}
+                    placeholder="e.g. The Stormlight Archive…" />
+                  <datalist id="series-list">
+                    {pastSeries.map(s => <option key={s} value={s} />)}
+                  </datalist>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className={label}>ISBN-10</label>
+                    <input className={input} value={form.isbn_10}
+                      onChange={(e) => set('isbn_10', e.target.value)}
+                      placeholder="0000000000" maxLength={10} />
+                  </div>
+                  <div>
+                    <label className={label}>ISBN-13</label>
+                    <input className={input} value={form.isbn_13}
+                      onChange={(e) => set('isbn_13', e.target.value)}
+                      placeholder="0000000000000" maxLength={13} />
+                  </div>
+                </div>
+
+                <div>
+                  <label className={label}>Description</label>
+                  <textarea className={`${input} resize-none`} rows={6}
+                    value={form.description} onChange={(e) => set('description', e.target.value)}
+                    placeholder="Back-cover description…" />
+                </div>
               </div>
-            </>
-          )}
+            )}
 
-          {form.format === 'ebook' && (
-            <div>
-              <label className={label}>Page count</label>
-              <input
-                type="number"
-                min="1"
-                max="99999"
-                className={input}
-                value={form.page_count}
-                onChange={(e) => set('page_count', e.target.value)}
-                placeholder="e.g. 342"
-              />
-            </div>
-          )}
+            {/* ── Acquisition ── */}
+            {activeTab === 'acquisition' && (
+              <div className="space-y-6">
+                <div className="space-y-2.5">
+                  <label className="flex items-center gap-3 cursor-pointer select-none">
+                    <input type="checkbox" checked={form.owned}
+                      onChange={(e) => set('owned', e.target.checked)}
+                      className="w-4 h-4 rounded border-neutral-700 bg-neutral-900 text-oak focus:ring-0 focus:ring-offset-0" />
+                    <span className="text-sm text-neutral-300">I own this book</span>
+                  </label>
+                  <label className="flex items-center gap-3 cursor-pointer select-none">
+                    <input type="checkbox" checked={form.is_custom}
+                      onChange={(e) => set('is_custom', e.target.checked)}
+                      className="w-4 h-4 rounded border-neutral-700 bg-neutral-900 text-oak focus:ring-0 focus:ring-offset-0" />
+                    <span className="text-sm text-neutral-300">
+                      Custom collection
+                      <span className="text-neutral-600 ml-1.5">— assembled by me, not commercially published</span>
+                    </span>
+                  </label>
+                </div>
 
-          {form.format === 'audiobook' && (
-            <div>
-              <label className={label}>Duration (minutes)</label>
-              <input
-                type="number"
-                min="1"
-                max="99999"
-                className={input}
-                value={form.duration_minutes}
-                onChange={(e) => set('duration_minutes', e.target.value)}
-                placeholder="e.g. 680"
-              />
-            </div>
-          )}
+                {form.owned && (
+                  <div className="space-y-3 pl-4 border-l-2 border-neutral-800">
+                    <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Shelf location</p>
+                    <div>
+                      <label className={label}>Room</label>
+                      <input className={input} list="rooms-list" value={form.shelf_room}
+                        onChange={(e) => set('shelf_room', e.target.value)}
+                        placeholder="e.g. Reading Room, Living Room…" />
+                      <datalist id="rooms-list">
+                        {pastRooms.map(r => <option key={r} value={r} />)}
+                      </datalist>
+                    </div>
+                    <div className="flex gap-3">
+                      <div className="flex-1">
+                        <label className={label}>Unit</label>
+                        <input className={input} list="units-list" value={form.shelf_unit}
+                          onChange={(e) => set('shelf_unit', e.target.value)}
+                          placeholder="e.g. Unit 3, Bookcase A…" />
+                        <datalist id="units-list">
+                          {pastUnits.map(u => <option key={u} value={u} />)}
+                        </datalist>
+                      </div>
+                      <div className="w-24">
+                        <label className={label}>Shelf</label>
+                        <input type="number" min="1"
+                          className={`${input} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+                          value={form.shelf_number} onChange={(e) => set('shelf_number', e.target.value)}
+                          placeholder="1" />
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-          {/* Tags */}
-          <div>
-            <label className={label}>Tags</label>
-            {form.tags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mb-2">
-                {form.tags.map((t) => (
-                  <span
-                    key={t}
-                    className="flex items-center gap-1 text-xs bg-neutral-800 text-neutral-300 px-2.5 py-1 rounded-full"
-                  >
-                    {t}
-                    <button
-                      type="button"
-                      onClick={() => removeTag(t)}
-                      className="text-neutral-500 hover:text-white leading-none ml-0.5"
-                    >
-                      ×
+                <div>
+                  <label className={label}>Acquisition source</label>
+                  <input className={input} list="sources-list" value={form.acquisition_source}
+                    onChange={(e) => set('acquisition_source', e.target.value)}
+                    placeholder="e.g. Waterstones, Amazon, gift…" />
+                  <datalist id="sources-list">
+                    {pastSources.map(s => <option key={s} value={s} />)}
+                  </datalist>
+                </div>
+
+                <div>
+                  <label className={label}>Acquisition date</label>
+                  <input type="date" className={input} value={form.acquisition_date}
+                    onChange={(e) => set('acquisition_date', e.target.value)} />
+                </div>
+              </div>
+            )}
+
+            {/* ── Personal ── */}
+            {activeTab === 'personal' && (
+              <div className="space-y-6">
+                <div>
+                  <label className={label}>Rating</label>
+                  <StarRating value={form.rating} onChange={(v) => set('rating', v)} />
+                  {form.rating && (
+                    <button type="button" onClick={() => set('rating', null)}
+                      className="text-xs text-neutral-600 hover:text-neutral-400 mt-1.5">
+                      Clear rating
                     </button>
-                  </span>
-                ))}
+                  )}
+                </div>
+
+                <div>
+                  <label className={label}>Tags</label>
+                  {form.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {form.tags.map((t) => (
+                        <span key={t} className="flex items-center gap-1 text-xs bg-neutral-800 text-neutral-300 px-2.5 py-1 rounded-full">
+                          {t}
+                          <button type="button" onClick={() => set('tags', form.tags.filter(x => x !== t))}
+                            className="text-neutral-500 hover:text-white leading-none ml-0.5">×</button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <input className={input} value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)} onKeyDown={addTag}
+                    placeholder="Type a tag, press Enter or comma to add" />
+                </div>
+
+                <div>
+                  <label className={label}>Notes</label>
+                  <textarea className={`${input} resize-none`} rows={6}
+                    value={form.notes} onChange={(e) => set('notes', e.target.value)}
+                    placeholder="Your thoughts…" />
+                </div>
               </div>
             )}
-            <input
-              className={input}
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              onKeyDown={addTag}
-              placeholder="Type a tag, press Enter or comma to add"
-            />
-          </div>
 
-          {/* Rating */}
-          <div>
-            <label className={label}>Rating</label>
-            <StarRating value={form.rating} onChange={(v) => set('rating', v)} />
-            {form.rating && (
-              <button
-                type="button"
-                onClick={() => set('rating', null)}
-                className="text-xs text-neutral-600 hover:text-neutral-400 mt-1.5"
-              >
-                Clear rating
-              </button>
-            )}
-          </div>
-
-          {/* Description */}
-          <div>
-            <label className={label}>Description</label>
-            <textarea
-              className={`${input} resize-none`}
-              rows={4}
-              value={form.description}
-              onChange={(e) => set('description', e.target.value)}
-              placeholder="Back-cover description…"
-            />
-          </div>
-
-          {/* Notes */}
-          <div>
-            <label className={label}>Notes</label>
-            <textarea
-              className={`${input} resize-none`}
-              rows={4}
-              value={form.notes}
-              onChange={(e) => set('notes', e.target.value)}
-              placeholder="Your thoughts…"
-            />
-          </div>
-
-          {error && <p className="text-sm text-warn">{error}</p>}
-
-          <button
-            type="submit"
-            disabled={saving || uploading}
-            className="w-full bg-oak hover:bg-leather active:scale-[0.98] disabled:opacity-40 text-neutral-950 font-semibold py-3 rounded-md transition-[transform,background-color] ease-out duration-150"
-          >
-            {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add to library'}
-          </button>
-        </form>
+            {error && <p className="text-sm text-warn mt-6">{error}</p>}
+          </form>
+        </div>
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 bg-neutral-950/90 backdrop-blur border-t border-neutral-800 px-4 py-3 flex items-center justify-between gap-4">
