@@ -4,6 +4,7 @@ export default {
     extend: {
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
+        slab: ['Zilla Slab', 'Georgia', 'serif'],
       },
     },
   },
