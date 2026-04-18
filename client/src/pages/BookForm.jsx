@@ -14,6 +14,7 @@ const EMPTY = {
   date_finished: '',
   publisher: '',
   series: '',
+  series_number: '',
   acquisition_source: '',
   acquisition_date: '',
   year_published: '',
@@ -143,6 +144,7 @@ export default function BookForm() {
         date_finished: book.date_finished || '',
         publisher: book.publisher || '',
         series: book.series || '',
+        series_number: book.series_number ?? '',
         acquisition_source: book.acquisition_source || '',
         acquisition_date: book.acquisition_date || '',
         isbn_10: book.isbn_10 || '',
@@ -260,6 +262,7 @@ export default function BookForm() {
         duration_minutes: form.duration_minutes ? parseInt(form.duration_minutes) : null,
         year_published: form.year_published ? parseInt(form.year_published) : null,
         year_edition: form.year_edition ? parseInt(form.year_edition) : null,
+        series_number: form.series_number !== '' ? parseFloat(form.series_number) : null,
       };
       if (isEdit) {
         await api.updateBook(id, payload);
@@ -540,12 +543,26 @@ export default function BookForm() {
 
                 <div>
                   <label className={label}>Series</label>
-                  <input className={input} list="series-list" value={form.series}
-                    onChange={(e) => set('series', e.target.value)}
-                    placeholder="e.g. The Wheel of Time…" />
-                  <datalist id="series-list">
-                    {pastSeries.map(s => <option key={s} value={s} />)}
-                  </datalist>
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <input className={input} list="series-list" value={form.series}
+                        onChange={(e) => set('series', e.target.value)}
+                        placeholder="e.g. The Wheel of Time…" />
+                      <datalist id="series-list">
+                        {pastSeries.map(s => <option key={s} value={s} />)}
+                      </datalist>
+                    </div>
+                    {form.series && (
+                      <div className="w-24">
+                        <input
+                          type="number" min="0" step="0.5"
+                          className={`${input} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+                          value={form.series_number}
+                          onChange={(e) => set('series_number', e.target.value)}
+                          placeholder="#" />
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -605,7 +622,10 @@ export default function BookForm() {
                   </label>
                   <label className="flex items-center gap-3 cursor-pointer select-none">
                     <input type="checkbox" checked={form.is_custom}
-                      onChange={(e) => set('is_custom', e.target.checked)}
+                      onChange={(e) => {
+                        const is_custom = e.target.checked;
+                        setForm(f => ({ ...f, is_custom, ...(is_custom && { acquisition_source: '', acquisition_date: '' }) }));
+                      }}
                       className="w-4 h-4 rounded border-neutral-700 bg-neutral-900 text-oak focus:ring-0 focus:ring-offset-0" />
                     <span className="text-sm text-neutral-300">
                       Custom collection
@@ -647,21 +667,25 @@ export default function BookForm() {
                   </div>
                 )}
 
-                <div>
-                  <label className={label}>Acquisition source</label>
-                  <input className={input} list="sources-list" value={form.acquisition_source}
-                    onChange={(e) => set('acquisition_source', e.target.value)}
-                    placeholder="e.g. Chapters, Amazon, gift…" />
-                  <datalist id="sources-list">
-                    {pastSources.map(s => <option key={s} value={s} />)}
-                  </datalist>
-                </div>
+                {!form.is_custom && (
+                  <>
+                    <div>
+                      <label className={label}>Acquisition source</label>
+                      <input className={input} list="sources-list" value={form.acquisition_source}
+                        onChange={(e) => set('acquisition_source', e.target.value)}
+                        placeholder="e.g. Chapters, Amazon, gift…" />
+                      <datalist id="sources-list">
+                        {pastSources.map(s => <option key={s} value={s} />)}
+                      </datalist>
+                    </div>
 
-                <div>
-                  <label className={label}>Acquisition date</label>
-                  <input type="date" className={input} value={form.acquisition_date}
-                    onChange={(e) => set('acquisition_date', e.target.value)} />
-                </div>
+                    <div>
+                      <label className={label}>Acquisition date</label>
+                      <input type="date" className={input} value={form.acquisition_date}
+                        onChange={(e) => set('acquisition_date', e.target.value)} />
+                    </div>
+                  </>
+                )}
               </div>
             )}
 

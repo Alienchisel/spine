@@ -311,6 +311,9 @@ export default function BookDetail() {
                   <Link to={`/browse/series/${encodeURIComponent(book.series)}`} className="hover:text-white transition-colors">
                     {book.series}
                   </Link>
+                  {book.series_number != null && (
+                    <span className="text-neutral-500 ml-1">· #{book.series_number}</span>
+                  )}
                 </dd>
               </div>
             )}
