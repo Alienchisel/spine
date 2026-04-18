@@ -11,6 +11,13 @@ const TABS = [
   { key: 'all',      label: 'All' },
 ];
 
+const SESSION_KEY = 'spine-library-state';
+
+function getSaved() {
+  try { return JSON.parse(sessionStorage.getItem(SESSION_KEY)) ?? {}; }
+  catch { return {}; }
+}
+
 const EMPTY_FILTERS = {
   missing:    [],
   formats:    [],
@@ -36,12 +43,19 @@ function FilterIcon() {
 }
 
 export default function Library() {
-  const [tab, setTab] = useState('reading');
+  const [tab, setTab] = useState(() => getSaved().tab || 'reading');
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [query, setQuery] = useState('');
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [filters, setFilters] = useState(EMPTY_FILTERS);
+  const [query, setQuery] = useState(() => getSaved().query || '');
+  const [filtersOpen, setFiltersOpen] = useState(() => getSaved().filtersOpen ?? false);
+  const [filters, setFilters] = useState(() => {
+    const s = getSaved().filters;
+    return s ? { ...EMPTY_FILTERS, ...s } : EMPTY_FILTERS;
+  });
+
+  useEffect(() => {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ tab, query, filtersOpen, filters }));
+  }, [tab, query, filtersOpen, filters]);
 
   useEffect(() => {
     setLoading(true);
