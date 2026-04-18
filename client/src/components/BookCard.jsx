@@ -82,7 +82,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
     : null;
 
   return (
-    <div onKeyDown={handleKeyDown}>
+    <div onKeyDown={handleKeyDown} className="bg-card rounded-lg p-2 pb-2.5">
       <Link to={`/books/${book.id}`} className="group block">
         <div className="relative aspect-[2/3] bg-neutral-800 rounded overflow-hidden mb-2.5 shadow-xl ring-1 ring-white/5">
           {book.cover_path ? (

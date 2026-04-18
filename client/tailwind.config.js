@@ -30,6 +30,7 @@ export default {
         parchment: '#f6f2ea',
         leather:   '#c29b87',
         oak:       '#a97954',
+        card:     '#1a3330',
         crimson: {
           DEFAULT: '#34000b',
           light:   '#6b1422',

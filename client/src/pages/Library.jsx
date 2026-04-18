@@ -56,7 +56,7 @@ export default function Library() {
                 onClick={() => setTab(t.key)}
                 className={`px-5 py-2 text-sm font-medium rounded-md transition-colors ${
                   tab === t.key
-                    ? 'bg-white text-black'
+                    ? 'bg-binding/70 text-parchment'
                     : 'text-neutral-400 hover:text-neutral-200'
                 }`}
               >
@@ -70,7 +70,7 @@ export default function Library() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by title or author…"
-            className="bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-2 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-600 transition-colors w-full sm:w-64"
+            className="bg-neutral-800 border border-leather/30 rounded-lg px-4 py-2 text-sm text-parchment placeholder-neutral-500 focus:outline-none focus:border-leather/70 transition-colors w-full sm:w-64"
           />
         </div>
 
@@ -81,8 +81,8 @@ export default function Library() {
               onClick={() => toggleFormat(f.key)}
               className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
                 formats.includes(f.key)
-                  ? 'bg-neutral-200 text-black border-neutral-200'
-                  : 'border-neutral-700 text-neutral-500 hover:text-neutral-300 hover:border-neutral-500'
+                  ? 'bg-leather/20 text-parchment border-leather/60'
+                  : 'border-leather/30 text-leather hover:bg-binding/20 hover:text-parchment hover:border-leather/60'
               }`}
             >
               {f.label}
@@ -93,8 +93,8 @@ export default function Library() {
             onClick={() => setOwnedOnly(o => !o)}
             className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
               ownedOnly
-                ? 'bg-binding/40 text-parchment border-binding/60'
-                : 'border-neutral-700 text-neutral-500 hover:text-neutral-300 hover:border-neutral-500'
+                ? 'bg-binding/60 text-parchment border-binding'
+                : 'border-leather/30 text-leather hover:bg-binding/20 hover:text-parchment hover:border-leather/60'
             }`}
           >
             Owned
