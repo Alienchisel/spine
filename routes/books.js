@@ -89,13 +89,13 @@ router.get('/:id', (req, res) => {
 });
 
 router.post('/', (req, res) => {
-  const { title, author, status, owned, is_custom, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, isbn_10, isbn_13, shelf_room, shelf_unit, shelf_number, tags } = req.body;
+  const { title, author, status, owned, is_custom, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, isbn_10, isbn_13, shelf_room, shelf_unit, shelf_number, narrator, tags } = req.body;
   const errors = validateBook(req.body);
   if (errors.length) return res.status(400).json({ error: errors[0] });
 
   const result = db.prepare(`
-    INSERT INTO books (title, author, status, owned, is_custom, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, isbn_10, isbn_13, shelf_room, shelf_unit, shelf_number)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO books (title, author, status, owned, is_custom, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, isbn_10, isbn_13, shelf_room, shelf_unit, shelf_number, narrator)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     title.trim(),
     author || null,
@@ -121,7 +121,8 @@ router.post('/', (req, res) => {
     isbn_13 || null,
     shelf_room || null,
     shelf_unit || null,
-    shelf_number || null
+    shelf_number || null,
+    narrator || null
   );
 
   if (tags?.length) syncTags(result.lastInsertRowid, tags);
@@ -133,7 +134,7 @@ router.put('/:id', (req, res) => {
   const existing = db.prepare('SELECT cover_path FROM books WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ error: 'Not found' });
 
-  const { title, author, status, owned, is_custom, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, isbn_10, isbn_13, shelf_room, shelf_unit, shelf_number, tags } = req.body;
+  const { title, author, status, owned, is_custom, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, isbn_10, isbn_13, shelf_room, shelf_unit, shelf_number, narrator, tags } = req.body;
   const errors = validateBook(req.body);
   if (errors.length) return res.status(400).json({ error: errors[0] });
 
@@ -145,7 +146,7 @@ router.put('/:id', (req, res) => {
       format = ?, binding = ?, condition = ?,
       description = ?, notes = ?, page_count = ?, duration_minutes = ?,
       publisher = ?, series = ?, isbn_10 = ?, isbn_13 = ?,
-      shelf_room = ?, shelf_unit = ?, shelf_number = ?,
+      shelf_room = ?, shelf_unit = ?, shelf_number = ?, narrator = ?,
       updated_at = datetime('now')
     WHERE id = ?
   `).run(
@@ -174,6 +175,7 @@ router.put('/:id', (req, res) => {
     shelf_room || null,
     shelf_unit || null,
     shelf_number || null,
+    narrator || null,
     id
   );
 
@@ -187,14 +189,16 @@ router.patch('/:id', (req, res) => {
   if (!db.prepare('SELECT id FROM books WHERE id = ?').get(id)) {
     return res.status(404).json({ error: 'Not found' });
   }
-  const { current_page } = req.body;
-  if (current_page !== null && current_page !== undefined && (current_page < 0 || !Number.isInteger(Number(current_page)))) {
+  const { current_page, current_minutes } = req.body;
+  if (current_page != null && (current_page < 0 || !Number.isInteger(Number(current_page))))
     return res.status(400).json({ error: 'Invalid page number' });
-  }
-  db.prepare('UPDATE books SET current_page = ?, updated_at = datetime(\'now\') WHERE id = ?').run(
-    current_page ?? null,
-    id
-  );
+  if (current_minutes != null && (current_minutes < 0 || !Number.isInteger(Number(current_minutes))))
+    return res.status(400).json({ error: 'Invalid minutes' });
+
+  if (current_page !== undefined)
+    db.prepare('UPDATE books SET current_page = ?, updated_at = datetime(\'now\') WHERE id = ?').run(current_page ?? null, id);
+  if (current_minutes !== undefined)
+    db.prepare('UPDATE books SET current_minutes = ?, updated_at = datetime(\'now\') WHERE id = ?').run(current_minutes ?? null, id);
   res.json(getBookWithTags(id));
 });
 

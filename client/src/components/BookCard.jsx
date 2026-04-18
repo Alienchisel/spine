@@ -25,24 +25,31 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
   const [book, setBook] = useState(initialBook);
   const [open, setOpen] = useState(false);
   const [inputVal, setInputVal] = useState('');
-  const [mode, setMode] = useState(() => localStorage.getItem(getModeKey(initialBook.id)) || 'page');
+  const [mode, setMode] = useState(() => localStorage.getItem(getModeKey(initialBook.id)) || (initialBook.format === 'audiobook' ? 'min' : 'page'));
   const [saving, setSaving] = useState(false);
   const inputRef = useRef(null);
   const formRef = useRef(null);
 
   useEffect(() => { setBook(initialBook); }, [initialBook]);
 
-  const pct = book.page_count && book.current_page
-    ? Math.min(100, Math.round((book.current_page / book.page_count) * 100))
-    : null;
-  const hasPct = Boolean(book.page_count);
+  const isAudiobook = book.format === 'audiobook';
+  const pct = isAudiobook
+    ? (book.duration_minutes && book.current_minutes != null
+        ? Math.min(100, Math.round((book.current_minutes / book.duration_minutes) * 100))
+        : null)
+    : (book.page_count && book.current_page != null
+        ? Math.min(100, Math.round((book.current_page / book.page_count) * 100))
+        : null);
+  const hasPct = isAudiobook ? Boolean(book.duration_minutes) : Boolean(book.page_count);
 
   function openEditor(e) {
     e.preventDefault();
     if (mode === 'pct') {
       setInputVal(pct !== null ? String(pct) : '');
+    } else if (isAudiobook) {
+      setInputVal(book.current_minutes != null ? String(book.current_minutes) : '');
     } else {
-      setInputVal(book.current_page !== null && book.current_page !== undefined ? String(book.current_page) : '');
+      setInputVal(book.current_page != null ? String(book.current_page) : '');
     }
     setOpen(true);
     setTimeout(() => inputRef.current?.select(), 0);
@@ -58,13 +65,19 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
     if (inputVal === '') return;
     setSaving(true);
     try {
-      let current_page;
-      if (mode === 'pct') {
-        current_page = Math.round((Math.min(100, Math.max(0, parseFloat(inputVal))) / 100) * book.page_count);
+      let patchData;
+      if (isAudiobook) {
+        const current_minutes = mode === 'pct'
+          ? Math.round((Math.min(100, Math.max(0, parseFloat(inputVal))) / 100) * book.duration_minutes)
+          : Math.max(0, parseInt(inputVal));
+        patchData = { current_minutes };
       } else {
-        current_page = Math.max(0, parseInt(inputVal));
+        const current_page = mode === 'pct'
+          ? Math.round((Math.min(100, Math.max(0, parseFloat(inputVal))) / 100) * book.page_count)
+          : Math.max(0, parseInt(inputVal));
+        patchData = { current_page };
       }
-      const updated = await api.patchBook(book.id, { current_page });
+      const updated = await api.patchBook(book.id, patchData);
       setBook(updated);
       onProgressUpdate?.(updated);
       setOpen(false);
@@ -78,9 +91,9 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
     if (e.key === 'Escape') setOpen(false);
   }
 
-  const progressLabel = book.current_page
-    ? hasPct ? `${pct}%` : `p. ${book.current_page}`
-    : null;
+  const progressLabel = isAudiobook
+    ? (book.current_minutes != null ? `${pct}%` : null)
+    : (book.current_page ? (hasPct ? `${pct}%` : `p. ${book.current_page}`) : null);
 
   return (
     <div onKeyDown={handleKeyDown} className="bg-card rounded-lg p-2 pb-2.5 hover:-translate-y-0.5 transition-[transform,background-color] ease-out duration-150">
@@ -141,14 +154,14 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
                 onChange={(e) => changeMode(e.target.value)}
                 className="bg-neutral-800 border border-neutral-700 text-neutral-300 text-xs rounded px-1.5 py-1 focus:outline-none"
               >
-                <option value="page">pg</option>
+                {isAudiobook ? <option value="min">min</option> : <option value="page">pg</option>}
                 {hasPct && <option value="pct">%</option>}
               </select>
               <input
                 ref={inputRef}
                 type="number"
                 min="0"
-                max={mode === 'pct' ? 100 : (book.page_count || undefined)}
+                max={mode === 'pct' ? 100 : (isAudiobook ? (book.duration_minutes || undefined) : (book.page_count || undefined))}
                 value={inputVal}
                 onChange={(e) => setInputVal(e.target.value)}
                 placeholder={mode === 'pct' ? '0–100' : '#'}

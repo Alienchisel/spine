@@ -13,22 +13,33 @@ const STATUS_COLOR = {
 };
 
 function ProgressSection({ book, onChange }) {
+  const isAudiobook = book.format === 'audiobook';
   const modeKey = `spine-progress-mode-${book.id}`;
-  const [mode, setMode] = useState(() => localStorage.getItem(modeKey) || 'page');
+  const [mode, setMode] = useState(() => localStorage.getItem(modeKey) || (isAudiobook ? 'min' : 'page'));
   const [saving, setSaving] = useState(false);
 
-  const pct = book.page_count && book.current_page
-    ? Math.min(100, Math.round((book.current_page / book.page_count) * 100))
-    : null;
-  const hasPct = Boolean(book.page_count);
+  const pct = isAudiobook
+    ? (book.duration_minutes && book.current_minutes != null
+        ? Math.min(100, Math.round((book.current_minutes / book.duration_minutes) * 100))
+        : null)
+    : (book.page_count && book.current_page != null
+        ? Math.min(100, Math.round((book.current_page / book.page_count) * 100))
+        : null);
+  const hasPct = isAudiobook ? Boolean(book.duration_minutes) : Boolean(book.page_count);
 
-  const currentVal = mode === 'pct' ? (pct !== null ? String(pct) : '') : (book.current_page != null ? String(book.current_page) : '');
-  const [inputVal, setInputVal] = useState(currentVal);
+  const rawVal = () => {
+    if (mode === 'pct') return pct !== null ? String(pct) : '';
+    if (isAudiobook) return book.current_minutes != null ? String(book.current_minutes) : '';
+    return book.current_page != null ? String(book.current_page) : '';
+  };
+  const [inputVal, setInputVal] = useState(rawVal);
 
   function changeMode(m) {
     setMode(m);
     localStorage.setItem(modeKey, m);
-    setInputVal(m === 'pct' ? (pct !== null ? String(pct) : '') : (book.current_page != null ? String(book.current_page) : ''));
+    if (m === 'pct') setInputVal(pct !== null ? String(pct) : '');
+    else if (isAudiobook) setInputVal(book.current_minutes != null ? String(book.current_minutes) : '');
+    else setInputVal(book.current_page != null ? String(book.current_page) : '');
   }
 
   async function handleSubmit(e) {
@@ -36,65 +47,74 @@ function ProgressSection({ book, onChange }) {
     if (inputVal === '') return;
     setSaving(true);
     try {
-      let current_page;
-      if (mode === 'pct') {
-        current_page = Math.round((Math.min(100, Math.max(0, parseFloat(inputVal))) / 100) * book.page_count);
+      let patchData;
+      if (isAudiobook) {
+        const current_minutes = mode === 'pct'
+          ? Math.round((Math.min(100, Math.max(0, parseFloat(inputVal))) / 100) * book.duration_minutes)
+          : Math.max(0, parseInt(inputVal));
+        patchData = { current_minutes };
       } else {
-        current_page = Math.max(0, parseInt(inputVal));
+        const current_page = mode === 'pct'
+          ? Math.round((Math.min(100, Math.max(0, parseFloat(inputVal))) / 100) * book.page_count)
+          : Math.max(0, parseInt(inputVal));
+        patchData = { current_page };
       }
-      const updated = await api.patchBook(book.id, { current_page });
+      const updated = await api.patchBook(book.id, patchData);
       onChange(updated);
-      const newPct = updated.page_count && updated.current_page
-        ? Math.min(100, Math.round((updated.current_page / updated.page_count) * 100))
-        : null;
-      setInputVal(mode === 'pct' ? (newPct !== null ? String(newPct) : '') : (updated.current_page != null ? String(updated.current_page) : ''));
+      const newPct = isAudiobook
+        ? (updated.duration_minutes && updated.current_minutes != null
+            ? Math.min(100, Math.round((updated.current_minutes / updated.duration_minutes) * 100)) : null)
+        : (updated.page_count && updated.current_page != null
+            ? Math.min(100, Math.round((updated.current_page / updated.page_count) * 100)) : null);
+      if (mode === 'pct') setInputVal(newPct !== null ? String(newPct) : '');
+      else if (isAudiobook) setInputVal(updated.current_minutes != null ? String(updated.current_minutes) : '');
+      else setInputVal(updated.current_page != null ? String(updated.current_page) : '');
     } finally {
       setSaving(false);
     }
   }
 
+  const progressText = isAudiobook
+    ? (book.current_minutes != null
+        ? hasPct
+          ? `${Math.floor(book.current_minutes / 60)}h ${book.current_minutes % 60}m of ${Math.floor(book.duration_minutes / 60)}h ${book.duration_minutes % 60}m · ${pct}%`
+          : `${Math.floor(book.current_minutes / 60)}h ${book.current_minutes % 60}m`
+        : 'No progress recorded yet')
+    : (book.current_page
+        ? hasPct
+          ? `Page ${book.current_page} of ${book.page_count} · ${pct}%`
+          : `Page ${book.current_page}`
+        : 'No progress recorded yet');
+
   return (
     <div className="border border-neutral-800 rounded-lg p-4 mb-6">
-      <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Reading progress</p>
-
-      <div className="h-2 bg-neutral-800 rounded-full overflow-hidden mb-2">
-        <div
-          className="h-full bg-oak rounded-full transition-all duration-300"
-          style={{ width: `${pct ?? 0}%` }}
-        />
-      </div>
-
-      <p className="text-sm text-neutral-400 mb-4">
-        {book.current_page
-          ? hasPct
-            ? `Page ${book.current_page} of ${book.page_count} · ${pct}%`
-            : `Page ${book.current_page}`
-          : 'No progress recorded yet'}
+      <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">
+        {isAudiobook ? 'Listening progress' : 'Reading progress'}
       </p>
 
+      <div className="h-2 bg-neutral-800 rounded-full overflow-hidden mb-2">
+        <div className="h-full bg-oak rounded-full transition-all duration-300" style={{ width: `${pct ?? 0}%` }} />
+      </div>
+
+      <p className="text-sm text-neutral-400 mb-4">{progressText}</p>
+
       <form onSubmit={handleSubmit} className="flex items-center gap-2">
-        <select
-          value={mode}
-          onChange={(e) => changeMode(e.target.value)}
-          className="bg-neutral-900 border border-neutral-700 text-neutral-300 text-sm rounded px-2 py-1.5 focus:outline-none"
-        >
-          <option value="page">Page</option>
+        <select value={mode} onChange={(e) => changeMode(e.target.value)}
+          className="bg-neutral-900 border border-neutral-700 text-neutral-300 text-sm rounded px-2 py-1.5 focus:outline-none">
+          {isAudiobook
+            ? <option value="min">Minutes</option>
+            : <option value="page">Page</option>}
           {hasPct && <option value="pct">Percent</option>}
         </select>
         <input
-          type="number"
-          min="0"
-          max={mode === 'pct' ? 100 : (book.page_count || undefined)}
-          value={inputVal}
-          onChange={(e) => setInputVal(e.target.value)}
-          placeholder={mode === 'pct' ? 'e.g. 42' : 'e.g. 123'}
+          type="number" min="0"
+          max={mode === 'pct' ? 100 : (isAudiobook ? (book.duration_minutes || undefined) : (book.page_count || undefined))}
+          value={inputVal} onChange={(e) => setInputVal(e.target.value)}
+          placeholder={mode === 'pct' ? 'e.g. 42' : isAudiobook ? 'e.g. 240' : 'e.g. 123'}
           className="flex-1 bg-neutral-900 border border-neutral-700 rounded px-3 py-1.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-500 transition-colors"
         />
-        <button
-          type="submit"
-          disabled={saving || inputVal === ''}
-          className="text-sm bg-binding hover:bg-binding/80 active:scale-[0.98] disabled:opacity-40 disabled:cursor-default text-parchment px-4 py-1.5 rounded transition-[transform,background-color] ease-out duration-150"
-        >
+        <button type="submit" disabled={saving || inputVal === ''}
+          className="text-sm bg-binding hover:bg-binding/80 active:scale-[0.98] disabled:opacity-40 disabled:cursor-default text-parchment px-4 py-1.5 rounded transition-[transform,background-color] ease-out duration-150">
           {saving ? 'Saving…' : 'Update'}
         </button>
       </form>
@@ -194,6 +214,12 @@ export default function BookDetail() {
                 <dd className="text-neutral-300">
                   {Math.floor(book.duration_minutes / 60)}h {book.duration_minutes % 60}m
                 </dd>
+              </div>
+            )}
+            {book.narrator && (
+              <div className="flex gap-2">
+                <dt className="text-neutral-500 w-24 flex-shrink-0">Narrator</dt>
+                <dd className="text-neutral-300">{book.narrator}</dd>
               </div>
             )}
             {book.publisher && (

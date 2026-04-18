@@ -27,6 +27,7 @@ const EMPTY = {
   page_count: '',
   current_page: '',
   duration_minutes: '',
+  narrator: '',
   description: '',
   notes: '',
   tags: [],
@@ -104,6 +105,7 @@ export default function BookForm() {
   const [pastAuthors, setPastAuthors] = useState([]);
   const [pastPublishers, setPastPublishers] = useState([]);
   const [pastSeries, setPastSeries] = useState([]);
+  const [pastNarrators, setPastNarrators] = useState([]);
   const [pastRooms, setPastRooms] = useState([]);
   const [pastUnits, setPastUnits] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -117,6 +119,7 @@ export default function BookForm() {
       setPastAuthors([...new Set(books.map(b => b.author).filter(Boolean))].sort());
       setPastPublishers([...new Set(books.map(b => b.publisher).filter(Boolean))].sort());
       setPastSeries([...new Set(books.map(b => b.series).filter(Boolean))].sort());
+      setPastNarrators([...new Set(books.map(b => b.narrator).filter(Boolean))].sort());
       setPastRooms([...new Set(books.map(b => b.shelf_room).filter(Boolean))].sort());
       setPastUnits([...new Set(books.map(b => b.shelf_unit).filter(Boolean))].sort());
     });
@@ -150,6 +153,7 @@ export default function BookForm() {
         page_count: book.page_count ?? '',
         current_page: book.current_page ?? '',
         duration_minutes: book.duration_minutes ?? '',
+        narrator: book.narrator || '',
         notes: book.notes || '',
         tags: book.tags?.map((t) => t.name) || [],
         cover_path: book.cover_path || null,
@@ -458,12 +462,23 @@ export default function BookForm() {
                 )}
 
                 {form.format === 'audiobook' && (
-                  <div>
-                    <label className={label}>Duration (minutes)</label>
-                    <input type="number" min="1" max="99999" className={input}
-                      value={form.duration_minutes} onChange={(e) => set('duration_minutes', e.target.value)}
-                      placeholder="e.g. 680" />
-                  </div>
+                  <>
+                    <div>
+                      <label className={label}>Duration (minutes)</label>
+                      <input type="number" min="1" max="99999" className={input}
+                        value={form.duration_minutes} onChange={(e) => set('duration_minutes', e.target.value)}
+                        placeholder="e.g. 680" />
+                    </div>
+                    <div>
+                      <label className={label}>Narrator</label>
+                      <input className={input} list="narrators-list" value={form.narrator}
+                        onChange={(e) => set('narrator', e.target.value)}
+                        placeholder="e.g. Stephen Fry" />
+                      <datalist id="narrators-list">
+                        {pastNarrators.map(n => <option key={n} value={n} />)}
+                      </datalist>
+                    </div>
+                  </>
                 )}
               </div>
             )}
