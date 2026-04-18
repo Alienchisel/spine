@@ -3,11 +3,12 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../api.js';
 import StarRating from '../components/StarRating.jsx';
 
-const STATUS_LABEL = { reading: 'Reading', finished: 'Finished', unread: 'Unread' };
+const STATUS_LABEL = { reading: 'Reading', paused: 'Paused', finished: 'Finished', unread: 'Unread' };
 const STATUS_COLOR = {
-  reading: 'text-parchment bg-oak/30',
+  reading:  'text-parchment bg-oak/30',
+  paused:   'text-neutral-300 bg-neutral-800',
   finished: 'text-leather bg-binding/30',
-  unread: 'text-neutral-400 bg-neutral-800',
+  unread:   'text-neutral-400 bg-neutral-800',
 };
 
 function ProgressSection({ book, onChange }) {
@@ -165,7 +166,7 @@ export default function BookDetail() {
             {book.rating && <StarRating value={book.rating} readOnly />}
           </div>
 
-          {book.status === 'reading' && (
+          {(book.status === 'reading' || book.status === 'paused') && (
             <ProgressSection book={book} onChange={setBook} />
           )}
 

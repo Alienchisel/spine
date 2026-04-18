@@ -3,9 +3,10 @@ import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 
 const STATUS_BAR = {
-  reading: 'bg-oak',
+  reading:  'bg-oak',
+  paused:   'bg-neutral-500',
   finished: 'bg-leather',
-  unread: 'bg-neutral-600',
+  unread:   'bg-neutral-600',
 };
 
 function getModeKey(bookId) {
@@ -106,7 +107,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
               {'★'.repeat(book.rating)}
             </div>
           )}
-          {book.status === 'reading' && pct !== null ? (
+          {(book.status === 'reading' || book.status === 'paused') && pct !== null ? (
             <div className="absolute bottom-0 left-0 right-0 h-1 bg-neutral-700">
               <div className="h-full bg-oak transition-all duration-300" style={{ width: `${pct}%` }} />
             </div>
@@ -123,7 +124,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
         )}
       </Link>
 
-      {book.status === 'reading' && (
+      {(book.status === 'reading' || book.status === 'paused') && (
         <div className="mt-1.5">
           <button
             onClick={openEditor}

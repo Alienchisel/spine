@@ -6,6 +6,7 @@ import FilterPanel from '../components/FilterPanel.jsx';
 
 const TABS = [
   { key: 'reading',  label: 'Reading' },
+  { key: 'paused',   label: 'Paused' },
   { key: 'finished', label: 'Finished' },
   { key: 'unread',   label: 'Unread' },
   { key: 'all',      label: 'All' },
