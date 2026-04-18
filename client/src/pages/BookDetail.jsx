@@ -157,6 +157,11 @@ export default function BookDetail() {
                 Owned
               </span>
             )}
+            {Boolean(book.is_custom) && (
+              <span className="text-xs font-medium px-2.5 py-1 rounded-full text-leather bg-neutral-800">
+                ✦ Custom
+              </span>
+            )}
             {book.rating && <StarRating value={book.rating} readOnly />}
           </div>
 

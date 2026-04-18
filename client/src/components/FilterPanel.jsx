@@ -46,6 +46,10 @@ export default function FilterPanel({ allBooks, filters, onChange }) {
     onChange({ ...filters, owned: filters.owned === val ? null : val });
   }
 
+  function toggleCustom(val) {
+    onChange({ ...filters, custom: filters.custom === val ? null : val });
+  }
+
   const formats = ['physical', 'ebook', 'audiobook'].filter(f => allBooks.some(b => b.format === f));
   const hasEmptyFormat = allBooks.some(b => !b.format);
 
@@ -148,6 +152,13 @@ export default function FilterPanel({ allBooks, filters, onChange }) {
           className={pill(filters.owned === true)}>Owned</button>
         <button type="button" onClick={() => toggleOwned(false)}
           className={pill(filters.owned === false)}>Not owned</button>
+      </FilterSection>
+
+      <FilterSection label="Type">
+        <button type="button" onClick={() => toggleCustom(true)}
+          className={pill(filters.custom === true)}>✦ Custom</button>
+        <button type="button" onClick={() => toggleCustom(false)}
+          className={pill(filters.custom === false)}>Standard</button>
       </FilterSection>
     </div>
   );

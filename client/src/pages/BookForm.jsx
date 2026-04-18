@@ -9,6 +9,7 @@ const EMPTY = {
   author: '',
   status: 'unread',
   owned: false,
+  is_custom: false,
   rating: null,
   date_started: '',
   date_finished: '',
@@ -79,6 +80,7 @@ export default function BookForm() {
         author: book.author || '',
         status: book.status,
         owned: Boolean(book.owned),
+        is_custom: Boolean(book.is_custom),
         rating: book.rating ?? null,
         date_started: book.date_started || '',
         date_finished: book.date_finished || '',
@@ -365,7 +367,7 @@ export default function BookForm() {
         )}
 
         {/* Owned */}
-        <div>
+        <div className="space-y-2.5">
           <label className="flex items-center gap-3 cursor-pointer select-none">
             <input
               type="checkbox"
@@ -374,6 +376,18 @@ export default function BookForm() {
               className="w-4 h-4 rounded border-neutral-700 bg-neutral-900 text-oak focus:ring-0 focus:ring-offset-0"
             />
             <span className="text-sm text-neutral-300">I own this book</span>
+          </label>
+          <label className="flex items-center gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={form.is_custom}
+              onChange={(e) => set('is_custom', e.target.checked)}
+              className="w-4 h-4 rounded border-neutral-700 bg-neutral-900 text-oak focus:ring-0 focus:ring-offset-0"
+            />
+            <span className="text-sm text-neutral-300">
+              Custom collection
+              <span className="text-neutral-600 ml-1.5">— assembled by me, not commercially published</span>
+            </span>
           </label>
         </div>
 

@@ -26,12 +26,13 @@ const EMPTY_FILTERS = {
   series:     [],
   tags:       [],
   owned:      null,
+  custom:     null,
 };
 
 function countFilters(f) {
   return f.missing.length + f.formats.length + f.ratings.length +
     f.publishers.length + f.series.length + f.tags.length +
-    (f.owned !== null ? 1 : 0);
+    (f.owned !== null ? 1 : 0) + (f.custom !== null ? 1 : 0);
 }
 
 function FilterIcon() {
@@ -85,6 +86,8 @@ export default function Library() {
     if (filters.tags.length > 0 && !filters.tags.some(t => b.tags?.some(bt => bt.name === t))) return false;
     if (filters.owned === true  && !b.owned) return false;
     if (filters.owned === false &&  b.owned) return false;
+    if (filters.custom === true  && !b.is_custom) return false;
+    if (filters.custom === false &&  b.is_custom) return false;
 
     return true;
   });

@@ -96,6 +96,11 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
               <span className="text-xs text-neutral-400 font-medium leading-tight line-clamp-4">{book.title}</span>
             </div>
           )}
+          {Boolean(book.is_custom) && (
+            <div className="absolute top-1.5 left-1.5 bg-black/75 text-leather text-xs font-bold px-1.5 py-0.5 rounded backdrop-blur-sm leading-none">
+              ✦
+            </div>
+          )}
           {book.rating && (
             <div className="absolute top-1.5 right-1.5 bg-black/75 text-amber-400 text-xs font-bold px-1.5 py-0.5 rounded backdrop-blur-sm">
               {'★'.repeat(book.rating)}

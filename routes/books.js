@@ -89,18 +89,19 @@ router.get('/:id', (req, res) => {
 });
 
 router.post('/', (req, res) => {
-  const { title, author, status, owned, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, isbn_10, isbn_13, shelf_room, shelf_unit, shelf_number, tags } = req.body;
+  const { title, author, status, owned, is_custom, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, isbn_10, isbn_13, shelf_room, shelf_unit, shelf_number, tags } = req.body;
   const errors = validateBook(req.body);
   if (errors.length) return res.status(400).json({ error: errors[0] });
 
   const result = db.prepare(`
-    INSERT INTO books (title, author, status, owned, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, isbn_10, isbn_13, shelf_room, shelf_unit, shelf_number)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO books (title, author, status, owned, is_custom, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, isbn_10, isbn_13, shelf_room, shelf_unit, shelf_number)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     title.trim(),
     author || null,
     status || 'unread',
     owned ? 1 : 0,
+    is_custom ? 1 : 0,
     cover_path || null,
     rating || null,
     date_started || null,
@@ -132,13 +133,13 @@ router.put('/:id', (req, res) => {
   const existing = db.prepare('SELECT cover_path FROM books WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ error: 'Not found' });
 
-  const { title, author, status, owned, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, isbn_10, isbn_13, shelf_room, shelf_unit, shelf_number, tags } = req.body;
+  const { title, author, status, owned, is_custom, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, isbn_10, isbn_13, shelf_room, shelf_unit, shelf_number, tags } = req.body;
   const errors = validateBook(req.body);
   if (errors.length) return res.status(400).json({ error: errors[0] });
 
   db.prepare(`
     UPDATE books SET
-      title = ?, author = ?, status = ?, owned = ?, cover_path = ?,
+      title = ?, author = ?, status = ?, owned = ?, is_custom = ?, cover_path = ?,
       rating = ?, date_started = ?, date_finished = ?,
       acquisition_source = ?, acquisition_date = ?,
       format = ?, binding = ?, condition = ?,
@@ -152,6 +153,7 @@ router.put('/:id', (req, res) => {
     author || null,
     status || 'unread',
     owned ? 1 : 0,
+    is_custom ? 1 : 0,
     cover_path || null,
     rating || null,
     date_started || null,
