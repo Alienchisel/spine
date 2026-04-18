@@ -103,13 +103,13 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
             </div>
           )}
           {book.rating && (
-            <div className="absolute top-1.5 right-1.5 bg-black/75 text-amber-400 text-xs font-bold px-1.5 py-0.5 rounded backdrop-blur-sm">
+            <div className="absolute top-1.5 right-1.5 bg-black/75 text-oak text-xs font-bold px-1.5 py-0.5 rounded backdrop-blur-sm">
               {'★'.repeat(book.rating)}
             </div>
           )}
           {(book.status === 'reading' || book.status === 'paused') && pct !== null ? (
             <div className="absolute bottom-0 left-0 right-0 h-1 bg-neutral-700">
-              <div className="h-full bg-oak transition-all duration-300" style={{ width: `${pct}%` }} />
+              <div className={`h-full transition-all duration-300 ${book.status === 'paused' ? 'bg-neutral-500' : 'bg-oak'}`} style={{ width: `${pct}%` }} />
             </div>
           ) : (
             <div className={`absolute bottom-0 left-0 right-0 h-0.5 ${STATUS_BAR[book.status]}`} />
