@@ -507,7 +507,10 @@ export default function BookForm() {
                 </div>
 
                 <div>
-                  <label className={label}>Description</label>
+                  <div className="flex items-baseline justify-between mb-1.5">
+                    <label className={label} style={{marginBottom:0}}>Description</label>
+                    <span className="text-xs text-neutral-600">Markdown supported</span>
+                  </div>
                   <textarea className={`${input} resize-none`} rows={6}
                     value={form.description} onChange={(e) => set('description', e.target.value)}
                     placeholder="Back-cover description…" />
@@ -623,7 +626,10 @@ export default function BookForm() {
                 </div>
 
                 <div>
-                  <label className={label}>Notes</label>
+                  <div className="flex items-baseline justify-between mb-1.5">
+                    <label className={label} style={{marginBottom:0}}>Notes</label>
+                    <span className="text-xs text-neutral-600">Markdown supported</span>
+                  </div>
                   <textarea className={`${input} resize-none`} rows={6}
                     value={form.notes} onChange={(e) => set('notes', e.target.value)}
                     placeholder="Your thoughts…" />

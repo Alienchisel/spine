@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import ReactMarkdown from 'react-markdown';
 import { api } from '../api.js';
 import StarRating from '../components/StarRating.jsx';
 
@@ -264,14 +265,20 @@ export default function BookDetail() {
           {book.description && (
             <div className="border-t border-neutral-800 pt-5 mb-5">
               <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">Description</p>
-              <p className="text-neutral-400 text-sm leading-relaxed whitespace-pre-wrap">{book.description}</p>
+              <div className="text-neutral-400 text-sm leading-relaxed prose-sm prose-invert prose-neutral max-w-none
+                [&_strong]:text-neutral-300 [&_em]:text-neutral-400 [&_p]:mb-2 [&_p:last-child]:mb-0">
+                <ReactMarkdown>{book.description}</ReactMarkdown>
+              </div>
             </div>
           )}
 
           {book.notes && (
             <div className={book.description ? '' : 'border-t border-neutral-800 pt-5'}>
               <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">Notes</p>
-              <p className="text-neutral-400 text-sm leading-relaxed whitespace-pre-wrap">{book.notes}</p>
+              <div className="text-neutral-400 text-sm leading-relaxed prose-sm prose-invert prose-neutral max-w-none
+                [&_strong]:text-neutral-300 [&_em]:text-neutral-400 [&_p]:mb-2 [&_p:last-child]:mb-0">
+                <ReactMarkdown>{book.notes}</ReactMarkdown>
+              </div>
             </div>
           )}
 
