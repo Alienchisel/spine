@@ -113,6 +113,8 @@ export default function BookForm() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
+  const [durationH, setDurationH] = useState('');
+  const [durationM, setDurationM] = useState('');
   const searchTimeout = useRef(null);
 
   useEffect(() => {
@@ -162,6 +164,10 @@ export default function BookForm() {
         tags: book.tags?.map((t) => t.name) || [],
         cover_path: book.cover_path || null,
       });
+      if (book.duration_minutes) {
+        setDurationH(String(Math.floor(book.duration_minutes / 60)));
+        setDurationM(String(book.duration_minutes % 60));
+      }
       if (book.cover_path) setCoverPreview(book.cover_path);
     });
   }, [id, isEdit]);
@@ -369,6 +375,7 @@ export default function BookForm() {
                         page_count: f === 'audiobook' ? '' : prev.page_count,
                         duration_minutes: f !== 'audiobook' ? '' : prev.duration_minutes,
                       }));
+                      if (f !== 'audiobook') { setDurationH(''); setDurationM(''); }
                     }}>
                     <option value="">—</option>
                     <option value="physical">Physical</option>
@@ -473,10 +480,35 @@ export default function BookForm() {
                 {form.format === 'audiobook' && (
                   <>
                     <div>
-                      <label className={label}>Duration (minutes)</label>
-                      <input type="number" min="1" max="99999" className={input}
-                        value={form.duration_minutes} onChange={(e) => set('duration_minutes', e.target.value)}
-                        placeholder="e.g. 680" />
+                      <label className={label}>Duration</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number" min="0" max="999"
+                          className={`${input} flex-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+                          value={durationH}
+                          onChange={(e) => {
+                            const h = e.target.value;
+                            setDurationH(h);
+                            const total = (parseInt(h) || 0) * 60 + (parseInt(durationM) || 0);
+                            set('duration_minutes', h === '' && durationM === '' ? '' : total);
+                          }}
+                          placeholder="0"
+                        />
+                        <span className="text-neutral-500 text-sm flex-shrink-0">h</span>
+                        <input
+                          type="number" min="0" max="59"
+                          className={`${input} w-20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+                          value={durationM}
+                          onChange={(e) => {
+                            const m = e.target.value;
+                            setDurationM(m);
+                            const total = (parseInt(durationH) || 0) * 60 + (parseInt(m) || 0);
+                            set('duration_minutes', durationH === '' && m === '' ? '' : total);
+                          }}
+                          placeholder="0"
+                        />
+                        <span className="text-neutral-500 text-sm flex-shrink-0">m</span>
+                      </div>
                     </div>
                     <div>
                       <label className={label}>Narrator</label>
