@@ -5,8 +5,8 @@ import StarRating from '../components/StarRating.jsx';
 
 const STATUS_LABEL = { reading: 'Reading', finished: 'Finished', unread: 'Unread' };
 const STATUS_COLOR = {
-  reading: 'text-emerald-400 bg-emerald-950/60',
-  finished: 'text-sky-400 bg-sky-950/60',
+  reading: 'text-parchment bg-oak/30',
+  finished: 'text-leather bg-binding/30',
   unread: 'text-neutral-400 bg-neutral-800',
 };
 
@@ -57,7 +57,7 @@ function ProgressSection({ book, onChange }) {
 
       <div className="h-2 bg-neutral-800 rounded-full overflow-hidden mb-2">
         <div
-          className="h-full bg-emerald-500 rounded-full transition-all duration-300"
+          className="h-full bg-oak rounded-full transition-all duration-300"
           style={{ width: `${pct ?? 0}%` }}
         />
       </div>
@@ -91,7 +91,7 @@ function ProgressSection({ book, onChange }) {
         <button
           type="submit"
           disabled={saving || inputVal === ''}
-          className="text-sm bg-emerald-800 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-default text-white px-4 py-1.5 rounded transition-colors"
+          className="text-sm bg-binding hover:bg-binding/80 disabled:opacity-40 disabled:cursor-default text-parchment px-4 py-1.5 rounded transition-colors"
         >
           {saving ? 'Saving…' : 'Update'}
         </button>
@@ -153,7 +153,7 @@ export default function BookDetail() {
               {STATUS_LABEL[book.status]}
             </span>
             {Boolean(book.owned) && (
-              <span className="text-xs font-medium px-2.5 py-1 rounded-full text-amber-400 bg-amber-950/50">
+              <span className="text-xs font-medium px-2.5 py-1 rounded-full text-parchment bg-binding/60">
                 Owned
               </span>
             )}

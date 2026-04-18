@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 
 const STATUS_BAR = {
-  reading: 'bg-emerald-500',
-  finished: 'bg-sky-500',
+  reading: 'bg-oak',
+  finished: 'bg-leather',
   unread: 'bg-neutral-600',
 };
 
@@ -103,7 +103,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
           )}
           {book.status === 'reading' && pct !== null ? (
             <div className="absolute bottom-0 left-0 right-0 h-1 bg-neutral-700">
-              <div className="h-full bg-emerald-500 transition-all duration-300" style={{ width: `${pct}%` }} />
+              <div className="h-full bg-oak transition-all duration-300" style={{ width: `${pct}%` }} />
             </div>
           ) : (
             <div className={`absolute bottom-0 left-0 right-0 h-0.5 ${STATUS_BAR[book.status]}`} />
@@ -146,12 +146,12 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
                 value={inputVal}
                 onChange={(e) => setInputVal(e.target.value)}
                 placeholder={mode === 'pct' ? '0–100' : 'page #'}
-                className="flex-1 min-w-0 bg-neutral-800 border border-neutral-700 text-white text-xs rounded px-2 py-1 focus:outline-none focus:border-neutral-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                className="flex-1 min-w-0 bg-neutral-800 border border-neutral-700 text-parchment text-xs rounded px-2 py-1 focus:outline-none focus:border-leather [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
               <button
                 type="submit"
                 disabled={saving || inputVal === ''}
-                className="text-xs bg-emerald-800 hover:bg-emerald-700 disabled:opacity-40 text-white px-2 py-1 rounded transition-colors"
+                className="text-xs bg-binding hover:bg-binding/80 disabled:opacity-40 text-parchment px-2 py-1 rounded transition-colors"
               >
                 {saving ? '…' : '✓'}
               </button>

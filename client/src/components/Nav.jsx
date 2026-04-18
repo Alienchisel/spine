@@ -6,7 +6,7 @@ export default function Nav() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
         <Link
           to="/"
-          className="font-slab text-xl tracking-wider text-stone-100 hover:text-amber-400 transition-colors uppercase"
+          className="font-slab text-xl tracking-wider text-parchment hover:text-leather transition-colors uppercase"
         >
           Spine
         </Link>
