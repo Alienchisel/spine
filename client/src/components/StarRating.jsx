@@ -8,8 +8,8 @@ export default function StarRating({ value, onChange, readOnly = false }) {
           disabled={readOnly}
           onClick={() => !readOnly && onChange(n === value ? null : n)}
           className={`text-2xl leading-none transition-colors ${
-            n <= (value || 0) ? 'text-amber-400' : 'text-neutral-700'
-          } ${readOnly ? 'cursor-default' : 'hover:text-amber-500 cursor-pointer'}`}
+            n <= (value || 0) ? 'text-oak' : 'text-neutral-700'
+          } ${readOnly ? 'cursor-default' : 'hover:text-leather cursor-pointer'}`}
         >
           ★
         </button>

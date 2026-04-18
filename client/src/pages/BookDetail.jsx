@@ -278,7 +278,7 @@ export default function BookDetail() {
             </Link>
             <button
               onClick={handleDelete}
-              className="text-sm text-neutral-600 hover:text-red-400 px-4 py-2 rounded transition-colors"
+              className="text-sm text-neutral-600 hover:text-warn px-4 py-2 rounded transition-colors"
             >
               Delete
             </button>

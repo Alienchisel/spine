@@ -36,6 +36,7 @@ export default {
           light:   '#6b1422',
         },
         binding:   '#532c2e',
+        warn:      '#c4695a',
       },
     },
   },

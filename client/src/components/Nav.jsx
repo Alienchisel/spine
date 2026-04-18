@@ -12,7 +12,7 @@ export default function Nav() {
         </Link>
         <Link
           to="/books/new"
-          className="text-sm font-medium bg-amber-500 hover:bg-amber-400 text-black px-4 py-1.5 rounded-full transition-colors"
+          className="text-sm font-medium bg-oak hover:bg-leather text-neutral-950 px-4 py-1.5 rounded-full transition-colors"
         >
           + Add book
         </Link>

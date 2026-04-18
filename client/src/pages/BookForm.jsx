@@ -371,7 +371,7 @@ export default function BookForm() {
               type="checkbox"
               checked={form.owned}
               onChange={(e) => set('owned', e.target.checked)}
-              className="w-4 h-4 rounded border-neutral-700 bg-neutral-900 text-amber-500 focus:ring-0 focus:ring-offset-0"
+              className="w-4 h-4 rounded border-neutral-700 bg-neutral-900 text-oak focus:ring-0 focus:ring-offset-0"
             />
             <span className="text-sm text-neutral-300">I own this book</span>
           </label>
@@ -671,24 +671,24 @@ export default function BookForm() {
           />
         </div>
 
-        {error && <p className="text-sm text-red-400">{error}</p>}
+        {error && <p className="text-sm text-warn">{error}</p>}
 
         <button
           type="submit"
           disabled={saving || uploading}
-          className="w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-black font-semibold py-3 rounded-md transition-colors"
+          className="w-full bg-oak hover:bg-leather disabled:opacity-40 text-neutral-950 font-semibold py-3 rounded-md transition-colors"
         >
           {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add to library'}
         </button>
       </form>
 
       <div className="fixed bottom-0 left-0 right-0 bg-neutral-950/90 backdrop-blur border-t border-neutral-800 px-4 py-3 flex items-center justify-between gap-4">
-        {error && <p className="text-sm text-red-400 truncate">{error}</p>}
+        {error && <p className="text-sm text-warn truncate">{error}</p>}
         <button
           form="book-form"
           type="submit"
           disabled={saving || uploading}
-          className="ml-auto bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-black font-semibold px-6 py-2 rounded-md transition-colors text-sm"
+          className="ml-auto bg-oak hover:bg-leather disabled:opacity-40 text-neutral-950 font-semibold px-6 py-2 rounded-md transition-colors text-sm"
         >
           {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add to library'}
         </button>

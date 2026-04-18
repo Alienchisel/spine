@@ -120,7 +120,7 @@ export default function Library() {
           ) : (
             <>
               <p className="text-neutral-600 mb-3">Nothing here yet.</p>
-              <Link to="/books/new" className="text-sm text-amber-500 hover:text-amber-400">
+              <Link to="/books/new" className="text-sm text-oak hover:text-leather">
                 Add your first book →
               </Link>
             </>
