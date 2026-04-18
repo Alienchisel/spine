@@ -2,53 +2,83 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import BookCard from '../components/BookCard.jsx';
+import FilterPanel from '../components/FilterPanel.jsx';
 
 const TABS = [
-  { key: 'reading', label: 'Reading' },
+  { key: 'reading',  label: 'Reading' },
   { key: 'finished', label: 'Finished' },
-  { key: 'unread', label: 'Unread' },
-  { key: 'all', label: 'All' },
+  { key: 'unread',   label: 'Unread' },
+  { key: 'all',      label: 'All' },
 ];
 
-const FORMATS = [
-  { key: 'physical', label: 'Physical' },
-  { key: 'ebook', label: 'E-book' },
-  { key: 'audiobook', label: 'Audiobook' },
-];
+const EMPTY_FILTERS = {
+  missing:    [],
+  formats:    [],
+  ratings:    [],
+  publishers: [],
+  series:     [],
+  tags:       [],
+  owned:      null,
+};
+
+function countFilters(f) {
+  return f.missing.length + f.formats.length + f.ratings.length +
+    f.publishers.length + f.series.length + f.tags.length +
+    (f.owned !== null ? 1 : 0);
+}
+
+function FilterIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
+      <path fillRule="evenodd" d="M2 4a.75.75 0 0 1 .75-.75h10.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 4ZM4 8a.75.75 0 0 1 .75-.75h6.5a.75.75 0 0 1 0 1.5h-6.5A.75.75 0 0 1 4 8Zm2.75 3.25a.75.75 0 0 0 0 1.5h2.5a.75.75 0 0 0 0-1.5h-2.5Z" clipRule="evenodd" />
+    </svg>
+  );
+}
 
 export default function Library() {
   const [tab, setTab] = useState('reading');
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
-  const [formats, setFormats] = useState([]);
-  const [ownedOnly, setOwnedOnly] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filters, setFilters] = useState(EMPTY_FILTERS);
 
   useEffect(() => {
     setLoading(true);
     api.getBooks(tab === 'all' ? null : tab).then(setBooks).finally(() => setLoading(false));
   }, [tab]);
 
-  function toggleFormat(key) {
-    setFormats(f => f.includes(key) ? f.filter(k => k !== key) : [...f, key]);
-  }
+  const activeCount = countFilters(filters);
 
   const filtered = books.filter(b => {
     if (query.trim() && !(
       b.title.toLowerCase().includes(query.toLowerCase()) ||
       (b.author && b.author.toLowerCase().includes(query.toLowerCase()))
     )) return false;
-    if (formats.length > 0 && b.format && !formats.includes(b.format)) return false;
-    if (ownedOnly && !b.owned) return false;
+
+    if (filters.missing.includes('cover')     && b.cover_path)            return false;
+    if (filters.missing.includes('author')    && b.author)                return false;
+    if (filters.missing.includes('format')    && b.format)                return false;
+    if (filters.missing.includes('isbn')      && (b.isbn_10 || b.isbn_13)) return false;
+    if (filters.missing.includes('publisher') && b.publisher)             return false;
+    if (filters.missing.includes('series')    && b.series)                return false;
+    if (filters.missing.includes('rating')    && b.rating)                return false;
+
+    if (filters.formats.length    > 0 && !filters.formats.includes(b.format    || 'empty')) return false;
+    if (filters.ratings.length    > 0 && !filters.ratings.includes(b.rating    || 'empty')) return false;
+    if (filters.publishers.length > 0 && !filters.publishers.includes(b.publisher || 'empty')) return false;
+    if (filters.series.length     > 0 && !filters.series.includes(b.series     || 'empty')) return false;
+    if (filters.tags.length > 0 && !filters.tags.some(t => b.tags?.some(bt => bt.name === t))) return false;
+    if (filters.owned === true  && !b.owned) return false;
+    if (filters.owned === false &&  b.owned) return false;
+
     return true;
   });
-
-  const hasActiveFilters = formats.length > 0 || ownedOnly;
 
   return (
     <div>
       <div className="flex flex-col gap-3 mb-8">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex gap-1 bg-neutral-900 p-1 rounded-lg w-fit">
             {TABS.map((t) => (
               <button
@@ -65,57 +95,51 @@ export default function Library() {
             ))}
           </div>
 
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by title or author…"
-            className="bg-neutral-800 border border-leather/30 rounded-lg px-4 py-2 text-sm text-parchment placeholder-neutral-500 focus:outline-none focus:border-leather/70 focus:ring-1 focus:ring-oak/25 transition-colors duration-150 w-full sm:w-64"
-          />
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          {FORMATS.map(f => (
+          <div className="flex items-center gap-2 sm:ml-auto">
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by title or author…"
+              className="bg-neutral-800 border border-leather/30 rounded-lg px-4 py-2 text-sm text-parchment placeholder-neutral-500 focus:outline-none focus:border-leather/70 focus:ring-1 focus:ring-oak/25 transition-colors duration-150 w-full sm:w-56"
+            />
             <button
-              key={f.key}
-              onClick={() => toggleFormat(f.key)}
-              className={`text-xs px-3 py-1.5 rounded-full border transition-[transform,background-color,color,border-color] ease-out duration-150 active:scale-[0.98] ${
-                formats.includes(f.key)
-                  ? 'bg-binding/50 text-parchment border-binding/70'
-                  : 'border-leather/30 text-leather/80 hover:bg-binding/20 hover:text-parchment hover:border-leather/50'
+              onClick={() => setFiltersOpen(o => !o)}
+              className={`flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg whitespace-nowrap transition-[transform,background-color,color] ease-out duration-150 active:scale-[0.98] ${
+                filtersOpen || activeCount > 0
+                  ? 'bg-binding/25 text-parchment'
+                  : 'bg-neutral-800 text-neutral-400 hover:text-neutral-200'
               }`}
             >
-              {f.label}
+              <FilterIcon />
+              Filters
+              {activeCount > 0 && (
+                <span className="bg-oak text-neutral-950 text-xs font-bold w-4 h-4 flex items-center justify-center rounded-full leading-none ml-0.5">
+                  {activeCount}
+                </span>
+              )}
             </button>
-          ))}
-
-          <button
-            onClick={() => setOwnedOnly(o => !o)}
-            className={`text-xs px-3 py-1.5 rounded-full border transition-[transform,background-color,color,border-color] ease-out duration-150 active:scale-[0.98] ${
-              ownedOnly
-                ? 'bg-binding/50 text-parchment border-binding/70'
-                : 'border-leather/30 text-leather/80 hover:bg-binding/20 hover:text-parchment hover:border-leather/50'
-            }`}
-          >
-            Owned
-          </button>
-
-          {hasActiveFilters && (
-            <button
-              onClick={() => { setFormats([]); setOwnedOnly(false); }}
-              className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors ml-1"
-            >
-              Clear filters
-            </button>
-          )}
+            {activeCount > 0 && (
+              <button
+                onClick={() => setFilters(EMPTY_FILTERS)}
+                className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors whitespace-nowrap"
+              >
+                Clear all
+              </button>
+            )}
+          </div>
         </div>
+
+        {filtersOpen && (
+          <FilterPanel allBooks={books} filters={filters} onChange={setFilters} />
+        )}
       </div>
 
       {loading ? (
         <div className="text-neutral-700 text-sm">Loading…</div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-32">
-          {query || hasActiveFilters ? (
+          {query || activeCount > 0 ? (
             <p className="text-neutral-600">No books match the current filters.</p>
           ) : (
             <>
