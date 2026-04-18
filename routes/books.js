@@ -1,5 +1,16 @@
 import express from 'express';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import db from '../db.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+function deleteLocalCover(coverPath) {
+  if (!coverPath?.startsWith('/uploads/')) return;
+  const abs = path.join(__dirname, '..', coverPath);
+  fs.unlink(abs, () => {});
+}
 
 const router = express.Router();
 
@@ -113,9 +124,8 @@ router.post('/', (req, res) => {
 
 router.put('/:id', (req, res) => {
   const id = parseInt(req.params.id);
-  if (!db.prepare('SELECT id FROM books WHERE id = ?').get(id)) {
-    return res.status(404).json({ error: 'Not found' });
-  }
+  const existing = db.prepare('SELECT cover_path FROM books WHERE id = ?').get(id);
+  if (!existing) return res.status(404).json({ error: 'Not found' });
 
   const { title, author, status, owned, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, tags } = req.body;
   const errors = validateBook(req.body);
@@ -154,6 +164,7 @@ router.put('/:id', (req, res) => {
     id
   );
 
+  if (existing.cover_path !== (cover_path || null)) deleteLocalCover(existing.cover_path);
   if (tags !== undefined) syncTags(id, tags);
   res.json(getBookWithTags(id));
 });
@@ -175,8 +186,11 @@ router.patch('/:id', (req, res) => {
 });
 
 router.delete('/:id', (req, res) => {
-  const result = db.prepare('DELETE FROM books WHERE id = ?').run(parseInt(req.params.id));
-  if (result.changes === 0) return res.status(404).json({ error: 'Not found' });
+  const id = parseInt(req.params.id);
+  const book = db.prepare('SELECT cover_path FROM books WHERE id = ?').get(id);
+  if (!book) return res.status(404).json({ error: 'Not found' });
+  db.prepare('DELETE FROM books WHERE id = ?').run(id);
+  deleteLocalCover(book.cover_path);
   res.status(204).send();
 });
 
