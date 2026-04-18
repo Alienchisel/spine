@@ -490,7 +490,7 @@ export default function BookForm() {
                   <label className={label}>Publisher</label>
                   <input className={input} list="publishers-list" value={form.publisher}
                     onChange={(e) => set('publisher', e.target.value)}
-                    placeholder="e.g. Penguin, Tor, Faber…" />
+                    placeholder="e.g. Penguin, Tor, Picador…" />
                   <datalist id="publishers-list">
                     {pastPublishers.map(p => <option key={p} value={p} />)}
                   </datalist>
