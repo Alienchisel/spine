@@ -3,8 +3,35 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    /* ── Depth layers (role-based) ─────────────────────────────
+       Tweak these to shift the entire depth system at once.     */
+    --bg-base:       8   14  13;   /* #080e0d  page background  */
+    --bg-deep:       15  31  29;   /* #0f1f1d  recessed/inputs  */
+    --bg-surface:    23  46  43;   /* #172e2b  general surfaces */
+    --bg-manuscript: 30  66  63;   /* #1e423f  Manuscript green */
+    --bg-elev-1:     26  51  48;   /* #1a3330  card layer       */
+    --bg-elev-2:     36  74  70;   /* #244a46  hover/active     */
+
+    /* ── Palette tokens ─────────────────────────────────────── */
+    --color-parchment:     246 242 234;   /* #f6f2ea */
+    --color-leather:       194 155 135;   /* #c29b87 */
+    --color-oak:           169 121 84;    /* #a97954 */
+    --color-binding:       83  44  46;    /* #532c2e */
+    --color-crimson:       52  0   11;    /* #34000b */
+    --color-crimson-light: 107 20  34;    /* #6b1422 */
+    --color-warn:          196 105 90;    /* #c4695a */
+
+    /* ── Neutral mid-tones ───────────────────────────────────── */
+    --neutral-600: 122 99  85;    /* #7a6355 */
+    --neutral-500: 154 128 112;   /* #9a8070 */
+    --neutral-300: 212 180 160;   /* #d4b4a0 */
+    --neutral-200: 226 203 191;   /* #e2cbbf */
+    --neutral-100: 237 229 219;   /* #ede5db */
+  }
+
   body {
-    @apply bg-neutral-950 text-neutral-100 antialiased;
+    @apply bg-base text-parchment antialiased;
   }
 
   input[type='date']::-webkit-calendar-picker-indicator {
