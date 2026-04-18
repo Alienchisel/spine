@@ -209,6 +209,12 @@ export default function BookDetail() {
                 </dd>
               </div>
             )}
+            {(book.isbn_13 || book.isbn_10) && (
+              <div className="flex gap-2">
+                <dt className="text-neutral-500 w-24 flex-shrink-0">ISBN</dt>
+                <dd className="text-neutral-300">{book.isbn_13 || book.isbn_10}</dd>
+              </div>
+            )}
             {(book.acquisition_source || book.acquisition_date) && (
               <div className="flex gap-2">
                 <dt className="text-neutral-500 w-24 flex-shrink-0">Acquired</dt>

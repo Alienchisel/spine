@@ -16,6 +16,8 @@ const EMPTY = {
   series: '',
   acquisition_source: '',
   acquisition_date: '',
+  isbn_10: '',
+  isbn_13: '',
   format: '',
   binding: '',
   condition: '',
@@ -75,6 +77,8 @@ export default function BookForm() {
         series: book.series || '',
         acquisition_source: book.acquisition_source || '',
         acquisition_date: book.acquisition_date || '',
+        isbn_10: book.isbn_10 || '',
+        isbn_13: book.isbn_13 || '',
         description: book.description || '',
         format: book.format || '',
         binding: book.binding || '',
@@ -118,6 +122,8 @@ export default function BookForm() {
       author: result.author || f.author,
       publisher: result.publisher || f.publisher,
       page_count: result.page_count || f.page_count,
+      isbn_10: result.isbn_10 || f.isbn_10,
+      isbn_13: result.isbn_13 || f.isbn_13,
     }));
     setSearchQuery('');
     setSearchResults([]);
@@ -398,6 +404,30 @@ export default function BookForm() {
           <datalist id="publishers-list">
             {pastPublishers.map((p) => <option key={p} value={p} />)}
           </datalist>
+        </div>
+
+        {/* ISBNs */}
+        <div className="flex gap-3">
+          <div className="flex-1">
+            <label className={label}>ISBN-10</label>
+            <input
+              className={input}
+              value={form.isbn_10}
+              onChange={(e) => set('isbn_10', e.target.value)}
+              placeholder="0000000000"
+              maxLength={10}
+            />
+          </div>
+          <div className="flex-1">
+            <label className={label}>ISBN-13</label>
+            <input
+              className={input}
+              value={form.isbn_13}
+              onChange={(e) => set('isbn_13', e.target.value)}
+              placeholder="0000000000000"
+              maxLength={13}
+            />
+          </div>
         </div>
 
         {/* Series */}

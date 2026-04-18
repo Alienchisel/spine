@@ -12,14 +12,19 @@ router.get('/', async (req, res) => {
     if (!response.ok) return res.status(502).json({ error: 'Open Library unavailable' });
 
     const data = await response.json();
-    const results = (data.docs || []).map(doc => ({
-      key: doc.key,
-      title: doc.title,
-      author: doc.author_name?.[0] || null,
-      publisher: doc.publisher?.[0] || null,
-      page_count: doc.number_of_pages_median || null,
-      cover_url: doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg` : null,
-    }));
+    const results = (data.docs || []).map(doc => {
+      const isbns = doc.isbn || [];
+      return {
+        key: doc.key,
+        title: doc.title,
+        author: doc.author_name?.[0] || null,
+        publisher: doc.publisher?.[0] || null,
+        page_count: doc.number_of_pages_median || null,
+        cover_url: doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg` : null,
+        isbn_10: isbns.find(i => i.length === 10) || null,
+        isbn_13: isbns.find(i => i.length === 13) || null,
+      };
+    });
 
     res.json(results);
   } catch {
