@@ -101,9 +101,9 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
               {'★'.repeat(book.rating)}
             </div>
           )}
-          {book.status === 'reading' ? (
+          {book.status === 'reading' && pct !== null ? (
             <div className="absolute bottom-0 left-0 right-0 h-1 bg-neutral-700">
-              <div className="h-full bg-emerald-500 transition-all duration-300" style={{ width: `${pct ?? 0}%` }} />
+              <div className="h-full bg-emerald-500 transition-all duration-300" style={{ width: `${pct}%` }} />
             </div>
           ) : (
             <div className={`absolute bottom-0 left-0 right-0 h-0.5 ${STATUS_BAR[book.status]}`} />
