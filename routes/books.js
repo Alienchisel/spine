@@ -16,7 +16,7 @@ function t(val) {
 
 function normalizeIsbn(val) {
   if (!val) return null;
-  const clean = val.replace(/[-\s]/g, '');
+  const clean = val.trim().replace(/[-\s]/g, '');
   return clean || null;
 }
 
