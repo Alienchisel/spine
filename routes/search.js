@@ -2,11 +2,17 @@ import express from 'express';
 
 const router = express.Router();
 
+function fetchWithTimeout(url, ms = 5000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
 router.get('/description', async (req, res) => {
   const { key } = req.query;
   if (!key?.startsWith('/works/')) return res.status(400).json({ error: 'Invalid key' });
   try {
-    const response = await fetch(`https://openlibrary.org${key}.json`);
+    const response = await fetchWithTimeout(`https://openlibrary.org${key}.json`);
     if (!response.ok) return res.json({ description: null });
     const data = await response.json();
     const desc = data.description;
@@ -26,7 +32,7 @@ router.get('/', async (req, res) => {
     const isIsbn = /^\d{10}(\d{3})?$/.test(stripped);
     const olQuery = isIsbn ? `isbn:${stripped}` : q;
     const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(olQuery)}&fields=key,title,author_name,number_of_pages_median,publisher,cover_i,isbn&limit=10`;
-    const response = await fetch(url);
+    const response = await fetchWithTimeout(url);
     if (!response.ok) return res.status(502).json({ error: 'Open Library unavailable' });
 
     const data = await response.json();

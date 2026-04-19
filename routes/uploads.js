@@ -53,7 +53,9 @@ router.post('/fetch', async (req, res) => {
     return res.status(400).json({ error: 'Invalid cover URL' });
   }
   try {
-    const response = await fetch(url);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    const response = await fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
     if (!response.ok) return res.status(502).json({ error: 'Failed to fetch cover' });
     const buffer = Buffer.from(await response.arrayBuffer());
     const filePath = await saveResized(buffer);
