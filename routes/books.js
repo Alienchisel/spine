@@ -8,6 +8,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const uploadsDir = path.join(__dirname, '..', 'uploads');
 
+function t(val) {
+  if (!val) return null;
+  const s = val.trim();
+  return s || null;
+}
+
 function normalizeIsbn(val) {
   if (!val) return null;
   const clean = val.replace(/[-\s]/g, '');
@@ -148,8 +154,8 @@ router.post('/', (req, res) => {
       INSERT INTO books (title, author, status, owned, is_custom, is_stub, loved, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, series_number, isbn_10, isbn_13, shelf_room, shelf_unit, shelf_number, narrator, year_published, year_edition)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      title.trim(),
-      author || null,
+      t(title),
+      t(author),
       status || 'unread',
       owned ? 1 : 0,
       is_custom ? 1 : 0,
@@ -159,24 +165,24 @@ router.post('/', (req, res) => {
       rating || null,
       date_started || null,
       date_finished || null,
-      acquisition_source || null,
+      t(acquisition_source),
       acquisition_date || null,
       format || null,
       binding || null,
       condition || null,
-      description || null,
-      notes || null,
+      t(description),
+      t(notes),
       page_count || null,
       duration_minutes || null,
-      publisher || null,
-      series || null,
-      series_number || null,
+      t(publisher),
+      t(series),
+      t(series_number),
       normalizeIsbn(isbn_10),
       normalizeIsbn(isbn_13),
-      shelf_room || null,
-      shelf_unit || null,
-      shelf_number || null,
-      narrator || null,
+      t(shelf_room),
+      t(shelf_unit),
+      t(shelf_number),
+      t(narrator),
       year_published || null,
       year_edition || null
     );
@@ -212,8 +218,8 @@ router.put('/:id', (req, res) => {
         updated_at = datetime('now')
       WHERE id = ?
     `).run(
-      title.trim(),
-      author || null,
+      t(title),
+      t(author),
       status || 'unread',
       owned ? 1 : 0,
       is_custom ? 1 : 0,
@@ -223,24 +229,24 @@ router.put('/:id', (req, res) => {
       rating || null,
       date_started || null,
       date_finished || null,
-      acquisition_source || null,
+      t(acquisition_source),
       acquisition_date || null,
       format || null,
       binding || null,
       condition || null,
-      description || null,
-      notes || null,
+      t(description),
+      t(notes),
       page_count || null,
       duration_minutes || null,
-      publisher || null,
-      series || null,
-      series_number || null,
+      t(publisher),
+      t(series),
+      t(series_number),
       normalizeIsbn(isbn_10),
       normalizeIsbn(isbn_13),
-      shelf_room || null,
-      shelf_unit || null,
-      shelf_number || null,
-      narrator || null,
+      t(shelf_room),
+      t(shelf_unit),
+      t(shelf_number),
+      t(narrator),
       year_published || null,
       year_edition || null,
       id
