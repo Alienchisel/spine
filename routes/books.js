@@ -246,10 +246,13 @@ router.patch('/:id', (req, res) => {
   if (current_minutes != null && (current_minutes < 0 || !Number.isInteger(Number(current_minutes))))
     return res.status(400).json({ error: 'Invalid minutes' });
 
-  if (current_page !== undefined)
-    db.prepare('UPDATE books SET current_page = ?, updated_at = datetime(\'now\') WHERE id = ?').run(current_page ?? null, id);
-  if (current_minutes !== undefined)
-    db.prepare('UPDATE books SET current_minutes = ?, updated_at = datetime(\'now\') WHERE id = ?').run(current_minutes ?? null, id);
+  const fields = [];
+  const params = [];
+  if (current_page !== undefined) { fields.push('current_page = ?'); params.push(current_page ?? null); }
+  if (current_minutes !== undefined) { fields.push('current_minutes = ?'); params.push(current_minutes ?? null); }
+  if (fields.length) {
+    db.prepare(`UPDATE books SET ${fields.join(', ')}, updated_at = datetime('now') WHERE id = ?`).run(...params, id);
+  }
   res.json(getBookWithTags(id));
 });
 
