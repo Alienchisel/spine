@@ -82,7 +82,7 @@ export default function Library() {
 
   useEffect(() => {
     sessionStorage.setItem(SESSION_KEY, JSON.stringify({ tab, query, filtersOpen, filters, sort }));
-  }, [tab, query, filtersOpen, filters]);
+  }, [tab, query, filtersOpen, filters, sort]);
 
   useEffect(() => {
     setLoading(true);
@@ -90,7 +90,6 @@ export default function Library() {
   }, [tab]);
 
   const activeCount = countFilters(filters);
-  const sortedFiltered = applySort(filtered, sort);
 
   const filtered = books.filter(b => {
     if (query.trim() && !(
@@ -118,6 +117,8 @@ export default function Library() {
 
     return true;
   });
+
+  const sortedFiltered = applySort(filtered, sort);
 
   return (
     <div>
