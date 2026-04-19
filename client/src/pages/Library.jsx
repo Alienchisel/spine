@@ -119,7 +119,7 @@ export default function Library() {
     if (filters.missing.includes('cover')     && b.cover_path)            return false;
     if (filters.missing.includes('author')    && b.author)                return false;
     if (filters.missing.includes('format')    && b.format)                return false;
-    if (filters.missing.includes('isbn')      && (b.isbn_10 || b.isbn_13)) return false;
+    if (filters.missing.includes('isbn')      && (b.isbn_10 || b.isbn_13 || b.is_custom)) return false;
     if (filters.missing.includes('publisher') && b.publisher)             return false;
     if (filters.missing.includes('series')    && b.series)                return false;
     if (filters.missing.includes('rating')       && b.rating)                return false;
