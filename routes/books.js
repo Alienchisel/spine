@@ -105,10 +105,12 @@ function syncTags(bookId, tagNames) {
 }
 
 router.get('/', (req, res) => {
-  const { status } = req.query;
-  const books = status
-    ? db.prepare('SELECT * FROM books WHERE status = ? ORDER BY updated_at DESC').all(status)
-    : db.prepare('SELECT * FROM books ORDER BY updated_at DESC').all();
+  const { status, loved } = req.query;
+  const books = loved === 'true'
+    ? db.prepare('SELECT * FROM books WHERE loved = 1 ORDER BY updated_at DESC').all()
+    : status
+      ? db.prepare('SELECT * FROM books WHERE status = ? ORDER BY updated_at DESC').all(status)
+      : db.prepare('SELECT * FROM books ORDER BY updated_at DESC').all();
 
   const withTags = books.map(b => {
     const tags = db.prepare(`

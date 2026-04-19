@@ -13,6 +13,7 @@ async function request(path, options = {}) {
 
 export const api = {
   getBooks: (status) => request(`/books${status ? `?status=${status}` : ''}`),
+  getLovedBooks: () => request('/books?loved=true'),
   getBook: (id) => request(`/books/${id}`),
   createBook: (data) => request('/books', { method: 'POST', body: JSON.stringify(data) }),
   updateBook: (id, data) => request(`/books/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
