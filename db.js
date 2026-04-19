@@ -4,7 +4,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const db = new Database(path.join(__dirname, 'spine.db'));
+const db = new Database(process.env.DB_PATH || path.join(__dirname, 'spine.db'));
 
 db.pragma('journal_mode = WAL');
 db.pragma('busy_timeout = 5000');
