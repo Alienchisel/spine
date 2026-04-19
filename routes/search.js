@@ -2,18 +2,20 @@ import express from 'express';
 
 const router = express.Router();
 
-async function fetchDescription(key) {
+router.get('/description', async (req, res) => {
+  const { key } = req.query;
+  if (!key?.startsWith('/works/')) return res.status(400).json({ error: 'Invalid key' });
   try {
-    const res = await fetch(`https://openlibrary.org${key}.json`);
-    if (!res.ok) return null;
-    const data = await res.json();
+    const response = await fetch(`https://openlibrary.org${key}.json`);
+    if (!response.ok) return res.json({ description: null });
+    const data = await response.json();
     const desc = data.description;
-    if (!desc) return null;
-    return typeof desc === 'string' ? desc : (desc.value || null);
+    const description = !desc ? null : typeof desc === 'string' ? desc : (desc.value || null);
+    res.json({ description });
   } catch {
-    return null;
+    res.json({ description: null });
   }
-}
+});
 
 router.get('/', async (req, res) => {
   const { q } = req.query;
@@ -30,9 +32,8 @@ router.get('/', async (req, res) => {
     const data = await response.json();
     const docs = data.docs || [];
 
-    const results = await Promise.all(docs.map(async (doc) => {
+    const results = docs.map((doc) => {
       const isbns = doc.isbn || [];
-      const description = doc.key ? await fetchDescription(doc.key) : null;
       return {
         key: doc.key,
         title: doc.title,
@@ -42,9 +43,8 @@ router.get('/', async (req, res) => {
         cover_url: doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg` : null,
         isbn_10: isbns.find(i => i.length === 10) || null,
         isbn_13: isbns.find(i => i.length === 13) || null,
-        description,
       };
-    }));
+    });
 
     res.json(results);
   } catch {

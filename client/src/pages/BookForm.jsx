@@ -194,6 +194,7 @@ export default function BookForm() {
   }
 
   async function applyResult(result) {
+    const { description } = result.key ? await api.fetchBookDescription(result.key).catch(() => ({ description: null })) : { description: null };
     setForm(f => ({
       ...f,
       title: result.title || f.title,
@@ -202,7 +203,7 @@ export default function BookForm() {
       page_count: result.page_count || f.page_count,
       isbn_10: result.isbn_10 || f.isbn_10,
       isbn_13: result.isbn_13 || f.isbn_13,
-      description: result.description || f.description,
+      description: description || f.description,
     }));
     setSearchQuery('');
     setSearchResults([]);
@@ -229,6 +230,7 @@ export default function BookForm() {
 
   async function applyLookupResult(result) {
     const hasCover = Boolean(form.cover_path);
+    const { description } = result.key ? await api.fetchBookDescription(result.key).catch(() => ({ description: null })) : { description: null };
     setForm(f => ({
       ...f,
       title:       f.title       || result.title       || '',
@@ -237,7 +239,7 @@ export default function BookForm() {
       page_count:  f.page_count  || result.page_count  || '',
       isbn_10:     f.isbn_10     || result.isbn_10     || '',
       isbn_13:     f.isbn_13     || result.isbn_13     || '',
-      description: f.description || result.description || '',
+      description: f.description || description        || '',
     }));
     setLookupResults([]);
     if (result.cover_url && !hasCover) {

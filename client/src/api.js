@@ -17,6 +17,7 @@ export const api = {
   createBook: (data) => request('/books', { method: 'POST', body: JSON.stringify(data) }),
   updateBook: (id, data) => request(`/books/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   searchBooks: (q) => request(`/search?${new URLSearchParams({ q })}`),
+  fetchBookDescription: (key) => request(`/search/description?${new URLSearchParams({ key })}`),
   patchBook: (id, data) => request(`/books/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteBook: (id) => request(`/books/${id}`, { method: 'DELETE' }),
   uploadCover: (file) => {
