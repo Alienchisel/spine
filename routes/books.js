@@ -86,7 +86,9 @@ router.get('/', (req, res) => {
 });
 
 router.get('/:id', (req, res) => {
-  const book = getBookWithTags(parseInt(req.params.id));
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
+  const book = getBookWithTags(id);
   if (!book) return res.status(404).json({ error: 'Not found' });
   res.json(book);
 });
@@ -140,7 +142,8 @@ router.post('/', (req, res) => {
 });
 
 router.put('/:id', (req, res) => {
-  const id = parseInt(req.params.id);
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
   const existing = db.prepare('SELECT cover_path FROM books WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ error: 'Not found' });
 
@@ -202,7 +205,8 @@ router.put('/:id', (req, res) => {
 });
 
 router.patch('/:id', (req, res) => {
-  const id = parseInt(req.params.id);
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
   if (!db.prepare('SELECT id FROM books WHERE id = ?').get(id)) {
     return res.status(404).json({ error: 'Not found' });
   }
@@ -220,7 +224,8 @@ router.patch('/:id', (req, res) => {
 });
 
 router.delete('/:id', (req, res) => {
-  const id = parseInt(req.params.id);
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
   const book = db.prepare('SELECT cover_path FROM books WHERE id = ?').get(id);
   if (!book) return res.status(404).json({ error: 'Not found' });
   db.prepare('DELETE FROM books WHERE id = ?').run(id);
