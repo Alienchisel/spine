@@ -654,13 +654,13 @@ export default function BookForm() {
                     <label className={label}>ISBN-10</label>
                     <input className={ic('isbn_10')} value={form.isbn_10}
                       onChange={(e) => set('isbn_10', e.target.value)}
-                      placeholder="0000000000" maxLength={10} />
+                      placeholder="0000000000" />
                   </div>
                   <div>
                     <label className={label}>ISBN-13</label>
                     <input className={ic('isbn_13')} value={form.isbn_13}
                       onChange={(e) => set('isbn_13', e.target.value)}
-                      placeholder="0000000000000" maxLength={13} />
+                      placeholder="0000000000000" />
                   </div>
                 </div>
 
