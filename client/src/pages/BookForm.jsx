@@ -114,6 +114,8 @@ export default function BookForm() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
+  const [lookupResults, setLookupResults] = useState([]);
+  const [lookupSearching, setLookupSearching] = useState(false);
   const [durationH, setDurationH] = useState('');
   const [durationM, setDurationM] = useState('');
   const searchTimeout = useRef(null);
@@ -205,6 +207,40 @@ export default function BookForm() {
     setSearchQuery('');
     setSearchResults([]);
     if (result.cover_url) {
+      setCoverPreview(result.cover_url);
+      try {
+        const { path } = await api.fetchCover(result.cover_url);
+        setCoverPreview(path);
+        set('cover_path', path);
+      } catch {
+        set('cover_path', result.cover_url);
+      }
+    }
+  }
+
+  async function handleLookup() {
+    const query = [form.title, form.author].filter(Boolean).join(' ');
+    if (!query.trim()) return;
+    setLookupSearching(true);
+    setLookupResults([]);
+    try { setLookupResults(await api.searchBooks(query)); }
+    finally { setLookupSearching(false); }
+  }
+
+  async function applyLookupResult(result) {
+    const hasCover = Boolean(form.cover_path);
+    setForm(f => ({
+      ...f,
+      title:       f.title       || result.title       || '',
+      author:      f.author      || result.author      || '',
+      publisher:   f.publisher   || result.publisher   || '',
+      page_count:  f.page_count  || result.page_count  || '',
+      isbn_10:     f.isbn_10     || result.isbn_10     || '',
+      isbn_13:     f.isbn_13     || result.isbn_13     || '',
+      description: f.description || result.description || '',
+    }));
+    setLookupResults([]);
+    if (result.cover_url && !hasCover) {
       setCoverPreview(result.cover_url);
       try {
         const { path } = await api.fetchCover(result.cover_url);
@@ -427,6 +463,44 @@ export default function BookForm() {
                     )}
                   </div>
                 </div>
+
+                {(form.title || form.author) && (
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={handleLookup}
+                      disabled={lookupSearching}
+                      className="text-xs text-neutral-500 hover:text-neutral-200 disabled:opacity-40 transition-colors"
+                    >
+                      {lookupSearching ? 'Searching…' : '↗ Look up on Open Library'}
+                    </button>
+                    {lookupResults.length > 0 && (
+                      <ul className="absolute z-10 w-full mt-1 bg-neutral-900 border border-neutral-700 rounded-lg overflow-hidden shadow-xl">
+                        {lookupResults.map((r) => (
+                          <li key={r.key}>
+                            <button type="button" onClick={() => applyLookupResult(r)}
+                              className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-neutral-800 transition-colors">
+                              {r.cover_url
+                                ? <img src={r.cover_url} alt="" className="w-8 h-12 object-cover rounded flex-shrink-0" />
+                                : <div className="w-8 h-12 bg-neutral-800 rounded flex-shrink-0" />}
+                              <div className="min-w-0">
+                                <p className="text-sm text-white truncate">{r.title}</p>
+                                {r.author && <p className="text-xs text-neutral-500 truncate">{r.author}</p>}
+                                {r.publisher && <p className="text-xs text-neutral-600 truncate">{r.publisher}</p>}
+                              </div>
+                            </button>
+                          </li>
+                        ))}
+                        <li>
+                          <button type="button" onClick={() => setLookupResults([])}
+                            className="w-full px-4 py-2 text-xs text-neutral-600 hover:text-neutral-400 text-left transition-colors">
+                            Dismiss
+                          </button>
+                        </li>
+                      </ul>
+                    )}
+                  </div>
+                )}
 
                 <div>
                   <label className={label}>Status</label>
