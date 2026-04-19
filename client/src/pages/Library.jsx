@@ -189,7 +189,7 @@ export default function Library() {
 
       {loading ? (
         <div className="text-neutral-700 text-sm">Loading…</div>
-      ) : filtered.length === 0 ? (
+      ) : sortedFiltered.length === 0 ? (
         <div className="text-center py-32">
           {query || activeCount > 0 ? (
             <p className="text-neutral-600">No books match the current filters.</p>
