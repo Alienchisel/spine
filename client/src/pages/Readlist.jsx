@@ -79,11 +79,12 @@ function SortableRow({ book, onRemove }) {
 export default function Readlist() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   useEffect(() => {
-    api.getReadlist().then(setBooks).finally(() => setLoading(false));
+    api.getReadlist().then(setBooks).catch(() => setError('Failed to load readlist.')).finally(() => setLoading(false));
   }, []);
 
   function handleDragEnd(event) {
@@ -107,6 +108,8 @@ export default function Readlist() {
 
       {loading ? (
         <div className="text-neutral-700 text-sm">Loading…</div>
+      ) : error ? (
+        <div className="text-red-500 text-sm">{error}</div>
       ) : books.length === 0 ? (
         <div className="text-center py-32">
           <p className="text-neutral-600 mb-3">Your readlist is empty.</p>
