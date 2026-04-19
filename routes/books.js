@@ -96,43 +96,47 @@ router.post('/', (req, res) => {
   const errors = validateBook(req.body);
   if (errors.length) return res.status(400).json({ error: errors[0] });
 
-  const result = db.prepare(`
-    INSERT INTO books (title, author, status, owned, is_custom, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, series_number, isbn_10, isbn_13, shelf_room, shelf_unit, shelf_number, narrator, year_published, year_edition)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    title.trim(),
-    author || null,
-    status || 'unread',
-    owned ? 1 : 0,
-    is_custom ? 1 : 0,
-    cover_path || null,
-    rating || null,
-    date_started || null,
-    date_finished || null,
-    acquisition_source || null,
-    acquisition_date || null,
-    format || null,
-    binding || null,
-    condition || null,
-    description || null,
-    notes || null,
-    page_count || null,
-    duration_minutes || null,
-    publisher || null,
-    series || null,
-    series_number || null,
-    isbn_10 || null,
-    isbn_13 || null,
-    shelf_room || null,
-    shelf_unit || null,
-    shelf_number || null,
-    narrator || null,
-    year_published || null,
-    year_edition || null
-  );
+  const insertBook = db.transaction(() => {
+    const result = db.prepare(`
+      INSERT INTO books (title, author, status, owned, is_custom, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, series_number, isbn_10, isbn_13, shelf_room, shelf_unit, shelf_number, narrator, year_published, year_edition)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      title.trim(),
+      author || null,
+      status || 'unread',
+      owned ? 1 : 0,
+      is_custom ? 1 : 0,
+      cover_path || null,
+      rating || null,
+      date_started || null,
+      date_finished || null,
+      acquisition_source || null,
+      acquisition_date || null,
+      format || null,
+      binding || null,
+      condition || null,
+      description || null,
+      notes || null,
+      page_count || null,
+      duration_minutes || null,
+      publisher || null,
+      series || null,
+      series_number || null,
+      isbn_10 || null,
+      isbn_13 || null,
+      shelf_room || null,
+      shelf_unit || null,
+      shelf_number || null,
+      narrator || null,
+      year_published || null,
+      year_edition || null
+    );
+    if (tags?.length) syncTags(result.lastInsertRowid, tags);
+    return result.lastInsertRowid;
+  });
 
-  if (tags?.length) syncTags(result.lastInsertRowid, tags);
-  res.status(201).json(getBookWithTags(result.lastInsertRowid));
+  const id = insertBook();
+  res.status(201).json(getBookWithTags(id));
 });
 
 router.put('/:id', (req, res) => {
@@ -144,53 +148,56 @@ router.put('/:id', (req, res) => {
   const errors = validateBook(req.body);
   if (errors.length) return res.status(400).json({ error: errors[0] });
 
-  db.prepare(`
-    UPDATE books SET
-      title = ?, author = ?, status = ?, owned = ?, is_custom = ?, cover_path = ?,
-      rating = ?, date_started = ?, date_finished = ?,
-      acquisition_source = ?, acquisition_date = ?,
-      format = ?, binding = ?, condition = ?,
-      description = ?, notes = ?, page_count = ?, duration_minutes = ?,
-      publisher = ?, series = ?, series_number = ?, isbn_10 = ?, isbn_13 = ?,
-      shelf_room = ?, shelf_unit = ?, shelf_number = ?, narrator = ?,
-      year_published = ?, year_edition = ?,
-      updated_at = datetime('now')
-    WHERE id = ?
-  `).run(
-    title.trim(),
-    author || null,
-    status || 'unread',
-    owned ? 1 : 0,
-    is_custom ? 1 : 0,
-    cover_path || null,
-    rating || null,
-    date_started || null,
-    date_finished || null,
-    acquisition_source || null,
-    acquisition_date || null,
-    format || null,
-    binding || null,
-    condition || null,
-    description || null,
-    notes || null,
-    page_count || null,
-    duration_minutes || null,
-    publisher || null,
-    series || null,
-    series_number || null,
-    isbn_10 || null,
-    isbn_13 || null,
-    shelf_room || null,
-    shelf_unit || null,
-    shelf_number || null,
-    narrator || null,
-    year_published || null,
-    year_edition || null,
-    id
-  );
+  const updateBook = db.transaction(() => {
+    db.prepare(`
+      UPDATE books SET
+        title = ?, author = ?, status = ?, owned = ?, is_custom = ?, cover_path = ?,
+        rating = ?, date_started = ?, date_finished = ?,
+        acquisition_source = ?, acquisition_date = ?,
+        format = ?, binding = ?, condition = ?,
+        description = ?, notes = ?, page_count = ?, duration_minutes = ?,
+        publisher = ?, series = ?, series_number = ?, isbn_10 = ?, isbn_13 = ?,
+        shelf_room = ?, shelf_unit = ?, shelf_number = ?, narrator = ?,
+        year_published = ?, year_edition = ?,
+        updated_at = datetime('now')
+      WHERE id = ?
+    `).run(
+      title.trim(),
+      author || null,
+      status || 'unread',
+      owned ? 1 : 0,
+      is_custom ? 1 : 0,
+      cover_path || null,
+      rating || null,
+      date_started || null,
+      date_finished || null,
+      acquisition_source || null,
+      acquisition_date || null,
+      format || null,
+      binding || null,
+      condition || null,
+      description || null,
+      notes || null,
+      page_count || null,
+      duration_minutes || null,
+      publisher || null,
+      series || null,
+      series_number || null,
+      isbn_10 || null,
+      isbn_13 || null,
+      shelf_room || null,
+      shelf_unit || null,
+      shelf_number || null,
+      narrator || null,
+      year_published || null,
+      year_edition || null,
+      id
+    );
+    if (tags !== undefined) syncTags(id, tags);
+  });
 
+  updateBook();
   if (existing.cover_path !== (cover_path || null)) deleteLocalCover(existing.cover_path);
-  if (tags !== undefined) syncTags(id, tags);
   res.json(getBookWithTags(id));
 });
 
