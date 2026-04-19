@@ -1,10 +1,9 @@
 import { Link, useLocation } from 'react-router-dom';
 
-function EyeIcon({ active }) {
+function BookmarkIcon() {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4">
-      <path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" />
-      <path fillRule="evenodd" d="M1.38 8a6.998 6.998 0 0 1 13.24 0 7 7 0 0 1-13.24 0ZM8 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z" clipRule="evenodd" />
+      <path d="M2 2.75A2.75 2.75 0 0 1 4.75 0h6.5A2.75 2.75 0 0 1 14 2.75v12.5a.75.75 0 0 1-1.18.617L8 12.21l-4.82 3.657A.75.75 0 0 1 2 15.25V2.75Z" />
     </svg>
   );
 }
@@ -37,7 +36,7 @@ export default function Nav() {
             className={`transition-colors ${onReadlist ? 'text-sky-400' : 'text-neutral-600 hover:text-neutral-300'}`}
             title="Readlist"
           >
-            <EyeIcon />
+            <BookmarkIcon />
           </Link>
           <Link
             to="/loved"

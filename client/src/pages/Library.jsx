@@ -5,6 +5,7 @@ import BookCard from '../components/BookCard.jsx';
 import FilterPanel from '../components/FilterPanel.jsx';
 
 const TABS = [
+  { key: 'owned',    label: 'Owned' },
   { key: 'reading',  label: 'Reading' },
   { key: 'paused',   label: 'Paused' },
   { key: 'finished', label: 'Finished' },
@@ -86,7 +87,7 @@ function FilterIcon() {
 }
 
 export default function Library() {
-  const [tab, setTab] = useState(() => getSaved().tab || 'reading');
+  const [tab, setTab] = useState(() => getSaved().tab || 'owned');
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState(() => getSaved().query || '');
@@ -103,7 +104,7 @@ export default function Library() {
 
   useEffect(() => {
     setLoading(true);
-    api.getBooks(tab === 'all' ? null : tab).then(books => {
+    api.getBooks(tab === 'all' ? null : tab === 'owned' ? null : tab).then(books => {
       setBooks(books);
       setFilters(f => pruneFilters(f, books));
     }).finally(() => setLoading(false));
@@ -112,6 +113,8 @@ export default function Library() {
   const activeCount = countFilters(filters);
 
   const filtered = books.filter(b => {
+    if (tab === 'owned' && !b.owned) return false;
+
     if (query.trim() && !(
       b.title.toLowerCase().includes(query.toLowerCase()) ||
       (b.author && b.author.toLowerCase().includes(query.toLowerCase()))
