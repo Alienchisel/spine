@@ -7,6 +7,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const db = new Database(path.join(__dirname, 'spine.db'));
 
 db.pragma('journal_mode = WAL');
+db.pragma('busy_timeout = 5000');
 db.pragma('foreign_keys = ON');
 
 db.exec(`
