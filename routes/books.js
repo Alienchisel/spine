@@ -57,17 +57,17 @@ function validateBook(body) {
 
   if (!title?.trim()) errors.push('Title is required');
   if (title && title.trim().length > 500) errors.push('Title too long');
-  if (author && author.length > 300) errors.push('Author too long');
-  if (status && !VALID_STATUSES.includes(status)) errors.push('Invalid status');
-  if (format && !VALID_FORMATS.includes(format)) errors.push('Invalid format');
-  if (binding && !VALID_BINDINGS.includes(binding)) errors.push('Invalid binding');
-  if (condition && !VALID_CONDITIONS.includes(condition)) errors.push('Invalid condition');
+  if (author && author.trim().length > 300) errors.push('Author too long');
+  if (status && !VALID_STATUSES.includes(status.trim())) errors.push('Invalid status');
+  if (format && !VALID_FORMATS.includes(format.trim())) errors.push('Invalid format');
+  if (binding && !VALID_BINDINGS.includes(binding.trim())) errors.push('Invalid binding');
+  if (condition && !VALID_CONDITIONS.includes(condition.trim())) errors.push('Invalid condition');
   if (rating != null && (rating < 1 || rating > 5 || !Number.isInteger(Number(rating)))) errors.push('Rating must be 1–5');
   if (page_count != null && (page_count < 1 || !Number.isInteger(Number(page_count)))) errors.push('Page count must be a positive integer');
   if (duration_minutes != null && (duration_minutes < 1 || !Number.isInteger(Number(duration_minutes)))) errors.push('Duration must be a positive integer');
-  if (date_started && !isValidDate(date_started)) errors.push('Invalid date started');
-  if (date_finished && !isValidDate(date_finished)) errors.push('Invalid date finished');
-  if (body.acquisition_date && !isValidDate(body.acquisition_date)) errors.push('Invalid acquisition date');
+  if (date_started && !isValidDate(date_started.trim())) errors.push('Invalid date started');
+  if (date_finished && !isValidDate(date_finished.trim())) errors.push('Invalid date finished');
+  if (body.acquisition_date && !isValidDate(body.acquisition_date.trim())) errors.push('Invalid acquisition date');
   if (year_published != null && (year_published < 1 || !Number.isInteger(Number(year_published)))) errors.push('Invalid publication year');
   if (year_edition != null && (year_edition < 1 || !Number.isInteger(Number(year_edition)))) errors.push('Invalid edition year');
   if (body.series_number != null && isNaN(Number(body.series_number))) errors.push('Invalid series number');
@@ -163,10 +163,10 @@ router.post('/', (req, res) => {
       loved ? 1 : 0,
       toFilename(cover_path),
       rating || null,
-      date_started || null,
-      date_finished || null,
+      t(date_started),
+      t(date_finished),
       t(acquisition_source),
-      acquisition_date || null,
+      t(acquisition_date),
       format || null,
       binding || null,
       condition || null,
@@ -227,10 +227,10 @@ router.put('/:id', (req, res) => {
       loved ? 1 : 0,
       toFilename(cover_path),
       rating || null,
-      date_started || null,
-      date_finished || null,
+      t(date_started),
+      t(date_finished),
       t(acquisition_source),
-      acquisition_date || null,
+      t(acquisition_date),
       format || null,
       binding || null,
       condition || null,
