@@ -24,6 +24,13 @@ function DragHandle() {
   );
 }
 
+function Stars({ rating }) {
+  if (!rating) return null;
+  return (
+    <span className="text-xs text-oak tracking-tight flex-shrink-0">{'★'.repeat(rating)}{'☆'.repeat(5 - rating)}</span>
+  );
+}
+
 function SortableRow({ book, onRemove }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: book.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
@@ -55,12 +62,16 @@ function SortableRow({ book, onRemove }) {
         <Link to={`/books/${book.id}`} className="text-sm font-medium text-neutral-200 hover:text-white transition-colors truncate block">
           {book.title}
         </Link>
-        {book.author && (
-          <p className="text-xs text-neutral-500 truncate mt-0.5">{book.author}</p>
-        )}
+        <p className="text-xs text-neutral-500 truncate mt-0.5">
+          {[book.author, book.series && `${book.series}${book.series_number ? ` #${book.series_number}` : ''}`].filter(Boolean).join(' · ')}
+        </p>
       </div>
 
-      <div className="flex-shrink-0 flex items-center gap-3">
+      <div className="flex-shrink-0 flex items-center gap-4">
+        <Stars rating={book.rating} />
+        {book.format && book.format !== 'physical' && (
+          <span className="text-xs text-neutral-600 capitalize hidden md:block">{book.format}</span>
+        )}
         {book.status && (
           <span className="text-xs text-neutral-600 capitalize hidden sm:block">{book.status}</span>
         )}
@@ -103,7 +114,7 @@ export default function Readlist() {
   }
 
   return (
-    <div className="max-w-xl">
+    <div>
       <h1 className="text-xl font-bold text-white mb-6">Readlist</h1>
 
       {loading ? (
