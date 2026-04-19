@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { api } from '../api.js';
 import StarRating from '../components/StarRating.jsx';
+import ListPicker from '../components/ListPicker.jsx';
 
 const STATUS_LABEL = { reading: 'Reading', paused: 'Paused', finished: 'Finished', unread: 'Unread' };
 const STATUS_COLOR = {
@@ -264,8 +265,7 @@ export default function BookDetail() {
               title={book.on_readlist ? 'Remove from readlist' : 'Add to readlist'}
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-5 h-5">
-                <path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" />
-                <path fillRule="evenodd" d="M1.38 8a6.998 6.998 0 0 1 13.24 0 7 7 0 0 1-13.24 0ZM8 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z" clipRule="evenodd" />
+                <path d="M2 2.75A2.75 2.75 0 0 1 4.75 0h6.5A2.75 2.75 0 0 1 14 2.75v12.5a.75.75 0 0 1-1.18.617L8 12.21l-4.82 3.657A.75.75 0 0 1 2 15.25V2.75Z" />
               </svg>
             </button>
             <button
@@ -275,6 +275,7 @@ export default function BookDetail() {
             >
               {book.loved ? '♥' : '♡'}
             </button>
+            <ListPicker bookId={book.id} />
           </div>
 
           {(book.status === 'reading' || book.status === 'paused') && (

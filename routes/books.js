@@ -131,6 +131,13 @@ router.get('/:id', (req, res) => {
   res.json(book);
 });
 
+router.get('/:id/lists', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
+  const rows = db.prepare('SELECT list_id FROM list_books WHERE book_id = ?').all(id);
+  res.json(rows.map(r => r.list_id));
+});
+
 router.post('/', (req, res) => {
   const { title, author, status, owned, is_custom, loved, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, series_number, isbn_10, isbn_13, shelf_room, shelf_unit, shelf_number, narrator, year_published, year_edition, tags } = req.body;
   const errors = validateBook(req.body);

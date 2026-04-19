@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
+import ListPicker from './ListPicker.jsx';
 
 const STATUS_BAR = {
   reading:  'bg-oak',
@@ -187,7 +188,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
           ) : (
             <div className={`absolute bottom-0 left-0 right-0 h-0.5 ${STATUS_BAR[book.status]}`} />
           )}
-          <div className="absolute bottom-1.5 right-1.5 flex gap-0.5">
+          <div className="absolute bottom-1.5 right-1.5 flex gap-0.5 items-center">
             <button
               onClick={toggleReadlist}
               disabled={listing}
@@ -195,8 +196,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
               title={book.on_readlist ? 'On readlist' : 'Add to readlist'}
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3">
-                <path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" />
-                <path fillRule="evenodd" d="M1.38 8a6.998 6.998 0 0 1 13.24 0 7 7 0 0 1-13.24 0ZM8 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z" clipRule="evenodd" />
+                <path d="M2 2.75A2.75 2.75 0 0 1 4.75 0h6.5A2.75 2.75 0 0 1 14 2.75v12.5a.75.75 0 0 1-1.18.617L8 12.21l-4.82 3.657A.75.75 0 0 1 2 15.25V2.75Z" />
               </svg>
             </button>
             <button
@@ -207,6 +207,9 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
             >
               {book.loved ? '♥' : '♡'}
             </button>
+            <div className="bg-black/60 backdrop-blur-sm rounded px-1 py-0.5">
+              <ListPicker bookId={book.id} dropUp iconClassName="w-3 h-3" />
+            </div>
           </div>
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors pointer-events-none" />
         </div>

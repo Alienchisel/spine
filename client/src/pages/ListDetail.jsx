@@ -24,7 +24,7 @@ function Stars({ rating }) {
   );
 }
 
-function BookRow({ book }) {
+function BookRow({ book, onRemove }) {
   return (
     <div className="flex items-center gap-4 p-3 rounded-lg bg-neutral-900 border border-neutral-800">
       <div className="w-9 h-[54px] flex-shrink-0 rounded overflow-hidden bg-neutral-800">
@@ -54,6 +54,15 @@ function BookRow({ book }) {
         ) : (
           <span className="text-xs text-neutral-700 hidden sm:block">unowned</span>
         )}
+        {onRemove && (
+          <button
+            onClick={() => onRemove(book.id)}
+            className="text-neutral-700 hover:text-red-400 transition-colors text-lg leading-none"
+            title="Remove from list"
+          >
+            ×
+          </button>
+        )}
       </div>
     </div>
   );
@@ -75,6 +84,11 @@ export default function ListDetail() {
       .catch(() => setError('Failed to load list.'))
       .finally(() => setLoading(false));
   }, [id]);
+
+  async function handleRemove(bookId) {
+    await api.removeFromList(id, bookId);
+    setList(l => ({ ...l, books: l.books.filter(b => b.id !== bookId) }));
+  }
 
   async function handleRename(e) {
     e.preventDefault();
@@ -146,7 +160,7 @@ export default function ListDetail() {
           </div>
           <div className="space-y-1.5">
             {sorted.map(book => (
-              <BookRow key={book.id} book={book} />
+              <BookRow key={book.id} book={book} onRemove={handleRemove} />
             ))}
           </div>
         </>
