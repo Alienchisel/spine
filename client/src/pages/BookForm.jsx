@@ -116,6 +116,7 @@ export default function BookForm() {
   const [searching, setSearching] = useState(false);
   const [lookupResults, setLookupResults] = useState([]);
   const [lookupSearching, setLookupSearching] = useState(false);
+  const [filledByLookup, setFilledByLookup] = useState(new Set());
   const [durationH, setDurationH] = useState('');
   const [durationM, setDurationM] = useState('');
   const searchTimeout = useRef(null);
@@ -178,6 +179,7 @@ export default function BookForm() {
 
   function set(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
+    setFilledByLookup(s => { if (!s.has(field)) return s; const n = new Set(s); n.delete(field); return n; });
   }
 
   function handleSearchInput(e) {
@@ -195,6 +197,15 @@ export default function BookForm() {
 
   async function applyResult(result) {
     const { description } = result.key ? await api.fetchBookDescription(result.key).catch(() => ({ description: null })) : { description: null };
+    const filled = new Set();
+    if (result.title)     filled.add('title');
+    if (result.author)    filled.add('author');
+    if (result.publisher) filled.add('publisher');
+    if (result.page_count) filled.add('page_count');
+    if (result.isbn_10)   filled.add('isbn_10');
+    if (result.isbn_13)   filled.add('isbn_13');
+    if (description)      filled.add('description');
+    setFilledByLookup(filled);
     setForm(f => ({
       ...f,
       title: result.title || f.title,
@@ -231,6 +242,15 @@ export default function BookForm() {
   async function applyLookupResult(result) {
     const hasCover = Boolean(form.cover_path);
     const { description } = result.key ? await api.fetchBookDescription(result.key).catch(() => ({ description: null })) : { description: null };
+    const filled = new Set();
+    if (!form.title       && result.title)      filled.add('title');
+    if (!form.author      && result.author)     filled.add('author');
+    if (!form.publisher   && result.publisher)  filled.add('publisher');
+    if (!form.page_count  && result.page_count) filled.add('page_count');
+    if (!form.isbn_10     && result.isbn_10)    filled.add('isbn_10');
+    if (!form.isbn_13     && result.isbn_13)    filled.add('isbn_13');
+    if (!form.description && description)       filled.add('description');
+    setFilledByLookup(filled);
     setForm(f => ({
       ...f,
       title:       f.title       || result.title       || '',
@@ -316,7 +336,9 @@ export default function BookForm() {
   }
 
   const input = 'w-full bg-neutral-800 border border-neutral-700 rounded-md px-3 py-2.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 transition-colors duration-150';
+  const inputFilled = 'w-full bg-neutral-800 border border-oak/40 ring-1 ring-oak/15 rounded-md px-3 py-2.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-oak/50 focus:ring-2 focus:ring-oak/20 transition-colors duration-150';
   const label = 'block text-xs font-semibold text-neutral-500 mb-1.5 uppercase tracking-wider';
+  const ic = (field) => filledByLookup.has(field) ? inputFilled : input;
 
   return (
     <div className="max-w-2xl">
@@ -428,14 +450,14 @@ export default function BookForm() {
 
                 <div>
                   <label className={label}>Title *</label>
-                  <input className={input} value={form.title}
+                  <input className={ic('title')} value={form.title}
                     onChange={(e) => set('title', e.target.value)}
                     placeholder="Book title" required autoFocus={!isEdit} />
                 </div>
 
                 <div>
                   <label className={label}>Author</label>
-                  <input className={input} list="authors-list" value={form.author}
+                  <input className={ic('author')} list="authors-list" value={form.author}
                     onChange={(e) => set('author', e.target.value)} placeholder="Author name" />
                   <datalist id="authors-list">
                     {pastAuthors.map(a => <option key={a} value={a} />)}
@@ -565,7 +587,7 @@ export default function BookForm() {
                     )}
                     <div>
                       <label className={label}>Page count</label>
-                      <input type="number" min="1" max="99999" className={input}
+                      <input type="number" min="1" max="99999" className={ic('page_count')}
                         value={form.page_count} onChange={(e) => set('page_count', e.target.value)}
                         placeholder="e.g. 342" />
                     </div>
@@ -575,7 +597,7 @@ export default function BookForm() {
                 {form.format === 'ebook' && (
                   <div>
                     <label className={label}>Page count</label>
-                    <input type="number" min="1" max="99999" className={input}
+                    <input type="number" min="1" max="99999" className={ic('page_count')}
                       value={form.page_count} onChange={(e) => set('page_count', e.target.value)}
                       placeholder="e.g. 342" />
                   </div>
@@ -633,7 +655,7 @@ export default function BookForm() {
               <div className="space-y-6">
                 <div>
                   <label className={label}>Publisher</label>
-                  <input className={input} list="publishers-list" value={form.publisher}
+                  <input className={ic('publisher')} list="publishers-list" value={form.publisher}
                     onChange={(e) => set('publisher', e.target.value)}
                     placeholder="e.g. Penguin, Tor, Picador…" />
                   <datalist id="publishers-list">
@@ -659,13 +681,13 @@ export default function BookForm() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className={label}>ISBN-10</label>
-                    <input className={input} value={form.isbn_10}
+                    <input className={ic('isbn_10')} value={form.isbn_10}
                       onChange={(e) => set('isbn_10', e.target.value)}
                       placeholder="0000000000" maxLength={10} />
                   </div>
                   <div>
                     <label className={label}>ISBN-13</label>
-                    <input className={input} value={form.isbn_13}
+                    <input className={ic('isbn_13')} value={form.isbn_13}
                       onChange={(e) => set('isbn_13', e.target.value)}
                       placeholder="0000000000000" maxLength={13} />
                   </div>
@@ -676,7 +698,7 @@ export default function BookForm() {
                     <label className={label} style={{marginBottom:0}}>Description</label>
                     <span className="text-xs text-neutral-600">Markdown supported</span>
                   </div>
-                  <textarea className={`${input} resize-none`} rows={6}
+                  <textarea className={`${ic('description')} resize-none`} rows={6}
                     value={form.description} onChange={(e) => set('description', e.target.value)}
                     placeholder="Back-cover description…" />
                 </div>
