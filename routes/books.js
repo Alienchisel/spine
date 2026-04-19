@@ -256,9 +256,9 @@ router.put('/:id', (req, res) => {
 router.patch('/:id', (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
-  if (!db.prepare('SELECT id FROM books WHERE id = ?').get(id)) {
-    return res.status(404).json({ error: 'Not found' });
-  }
+  const existing = db.prepare('SELECT id, current_page, current_minutes FROM books WHERE id = ?').get(id);
+  if (!existing) return res.status(404).json({ error: 'Not found' });
+
   const { current_page, current_minutes, loved, on_readlist, is_stub } = req.body;
   if (current_page != null && (current_page < 0 || !Number.isInteger(Number(current_page))))
     return res.status(400).json({ error: 'Invalid page number' });
@@ -283,9 +283,25 @@ router.patch('/:id', (req, res) => {
       params.push(null);
     }
   }
-  if (fields.length) {
-    db.prepare(`UPDATE books SET ${fields.join(', ')}, updated_at = datetime('now') WHERE id = ?`).run(...params, id);
-  }
+
+  const pagesLogged   = (current_page    !== undefined && current_page    > (existing.current_page    ?? 0)) ? current_page    - (existing.current_page    ?? 0) : 0;
+  const minutesLogged = (current_minutes !== undefined && current_minutes > (existing.current_minutes ?? 0)) ? current_minutes - (existing.current_minutes ?? 0) : 0;
+
+  db.transaction(() => {
+    if (fields.length) {
+      db.prepare(`UPDATE books SET ${fields.join(', ')}, updated_at = datetime('now') WHERE id = ?`).run(...params, id);
+    }
+    if (pagesLogged > 0 || minutesLogged > 0) {
+      db.prepare(`
+        INSERT INTO reading_log (book_id, date, pages_read, minutes_read)
+        VALUES (?, date('now'), ?, ?)
+        ON CONFLICT(book_id, date) DO UPDATE SET
+          pages_read   = reading_log.pages_read   + excluded.pages_read,
+          minutes_read = reading_log.minutes_read + excluded.minutes_read
+      `).run(id, pagesLogged, minutesLogged);
+    }
+  })();
+
   res.json(getBookWithTags(id));
 });
 
