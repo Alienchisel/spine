@@ -1,6 +1,7 @@
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import db from './db.js';
 import booksRouter from './routes/books.js';
 import uploadsRouter from './routes/uploads.js';
 import searchRouter from './routes/search.js';
@@ -32,4 +33,14 @@ app.use((err, _req, res, _next) => {
   res.status(err.status || 500).json({ error: 'Internal server error' });
 });
 
-app.listen(PORT, () => console.log(`Spine running on http://localhost:${PORT}`));
+const server = app.listen(PORT, () => console.log(`Spine running on http://localhost:${PORT}`));
+
+function shutdown() {
+  server.close(() => {
+    db.close();
+    process.exit(0);
+  });
+}
+
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
