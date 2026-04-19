@@ -22,6 +22,7 @@ const applied = new Set(
 );
 
 const migrationsDir = path.join(__dirname, 'migrations');
+if (!fs.existsSync(migrationsDir)) throw new Error(`Missing migrations directory: ${migrationsDir}`);
 const files = fs.readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort();
 
 const applyMigration = db.transaction((file, sql) => {
