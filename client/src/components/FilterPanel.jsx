@@ -5,7 +5,8 @@ const MISSING_FIELDS = [
   { key: 'isbn',      label: 'ISBN' },
   { key: 'publisher', label: 'Publisher' },
   { key: 'series',    label: 'Series' },
-  { key: 'rating',    label: 'Rating' },
+  { key: 'rating',      label: 'Rating' },
+  { key: 'description', label: 'Description' },
 ];
 
 const FORMAT_LABEL = { physical: 'Physical', ebook: 'E-book', audiobook: 'Audiobook' };
