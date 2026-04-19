@@ -9,6 +9,7 @@ const EMPTY = {
   status: 'unread',
   owned: false,
   is_custom: false,
+  fiction: null,
   rating: null,
   date_started: '',
   date_finished: '',
@@ -142,6 +143,7 @@ export default function BookForm() {
         status: book.status,
         owned: Boolean(book.owned),
         is_custom: Boolean(book.is_custom),
+        fiction: book.fiction === null || book.fiction === undefined ? null : Boolean(book.fiction),
         rating: book.rating ?? null,
         date_started: book.date_started || '',
         date_finished: book.date_finished || '',
@@ -446,6 +448,16 @@ export default function BookForm() {
                     <option value="physical">Physical</option>
                     <option value="ebook">E-book</option>
                     <option value="audiobook">Audiobook</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className={label}>Fiction / Non-fiction</label>
+                  <select className={input} value={form.fiction === null ? '' : String(form.fiction)}
+                    onChange={e => set('fiction', e.target.value === '' ? null : e.target.value === 'true')}>
+                    <option value="">—</option>
+                    <option value="true">Fiction</option>
+                    <option value="false">Non-fiction</option>
                   </select>
                 </div>
 

@@ -132,6 +132,15 @@ describe('books', () => {
       const { status } = await req('PUT', '/api/books/99999', { title: 'X' });
       assert.equal(status, 404);
     });
+
+    it('saves and returns fiction flag', async () => {
+      const { body: created } = await req('POST', '/api/books', { title: 'Dune', fiction: true });
+      assert.equal(created.fiction, 1);
+      const { body } = await req('PUT', `/api/books/${created.id}`, { title: 'Dune', fiction: false });
+      assert.equal(body.fiction, 0);
+      const { body: cleared } = await req('PUT', `/api/books/${created.id}`, { title: 'Dune' });
+      assert.equal(cleared.fiction, null);
+    });
   });
 
   describe('PATCH /api/books/:id', () => {

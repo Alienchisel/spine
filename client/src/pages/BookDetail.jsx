@@ -292,6 +292,12 @@ export default function BookDetail() {
           )}
 
           <dl className="space-y-2.5 text-sm mb-6">
+            {book.fiction !== null && book.fiction !== undefined && (
+              <div className="flex gap-2">
+                <dt className="text-neutral-500 w-24 flex-shrink-0">Type</dt>
+                <dd className="text-neutral-300">{book.fiction ? 'Fiction' : 'Non-fiction'}</dd>
+              </div>
+            )}
             {book.format && (
               <div className="flex gap-2">
                 <dt className="text-neutral-500 w-24 flex-shrink-0">Format</dt>
