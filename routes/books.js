@@ -9,7 +9,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 function deleteLocalCover(coverPath) {
   if (!coverPath?.startsWith('/uploads/')) return;
   const abs = path.join(__dirname, '..', coverPath);
-  fs.unlink(abs, () => {});
+  fs.unlink(abs, (err) => {
+    if (err && err.code !== 'ENOENT') console.error(`Failed to delete cover: ${abs}`, err);
+  });
 }
 
 const router = express.Router();
