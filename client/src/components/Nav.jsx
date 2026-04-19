@@ -8,6 +8,14 @@ function BookmarkIcon() {
   );
 }
 
+function DiaryIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4">
+      <path fillRule="evenodd" d="M3 2.75A2.75 2.75 0 0 1 5.75 0h7.5a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H5a2 2 0 0 1-2-2V2.75Zm3.25.5a.75.75 0 0 0 0 1.5h3.5a.75.75 0 0 0 0-1.5h-3.5Zm0 3a.75.75 0 0 0 0 1.5h3.5a.75.75 0 0 0 0-1.5h-3.5Zm0 3a.75.75 0 0 0 0 1.5h1.5a.75.75 0 0 0 0-1.5h-1.5Zm-2.5 4a.5.5 0 0 0 .5.5h7.25V13H4.5a.5.5 0 0 0-.5.5Z" clipRule="evenodd" />
+    </svg>
+  );
+}
+
 function ListsIcon() {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4">
@@ -30,6 +38,7 @@ export default function Nav() {
   const onReadlist = pathname === '/readlist';
   const onLoved = pathname === '/loved';
   const onLists = pathname === '/lists' || pathname.startsWith('/lists/');
+  const onDiary = pathname === '/diary';
   return (
     <header className="border-b border-neutral-800/60 bg-neutral-950/90 backdrop-blur-sm sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
@@ -60,6 +69,13 @@ export default function Nav() {
             title="Lists"
           >
             <ListsIcon />
+          </Link>
+          <Link
+            to="/diary"
+            className={`transition-colors ${onDiary ? 'text-amber-400' : 'text-neutral-600 hover:text-neutral-300'}`}
+            title="Diary"
+          >
+            <DiaryIcon />
           </Link>
         </div>
         {showAddButton && (

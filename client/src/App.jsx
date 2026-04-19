@@ -8,6 +8,7 @@ import Readlist from './pages/Readlist.jsx';
 import Loved from './pages/Loved.jsx';
 import Lists from './pages/Lists.jsx';
 import ListDetail from './pages/ListDetail.jsx';
+import Diary from './pages/Diary.jsx';
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="/loved" element={<Loved />} />
           <Route path="/lists" element={<Lists />} />
           <Route path="/lists/:id" element={<ListDetail />} />
+          <Route path="/diary" element={<Diary />} />
         </Routes>
       </main>
     </div>
