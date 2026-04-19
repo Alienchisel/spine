@@ -14,6 +14,30 @@ const TABS = [
 
 const SESSION_KEY = 'spine-library-state';
 
+const SORTS = [
+  { key: 'updated',  label: 'Recently updated' },
+  { key: 'title',    label: 'Title A–Z' },
+  { key: 'author',   label: 'Author A–Z' },
+  { key: 'rating',   label: 'Rating' },
+  { key: 'progress', label: 'Progress' },
+];
+
+function progress(b) {
+  if (b.format === 'audiobook') {
+    return b.duration_minutes ? (b.current_minutes ?? 0) / b.duration_minutes : 0;
+  }
+  return b.page_count ? (b.current_page ?? 0) / b.page_count : 0;
+}
+
+function applySort(books, sort) {
+  const sorted = [...books];
+  if (sort === 'title')    return sorted.sort((a, b) => a.title.localeCompare(b.title));
+  if (sort === 'author')   return sorted.sort((a, b) => (a.author || '').localeCompare(b.author || ''));
+  if (sort === 'rating')   return sorted.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+  if (sort === 'progress') return sorted.sort((a, b) => progress(b) - progress(a));
+  return sorted;
+}
+
 function getSaved() {
   try { return JSON.parse(sessionStorage.getItem(SESSION_KEY)) ?? {}; }
   catch { return {}; }
@@ -54,9 +78,10 @@ export default function Library() {
     const s = getSaved().filters;
     return s ? { ...EMPTY_FILTERS, ...s } : EMPTY_FILTERS;
   });
+  const [sort, setSort] = useState(() => getSaved().sort || 'updated');
 
   useEffect(() => {
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ tab, query, filtersOpen, filters }));
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ tab, query, filtersOpen, filters, sort }));
   }, [tab, query, filtersOpen, filters]);
 
   useEffect(() => {
@@ -65,6 +90,7 @@ export default function Library() {
   }, [tab]);
 
   const activeCount = countFilters(filters);
+  const sortedFiltered = applySort(filtered, sort);
 
   const filtered = books.filter(b => {
     if (query.trim() && !(
@@ -114,6 +140,13 @@ export default function Library() {
           </div>
 
           <div className="flex items-center gap-2 sm:ml-auto">
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value)}
+              className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-300 focus:outline-none focus:border-oak/50 transition-colors duration-150"
+            >
+              {SORTS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+            </select>
             <input
               type="search"
               value={query}
@@ -170,7 +203,7 @@ export default function Library() {
         </div>
       ) : (
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-x-4 gap-y-7">
-          {filtered.map((book) => (
+          {sortedFiltered.map((book) => (
             <BookCard
               key={book.id}
               book={book}
