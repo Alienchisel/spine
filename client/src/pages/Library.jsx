@@ -54,6 +54,22 @@ const EMPTY_FILTERS = {
   custom:     null,
 };
 
+function pruneFilters(filters, books) {
+  const publishers = new Set(books.map(b => b.publisher || 'empty'));
+  const series     = new Set(books.map(b => b.series     || 'empty'));
+  const formats    = new Set(books.map(b => b.format     || 'empty'));
+  const ratings    = new Set(books.map(b => String(b.rating ?? 'empty')));
+  const tags       = new Set(books.flatMap(b => b.tags?.map(t => t.name) || []));
+  return {
+    ...filters,
+    publishers: filters.publishers.filter(p => publishers.has(p)),
+    series:     filters.series.filter(s => series.has(s)),
+    formats:    filters.formats.filter(f => formats.has(f)),
+    ratings:    filters.ratings.filter(r => ratings.has(String(r))),
+    tags:       filters.tags.filter(t => tags.has(t)),
+  };
+}
+
 function countFilters(f) {
   return f.missing.length + f.formats.length + f.ratings.length +
     f.publishers.length + f.series.length + f.tags.length +
@@ -86,7 +102,10 @@ export default function Library() {
 
   useEffect(() => {
     setLoading(true);
-    api.getBooks(tab === 'all' ? null : tab).then(setBooks).finally(() => setLoading(false));
+    api.getBooks(tab === 'all' ? null : tab).then(books => {
+      setBooks(books);
+      setFilters(f => pruneFilters(f, books));
+    }).finally(() => setLoading(false));
   }, [tab]);
 
   const activeCount = countFilters(filters);
