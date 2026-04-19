@@ -24,11 +24,15 @@ const applied = new Set(
 const migrationsDir = path.join(__dirname, 'migrations');
 const files = fs.readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort();
 
+const applyMigration = db.transaction((file, sql) => {
+  db.exec(sql);
+  db.prepare('INSERT INTO migrations (name) VALUES (?)').run(file);
+});
+
 for (const file of files) {
   if (applied.has(file)) continue;
   const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
-  db.exec(sql);
-  db.prepare('INSERT INTO migrations (name) VALUES (?)').run(file);
+  applyMigration(file, sql);
   console.log(`Applied migration: ${file}`);
 }
 
