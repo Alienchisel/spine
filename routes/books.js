@@ -8,6 +8,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const uploadsDir = path.join(__dirname, '..', 'uploads');
 
+function normalizeIsbn(val) {
+  if (!val) return null;
+  const clean = val.replace(/[-\s]/g, '');
+  return clean || null;
+}
+
 function toFilename(coverPath) {
   if (!coverPath) return null;
   return coverPath.startsWith('/uploads/') ? coverPath.slice('/uploads/'.length) : coverPath;
@@ -59,8 +65,8 @@ function validateBook(body) {
   if (year_published != null && (year_published < 1 || !Number.isInteger(Number(year_published)))) errors.push('Invalid publication year');
   if (year_edition != null && (year_edition < 1 || !Number.isInteger(Number(year_edition)))) errors.push('Invalid edition year');
   if (body.series_number != null && isNaN(Number(body.series_number))) errors.push('Invalid series number');
-  if (isbn_10 && !/^\d{9}[\dX]$/.test(isbn_10)) errors.push('Invalid ISBN-10');
-  if (isbn_13 && !/^\d{13}$/.test(isbn_13)) errors.push('ISBN-13 must be 13 digits');
+  if (isbn_10 && !/^\d{9}[\dX]$/.test(isbn_10.replace(/[-\s]/g, ''))) errors.push('Invalid ISBN-10');
+  if (isbn_13 && !/^\d{13}$/.test(isbn_13.replace(/[-\s]/g, ''))) errors.push('Invalid ISBN-13');
 
   return errors;
 }
@@ -154,8 +160,8 @@ router.post('/', (req, res) => {
       publisher || null,
       series || null,
       series_number || null,
-      isbn_10 || null,
-      isbn_13 || null,
+      normalizeIsbn(isbn_10),
+      normalizeIsbn(isbn_13),
       shelf_room || null,
       shelf_unit || null,
       shelf_number || null,
@@ -216,8 +222,8 @@ router.put('/:id', (req, res) => {
       publisher || null,
       series || null,
       series_number || null,
-      isbn_10 || null,
-      isbn_13 || null,
+      normalizeIsbn(isbn_10),
+      normalizeIsbn(isbn_13),
       shelf_room || null,
       shelf_unit || null,
       shelf_number || null,
