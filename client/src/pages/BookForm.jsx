@@ -337,6 +337,7 @@ export default function BookForm() {
 
   const input = 'w-full bg-neutral-800 border border-neutral-700 rounded-md px-3 py-2.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 transition-colors duration-150';
   const inputFilled = 'w-full bg-neutral-800 border border-oak/40 ring-1 ring-oak/15 rounded-md px-3 py-2.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-oak/50 focus:ring-2 focus:ring-oak/20 transition-colors duration-150';
+  const inputNoWidth = 'bg-neutral-800 border border-neutral-700 rounded-md px-3 py-2.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 transition-colors duration-150';
   const label = 'block text-xs font-semibold text-neutral-500 mb-1.5 uppercase tracking-wider';
   const ic = (field) => filledByLookup.has(field) ? inputFilled : input;
 
@@ -488,43 +489,13 @@ export default function BookForm() {
                   </div>
                 </div>
 
+                {/* Lookup button temporarily disabled — UX TBD
                 {(form.title || form.author) && (
                   <div className="relative">
-                    <button
-                      type="button"
-                      onClick={handleLookup}
-                      disabled={lookupSearching}
-                      className="text-xs text-neutral-500 hover:text-neutral-200 disabled:opacity-40 transition-colors"
-                    >
-                      {lookupSearching ? 'Searching…' : '↗ Look up on Open Library'}
-                    </button>
-                    {lookupResults.length > 0 && (
-                      <ul className="absolute z-10 w-full mt-1 bg-neutral-900 border border-neutral-700 rounded-lg overflow-hidden shadow-xl">
-                        {lookupResults.map((r) => (
-                          <li key={r.key}>
-                            <button type="button" onClick={() => applyLookupResult(r)}
-                              className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-neutral-800 transition-colors">
-                              {r.cover_url
-                                ? <img src={r.cover_url} alt="" className="w-8 h-12 object-cover rounded flex-shrink-0" />
-                                : <div className="w-8 h-12 bg-neutral-800 rounded flex-shrink-0" />}
-                              <div className="min-w-0">
-                                <p className="text-sm text-white truncate">{r.title}</p>
-                                {r.author && <p className="text-xs text-neutral-500 truncate">{r.author}</p>}
-                                {r.publisher && <p className="text-xs text-neutral-600 truncate">{r.publisher}</p>}
-                              </div>
-                            </button>
-                          </li>
-                        ))}
-                        <li>
-                          <button type="button" onClick={() => setLookupResults([])}
-                            className="w-full px-4 py-2 text-xs text-neutral-600 hover:text-neutral-400 text-left transition-colors">
-                            Dismiss
-                          </button>
-                        </li>
-                      </ul>
-                    )}
+                    ...
                   </div>
                 )}
+                */}
 
                 <div>
                   <label className={label}>Status</label>
@@ -610,7 +581,7 @@ export default function BookForm() {
                       <div className="flex items-center gap-2">
                         <input
                           type="number" min="0" max="999"
-                          className={`${input} flex-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+                          className={`${inputNoWidth} flex-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
                           value={durationH}
                           onChange={(e) => {
                             const h = e.target.value;
@@ -623,7 +594,7 @@ export default function BookForm() {
                         <span className="text-neutral-500 text-sm flex-shrink-0">h</span>
                         <input
                           type="number" min="0" max="59"
-                          className={`${input} w-20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+                          className={`${inputNoWidth} w-20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
                           value={durationM}
                           onChange={(e) => {
                             const m = e.target.value;
