@@ -187,6 +187,11 @@ export default function BookDetail() {
     api.getBook(id).then(setBook).finally(() => setLoading(false));
   }, [id]);
 
+  async function toggleLoved() {
+    const updated = await api.patchBook(book.id, { loved: book.loved ? 0 : 1 });
+    setBook(updated);
+  }
+
   async function handleDelete() {
     if (!confirm(`Delete "${book.title}"?`)) return;
     await api.deleteBook(id);
@@ -203,8 +208,8 @@ export default function BookDetail() {
       </Link>
 
       <div className="flex gap-8 sm:gap-10">
-        <div className="w-36 sm:w-44 flex-shrink-0">
-          <div className={`${book.format === 'audiobook' ? 'aspect-square' : 'aspect-[2/3]'} bg-neutral-800 rounded overflow-hidden shadow-2xl ring-1 ring-white/5`}>
+        <div className="flex-shrink-0">
+          <div className="w-[230px] h-[345px] bg-neutral-800 rounded overflow-hidden shadow-2xl ring-1 ring-white/5">
             {book.cover_path ? (
               <img src={book.cover_path} alt={book.title} className="w-full h-full object-cover" />
             ) : (
@@ -240,6 +245,13 @@ export default function BookDetail() {
               </span>
             )}
             {book.rating && <StarRating value={book.rating} readOnly />}
+            <button
+              onClick={toggleLoved}
+              className={`text-xl leading-none transition-colors ${book.loved ? 'text-red-400' : 'text-neutral-600 hover:text-neutral-400'}`}
+              title={book.loved ? 'Remove from loved' : 'Mark as loved'}
+            >
+              {book.loved ? '♥' : '♡'}
+            </button>
           </div>
 
           {(book.status === 'reading' || book.status === 'paused') && (

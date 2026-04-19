@@ -24,6 +24,7 @@ function PencilIcon() {
 export default function BookCard({ book: initialBook, onProgressUpdate }) {
   const [book, setBook] = useState(initialBook);
   const [open, setOpen] = useState(false);
+  const [loving, setLoving] = useState(false);
   const [inputVal, setInputVal] = useState('');
   const [inputH, setInputH] = useState('');
   const [inputM, setInputM] = useState('');
@@ -117,6 +118,19 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
     }
   }
 
+  async function toggleLoved(e) {
+    e.preventDefault();
+    if (loving) return;
+    setLoving(true);
+    try {
+      const updated = await api.patchBook(book.id, { loved: book.loved ? 0 : 1 });
+      setBook(updated);
+      onProgressUpdate?.(updated);
+    } finally {
+      setLoving(false);
+    }
+  }
+
   function handleKeyDown(e) {
     if (e.key === 'Escape') setOpen(false);
   }
@@ -159,7 +173,15 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
           ) : (
             <div className={`absolute bottom-0 left-0 right-0 h-0.5 ${STATUS_BAR[book.status]}`} />
           )}
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+          <button
+            onClick={toggleLoved}
+            disabled={loving}
+            className={`absolute bottom-1.5 right-1.5 bg-black/60 backdrop-blur-sm rounded px-1.5 py-0.5 text-base leading-none transition-colors disabled:opacity-50 ${book.loved ? 'text-red-400' : 'text-neutral-600 hover:text-neutral-300'}`}
+            title={book.loved ? 'Loved' : 'Mark as loved'}
+          >
+            {book.loved ? '♥' : '♡'}
+          </button>
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors pointer-events-none" />
         </div>
         <p className="text-sm font-medium text-neutral-200 truncate group-hover:text-white transition-colors leading-tight">
           {book.title}
