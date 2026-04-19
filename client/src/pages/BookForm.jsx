@@ -802,7 +802,6 @@ export default function BookForm() {
               </div>
             )}
 
-            {error && <p className="text-sm text-warn mt-6">{error}</p>}
           </form>
         </div>
       </div>

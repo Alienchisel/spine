@@ -59,7 +59,7 @@ function validateBook(body) {
   if (year_published != null && (year_published < 1 || !Number.isInteger(Number(year_published)))) errors.push('Invalid publication year');
   if (year_edition != null && (year_edition < 1 || !Number.isInteger(Number(year_edition)))) errors.push('Invalid edition year');
   if (body.series_number != null && isNaN(Number(body.series_number))) errors.push('Invalid series number');
-  if (isbn_10 && !/^\d{10}$/.test(isbn_10)) errors.push('ISBN-10 must be 10 digits');
+  if (isbn_10 && !/^\d{9}[\dX]$/.test(isbn_10)) errors.push('Invalid ISBN-10');
   if (isbn_13 && !/^\d{13}$/.test(isbn_13)) errors.push('ISBN-13 must be 13 digits');
 
   return errors;

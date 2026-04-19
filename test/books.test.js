@@ -68,6 +68,11 @@ describe('books', () => {
       assert.equal(status, 400);
     });
 
+    it('accepts ISBN-10 with trailing X', async () => {
+      const { status } = await req('POST', '/api/books', { title: 'X', isbn_10: '197470937X' });
+      assert.equal(status, 201);
+    });
+
     it('rejects invalid ISBN-13', async () => {
       const { status } = await req('POST', '/api/books', { title: 'X', isbn_13: '123' });
       assert.equal(status, 400);
