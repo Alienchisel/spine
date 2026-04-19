@@ -32,8 +32,13 @@ const applyMigration = db.transaction((file, sql) => {
 for (const file of files) {
   if (applied.has(file)) continue;
   const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
-  applyMigration(file, sql);
-  console.log(`Applied migration: ${file}`);
+  try {
+    applyMigration(file, sql);
+    console.log(`Applied migration: ${file}`);
+  } catch (err) {
+    console.error(`Failed migration: ${file}`);
+    throw err;
+  }
 }
 
 export default db;
