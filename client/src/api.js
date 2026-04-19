@@ -29,4 +29,11 @@ export const api = {
   fetchCover: (url) => request('/upload/fetch', { method: 'POST', body: JSON.stringify({ url }) }),
   getReadlist: () => request('/readlist'),
   reorderReadlist: (ids) => request('/readlist/order', { method: 'PUT', body: JSON.stringify({ ids }) }),
+  getLists: () => request('/lists'),
+  getList: (id) => request(`/lists/${id}`),
+  createList: (name) => request('/lists', { method: 'POST', body: JSON.stringify({ name }) }),
+  renameList: (id, name) => request(`/lists/${id}`, { method: 'PUT', body: JSON.stringify({ name }) }),
+  deleteList: (id) => request(`/lists/${id}`, { method: 'DELETE' }),
+  addToList: (listId, bookId) => request(`/lists/${listId}/books`, { method: 'POST', body: JSON.stringify({ book_id: bookId }) }),
+  removeFromList: (listId, bookId) => request(`/lists/${listId}/books/${bookId}`, { method: 'DELETE' }),
 };

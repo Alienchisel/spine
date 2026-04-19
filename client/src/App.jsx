@@ -6,6 +6,8 @@ import BookForm from './pages/BookForm.jsx';
 import BrowsePage from './pages/BrowsePage.jsx';
 import Readlist from './pages/Readlist.jsx';
 import Loved from './pages/Loved.jsx';
+import Lists from './pages/Lists.jsx';
+import ListDetail from './pages/ListDetail.jsx';
 
 export default function App() {
   return (
@@ -20,6 +22,8 @@ export default function App() {
           <Route path="/browse/:field/:value" element={<BrowsePage />} />
           <Route path="/readlist" element={<Readlist />} />
           <Route path="/loved" element={<Loved />} />
+          <Route path="/lists" element={<Lists />} />
+          <Route path="/lists/:id" element={<ListDetail />} />
         </Routes>
       </main>
     </div>
