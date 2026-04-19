@@ -221,7 +221,15 @@ export default function BookDetail() {
         </div>
 
         <div className="flex-1 min-w-0 pt-1">
-          <h1 className="text-2xl font-bold text-white leading-tight mb-1">{book.title}</h1>
+          <div className="flex items-start justify-between gap-4 mb-1">
+            <h1 className="text-2xl font-bold text-white leading-tight">{book.title}</h1>
+            <Link
+              to={`/books/${book.id}/edit`}
+              className="text-sm text-neutral-500 hover:text-neutral-200 transition-colors flex-shrink-0 pt-1"
+            >
+              Edit
+            </Link>
+          </div>
           {book.author && (
             <p className="text-neutral-400 text-base mb-5">
               <Link to={`/browse/author/${encodeURIComponent(book.author)}`} className="hover:text-neutral-200 transition-colors">
@@ -394,16 +402,10 @@ export default function BookDetail() {
             </div>
           )}
 
-          <div className="flex gap-3 mt-8 pt-6 border-t border-neutral-800/60">
-            <Link
-              to={`/books/${book.id}/edit`}
-              className="text-sm bg-neutral-800 hover:bg-neutral-700 active:scale-[0.98] text-white px-5 py-2 rounded transition-[transform,background-color] ease-out duration-150"
-            >
-              Edit
-            </Link>
+          <div className="mt-8 pt-6 border-t border-neutral-800/60">
             <button
               onClick={handleDelete}
-              className="text-sm text-neutral-600 hover:text-warn px-4 py-2 rounded transition-colors"
+              className="text-sm text-neutral-600 hover:text-warn transition-colors"
             >
               Delete
             </button>
