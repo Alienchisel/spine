@@ -405,6 +405,30 @@ export default function BookForm() {
                 </div>
 
                 <div>
+                  <label className={label}>Series</label>
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <input className={input} list="series-list" value={form.series}
+                        onChange={(e) => set('series', e.target.value)}
+                        placeholder="e.g. The Wheel of Time…" />
+                      <datalist id="series-list">
+                        {pastSeries.map(s => <option key={s} value={s} />)}
+                      </datalist>
+                    </div>
+                    {form.series && (
+                      <div className="w-24">
+                        <input
+                          type="number" min="0" step="0.5"
+                          className={`${input} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+                          value={form.series_number}
+                          onChange={(e) => set('series_number', e.target.value)}
+                          placeholder="#" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
                   <label className={label}>Status</label>
                   <select className={input} value={form.status}
                     onChange={(e) => set('status', e.target.value)}>
@@ -539,30 +563,6 @@ export default function BookForm() {
                   <datalist id="publishers-list">
                     {pastPublishers.map(p => <option key={p} value={p} />)}
                   </datalist>
-                </div>
-
-                <div>
-                  <label className={label}>Series</label>
-                  <div className="flex gap-2">
-                    <div className="flex-1">
-                      <input className={input} list="series-list" value={form.series}
-                        onChange={(e) => set('series', e.target.value)}
-                        placeholder="e.g. The Wheel of Time…" />
-                      <datalist id="series-list">
-                        {pastSeries.map(s => <option key={s} value={s} />)}
-                      </datalist>
-                    </div>
-                    {form.series && (
-                      <div className="w-24">
-                        <input
-                          type="number" min="0" step="0.5"
-                          className={`${input} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
-                          value={form.series_number}
-                          onChange={(e) => set('series_number', e.target.value)}
-                          placeholder="#" />
-                      </div>
-                    )}
-                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
