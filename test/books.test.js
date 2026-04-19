@@ -133,6 +133,11 @@ describe('books', () => {
       assert.equal(status, 404);
     });
 
+    it('rejects invalid source_type', async () => {
+      const { status } = await req('POST', '/api/books', { title: 'X', source_type: 'tertiary' });
+      assert.equal(status, 400);
+    });
+
     it('saves and returns fiction flag', async () => {
       const { body: created } = await req('POST', '/api/books', { title: 'Dune', fiction: true });
       assert.equal(created.fiction, 1);
@@ -140,6 +145,12 @@ describe('books', () => {
       assert.equal(body.fiction, 0);
       const { body: cleared } = await req('PUT', `/api/books/${created.id}`, { title: 'Dune' });
       assert.equal(cleared.fiction, null);
+    });
+
+    it('saves source_type for non-fiction', async () => {
+      const { body } = await req('POST', '/api/books', { title: 'Thucydides', fiction: false, source_type: 'primary' });
+      assert.equal(body.fiction, 0);
+      assert.equal(body.source_type, 'primary');
     });
   });
 

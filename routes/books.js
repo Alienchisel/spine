@@ -43,6 +43,7 @@ const VALID_STATUSES = ['reading', 'paused', 'finished', 'unread'];
 const VALID_FORMATS = ['physical', 'ebook', 'audiobook'];
 const VALID_BINDINGS = ['paperback', 'hardcover'];
 const VALID_CONDITIONS = ['new', 'fine', 'very good', 'good', 'fair', 'poor'];
+const VALID_SOURCE_TYPES = ['primary', 'secondary'];
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 function isValidDate(val) {
@@ -62,6 +63,7 @@ function validateBook(body) {
   if (format && !VALID_FORMATS.includes(format.trim())) errors.push('Invalid format');
   if (binding && !VALID_BINDINGS.includes(binding.trim())) errors.push('Invalid binding');
   if (condition && !VALID_CONDITIONS.includes(condition.trim())) errors.push('Invalid condition');
+  if (body.source_type && !VALID_SOURCE_TYPES.includes(body.source_type.trim())) errors.push('Invalid source type');
   if (rating != null && (rating < 1 || rating > 5 || !Number.isInteger(Number(rating)))) errors.push('Rating must be 1–5');
   if (page_count != null && (page_count < 1 || !Number.isInteger(Number(page_count)))) errors.push('Page count must be a positive integer');
   if (duration_minutes != null && (duration_minutes < 1 || !Number.isInteger(Number(duration_minutes)))) errors.push('Duration must be a positive integer');
@@ -145,14 +147,14 @@ router.get('/:id/lists', (req, res) => {
 });
 
 router.post('/', (req, res) => {
-  const { title, author, status, owned, is_custom, is_stub, loved, fiction, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, series_number, isbn_10, isbn_13, shelf_room, shelf_unit, shelf_number, narrator, year_published, year_edition, tags } = req.body;
+  const { title, author, status, owned, is_custom, is_stub, loved, fiction, source_type, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, series_number, isbn_10, isbn_13, shelf_room, shelf_unit, shelf_number, narrator, year_published, year_edition, tags } = req.body;
   const errors = validateBook(req.body);
   if (errors.length) return res.status(400).json({ error: errors[0] });
 
   const insertBook = db.transaction(() => {
     const result = db.prepare(`
-      INSERT INTO books (title, author, status, owned, is_custom, is_stub, loved, fiction, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, series_number, isbn_10, isbn_13, shelf_room, shelf_unit, shelf_number, narrator, year_published, year_edition)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO books (title, author, status, owned, is_custom, is_stub, loved, fiction, source_type, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, series_number, isbn_10, isbn_13, shelf_room, shelf_unit, shelf_number, narrator, year_published, year_edition)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       t(title),
       t(author),
@@ -162,6 +164,7 @@ router.post('/', (req, res) => {
       is_stub ? 1 : 0,
       loved ? 1 : 0,
       fiction === undefined ? null : (fiction ? 1 : 0),
+      t(source_type) || null,
       toFilename(cover_path),
       rating || null,
       t(date_started),
@@ -201,14 +204,14 @@ router.put('/:id', (req, res) => {
   const existing = db.prepare('SELECT cover_path FROM books WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ error: 'Not found' });
 
-  const { title, author, status, owned, is_custom, is_stub, loved, fiction, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, series_number, isbn_10, isbn_13, shelf_room, shelf_unit, shelf_number, narrator, year_published, year_edition, tags } = req.body;
+  const { title, author, status, owned, is_custom, is_stub, loved, fiction, source_type, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, series_number, isbn_10, isbn_13, shelf_room, shelf_unit, shelf_number, narrator, year_published, year_edition, tags } = req.body;
   const errors = validateBook(req.body);
   if (errors.length) return res.status(400).json({ error: errors[0] });
 
   const updateBook = db.transaction(() => {
     db.prepare(`
       UPDATE books SET
-        title = ?, author = ?, status = ?, owned = ?, is_custom = ?, is_stub = ?, loved = ?, fiction = ?, cover_path = ?,
+        title = ?, author = ?, status = ?, owned = ?, is_custom = ?, is_stub = ?, loved = ?, fiction = ?, source_type = ?, cover_path = ?,
         rating = ?, date_started = ?, date_finished = ?,
         acquisition_source = ?, acquisition_date = ?,
         format = ?, binding = ?, condition = ?,
@@ -227,6 +230,7 @@ router.put('/:id', (req, res) => {
       is_stub ? 1 : 0,
       loved ? 1 : 0,
       fiction === undefined ? null : (fiction ? 1 : 0),
+      t(source_type) || null,
       toFilename(cover_path),
       rating || null,
       t(date_started),

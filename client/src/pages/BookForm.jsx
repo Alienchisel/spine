@@ -10,6 +10,7 @@ const EMPTY = {
   owned: false,
   is_custom: false,
   fiction: null,
+  source_type: '',
   rating: null,
   date_started: '',
   date_finished: '',
@@ -144,6 +145,7 @@ export default function BookForm() {
         owned: Boolean(book.owned),
         is_custom: Boolean(book.is_custom),
         fiction: book.fiction === null || book.fiction === undefined ? null : Boolean(book.fiction),
+        source_type: book.source_type || '',
         rating: book.rating ?? null,
         date_started: book.date_started || '',
         date_finished: book.date_finished || '',
@@ -454,12 +456,27 @@ export default function BookForm() {
                 <div>
                   <label className={label}>Fiction / Non-fiction</label>
                   <select className={input} value={form.fiction === null ? '' : String(form.fiction)}
-                    onChange={e => set('fiction', e.target.value === '' ? null : e.target.value === 'true')}>
+                    onChange={e => {
+                      const val = e.target.value === '' ? null : e.target.value === 'true';
+                      setForm(f => ({ ...f, fiction: val, source_type: val === false ? f.source_type : '' }));
+                    }}>
                     <option value="">—</option>
                     <option value="true">Fiction</option>
                     <option value="false">Non-fiction</option>
                   </select>
                 </div>
+
+                {form.fiction === false && (
+                  <div>
+                    <label className={label}>Source</label>
+                    <select className={input} value={form.source_type}
+                      onChange={e => set('source_type', e.target.value)}>
+                      <option value="">—</option>
+                      <option value="primary">Primary source</option>
+                      <option value="secondary">Secondary source</option>
+                    </select>
+                  </div>
+                )}
 
                 <div>
                   <label className={label}>Title *</label>
