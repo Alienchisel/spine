@@ -258,6 +258,15 @@ export default function BookDetail() {
             <ProgressSection book={book} onChange={setBook} />
           )}
 
+          {book.description && (
+            <div className="mb-6">
+              <div className="text-neutral-400 text-sm leading-relaxed prose-sm prose-invert prose-neutral max-w-none
+                [&_strong]:text-neutral-300 [&_em]:text-neutral-400 [&_p]:mb-2 [&_p:last-child]:mb-0">
+                <ReactMarkdown>{book.description}</ReactMarkdown>
+              </div>
+            </div>
+          )}
+
           <dl className="space-y-2.5 text-sm mb-6">
             {book.format && (
               <div className="flex gap-2">
@@ -375,18 +384,8 @@ export default function BookDetail() {
             </div>
           )}
 
-          {book.description && (
-            <div className="border-t border-neutral-800 pt-5 mb-5">
-              <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">Description</p>
-              <div className="text-neutral-400 text-sm leading-relaxed prose-sm prose-invert prose-neutral max-w-none
-                [&_strong]:text-neutral-300 [&_em]:text-neutral-400 [&_p]:mb-2 [&_p:last-child]:mb-0">
-                <ReactMarkdown>{book.description}</ReactMarkdown>
-              </div>
-            </div>
-          )}
-
           {book.notes && (
-            <div className={book.description ? '' : 'border-t border-neutral-800 pt-5'}>
+            <div className="border-t border-neutral-800 pt-5">
               <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">Notes</p>
               <div className="text-neutral-400 text-sm leading-relaxed prose-sm prose-invert prose-neutral max-w-none
                 [&_strong]:text-neutral-300 [&_em]:text-neutral-400 [&_p]:mb-2 [&_p:last-child]:mb-0">
