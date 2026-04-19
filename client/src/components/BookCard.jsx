@@ -207,9 +207,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
             >
               {book.loved ? '♥' : '♡'}
             </button>
-            <div className="bg-black/60 backdrop-blur-sm rounded px-1 py-0.5">
-              <ListPicker bookId={book.id} dropUp iconClassName="w-3 h-3" />
-            </div>
+            <ListPicker bookId={book.id} dropUp iconClassName="w-3 h-3" buttonClassName="bg-black/60 backdrop-blur-sm rounded px-1 py-0.5" />
           </div>
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors pointer-events-none" />
         </div>

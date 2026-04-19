@@ -29,8 +29,13 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
         dropdownRef.current && !dropdownRef.current.contains(e.target)
       ) setOpen(false);
     }
+    function onScroll() { setOpen(false); }
     document.addEventListener('mousedown', onMouseDown);
-    return () => document.removeEventListener('mousedown', onMouseDown);
+    window.addEventListener('scroll', onScroll, true);
+    return () => {
+      document.removeEventListener('mousedown', onMouseDown);
+      window.removeEventListener('scroll', onScroll, true);
+    };
   }, [open]);
 
   async function handleOpen(e) {
