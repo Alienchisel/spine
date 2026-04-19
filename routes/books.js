@@ -139,20 +139,21 @@ router.get('/:id/lists', (req, res) => {
 });
 
 router.post('/', (req, res) => {
-  const { title, author, status, owned, is_custom, loved, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, series_number, isbn_10, isbn_13, shelf_room, shelf_unit, shelf_number, narrator, year_published, year_edition, tags } = req.body;
+  const { title, author, status, owned, is_custom, is_stub, loved, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, series_number, isbn_10, isbn_13, shelf_room, shelf_unit, shelf_number, narrator, year_published, year_edition, tags } = req.body;
   const errors = validateBook(req.body);
   if (errors.length) return res.status(400).json({ error: errors[0] });
 
   const insertBook = db.transaction(() => {
     const result = db.prepare(`
-      INSERT INTO books (title, author, status, owned, is_custom, loved, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, series_number, isbn_10, isbn_13, shelf_room, shelf_unit, shelf_number, narrator, year_published, year_edition)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO books (title, author, status, owned, is_custom, is_stub, loved, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, series_number, isbn_10, isbn_13, shelf_room, shelf_unit, shelf_number, narrator, year_published, year_edition)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       title.trim(),
       author || null,
       status || 'unread',
       owned ? 1 : 0,
       is_custom ? 1 : 0,
+      is_stub ? 1 : 0,
       loved ? 1 : 0,
       toFilename(cover_path),
       rating || null,
@@ -193,14 +194,14 @@ router.put('/:id', (req, res) => {
   const existing = db.prepare('SELECT cover_path FROM books WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ error: 'Not found' });
 
-  const { title, author, status, owned, is_custom, loved, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, series_number, isbn_10, isbn_13, shelf_room, shelf_unit, shelf_number, narrator, year_published, year_edition, tags } = req.body;
+  const { title, author, status, owned, is_custom, is_stub, loved, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, series_number, isbn_10, isbn_13, shelf_room, shelf_unit, shelf_number, narrator, year_published, year_edition, tags } = req.body;
   const errors = validateBook(req.body);
   if (errors.length) return res.status(400).json({ error: errors[0] });
 
   const updateBook = db.transaction(() => {
     db.prepare(`
       UPDATE books SET
-        title = ?, author = ?, status = ?, owned = ?, is_custom = ?, loved = ?, cover_path = ?,
+        title = ?, author = ?, status = ?, owned = ?, is_custom = ?, is_stub = ?, loved = ?, cover_path = ?,
         rating = ?, date_started = ?, date_finished = ?,
         acquisition_source = ?, acquisition_date = ?,
         format = ?, binding = ?, condition = ?,
@@ -216,6 +217,7 @@ router.put('/:id', (req, res) => {
       status || 'unread',
       owned ? 1 : 0,
       is_custom ? 1 : 0,
+      is_stub ? 1 : 0,
       loved ? 1 : 0,
       toFilename(cover_path),
       rating || null,
@@ -257,7 +259,7 @@ router.patch('/:id', (req, res) => {
   if (!db.prepare('SELECT id FROM books WHERE id = ?').get(id)) {
     return res.status(404).json({ error: 'Not found' });
   }
-  const { current_page, current_minutes, loved, on_readlist } = req.body;
+  const { current_page, current_minutes, loved, on_readlist, is_stub } = req.body;
   if (current_page != null && (current_page < 0 || !Number.isInteger(Number(current_page))))
     return res.status(400).json({ error: 'Invalid page number' });
   if (current_minutes != null && (current_minutes < 0 || !Number.isInteger(Number(current_minutes))))
@@ -268,6 +270,7 @@ router.patch('/:id', (req, res) => {
   if (current_page !== undefined) { fields.push('current_page = ?'); params.push(current_page ?? null); }
   if (current_minutes !== undefined) { fields.push('current_minutes = ?'); params.push(current_minutes ?? null); }
   if (loved !== undefined) { fields.push('loved = ?'); params.push(loved ? 1 : 0); }
+  if (is_stub !== undefined) { fields.push('is_stub = ?'); params.push(is_stub ? 1 : 0); }
   if (on_readlist !== undefined) {
     fields.push('on_readlist = ?');
     params.push(on_readlist ? 1 : 0);

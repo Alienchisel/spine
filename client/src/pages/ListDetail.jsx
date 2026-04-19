@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../api.js';
 
@@ -14,7 +14,7 @@ function applySort(books, sort) {
   if (sort === 'title')  return b.sort((a, z) => a.title.localeCompare(z.title));
   if (sort === 'author') return b.sort((a, z) => (a.author || '').localeCompare(z.author || ''));
   if (sort === 'rating') return b.sort((a, z) => (z.rating ?? 0) - (a.rating ?? 0));
-  return b; // 'added' — already ordered by added_at DESC from server
+  return b;
 }
 
 function Stars({ rating }) {
@@ -26,7 +26,7 @@ function Stars({ rating }) {
 
 function BookRow({ book, onRemove }) {
   return (
-    <div className="flex items-center gap-4 p-3 rounded-lg bg-neutral-900 border border-neutral-800">
+    <div className={`flex items-center gap-4 p-3 rounded-lg border transition-colors ${book.is_stub ? 'bg-neutral-900/50 border-neutral-800/50' : 'bg-neutral-900 border-neutral-800'}`}>
       <div className="w-9 h-[54px] flex-shrink-0 rounded overflow-hidden bg-neutral-800">
         {book.cover_path ? (
           <img src={book.cover_path} alt={book.title} className="w-full h-full object-cover" />
@@ -36,9 +36,16 @@ function BookRow({ book, onRemove }) {
       </div>
 
       <div className="flex-1 min-w-0">
-        <Link to={`/books/${book.id}`} className="text-sm font-medium text-neutral-200 hover:text-white transition-colors truncate block">
-          {book.title}
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link to={`/books/${book.id}`} className={`text-sm font-medium hover:text-white transition-colors truncate block ${book.is_stub ? 'text-neutral-400' : 'text-neutral-200'}`}>
+            {book.title}
+          </Link>
+          {Boolean(book.is_stub) && (
+            <span className="flex-shrink-0 text-xs text-neutral-600 border border-neutral-700 rounded px-1.5 py-0.5 leading-none">
+              incomplete
+            </span>
+          )}
+        </div>
         <p className="text-xs text-neutral-500 truncate mt-0.5">
           {[book.author, book.series && `${book.series}${book.series_number ? ` #${book.series_number}` : ''}`].filter(Boolean).join(' · ')}
         </p>
@@ -68,6 +75,66 @@ function BookRow({ book, onRemove }) {
   );
 }
 
+function QuickAdd({ listId, onAdded }) {
+  const [title, setTitle] = useState('');
+  const [author, setAuthor] = useState('');
+  const [expanded, setExpanded] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const titleRef = useRef(null);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!title.trim()) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const book = await api.createBook({ title: title.trim(), author: author.trim() || undefined, is_stub: true });
+      await api.addToList(listId, book.id);
+      onAdded(book);
+      setTitle('');
+      setAuthor('');
+      setExpanded(false);
+      titleRef.current?.focus();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex items-center gap-2 mb-6">
+      <input
+        ref={titleRef}
+        type="text"
+        value={title}
+        onChange={e => setTitle(e.target.value)}
+        onFocus={() => setExpanded(true)}
+        placeholder="Quick-add a book by title…"
+        className="bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2 text-sm text-parchment placeholder-neutral-500 focus:outline-none focus:border-oak/50 transition-colors flex-1"
+      />
+      {expanded && (
+        <input
+          type="text"
+          value={author}
+          onChange={e => setAuthor(e.target.value)}
+          placeholder="Author (optional)"
+          className="bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2 text-sm text-parchment placeholder-neutral-500 focus:outline-none focus:border-oak/50 transition-colors w-48"
+        />
+      )}
+      <button
+        type="submit"
+        disabled={saving || !title.trim()}
+        className="text-sm font-medium bg-oak hover:bg-leather disabled:opacity-40 active:scale-[0.98] text-neutral-950 px-4 py-2 rounded-lg transition-[transform,background-color] ease-out duration-150 whitespace-nowrap"
+      >
+        Add
+      </button>
+      {error && <span className="text-xs text-red-400">{error}</span>}
+    </form>
+  );
+}
+
 export default function ListDetail() {
   const { id } = useParams();
   const [list, setList] = useState(null);
@@ -84,6 +151,10 @@ export default function ListDetail() {
       .catch(() => setError('Failed to load list.'))
       .finally(() => setLoading(false));
   }, [id]);
+
+  function handleAdded(book) {
+    setList(l => ({ ...l, books: [{ ...book, added_at: new Date().toISOString() }, ...l.books] }));
+  }
 
   async function handleRemove(bookId) {
     await api.removeFromList(id, bookId);
@@ -140,12 +211,11 @@ export default function ListDetail() {
         <span className="text-xs text-neutral-600 mt-0.5">{list.books.length} {list.books.length === 1 ? 'book' : 'books'}</span>
       </div>
 
+      <QuickAdd listId={id} onAdded={handleAdded} />
+
       {list.books.length === 0 ? (
-        <div className="text-center py-32">
-          <p className="text-neutral-600 mb-3">This list is empty.</p>
-          <Link to="/" className="text-sm text-oak hover:text-leather">
-            Browse your library →
-          </Link>
+        <div className="text-center py-24">
+          <p className="text-neutral-600">This list is empty. Add a book above.</p>
         </div>
       ) : (
         <>
