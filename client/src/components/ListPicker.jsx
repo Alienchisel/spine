@@ -44,10 +44,13 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
     if (open) { setOpen(false); return; }
 
     const rect = buttonRef.current.getBoundingClientRect();
+    const dropdownWidth = 208;
+    const idealLeft = rect.right - dropdownWidth;
+    const left = Math.min(Math.max(idealLeft, 8), window.innerWidth - dropdownWidth - 8);
     setPos({
       top: dropUp ? undefined : rect.bottom + 4,
       bottom: dropUp ? window.innerHeight - rect.top + 4 : undefined,
-      right: window.innerWidth - rect.right,
+      left,
     });
 
     setOpen(true);
@@ -84,7 +87,7 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
   const dropdown = open && pos && createPortal(
     <div
       ref={dropdownRef}
-      style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, right: pos.right }}
+      style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left }}
       className="z-[9999] w-52 bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl py-1"
     >
       {loading ? (
