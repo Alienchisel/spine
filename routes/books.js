@@ -248,7 +248,7 @@ router.patch('/:id', (req, res) => {
   if (!db.prepare('SELECT id FROM books WHERE id = ?').get(id)) {
     return res.status(404).json({ error: 'Not found' });
   }
-  const { current_page, current_minutes, loved } = req.body;
+  const { current_page, current_minutes, loved, on_readlist } = req.body;
   if (current_page != null && (current_page < 0 || !Number.isInteger(Number(current_page))))
     return res.status(400).json({ error: 'Invalid page number' });
   if (current_minutes != null && (current_minutes < 0 || !Number.isInteger(Number(current_minutes))))
@@ -259,6 +259,18 @@ router.patch('/:id', (req, res) => {
   if (current_page !== undefined) { fields.push('current_page = ?'); params.push(current_page ?? null); }
   if (current_minutes !== undefined) { fields.push('current_minutes = ?'); params.push(current_minutes ?? null); }
   if (loved !== undefined) { fields.push('loved = ?'); params.push(loved ? 1 : 0); }
+  if (on_readlist !== undefined) {
+    fields.push('on_readlist = ?');
+    params.push(on_readlist ? 1 : 0);
+    if (on_readlist) {
+      const max = db.prepare('SELECT MAX(readlist_position) as m FROM books WHERE on_readlist = 1').get();
+      fields.push('readlist_position = ?');
+      params.push((max.m ?? -1) + 1);
+    } else {
+      fields.push('readlist_position = ?');
+      params.push(null);
+    }
+  }
   if (fields.length) {
     db.prepare(`UPDATE books SET ${fields.join(', ')}, updated_at = datetime('now') WHERE id = ?`).run(...params, id);
   }

@@ -4,6 +4,7 @@ import Library from './pages/Library.jsx';
 import BookDetail from './pages/BookDetail.jsx';
 import BookForm from './pages/BookForm.jsx';
 import BrowsePage from './pages/BrowsePage.jsx';
+import Readlist from './pages/Readlist.jsx';
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
           <Route path="/books/:id" element={<BookDetail />} />
           <Route path="/books/:id/edit" element={<BookForm />} />
           <Route path="/browse/:field/:value" element={<BrowsePage />} />
+          <Route path="/readlist" element={<Readlist />} />
         </Routes>
       </main>
     </div>

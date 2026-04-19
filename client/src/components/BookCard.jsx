@@ -25,6 +25,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
   const [book, setBook] = useState(initialBook);
   const [open, setOpen] = useState(false);
   const [loving, setLoving] = useState(false);
+  const [listing, setListing] = useState(false);
   const [inputVal, setInputVal] = useState('');
   const [inputH, setInputH] = useState('');
   const [inputM, setInputM] = useState('');
@@ -131,6 +132,19 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
     }
   }
 
+  async function toggleReadlist(e) {
+    e.preventDefault();
+    if (listing) return;
+    setListing(true);
+    try {
+      const updated = await api.patchBook(book.id, { on_readlist: book.on_readlist ? 0 : 1 });
+      setBook(updated);
+      onProgressUpdate?.(updated);
+    } finally {
+      setListing(false);
+    }
+  }
+
   function handleKeyDown(e) {
     if (e.key === 'Escape') setOpen(false);
   }
@@ -173,14 +187,27 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
           ) : (
             <div className={`absolute bottom-0 left-0 right-0 h-0.5 ${STATUS_BAR[book.status]}`} />
           )}
-          <button
-            onClick={toggleLoved}
-            disabled={loving}
-            className={`absolute bottom-1.5 right-1.5 bg-black/60 backdrop-blur-sm rounded px-1.5 py-0.5 text-base leading-none transition-colors disabled:opacity-50 ${book.loved ? 'text-red-400' : 'text-neutral-600 hover:text-neutral-300'}`}
-            title={book.loved ? 'Loved' : 'Mark as loved'}
-          >
-            {book.loved ? '♥' : '♡'}
-          </button>
+          <div className="absolute bottom-1.5 right-1.5 flex gap-0.5">
+            <button
+              onClick={toggleReadlist}
+              disabled={listing}
+              className={`bg-black/60 backdrop-blur-sm rounded px-1 py-0.5 leading-none transition-colors disabled:opacity-50 ${book.on_readlist ? 'text-sky-400' : 'text-neutral-600 hover:text-neutral-300'}`}
+              title={book.on_readlist ? 'On readlist' : 'Add to readlist'}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3">
+                <path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" />
+                <path fillRule="evenodd" d="M1.38 8a6.998 6.998 0 0 1 13.24 0 7 7 0 0 1-13.24 0ZM8 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z" clipRule="evenodd" />
+              </svg>
+            </button>
+            <button
+              onClick={toggleLoved}
+              disabled={loving}
+              className={`bg-black/60 backdrop-blur-sm rounded px-1 py-0.5 text-sm leading-none transition-colors disabled:opacity-50 ${book.loved ? 'text-red-400' : 'text-neutral-600 hover:text-neutral-300'}`}
+              title={book.loved ? 'Loved' : 'Mark as loved'}
+            >
+              {book.loved ? '♥' : '♡'}
+            </button>
+          </div>
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors pointer-events-none" />
         </div>
         <p className="text-sm font-medium text-neutral-200 truncate group-hover:text-white transition-colors leading-tight">

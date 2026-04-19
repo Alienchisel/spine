@@ -1,0 +1,2 @@
+ALTER TABLE books ADD COLUMN on_readlist INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE books ADD COLUMN readlist_position INTEGER;

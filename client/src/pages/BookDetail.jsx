@@ -192,6 +192,11 @@ export default function BookDetail() {
     setBook(updated);
   }
 
+  async function toggleReadlist() {
+    const updated = await api.patchBook(book.id, { on_readlist: book.on_readlist ? 0 : 1 });
+    setBook(updated);
+  }
+
   async function handleDelete() {
     if (!confirm(`Delete "${book.title}"?`)) return;
     await api.deleteBook(id);
@@ -253,6 +258,16 @@ export default function BookDetail() {
               </span>
             )}
             {book.rating && <StarRating value={book.rating} readOnly />}
+            <button
+              onClick={toggleReadlist}
+              className={`leading-none transition-colors ${book.on_readlist ? 'text-sky-400' : 'text-neutral-600 hover:text-neutral-400'}`}
+              title={book.on_readlist ? 'Remove from readlist' : 'Add to readlist'}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-5 h-5">
+                <path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" />
+                <path fillRule="evenodd" d="M1.38 8a6.998 6.998 0 0 1 13.24 0 7 7 0 0 1-13.24 0ZM8 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z" clipRule="evenodd" />
+              </svg>
+            </button>
             <button
               onClick={toggleLoved}
               className={`text-xl leading-none transition-colors ${book.loved ? 'text-red-400' : 'text-neutral-600 hover:text-neutral-400'}`}
