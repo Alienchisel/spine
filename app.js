@@ -5,6 +5,7 @@ import booksRouter from './routes/books.js';
 import uploadsRouter from './routes/uploads.js';
 import searchRouter from './routes/search.js';
 import readlistRouter from './routes/readlist.js';
+import listsRouter from './routes/lists.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -16,6 +17,7 @@ app.use('/api/books', booksRouter);
 app.use('/api/upload', uploadsRouter);
 app.use('/api/search', searchRouter);
 app.use('/api/readlist', readlistRouter);
+app.use('/api/lists', listsRouter);
 
 app.use('/api', (_req, res) => {
   res.status(404).json({ error: 'Not found' });
