@@ -6,9 +6,20 @@ import db from '../db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-function deleteLocalCover(coverPath) {
-  if (!coverPath?.startsWith('/uploads/')) return;
-  const abs = path.join(__dirname, '..', coverPath);
+const uploadsDir = path.join(__dirname, '..', 'uploads');
+
+function toFilename(coverPath) {
+  if (!coverPath) return null;
+  return coverPath.startsWith('/uploads/') ? coverPath.slice('/uploads/'.length) : coverPath;
+}
+
+function toCoverUrl(filename) {
+  return filename ? `/uploads/${filename}` : null;
+}
+
+function deleteLocalCover(filename) {
+  if (!filename) return;
+  const abs = path.join(uploadsDir, filename);
   fs.unlink(abs, (err) => {
     if (err && err.code !== 'ENOENT') console.error(`Failed to delete cover: ${abs}`, err);
   });
@@ -53,7 +64,7 @@ function getBookWithTags(id) {
     WHERE bt.book_id = ?
     ORDER BY t.name
   `).all(id);
-  return { ...book, tags };
+  return { ...book, cover_path: toCoverUrl(book.cover_path), tags };
 }
 
 function syncTags(bookId, tagNames) {
@@ -89,7 +100,7 @@ router.get('/', (req, res) => {
       JOIN book_tags bt ON bt.tag_id = t.id
       WHERE bt.book_id = ?
     `).all(b.id);
-    return { ...b, tags };
+    return { ...b, cover_path: toCoverUrl(b.cover_path), tags };
   });
   res.json(withTags);
 });
@@ -117,7 +128,7 @@ router.post('/', (req, res) => {
       status || 'unread',
       owned ? 1 : 0,
       is_custom ? 1 : 0,
-      cover_path || null,
+      toFilename(cover_path),
       rating || null,
       date_started || null,
       date_finished || null,
@@ -179,7 +190,7 @@ router.put('/:id', (req, res) => {
       status || 'unread',
       owned ? 1 : 0,
       is_custom ? 1 : 0,
-      cover_path || null,
+      toFilename(cover_path),
       rating || null,
       date_started || null,
       date_finished || null,
@@ -209,7 +220,7 @@ router.put('/:id', (req, res) => {
   });
 
   updateBook();
-  if (existing.cover_path !== (cover_path || null)) deleteLocalCover(existing.cover_path);
+  if (existing.cover_path !== toFilename(cover_path)) deleteLocalCover(existing.cover_path);
   res.json(getBookWithTags(id));
 });
 
