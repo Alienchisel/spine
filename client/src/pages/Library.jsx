@@ -234,7 +234,13 @@ export default function Library() {
             <BookCard
               key={book.id}
               book={book}
-              onProgressUpdate={(updated) => setBooks(bs => bs.map(b => b.id === updated.id ? updated : b))}
+              onProgressUpdate={(updated) => setBooks(bs => {
+                const statusTabs = ['reading', 'paused', 'finished', 'unread'];
+                if (statusTabs.includes(tab) && updated.status !== tab) {
+                  return bs.filter(b => b.id !== updated.id);
+                }
+                return bs.map(b => b.id === updated.id ? updated : b);
+              })}
             />
           ))}
         </div>
