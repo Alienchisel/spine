@@ -5,11 +5,11 @@ import BookCard from '../components/BookCard.jsx';
 import FilterPanel from '../components/FilterPanel.jsx';
 
 const TABS = [
-  { key: 'owned',    label: 'Owned' },
   { key: 'reading',  label: 'Reading' },
   { key: 'paused',   label: 'Paused' },
   { key: 'finished', label: 'Finished' },
   { key: 'unread',   label: 'Unread' },
+  { key: 'owned',    label: 'Owned' },
   { key: 'all',      label: 'All' },
 ];
 
@@ -87,7 +87,7 @@ function FilterIcon() {
 }
 
 export default function Library() {
-  const [tab, setTab] = useState(() => getSaved().tab || 'owned');
+  const [tab, setTab] = useState(() => getSaved().tab || 'reading');
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState(() => getSaved().query || '');
