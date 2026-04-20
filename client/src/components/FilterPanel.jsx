@@ -1,4 +1,5 @@
 const MISSING_FIELDS = [
+  { key: 'any',       label: 'Incomplete' },
   { key: 'cover',     label: 'Cover' },
   { key: 'author',    label: 'Author' },
   { key: 'format',    label: 'Format' },

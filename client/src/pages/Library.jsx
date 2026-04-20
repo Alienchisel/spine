@@ -120,6 +120,10 @@ export default function Library() {
       (b.author && b.author.toLowerCase().includes(query.toLowerCase()))
     )) return false;
 
+    if (filters.missing.includes('any') && (
+      b.cover_path && b.author && b.format && (b.isbn_10 || b.isbn_13 || b.is_custom) &&
+      b.publisher && b.series && b.rating && b.description
+    )) return false;
     if (filters.missing.includes('cover')     && b.cover_path)            return false;
     if (filters.missing.includes('author')    && b.author)                return false;
     if (filters.missing.includes('format')    && b.format)                return false;
