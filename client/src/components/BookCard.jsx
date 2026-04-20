@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import ListPicker from './ListPicker.jsx';
+import StarRating from './StarRating.jsx';
 
 const STATUS_BAR = {
   reading:  'bg-oak',
@@ -207,7 +208,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
           )}
           {book.rating && (
             <div className="absolute top-1.5 right-1.5 bg-black/75 text-oak text-xs font-bold px-1.5 py-0.5 rounded backdrop-blur-sm">
-              {'★'.repeat(book.rating)}
+              {'★'.repeat(Math.floor(book.rating))}{book.rating % 1 !== 0 ? '½' : ''}
             </div>
           )}
           {(book.status === 'reading' || book.status === 'paused') && pct !== null ? (
@@ -249,21 +250,11 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
       </Link>
 
       {ratingPrompt && (
-        <div className="mt-1.5 flex items-center gap-1">
-          <span className="text-xs text-neutral-500">Rate:</span>
-          {[1, 2, 3, 4, 5].map(n => (
-            <button
-              key={n}
-              onClick={() => handleRate(n)}
-              className="text-lg leading-none text-neutral-600 hover:text-oak transition-colors"
-              title={`${n} star${n > 1 ? 's' : ''}`}
-            >
-              ★
-            </button>
-          ))}
+        <div className="mt-1.5 flex items-center gap-2">
+          <StarRating value={null} onChange={handleRate} />
           <button
             onClick={() => setRatingPrompt(false)}
-            className="text-xs text-neutral-600 hover:text-neutral-400 ml-1 transition-colors"
+            className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors"
           >
             skip
           </button>

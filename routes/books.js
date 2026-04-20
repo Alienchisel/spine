@@ -64,7 +64,7 @@ function validateBook(body) {
   if (binding && !VALID_BINDINGS.includes(binding.trim())) errors.push('Invalid binding');
   if (condition && !VALID_CONDITIONS.includes(condition.trim())) errors.push('Invalid condition');
   if (body.source_type && !VALID_SOURCE_TYPES.includes(body.source_type.trim())) errors.push('Invalid source type');
-  if (rating != null && (rating < 1 || rating > 5 || !Number.isInteger(Number(rating)))) errors.push('Rating must be 1–5');
+  if (rating != null && (Number(rating) < 0.5 || Number(rating) > 5 || (Number(rating) * 2) % 1 !== 0)) errors.push('Rating must be 0.5–5 in half-star increments');
   if (page_count != null && (page_count < 1 || !Number.isInteger(Number(page_count)))) errors.push('Page count must be a positive integer');
   if (duration_minutes != null && (duration_minutes < 1 || !Number.isInteger(Number(duration_minutes)))) errors.push('Duration must be a positive integer');
   if (date_started && !isValidDate(date_started.trim())) errors.push('Invalid date started');

@@ -152,6 +152,17 @@ describe('books', () => {
       assert.equal(body.fiction, 0);
       assert.equal(body.source_type, 'primary');
     });
+
+    it('accepts half-star rating', async () => {
+      const { status, body } = await req('POST', '/api/books', { title: 'Half Star', rating: 3.5 });
+      assert.equal(status, 201);
+      assert.equal(body.rating, 3.5);
+    });
+
+    it('rejects non-half-increment rating', async () => {
+      const { status } = await req('POST', '/api/books', { title: 'Bad Rating', rating: 3.3 });
+      assert.equal(status, 400);
+    });
   });
 
   describe('PATCH /api/books/:id', () => {
