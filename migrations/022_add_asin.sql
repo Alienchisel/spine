@@ -1,0 +1,1 @@
+ALTER TABLE books ADD COLUMN asin TEXT;

@@ -23,6 +23,7 @@ const EMPTY = {
   year_edition: '',
   isbn_10: '',
   isbn_13: '',
+  asin: '',
   shelf_room: '',
   shelf_unit: '',
   shelf_number: '',
@@ -156,6 +157,7 @@ export default function BookForm() {
         acquisition_date: book.acquisition_date || '',
         isbn_10: book.isbn_10 || '',
         isbn_13: book.isbn_13 || '',
+        asin: book.asin || '',
         year_published: book.year_published ?? '',
         year_edition: book.year_edition ?? '',
         shelf_room: book.shelf_room || '',
@@ -690,6 +692,12 @@ export default function BookForm() {
                     <input className={ic('isbn_13')} value={form.isbn_13}
                       onChange={(e) => set('isbn_13', e.target.value)}
                       placeholder="0000000000000" />
+                  </div>
+                  <div>
+                    <label className={label}>ASIN</label>
+                    <input className={ic('asin')} value={form.asin}
+                      onChange={(e) => set('asin', e.target.value)}
+                      placeholder="B000000000" />
                   </div>
                 </div>
 

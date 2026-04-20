@@ -153,6 +153,17 @@ describe('books', () => {
       assert.equal(body.source_type, 'primary');
     });
 
+    it('saves and returns ASIN', async () => {
+      const { status, body } = await req('POST', '/api/books', { title: 'Audible Book', asin: 'B01N4P45MO' });
+      assert.equal(status, 201);
+      assert.equal(body.asin, 'B01N4P45MO');
+    });
+
+    it('rejects invalid ASIN', async () => {
+      const { status } = await req('POST', '/api/books', { title: 'Bad ASIN', asin: '123' });
+      assert.equal(status, 400);
+    });
+
     it('accepts half-star rating', async () => {
       const { status, body } = await req('POST', '/api/books', { title: 'Half Star', rating: 3.5 });
       assert.equal(status, 201);
