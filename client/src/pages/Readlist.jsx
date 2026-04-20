@@ -26,8 +26,12 @@ function DragHandle() {
 
 function Stars({ rating }) {
   if (!rating) return null;
+  const full = Math.floor(rating);
+  const half = rating % 1 !== 0;
   return (
-    <span className="text-xs text-oak tracking-tight flex-shrink-0">{'★'.repeat(rating)}{'☆'.repeat(5 - rating)}</span>
+    <span className="text-xs text-oak tracking-tight flex-shrink-0">
+      {'★'.repeat(full)}{half ? '½' : ''}{'☆'.repeat(5 - full - (half ? 1 : 0))}
+    </span>
   );
 }
 

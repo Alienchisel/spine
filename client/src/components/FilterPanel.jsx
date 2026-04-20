@@ -66,7 +66,7 @@ export default function FilterPanel({ allBooks, filters, onChange }) {
 
   const tags = [...new Set(allBooks.flatMap(b => b.tags?.map(t => t.name) || []))].sort();
 
-  const ratings = [5, 4, 3, 2, 1].filter(r => allBooks.some(b => b.rating === r));
+  const ratings = [5, 4.5, 4, 3.5, 3, 2.5, 2, 1.5, 1, 0.5].filter(r => allBooks.some(b => b.rating === r));
   const hasEmptyRating = allBooks.some(b => !b.rating);
 
   return (
@@ -105,7 +105,7 @@ export default function FilterPanel({ allBooks, filters, onChange }) {
           {ratings.map(r => (
             <button key={r} type="button" onClick={() => toggle('ratings', r)}
               className={pill(filters.ratings.includes(r))}>
-              {'★'.repeat(r)}
+              {'★'.repeat(Math.floor(r))}{r % 1 !== 0 ? '½' : ''}
             </button>
           ))}
         </FilterSection>
