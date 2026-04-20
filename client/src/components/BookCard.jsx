@@ -33,6 +33,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
   const [mode, setMode] = useState(() => localStorage.getItem(getModeKey(initialBook.id)) || (initialBook.format === 'audiobook' ? 'min' : 'page'));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [ratingPrompt, setRatingPrompt] = useState(false);
   const inputRef = useRef(null);
   const formRef = useRef(null);
 
@@ -107,8 +108,22 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
         patchData = { current_page };
       }
       const updated = await api.patchBook(book.id, patchData);
-      setBook(updated);
-      onProgressUpdate?.(updated);
+      const isComplete = isAudiobook
+        ? (updated.duration_minutes > 0 && updated.current_minutes >= updated.duration_minutes)
+        : (updated.page_count > 0 && updated.current_page >= updated.page_count);
+      if (isComplete && (updated.status === 'reading' || updated.status === 'paused')) {
+        const finished = await api.updateBook(book.id, {
+          ...updated,
+          status: 'finished',
+          tags: updated.tags?.map(t => t.name) ?? [],
+        });
+        setBook(finished);
+        onProgressUpdate?.(finished);
+        setRatingPrompt(true);
+      } else {
+        setBook(updated);
+        onProgressUpdate?.(updated);
+      }
       setOpen(false);
       setInputVal('');
       setInputH('');
@@ -143,6 +158,20 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
       onProgressUpdate?.(updated);
     } finally {
       setListing(false);
+    }
+  }
+
+  async function handleRate(rating) {
+    try {
+      const rated = await api.updateBook(book.id, {
+        ...book,
+        rating,
+        tags: book.tags?.map(t => t.name) ?? [],
+      });
+      setBook(rated);
+      onProgressUpdate?.(rated);
+    } finally {
+      setRatingPrompt(false);
     }
   }
 
@@ -218,6 +247,28 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
           <p className="text-xs text-neutral-500 truncate mt-0.5">{book.author}</p>
         )}
       </Link>
+
+      {ratingPrompt && (
+        <div className="mt-1.5 flex items-center gap-1">
+          <span className="text-xs text-neutral-500">Rate:</span>
+          {[1, 2, 3, 4, 5].map(n => (
+            <button
+              key={n}
+              onClick={() => handleRate(n)}
+              className="text-lg leading-none text-neutral-600 hover:text-oak transition-colors"
+              title={`${n} star${n > 1 ? 's' : ''}`}
+            >
+              ★
+            </button>
+          ))}
+          <button
+            onClick={() => setRatingPrompt(false)}
+            className="text-xs text-neutral-600 hover:text-neutral-400 ml-1 transition-colors"
+          >
+            skip
+          </button>
+        </div>
+      )}
 
       {(book.status === 'reading' || book.status === 'paused') && (
         <div className="mt-1.5">
