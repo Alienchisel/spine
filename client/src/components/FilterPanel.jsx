@@ -2,7 +2,7 @@ const MISSING_FIELDS = [
   { key: 'cover',     label: 'Cover' },
   { key: 'author',    label: 'Author' },
   { key: 'format',    label: 'Format' },
-  { key: 'isbn',      label: 'ISBN' },
+  { key: 'isbn',      label: 'ISBN/ASIN' },
   { key: 'publisher', label: 'Publisher' },
   { key: 'series',    label: 'Series' },
   { key: 'rating',      label: 'Rating' },
