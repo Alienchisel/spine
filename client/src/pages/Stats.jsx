@@ -53,7 +53,7 @@ export default function Stats() {
   if (error) return <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-warn text-sm">{error}</div>;
   if (!stats) return null;
 
-  const { totals, formats, fiction, ratings, pagesRead, minutesListened, byYear, topAuthors } = stats;
+  const { totals, formats, fiction, ratings, pagesRead, minutesListened, byYear, topAuthors, streaks } = stats;
 
   const maxRating = Math.max(...ratings.map(r => r.count), 1);
   const maxYear   = Math.max(...byYear.map(y => y.count), 1);
@@ -81,6 +81,50 @@ export default function Stats() {
         <div className="grid grid-cols-2 gap-3">
           <StatCard label="Pages read" value={pagesRead?.toLocaleString()} />
           <StatCard label="Time listened" value={formatHours(minutesListened)} />
+        </div>
+      </Section>
+
+      <Section title="Streaks">
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-card rounded-lg p-4 space-y-3">
+            <p className="text-xs text-neutral-500 uppercase tracking-wider font-semibold">Daily</p>
+            <div className="flex justify-between items-end">
+              <div>
+                <div className="text-2xl font-semibold text-parchment">{streaks.days.current}</div>
+                <div className="text-xs text-neutral-500 mt-0.5">current</div>
+              </div>
+              <div className="text-right">
+                <div className="text-lg font-semibold text-neutral-400">{streaks.days.longest}</div>
+                <div className="text-xs text-neutral-600 mt-0.5">longest</div>
+              </div>
+            </div>
+          </div>
+          <div className="bg-card rounded-lg p-4 space-y-3">
+            <p className="text-xs text-neutral-500 uppercase tracking-wider font-semibold">Weekly</p>
+            <div className="flex justify-between items-end">
+              <div>
+                <div className="text-2xl font-semibold text-parchment">{streaks.weeks.current}</div>
+                <div className="text-xs text-neutral-500 mt-0.5">current</div>
+              </div>
+              <div className="text-right">
+                <div className="text-lg font-semibold text-neutral-400">{streaks.weeks.longest}</div>
+                <div className="text-xs text-neutral-600 mt-0.5">longest</div>
+              </div>
+            </div>
+          </div>
+          <div className="bg-card rounded-lg p-4 space-y-3">
+            <p className="text-xs text-neutral-500 uppercase tracking-wider font-semibold">Monthly</p>
+            <div className="flex justify-between items-end">
+              <div>
+                <div className="text-2xl font-semibold text-parchment">{streaks.months.current}</div>
+                <div className="text-xs text-neutral-500 mt-0.5">current</div>
+              </div>
+              <div className="text-right">
+                <div className="text-lg font-semibold text-neutral-400">{streaks.months.longest}</div>
+                <div className="text-xs text-neutral-600 mt-0.5">longest</div>
+              </div>
+            </div>
+          </div>
         </div>
       </Section>
 

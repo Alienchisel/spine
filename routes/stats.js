@@ -1,6 +1,68 @@
 import express from 'express';
 import db from '../db.js';
 
+function addDays(dateStr, n) {
+  const d = new Date(dateStr);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+function toISOWeek(dateStr) {
+  const d = new Date(dateStr);
+  const day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - day);
+  const year = d.getUTCFullYear();
+  const week = Math.ceil(((d - Date.UTC(year, 0, 1)) / 86400000 + 1) / 7);
+  return `${year}-W${String(week).padStart(2, '0')}`;
+}
+
+function toYearMonth(dateStr) {
+  return dateStr.slice(0, 7);
+}
+
+function nextDay(d)   { return addDays(d, 1); }
+function nextWeek(w)  {
+  const [y, wn] = w.split('-W').map(Number);
+  const jan4 = new Date(Date.UTC(y, 0, 4));
+  const weeksInYear = toISOWeek(`${y}-12-28`) === `${y}-W53` ? 53 : 52;
+  return wn < weeksInYear ? `${y}-W${String(wn + 1).padStart(2, '0')}` : `${y + 1}-W01`;
+}
+function nextMonth(m) {
+  const [y, mo] = m.split('-').map(Number);
+  return mo < 12 ? `${y}-${String(mo + 1).padStart(2, '0')}` : `${y + 1}-01`;
+}
+
+function longestAndCurrent(periods, nextFn, currentPeriod, prevPeriod) {
+  if (!periods.length) return { current: 0, longest: 0 };
+  let longest = 1, run = 1;
+  for (let i = 1; i < periods.length; i++) {
+    run = periods[i] === nextFn(periods[i - 1]) ? run + 1 : 1;
+    if (run > longest) longest = run;
+  }
+  const last = periods[periods.length - 1];
+  const current = (last === currentPeriod || last === prevPeriod) ? run : 0;
+  return { current, longest };
+}
+
+function calcStreaks(dates) {
+  if (!dates.length) return {
+    days:   { current: 0, longest: 0 },
+    weeks:  { current: 0, longest: 0 },
+    months: { current: 0, longest: 0 },
+  };
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  const weeks  = [...new Set(dates.map(toISOWeek))].sort();
+  const months = [...new Set(dates.map(toYearMonth))].sort();
+
+  return {
+    days:   longestAndCurrent(dates,  nextDay,   today,                    addDays(today, -1)),
+    weeks:  longestAndCurrent(weeks,  nextWeek,  toISOWeek(today),         toISOWeek(addDays(today, -7))),
+    months: longestAndCurrent(months, nextMonth, toYearMonth(today),       toYearMonth(addDays(today, -32))),
+  };
+}
+
 const router = express.Router();
 
 router.get('/', (_req, res) => {
@@ -55,7 +117,10 @@ router.get('/', (_req, res) => {
     LIMIT 10
   `).all();
 
-  res.json({ totals, formats, fiction, ratings, pagesRead, minutesListened, byYear, topAuthors });
+  const readingDates = db.prepare('SELECT DISTINCT date FROM reading_log ORDER BY date ASC').all().map(r => r.date);
+  const streaks = calcStreaks(readingDates);
+
+  res.json({ totals, formats, fiction, ratings, pagesRead, minutesListened, byYear, topAuthors, streaks });
 });
 
 export default router;
