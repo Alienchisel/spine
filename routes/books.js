@@ -274,6 +274,14 @@ router.put('/:id', (req, res) => {
       id
     );
     if (tags !== undefined) syncTags(id, tags);
+    if (t(title) && t(author)) {
+      db.prepare(`
+        UPDATE books SET
+          rating = ?, review = ?, read_count = ?,
+          updated_at = datetime('now')
+        WHERE id != ? AND title = ? AND author = ?
+      `).run(rating || null, t(review), newReadCount, id, t(title), t(author));
+    }
   });
 
   updateBook();
