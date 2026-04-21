@@ -15,6 +15,7 @@ const EMPTY = {
   date_started: '',
   date_finished: '',
   language: 'English',
+  original_language: '',
   publisher: '',
   series: '',
   series_number: '',
@@ -137,7 +138,7 @@ export default function BookForm() {
       setPastNarrators([...new Set(books.map(b => b.narrator).filter(Boolean))].sort());
       setPastRooms([...new Set(books.map(b => b.shelf_room).filter(Boolean))].sort());
       setPastUnits([...new Set(books.map(b => b.shelf_unit).filter(Boolean))].sort());
-      setPastLanguages([...new Set(books.map(b => b.language).filter(Boolean))].sort());
+      setPastLanguages([...new Set([...books.map(b => b.language), ...books.map(b => b.original_language)].filter(Boolean))].sort());
     });
   }, []);
 
@@ -156,6 +157,7 @@ export default function BookForm() {
         date_started: book.date_started || '',
         date_finished: book.date_finished || '',
         language: book.language || 'English',
+        original_language: book.original_language || '',
         publisher: book.publisher || '',
         series: book.series || '',
         series_number: book.series_number ?? '',
@@ -678,6 +680,13 @@ export default function BookForm() {
                   <datalist id="languages-list">
                     {pastLanguages.map(l => <option key={l} value={l} />)}
                   </datalist>
+                </div>
+
+                <div>
+                  <label className={label}>Original language</label>
+                  <input className={input} list="languages-list" value={form.original_language}
+                    onChange={(e) => set('original_language', e.target.value)}
+                    placeholder="If translated…" />
                 </div>
 
                 <div>

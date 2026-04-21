@@ -354,6 +354,12 @@ export default function BookDetail() {
                 <dd className="text-neutral-300">{book.language}</dd>
               </div>
             )}
+            {book.original_language && (
+              <div className="flex gap-2">
+                <dt className="text-neutral-500 w-24 flex-shrink-0">Original</dt>
+                <dd className="text-neutral-300">{book.original_language}</dd>
+              </div>
+            )}
             {book.publisher && (
               <div className="flex gap-2">
                 <dt className="text-neutral-500 w-24 flex-shrink-0">Publisher</dt>
