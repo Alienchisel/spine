@@ -557,6 +557,13 @@ export default function BookForm() {
                           onChange={(e) => set('date_finished', e.target.value)} />
                       </div>
                     )}
+                    {(form.status === 'finished' || form.read_count > 0) && (
+                      <div>
+                        <label className={label}>Times read</label>
+                        <input type="number" min="0" className={input} value={form.read_count}
+                          onChange={(e) => set('read_count', parseInt(e.target.value) || 0)} />
+                      </div>
+                    )}
                   </div>
                 )}
 
