@@ -117,6 +117,7 @@ export default function BookForm() {
   const [pastNarrators, setPastNarrators] = useState([]);
   const [pastRooms, setPastRooms] = useState([]);
   const [pastUnits, setPastUnits] = useState([]);
+  const [pastLanguages, setPastLanguages] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -136,6 +137,7 @@ export default function BookForm() {
       setPastNarrators([...new Set(books.map(b => b.narrator).filter(Boolean))].sort());
       setPastRooms([...new Set(books.map(b => b.shelf_room).filter(Boolean))].sort());
       setPastUnits([...new Set(books.map(b => b.shelf_unit).filter(Boolean))].sort());
+      setPastLanguages([...new Set(books.map(b => b.language).filter(Boolean))].sort());
     });
   }, []);
 
@@ -674,7 +676,7 @@ export default function BookForm() {
                     onChange={(e) => set('language', e.target.value)}
                     placeholder="English" />
                   <datalist id="languages-list">
-                    {['English','French','German','Spanish','Italian','Portuguese','Japanese','Chinese','Korean','Russian','Arabic','Latin','Greek','Dutch','Swedish','Norwegian','Danish','Finnish','Polish','Czech','Hungarian'].map(l => <option key={l} value={l} />)}
+                    {pastLanguages.map(l => <option key={l} value={l} />)}
                   </datalist>
                 </div>
 
