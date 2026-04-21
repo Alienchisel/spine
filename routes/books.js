@@ -9,8 +9,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadsDir = path.join(__dirname, '..', 'uploads');
 
 function t(val) {
-  if (!val) return null;
-  const s = val.trim();
+  if (val == null) return null;
+  const s = String(val).trim();
   return s || null;
 }
 
