@@ -7,6 +7,7 @@ export default function Nav() {
   const onLoved = pathname === '/loved';
   const onLists = pathname === '/lists' || pathname.startsWith('/lists/');
   const onDiary = pathname === '/diary';
+  const onStats = pathname === '/stats';
 
   function navLink(to, label, active, activeColor = 'text-sky-400') {
     return (
@@ -34,6 +35,7 @@ export default function Nav() {
             {navLink('/loved',    'Loved',    onLoved,    'text-rose-400')}
             {navLink('/lists',    'Lists',    onLists,    'text-sky-400')}
             {navLink('/diary',    'Diary',    onDiary,    'text-amber-400')}
+            {navLink('/stats',   'Stats',    onStats,    'text-neutral-300')}
           </nav>
         </div>
         {showAddButton && (

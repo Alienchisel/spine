@@ -9,6 +9,7 @@ import Loved from './pages/Loved.jsx';
 import Lists from './pages/Lists.jsx';
 import ListDetail from './pages/ListDetail.jsx';
 import Diary from './pages/Diary.jsx';
+import Stats from './pages/Stats.jsx';
 
 export default function App() {
   return (
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="/lists" element={<Lists />} />
           <Route path="/lists/:id" element={<ListDetail />} />
           <Route path="/diary" element={<Diary />} />
+          <Route path="/stats" element={<Stats />} />
         </Routes>
       </main>
     </div>

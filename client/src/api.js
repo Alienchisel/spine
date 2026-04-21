@@ -39,4 +39,5 @@ export const api = {
   deleteList: (id) => request(`/lists/${id}`, { method: 'DELETE' }),
   addToList: (listId, bookId) => request(`/lists/${listId}/books`, { method: 'POST', body: JSON.stringify({ book_id: bookId }) }),
   removeFromList: (listId, bookId) => request(`/lists/${listId}/books/${bookId}`, { method: 'DELETE' }),
+  getStats: () => request('/stats'),
 };
