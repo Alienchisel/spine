@@ -148,14 +148,14 @@ router.get('/:id/lists', (req, res) => {
 });
 
 router.post('/', (req, res) => {
-  const { title, author, status, owned, is_custom, is_stub, loved, fiction, source_type, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, series_number, isbn_10, isbn_13, asin, shelf_room, shelf_unit, shelf_number, narrator, year_published, year_edition, tags } = req.body;
+  const { title, author, status, owned, is_custom, is_stub, loved, fiction, source_type, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, review, page_count, duration_minutes, publisher, series, series_number, isbn_10, isbn_13, asin, shelf_room, shelf_unit, shelf_number, narrator, year_published, year_edition, tags } = req.body;
   const errors = validateBook(req.body);
   if (errors.length) return res.status(400).json({ error: errors[0] });
 
   const insertBook = db.transaction(() => {
     const result = db.prepare(`
-      INSERT INTO books (title, author, status, owned, is_custom, is_stub, loved, fiction, source_type, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, series_number, isbn_10, isbn_13, asin, shelf_room, shelf_unit, shelf_number, narrator, year_published, year_edition)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO books (title, author, status, owned, is_custom, is_stub, loved, fiction, source_type, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, review, page_count, duration_minutes, publisher, series, series_number, isbn_10, isbn_13, asin, shelf_room, shelf_unit, shelf_number, narrator, year_published, year_edition)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       t(title),
       t(author),
@@ -177,6 +177,7 @@ router.post('/', (req, res) => {
       condition || null,
       t(description),
       t(notes),
+      t(review),
       page_count || null,
       duration_minutes || null,
       t(publisher),
@@ -206,7 +207,7 @@ router.put('/:id', (req, res) => {
   const existing = db.prepare('SELECT cover_path FROM books WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ error: 'Not found' });
 
-  const { title, author, status, owned, is_custom, is_stub, loved, fiction, source_type, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, page_count, duration_minutes, publisher, series, series_number, isbn_10, isbn_13, asin, shelf_room, shelf_unit, shelf_number, narrator, year_published, year_edition, tags } = req.body;
+  const { title, author, status, owned, is_custom, is_stub, loved, fiction, source_type, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, review, page_count, duration_minutes, publisher, series, series_number, isbn_10, isbn_13, asin, shelf_room, shelf_unit, shelf_number, narrator, year_published, year_edition, tags } = req.body;
   const errors = validateBook(req.body);
   if (errors.length) return res.status(400).json({ error: errors[0] });
 
@@ -217,7 +218,7 @@ router.put('/:id', (req, res) => {
         rating = ?, date_started = ?, date_finished = ?,
         acquisition_source = ?, acquisition_date = ?,
         format = ?, binding = ?, condition = ?,
-        description = ?, notes = ?, page_count = ?, duration_minutes = ?,
+        description = ?, notes = ?, review = ?, page_count = ?, duration_minutes = ?,
         publisher = ?, series = ?, series_number = ?, isbn_10 = ?, isbn_13 = ?, asin = ?,
         shelf_room = ?, shelf_unit = ?, shelf_number = ?, narrator = ?,
         year_published = ?, year_edition = ?,
@@ -244,6 +245,7 @@ router.put('/:id', (req, res) => {
       condition || null,
       t(description),
       t(notes),
+      t(review),
       page_count || null,
       duration_minutes || null,
       t(publisher),

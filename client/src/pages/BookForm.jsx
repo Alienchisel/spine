@@ -36,6 +36,7 @@ const EMPTY = {
   narrator: '',
   description: '',
   notes: '',
+  review: '',
   tags: [],
   cover_path: null,
 };
@@ -172,6 +173,7 @@ export default function BookForm() {
         duration_minutes: book.duration_minutes ?? '',
         narrator: book.narrator || '',
         notes: book.notes || '',
+        review: book.review || '',
         tags: book.tags?.map((t) => t.name) || [],
         cover_path: book.cover_path || null,
       });
@@ -838,6 +840,18 @@ export default function BookForm() {
                     value={form.notes} onChange={(e) => set('notes', e.target.value)}
                     placeholder="Your thoughts…" />
                 </div>
+
+                {form.status === 'finished' && (
+                  <div>
+                    <div className="flex items-baseline justify-between mb-1.5">
+                      <label className={label} style={{marginBottom:0}}>Review</label>
+                      <span className="text-xs text-neutral-600">Markdown supported</span>
+                    </div>
+                    <textarea className={`${input} resize-none`} rows={8}
+                      value={form.review} onChange={(e) => set('review', e.target.value)}
+                      placeholder="Your review…" />
+                  </div>
+                )}
               </div>
             )}
 
