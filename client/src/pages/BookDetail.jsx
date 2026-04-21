@@ -423,7 +423,7 @@ export default function BookDetail() {
             </div>
           )}
 
-          {book.status === 'finished' && book.review && (
+          {(book.status === 'finished' || book.read_count > 0) && book.review && (
             <div className="border-t border-neutral-800 pt-5">
               <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">Review</p>
               <div className="text-neutral-300 text-sm leading-relaxed prose-sm prose-invert prose-neutral max-w-none

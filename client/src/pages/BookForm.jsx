@@ -37,6 +37,7 @@ const EMPTY = {
   description: '',
   notes: '',
   review: '',
+  read_count: 0,
   tags: [],
   cover_path: null,
 };
@@ -174,6 +175,7 @@ export default function BookForm() {
         narrator: book.narrator || '',
         notes: book.notes || '',
         review: book.review || '',
+        read_count: book.read_count || 0,
         tags: book.tags?.map((t) => t.name) || [],
         cover_path: book.cover_path || null,
       });
@@ -841,7 +843,7 @@ export default function BookForm() {
                     placeholder="Your thoughts…" />
                 </div>
 
-                {form.status === 'finished' && (
+                {(form.status === 'finished' || form.read_count > 0) && (
                   <div>
                     <div className="flex items-baseline justify-between mb-1.5">
                       <label className={label} style={{marginBottom:0}}>Review</label>
