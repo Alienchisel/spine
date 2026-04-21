@@ -14,6 +14,7 @@ const EMPTY = {
   rating: null,
   date_started: '',
   date_finished: '',
+  language: 'English',
   publisher: '',
   series: '',
   series_number: '',
@@ -152,6 +153,7 @@ export default function BookForm() {
         rating: book.rating ?? null,
         date_started: book.date_started || '',
         date_finished: book.date_finished || '',
+        language: book.language || 'English',
         publisher: book.publisher || '',
         series: book.series || '',
         series_number: book.series_number ?? '',
@@ -666,6 +668,16 @@ export default function BookForm() {
             {/* ── Details ── */}
             {activeTab === 'details' && (
               <div className="space-y-6">
+                <div>
+                  <label className={label}>Language</label>
+                  <input className={input} list="languages-list" value={form.language}
+                    onChange={(e) => set('language', e.target.value)}
+                    placeholder="English" />
+                  <datalist id="languages-list">
+                    {['English','French','German','Spanish','Italian','Portuguese','Japanese','Chinese','Korean','Russian','Arabic','Latin','Greek','Dutch','Swedish','Norwegian','Danish','Finnish','Polish','Czech','Hungarian'].map(l => <option key={l} value={l} />)}
+                  </datalist>
+                </div>
+
                 <div>
                   <label className={label}>Publisher</label>
                   <input className={ic('publisher')} list="publishers-list" value={form.publisher}
