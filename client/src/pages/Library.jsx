@@ -23,6 +23,8 @@ const SORTS = [
   { key: 'progress', label: 'Progress' },
 ];
 
+const GRID = 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-x-4 gap-y-7';
+
 function progress(b) {
   if (b.format === 'audiobook') {
     return b.duration_minutes ? (b.current_minutes ?? 0) / b.duration_minutes : 0;
@@ -86,6 +88,124 @@ function FilterIcon() {
   );
 }
 
+function isManga(book) {
+  return book.tags?.some(t => t.name.toLowerCase() === 'manga');
+}
+
+function buildDisplayItems(books) {
+  const mangaGroups = new Map();
+  for (const book of books) {
+    if (isManga(book) && book.series) {
+      if (!mangaGroups.has(book.series)) mangaGroups.set(book.series, []);
+      mangaGroups.get(book.series).push(book);
+    }
+  }
+  const seenSeries = new Set();
+  const items = [];
+  for (const book of books) {
+    if (isManga(book) && book.series && mangaGroups.get(book.series).length > 1) {
+      if (!seenSeries.has(book.series)) {
+        seenSeries.add(book.series);
+        items.push({ type: 'series', name: book.series, books: mangaGroups.get(book.series) });
+      }
+    } else {
+      items.push({ type: 'book', book });
+    }
+  }
+  return items;
+}
+
+function sortVolumes(books) {
+  return [...books].sort((a, b) =>
+    (a.series_number ?? Infinity) - (b.series_number ?? Infinity) || a.title.localeCompare(b.title)
+  );
+}
+
+function MangaSeriesCard({ seriesName, books, onToggle }) {
+  const sorted = sortVolumes(books);
+  const frontBook = sorted.find(b => b.status === 'reading')
+    || sorted.find(b => b.status === 'paused')
+    || sorted[sorted.length - 1];
+  const statusCounts = books.reduce((acc, b) => {
+    acc[b.status] = (acc[b.status] || 0) + 1;
+    return acc;
+  }, {});
+  const statusParts = [
+    statusCounts.reading  && `${statusCounts.reading} reading`,
+    statusCounts.paused   && `${statusCounts.paused} paused`,
+    statusCounts.finished && `${statusCounts.finished} finished`,
+    statusCounts.unread   && `${statusCounts.unread} unread`,
+  ].filter(Boolean);
+
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="bg-card rounded-lg p-2 pb-2.5 hover:-translate-y-0.5 transition-[transform,background-color] ease-out duration-150 text-left w-full"
+    >
+      <div className="relative aspect-[2/3] mb-2.5">
+        {books.length >= 3 && (
+          <div
+            className="absolute inset-0 rounded bg-neutral-800 shadow ring-1 ring-white/5"
+            style={{ transform: 'rotate(5deg) translate(5px, -2px)' }}
+          />
+        )}
+        {books.length >= 2 && (
+          <div
+            className="absolute inset-0 rounded overflow-hidden shadow ring-1 ring-white/5"
+            style={{ transform: 'rotate(2.5deg) translate(2px, -1px)' }}
+          >
+            {sorted[1]?.cover_path && (
+              <img src={sorted[1].cover_path} alt="" className="w-full h-full object-cover opacity-50" />
+            )}
+          </div>
+        )}
+        <div className="absolute inset-0 rounded overflow-hidden shadow-xl ring-1 ring-white/5">
+          {frontBook?.cover_path ? (
+            <img src={frontBook.cover_path} alt={seriesName} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-end p-3 bg-gradient-to-br from-neutral-700 to-neutral-900">
+              <span className="text-xs text-neutral-400 font-medium leading-tight line-clamp-4">{seriesName}</span>
+            </div>
+          )}
+        </div>
+        <div className="absolute top-1.5 right-1.5 bg-black/75 text-neutral-300 text-xs font-bold px-1.5 py-0.5 rounded backdrop-blur-sm leading-none">
+          {books.length}
+        </div>
+      </div>
+      <p className="text-sm font-medium text-neutral-200 truncate leading-tight">{seriesName}</p>
+      {frontBook?.author && (
+        <p className="text-xs text-neutral-500 truncate mt-0.5">{frontBook.author}</p>
+      )}
+      {statusParts.length > 0 && (
+        <p className="text-xs text-neutral-600 truncate mt-0.5">{statusParts.join(' · ')}</p>
+      )}
+    </button>
+  );
+}
+
+function ExpandedSeriesSection({ seriesName, books, onToggle, onProgressUpdate }) {
+  const sorted = sortVolumes(books);
+  return (
+    <div className="space-y-3">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex items-center gap-2 text-sm font-semibold text-neutral-200 hover:text-white transition-colors"
+      >
+        <span>{seriesName}</span>
+        <span className="text-neutral-500 font-normal text-xs">{books.length} vols</span>
+        <span className="text-neutral-600 text-xs">▲</span>
+      </button>
+      <div className={GRID}>
+        {sorted.map(book => (
+          <BookCard key={book.id} book={book} onProgressUpdate={onProgressUpdate} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function Library() {
   const [tab, setTab] = useState(() => getSaved().tab || 'reading');
   const [books, setBooks] = useState([]);
@@ -97,6 +217,7 @@ export default function Library() {
     return s ? { ...EMPTY_FILTERS, ...s } : EMPTY_FILTERS;
   });
   const [sort, setSort] = useState(() => getSaved().sort || 'updated');
+  const [expandedSeries, setExpandedSeries] = useState(new Set());
 
   useEffect(() => {
     sessionStorage.setItem(SESSION_KEY, JSON.stringify({ tab, query, filtersOpen, filters, sort }));
@@ -150,6 +271,40 @@ export default function Library() {
   });
 
   const sortedFiltered = applySort(filtered, sort);
+  const displayItems = buildDisplayItems(sortedFiltered);
+
+  function handleProgressUpdate(updated) {
+    setBooks(bs => {
+      const statusTabs = ['reading', 'paused', 'finished', 'unread'];
+      if (statusTabs.includes(tab) && updated.status !== tab) {
+        return bs.filter(b => b.id !== updated.id);
+      }
+      return bs.map(b => b.id === updated.id ? updated : b);
+    });
+  }
+
+  function toggleSeries(name) {
+    setExpandedSeries(prev => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  }
+
+  // Split items into grid segments, broken by expanded series
+  const segments = [];
+  let currentGrid = [];
+  for (const item of displayItems) {
+    if (item.type === 'series' && expandedSeries.has(item.name)) {
+      segments.push({ type: 'grid', items: currentGrid });
+      segments.push({ type: 'expanded', ...item });
+      currentGrid = [];
+    } else {
+      currentGrid.push(item);
+    }
+  }
+  segments.push({ type: 'grid', items: currentGrid });
 
   return (
     <div>
@@ -234,20 +389,37 @@ export default function Library() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-x-4 gap-y-7">
-          {sortedFiltered.map((book) => (
-            <BookCard
-              key={book.id}
-              book={book}
-              onProgressUpdate={(updated) => setBooks(bs => {
-                const statusTabs = ['reading', 'paused', 'finished', 'unread'];
-                if (statusTabs.includes(tab) && updated.status !== tab) {
-                  return bs.filter(b => b.id !== updated.id);
-                }
-                return bs.map(b => b.id === updated.id ? updated : b);
-              })}
-            />
-          ))}
+        <div className="space-y-7">
+          {segments.map((seg, i) =>
+            seg.type === 'expanded' ? (
+              <ExpandedSeriesSection
+                key={seg.name}
+                seriesName={seg.name}
+                books={seg.books}
+                onToggle={() => toggleSeries(seg.name)}
+                onProgressUpdate={handleProgressUpdate}
+              />
+            ) : seg.items.length > 0 ? (
+              <div key={i} className={GRID}>
+                {seg.items.map(item =>
+                  item.type === 'series' ? (
+                    <MangaSeriesCard
+                      key={item.name}
+                      seriesName={item.name}
+                      books={item.books}
+                      onToggle={() => toggleSeries(item.name)}
+                    />
+                  ) : (
+                    <BookCard
+                      key={item.book.id}
+                      book={item.book}
+                      onProgressUpdate={handleProgressUpdate}
+                    />
+                  )
+                )}
+              </div>
+            ) : null
+          )}
         </div>
       )}
     </div>
