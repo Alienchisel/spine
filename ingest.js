@@ -106,6 +106,24 @@ function ask(rl, label, def) {
   });
 }
 
+function askMultiline(rl, label, def) {
+  return new Promise(resolve => {
+    const hint = def ? ` [existing — paste to replace, . to keep, Enter . to finish]` : ` (paste, then enter . on its own line to finish)`;
+    console.log(`  ${label}${hint}:`);
+    const lines = [];
+    function onLine(line) {
+      if (line === '.') {
+        rl.removeListener('line', onLine);
+        const result = lines.join('\n').trim();
+        resolve(result || def || '');
+      } else {
+        lines.push(line);
+      }
+    }
+    rl.on('line', onLine);
+  });
+}
+
 async function postBook(payload) {
   const body = Buffer.from(JSON.stringify(payload));
   const u = new URL('/api/books', API_BASE);
@@ -176,7 +194,7 @@ async function main() {
   const isbn_13          = await ask(rl, 'ISBN-13',           meta.isbn_13);
   const isbn_10          = await ask(rl, 'ISBN-10',           meta.isbn_10);
   const asinIn           = await ask(rl, 'ASIN',              parsed.type === 'asin' ? parsed.value : '');
-  const description      = await ask(rl, 'Description',       meta.description);
+  const description      = await askMultiline(rl, 'Description', meta.description);
 
   // — Classification —
   console.log();
@@ -205,7 +223,7 @@ async function main() {
 
   // — Notes —
   console.log();
-  const notes = await ask(rl, 'Notes', '');
+  const notes = await askMultiline(rl, 'Notes', '');
 
   rl.close();
 
