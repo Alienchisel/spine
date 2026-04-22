@@ -146,36 +146,32 @@ function MangaSeriesCard({ seriesName, books, expanded, onToggle }) {
       onClick={onToggle}
       className={`bg-card rounded-lg p-2 pb-2.5 hover:-translate-y-0.5 transition-[transform,background-color] ease-out duration-150 text-left w-full ${expanded ? 'ring-1 ring-binding/40' : ''}`}
     >
-      <div className="relative aspect-[2/3] mb-2.5">
-        {books.length >= 3 && (
-          <div
-            className="absolute inset-0 rounded overflow-hidden shadow ring-1 ring-white/5"
-            style={{ transform: 'rotate(5deg) translate(5px, -2px)' }}
-          >
-            {sorted[2]?.cover_path && (
-              <img src={sorted[2].cover_path} alt="" className="w-full h-full object-cover opacity-40" />
-            )}
-          </div>
-        )}
-        {books.length >= 2 && (
-          <div
-            className="absolute inset-0 rounded overflow-hidden shadow ring-1 ring-white/5"
-            style={{ transform: 'rotate(2.5deg) translate(2px, -1px)' }}
-          >
-            {sorted[1]?.cover_path && (
-              <img src={sorted[1].cover_path} alt="" className="w-full h-full object-cover opacity-50" />
-            )}
-          </div>
-        )}
-        <div className="absolute inset-0 rounded overflow-hidden shadow-xl ring-1 ring-white/5">
-          {sorted[0]?.cover_path ? (
-            <img src={sorted[0].cover_path} alt={seriesName} className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-end p-3 bg-gradient-to-br from-neutral-700 to-neutral-900">
-              <span className="text-xs text-neutral-400 font-medium leading-tight line-clamp-4">{seriesName}</span>
+      <div className="relative aspect-[2/3] mb-2.5 rounded overflow-hidden shadow-xl ring-1 ring-white/5">
+        {sorted.slice(0, 4).map((vol, i, arr) => {
+          const n = arr.length;
+          const leftPct = n === 1 ? 0 : (i * 45 / (n - 1));
+          const width = n === 1 ? '100%' : '55%';
+          return (
+            <div
+              key={vol.id}
+              className="absolute top-0 bottom-0 overflow-hidden"
+              style={{ left: `${leftPct}%`, width }}
+            >
+              {vol.cover_path ? (
+                <img src={vol.cover_path} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <div className="h-full w-full bg-gradient-to-br from-neutral-700 to-neutral-900 flex items-end p-2">
+                  {i === n - 1 && (
+                    <span className="text-xs text-neutral-400 font-medium leading-tight line-clamp-4">{seriesName}</span>
+                  )}
+                </div>
+              )}
+              {i > 0 && (
+                <div className="absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-black/50 to-transparent pointer-events-none" />
+              )}
             </div>
-          )}
-        </div>
+          );
+        })}
         <div className="absolute top-1.5 right-1.5 bg-black/75 text-neutral-300 text-xs font-bold px-1.5 py-0.5 rounded backdrop-blur-sm leading-none">
           {books.length}
         </div>
