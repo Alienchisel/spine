@@ -216,6 +216,7 @@ async function main() {
   if (status === 200 || status === 201) {
     console.log('✓');
     console.log(`\n  "${body.title}" added — ${API_BASE.replace('localhost', '127.0.0.1')}/books/${body.id}\n`);
+    process.exit(0);
   } else {
     console.log('failed');
     console.error(`\n  API error (${status}): ${JSON.stringify(body)}\n`);

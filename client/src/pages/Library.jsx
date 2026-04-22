@@ -17,6 +17,7 @@ const SESSION_KEY = 'spine-library-state';
 
 const SORTS = [
   { key: 'updated',  label: 'Recently updated' },
+  { key: 'added',    label: 'Recently added' },
   { key: 'title',    label: 'Title A–Z' },
   { key: 'author',   label: 'Author A–Z' },
   { key: 'rating',   label: 'Rating' },
@@ -34,6 +35,7 @@ function progress(b) {
 
 function applySort(books, sort) {
   const sorted = [...books];
+  if (sort === 'added')    return sorted.sort((a, b) => b.id - a.id);
   if (sort === 'title')    return sorted.sort((a, b) => a.title.localeCompare(b.title));
   if (sort === 'author')   return sorted.sort((a, b) => (a.author || '').localeCompare(b.author || ''));
   if (sort === 'rating')   return sorted.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
