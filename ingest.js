@@ -210,8 +210,7 @@ async function main() {
 
   // — Format-specific —
   const formatVal = formatIn === 'digital' ? 'ebook' : formatIn;
-  const asinIn = parsed.type === 'asin' ? parsed.value : '';
-  let binding = '', condition = '', narrator = '';
+  let binding = '', condition = '', narrator = '', asinIn = '';
   if (formatVal === 'physical') {
     console.log();
     binding   = await ask(rl, 'Binding (hardcover/paperback)', '');
@@ -219,6 +218,7 @@ async function main() {
   } else if (formatVal === 'audiobook') {
     console.log();
     narrator  = await ask(rl, 'Narrator', '');
+    asinIn    = parsed.type === 'asin' ? parsed.value : await ask(rl, 'ASIN', '');
   }
 
   // — Notes —
