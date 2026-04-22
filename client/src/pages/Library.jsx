@@ -92,7 +92,7 @@ function isManga(book) {
   return book.tags?.some(t => t.name.toLowerCase() === 'manga');
 }
 
-function buildDisplayItems(books) {
+function buildDisplayItems(books, expandedSeries) {
   const mangaGroups = new Map();
   for (const book of books) {
     if (isManga(book) && book.series) {
@@ -106,7 +106,13 @@ function buildDisplayItems(books) {
     if (isManga(book) && book.series && mangaGroups.get(book.series).length > 1) {
       if (!seenSeries.has(book.series)) {
         seenSeries.add(book.series);
-        items.push({ type: 'series', name: book.series, books: mangaGroups.get(book.series) });
+        const groupBooks = mangaGroups.get(book.series);
+        items.push({ type: 'series', name: book.series, books: groupBooks });
+        if (expandedSeries.has(book.series)) {
+          for (const vol of sortVolumes(groupBooks)) {
+            items.push({ type: 'book', book: vol });
+          }
+        }
       }
     } else {
       items.push({ type: 'book', book });
@@ -121,7 +127,7 @@ function sortVolumes(books) {
   );
 }
 
-function MangaSeriesCard({ seriesName, books, onToggle }) {
+function MangaSeriesCard({ seriesName, books, expanded, onToggle }) {
   const sorted = sortVolumes(books);
   const statusCounts = books.reduce((acc, b) => {
     acc[b.status] = (acc[b.status] || 0) + 1;
@@ -138,7 +144,7 @@ function MangaSeriesCard({ seriesName, books, onToggle }) {
     <button
       type="button"
       onClick={onToggle}
-      className="bg-card rounded-lg p-2 pb-2.5 hover:-translate-y-0.5 transition-[transform,background-color] ease-out duration-150 text-left w-full"
+      className={`bg-card rounded-lg p-2 pb-2.5 hover:-translate-y-0.5 transition-[transform,background-color] ease-out duration-150 text-left w-full ${expanded ? 'ring-1 ring-binding/40' : ''}`}
     >
       <div className="relative aspect-[2/3] mb-2.5">
         {books.length >= 3 && (
@@ -185,27 +191,6 @@ function MangaSeriesCard({ seriesName, books, onToggle }) {
   );
 }
 
-function ExpandedSeriesSection({ seriesName, books, onToggle, onProgressUpdate }) {
-  const sorted = sortVolumes(books);
-  return (
-    <div className="space-y-3">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex items-center gap-2 text-sm font-semibold text-neutral-200 hover:text-white transition-colors"
-      >
-        <span>{seriesName}</span>
-        <span className="text-neutral-500 font-normal text-xs">{books.length} vols</span>
-        <span className="text-neutral-600 text-xs">▲</span>
-      </button>
-      <div className={GRID}>
-        {sorted.map(book => (
-          <BookCard key={book.id} book={book} onProgressUpdate={onProgressUpdate} />
-        ))}
-      </div>
-    </div>
-  );
-}
 
 export default function Library() {
   const [tab, setTab] = useState(() => getSaved().tab || 'reading');
@@ -272,7 +257,7 @@ export default function Library() {
   });
 
   const sortedFiltered = applySort(filtered, sort);
-  const displayItems = buildDisplayItems(sortedFiltered);
+  const displayItems = buildDisplayItems(sortedFiltered, expandedSeries);
 
   function handleProgressUpdate(updated) {
     setBooks(bs => {
@@ -292,20 +277,6 @@ export default function Library() {
       return next;
     });
   }
-
-  // Split items into grid segments, broken by expanded series
-  const segments = [];
-  let currentGrid = [];
-  for (const item of displayItems) {
-    if (item.type === 'series' && expandedSeries.has(item.name)) {
-      segments.push({ type: 'grid', items: currentGrid });
-      segments.push({ type: 'expanded', ...item });
-      currentGrid = [];
-    } else {
-      currentGrid.push(item);
-    }
-  }
-  segments.push({ type: 'grid', items: currentGrid });
 
   return (
     <div>
@@ -390,36 +361,23 @@ export default function Library() {
           )}
         </div>
       ) : (
-        <div className="space-y-7">
-          {segments.map((seg, i) =>
-            seg.type === 'expanded' ? (
-              <ExpandedSeriesSection
-                key={seg.name}
-                seriesName={seg.name}
-                books={seg.books}
-                onToggle={() => toggleSeries(seg.name)}
+        <div className={GRID}>
+          {displayItems.map(item =>
+            item.type === 'series' ? (
+              <MangaSeriesCard
+                key={item.name}
+                seriesName={item.name}
+                books={item.books}
+                expanded={expandedSeries.has(item.name)}
+                onToggle={() => toggleSeries(item.name)}
+              />
+            ) : (
+              <BookCard
+                key={item.book.id}
+                book={item.book}
                 onProgressUpdate={handleProgressUpdate}
               />
-            ) : seg.items.length > 0 ? (
-              <div key={i} className={GRID}>
-                {seg.items.map(item =>
-                  item.type === 'series' ? (
-                    <MangaSeriesCard
-                      key={item.name}
-                      seriesName={item.name}
-                      books={item.books}
-                      onToggle={() => toggleSeries(item.name)}
-                    />
-                  ) : (
-                    <BookCard
-                      key={item.book.id}
-                      book={item.book}
-                      onProgressUpdate={handleProgressUpdate}
-                    />
-                  )
-                )}
-              </div>
-            ) : null
+            )
           )}
         </div>
       )}
