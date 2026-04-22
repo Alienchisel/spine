@@ -460,7 +460,7 @@ export default function BookForm() {
                     }}>
                     <option value="">—</option>
                     <option value="physical">Physical</option>
-                    <option value="ebook">E-book</option>
+                    <option value="ebook">Digital</option>
                     <option value="audiobook">Audiobook</option>
                   </select>
                 </div>

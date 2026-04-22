@@ -40,7 +40,7 @@ function formatHours(minutes) {
   return m > 0 ? `${h.toLocaleString()}h ${m}m` : `${h.toLocaleString()}h`;
 }
 
-const FORMAT_LABEL = { physical: 'Physical', ebook: 'E-book', audiobook: 'Audiobook' };
+const FORMAT_LABEL = { physical: 'Physical', ebook: 'Digital', audiobook: 'Audiobook' };
 
 export default function Stats() {
   const [stats, setStats] = useState(null);
