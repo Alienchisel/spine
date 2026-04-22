@@ -128,6 +128,7 @@ export default function Library() {
     if (filters.missing.includes('isbn')      && (b.year_published < 1970 && !(b.year_edition >= 1970))) return false;
     if (filters.missing.includes('publisher') && b.publisher)             return false;
     if (filters.missing.includes('rating')       && (b.rating || b.status !== 'finished')) return false;
+    if (filters.missing.includes('fiction')      && b.fiction !== null && b.fiction !== undefined) return false;
     if (filters.missing.includes('description')  && b.description)          return false;
 
     if (filters.formats.length    > 0 && !filters.formats.includes(b.format    || 'empty')) return false;
