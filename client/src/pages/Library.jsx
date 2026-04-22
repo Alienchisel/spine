@@ -123,9 +123,6 @@ function sortVolumes(books) {
 
 function MangaSeriesCard({ seriesName, books, onToggle }) {
   const sorted = sortVolumes(books);
-  const frontBook = sorted.find(b => b.status === 'reading')
-    || sorted.find(b => b.status === 'paused')
-    || sorted[sorted.length - 1];
   const statusCounts = books.reduce((acc, b) => {
     acc[b.status] = (acc[b.status] || 0) + 1;
     return acc;
@@ -146,9 +143,13 @@ function MangaSeriesCard({ seriesName, books, onToggle }) {
       <div className="relative aspect-[2/3] mb-2.5">
         {books.length >= 3 && (
           <div
-            className="absolute inset-0 rounded bg-neutral-800 shadow ring-1 ring-white/5"
+            className="absolute inset-0 rounded overflow-hidden shadow ring-1 ring-white/5"
             style={{ transform: 'rotate(5deg) translate(5px, -2px)' }}
-          />
+          >
+            {sorted[2]?.cover_path && (
+              <img src={sorted[2].cover_path} alt="" className="w-full h-full object-cover opacity-40" />
+            )}
+          </div>
         )}
         {books.length >= 2 && (
           <div
@@ -161,8 +162,8 @@ function MangaSeriesCard({ seriesName, books, onToggle }) {
           </div>
         )}
         <div className="absolute inset-0 rounded overflow-hidden shadow-xl ring-1 ring-white/5">
-          {frontBook?.cover_path ? (
-            <img src={frontBook.cover_path} alt={seriesName} className="w-full h-full object-cover" />
+          {sorted[0]?.cover_path ? (
+            <img src={sorted[0].cover_path} alt={seriesName} className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full flex items-end p-3 bg-gradient-to-br from-neutral-700 to-neutral-900">
               <span className="text-xs text-neutral-400 font-medium leading-tight line-clamp-4">{seriesName}</span>
@@ -174,8 +175,8 @@ function MangaSeriesCard({ seriesName, books, onToggle }) {
         </div>
       </div>
       <p className="text-sm font-medium text-neutral-200 truncate leading-tight">{seriesName}</p>
-      {frontBook?.author && (
-        <p className="text-xs text-neutral-500 truncate mt-0.5">{frontBook.author}</p>
+      {sorted[0]?.author && (
+        <p className="text-xs text-neutral-500 truncate mt-0.5">{sorted[0].author}</p>
       )}
       {statusParts.length > 0 && (
         <p className="text-xs text-neutral-600 truncate mt-0.5">{statusParts.join(' · ')}</p>
