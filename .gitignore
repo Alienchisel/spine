@@ -5,3 +5,4 @@ uploads/
 spine.db
 *.db-shm
 *.db-wal
+backups/
