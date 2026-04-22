@@ -127,6 +127,9 @@ export default function Library() {
     if (filters.missing.includes('isbn')      && (b.isbn_10 || b.isbn_13 || b.asin)) return false;
     if (filters.missing.includes('isbn')      && (b.year_published < 1970 && !(b.year_edition >= 1970))) return false;
     if (filters.missing.includes('publisher') && b.publisher)             return false;
+    if (filters.missing.includes('year')      && b.year_published)        return false;
+    if (filters.missing.includes('pages')     && (b.format === 'audiobook' ? b.duration_minutes : b.page_count)) return false;
+    if (filters.missing.includes('language')  && b.language)              return false;
     if (filters.missing.includes('rating')       && (b.rating || b.status !== 'finished')) return false;
     if (filters.missing.includes('fiction')      && b.fiction !== null && b.fiction !== undefined) return false;
     if (filters.missing.includes('description')  && b.description)          return false;
