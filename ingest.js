@@ -164,22 +164,50 @@ async function main() {
 
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 
-  const title       = await ask(rl, 'Title',       meta.title);
-  const author      = await ask(rl, 'Author',      meta.author);
-  const publisher   = await ask(rl, 'Publisher',   meta.publisher);
-  const yearStr     = await ask(rl, 'Year',        meta.year ? String(meta.year) : '');
-  const pagesStr    = await ask(rl, 'Pages',       meta.page_count ? String(meta.page_count) : '');
-  const language    = await ask(rl, 'Language',    meta.language || 'English');
-  const isbn_13     = await ask(rl, 'ISBN-13',     meta.isbn_13);
-  const isbn_10     = await ask(rl, 'ISBN-10',     meta.isbn_10);
-  const description = await ask(rl, 'Description', meta.description);
-  const statusIn    = await ask(rl, 'Status (unread/reading/finished)', 'unread');
-  const formatIn    = await ask(rl, 'Format (physical/digital/audiobook)', 'physical');
-  const ownedIn     = await ask(rl, 'Owned? (y/n)', 'n');
+  // — Metadata —
+  const title            = await ask(rl, 'Title',             meta.title);
+  const author           = await ask(rl, 'Author',            meta.author);
+  const publisher        = await ask(rl, 'Publisher',         meta.publisher);
+  const yearStr          = await ask(rl, 'Year published',    meta.year ? String(meta.year) : '');
+  const yearEditionStr   = await ask(rl, 'Year of edition',   '');
+  const pagesStr         = await ask(rl, 'Pages',             meta.page_count ? String(meta.page_count) : '');
+  const language         = await ask(rl, 'Language',          meta.language || 'English');
+  const original_language = await ask(rl, 'Original language', '');
+  const isbn_13          = await ask(rl, 'ISBN-13',           meta.isbn_13);
+  const isbn_10          = await ask(rl, 'ISBN-10',           meta.isbn_10);
+  const asinIn           = await ask(rl, 'ASIN',              parsed.type === 'asin' ? parsed.value : '');
+  const description      = await ask(rl, 'Description',       meta.description);
+
+  // — Classification —
+  console.log();
+  const fictionIn        = await ask(rl, 'Fiction? (y/n/blank)', '');
+  const series           = await ask(rl, 'Series',            '');
+  const series_numberStr = series ? await ask(rl, 'Series number', '') : '';
+  const tagsIn           = await ask(rl, 'Tags (comma-separated)', '');
+
+  // — Library —
+  console.log();
+  const statusIn         = await ask(rl, 'Status (unread/reading/finished)', 'unread');
+  const formatIn         = await ask(rl, 'Format (physical/digital/audiobook)', 'physical');
+  const ownedIn          = await ask(rl, 'Owned? (y/n)', 'n');
+
+  // — Format-specific —
+  const formatVal = formatIn === 'digital' ? 'ebook' : formatIn;
+  let binding = '', condition = '', narrator = '';
+  if (formatVal === 'physical') {
+    console.log();
+    binding   = await ask(rl, 'Binding (hardcover/paperback)', '');
+    condition = await ask(rl, 'Condition (new/fine/very good/good/fair/poor)', '');
+  } else if (formatVal === 'audiobook') {
+    console.log();
+    narrator  = await ask(rl, 'Narrator', '');
+  }
+
+  // — Notes —
+  console.log();
+  const notes = await ask(rl, 'Notes', '');
 
   rl.close();
-
-  const asin = parsed.type === 'asin' ? parsed.value : '';
 
   let cover_path = null;
   if (meta.cover_url) {
@@ -192,22 +220,36 @@ async function main() {
     }
   }
 
-  const formatVal = formatIn === 'digital' ? 'ebook' : formatIn;
+  const fictionVal = fictionIn.toLowerCase() === 'y' ? true
+                   : fictionIn.toLowerCase() === 'n' ? false
+                   : undefined;
+  const tags = tagsIn ? tagsIn.split(',').map(t => t.trim()).filter(Boolean) : undefined;
+
   const payload = Object.fromEntries(Object.entries({
     title,
-    author:       author || undefined,
-    publisher:    publisher || undefined,
-    year_published: yearStr ? parseInt(yearStr) : undefined,
-    page_count:   pagesStr ? parseInt(pagesStr) : undefined,
-    language:     language || undefined,
-    isbn_13:      isbn_13 || undefined,
-    isbn_10:      isbn_10 || undefined,
-    asin:         asin || undefined,
-    description:  description || undefined,
-    status:       ['reading', 'paused', 'finished', 'unread'].includes(statusIn) ? statusIn : 'unread',
-    format:       ['physical', 'ebook', 'audiobook'].includes(formatVal) ? formatVal : undefined,
-    owned:        ownedIn.toLowerCase() === 'y' ? 1 : 0,
-    cover_path:   cover_path || undefined,
+    author:            author || undefined,
+    publisher:         publisher || undefined,
+    year_published:    yearStr ? parseInt(yearStr) : undefined,
+    year_edition:      yearEditionStr ? parseInt(yearEditionStr) : undefined,
+    page_count:        pagesStr ? parseInt(pagesStr) : undefined,
+    language:          language || undefined,
+    original_language: original_language || undefined,
+    isbn_13:           isbn_13 || undefined,
+    isbn_10:           isbn_10 || undefined,
+    asin:              asinIn || undefined,
+    description:       description || undefined,
+    fiction:           fictionVal,
+    series:            series || undefined,
+    series_number:     series_numberStr ? parseFloat(series_numberStr) : undefined,
+    tags,
+    status:            ['reading', 'paused', 'finished', 'unread'].includes(statusIn) ? statusIn : 'unread',
+    format:            ['physical', 'ebook', 'audiobook'].includes(formatVal) ? formatVal : undefined,
+    owned:             ownedIn.toLowerCase() === 'y' ? 1 : 0,
+    binding:           ['hardcover', 'paperback'].includes(binding) ? binding : undefined,
+    condition:         ['new', 'fine', 'very good', 'good', 'fair', 'poor'].includes(condition) ? condition : undefined,
+    narrator:          narrator || undefined,
+    notes:             notes || undefined,
+    cover_path:        cover_path || undefined,
   }).filter(([, v]) => v !== undefined));
 
   process.stdout.write('\nAdding to Spine... ');
