@@ -193,7 +193,6 @@ async function main() {
   const original_language = await ask(rl, 'Original language', '');
   const isbn_13          = await ask(rl, 'ISBN-13',           meta.isbn_13);
   const isbn_10          = await ask(rl, 'ISBN-10',           meta.isbn_10);
-  const asinIn           = await ask(rl, 'ASIN',              parsed.type === 'asin' ? parsed.value : '');
   const description      = await askMultiline(rl, 'Description', meta.description);
 
   // — Classification —
@@ -211,7 +210,7 @@ async function main() {
 
   // — Format-specific —
   const formatVal = formatIn === 'digital' ? 'ebook' : formatIn;
-  let binding = '', condition = '', narrator = '';
+  let binding = '', condition = '', narrator = '', asinIn = '';
   if (formatVal === 'physical') {
     console.log();
     binding   = await ask(rl, 'Binding (hardcover/paperback)', '');
@@ -219,6 +218,7 @@ async function main() {
   } else if (formatVal === 'audiobook') {
     console.log();
     narrator  = await ask(rl, 'Narrator', '');
+    asinIn    = await ask(rl, 'ASIN', parsed.type === 'asin' ? parsed.value : '');
   }
 
   // — Notes —
