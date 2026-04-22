@@ -63,7 +63,7 @@ async function fetchGoogleBooks(isbn) {
     language:     LANG_MAP[v.language] || v.language || '',
     isbn_13:      ids.find(i => i.type === 'ISBN_13')?.identifier || '',
     isbn_10:      ids.find(i => i.type === 'ISBN_10')?.identifier || '',
-    cover_url:    coverUrl ? coverUrl.replace('&edge=curl', '').replace(/zoom=\d/, 'zoom=0') : null,
+    cover_url:    coverUrl ? coverUrl.replace('&edge=curl', '').replace(/zoom=\d+/, 'zoom=0') : null,
   };
 }
 
@@ -152,7 +152,8 @@ async function main() {
 
   const parsed = parseInput(input);
   const lookupId = parsed.value;
-  console.log(`\nLooking up ${parsed.type.toUpperCase()} ${lookupId}...\n`);
+  const typeLabel = { isbn13: 'ISBN-13', isbn10: 'ISBN-10', asin: 'ASIN' }[parsed.type];
+  console.log(`\nLooking up ${typeLabel} ${lookupId}...\n`);
 
   let meta = await fetchGoogleBooks(lookupId);
   if (!meta) {
@@ -223,7 +224,7 @@ async function main() {
 
   // — Notes —
   console.log();
-  const notes = await askMultiline(rl, 'Notes', '');
+  const notes = await ask(rl, 'Notes', '');
 
   rl.close();
 
