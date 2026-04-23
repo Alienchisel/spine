@@ -35,7 +35,7 @@ export default function Loved() {
           </Link>
         </div>
       ) : (
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-x-4 gap-y-7">
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 gap-y-7">
           {books.map(book => (
             <BookCard key={book.id} book={book} onProgressUpdate={handleUpdate} />
           ))}
