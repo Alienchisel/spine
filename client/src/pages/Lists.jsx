@@ -36,9 +36,13 @@ export default function Lists() {
     }
   }
 
-  async function handleDelete(id) {
-    await api.deleteList(id);
-    setLists(ls => ls.filter(l => l.id !== id));
+  async function handleDelete(list) {
+    const msg = list.book_count > 0
+      ? `Delete "${list.name}"? It contains ${list.book_count} ${list.book_count === 1 ? 'book' : 'books'}.`
+      : `Delete "${list.name}"?`;
+    if (!confirm(msg)) return;
+    await api.deleteList(list.id);
+    setLists(ls => ls.filter(l => l.id !== list.id));
   }
 
   return (
@@ -88,7 +92,7 @@ export default function Lists() {
                 {list.book_count} {list.book_count === 1 ? 'book' : 'books'}
               </span>
               <button
-                onClick={() => handleDelete(list.id)}
+                onClick={() => handleDelete(list)}
                 className="text-neutral-700 hover:text-red-400 transition-colors text-lg leading-none flex-shrink-0 opacity-0 group-hover:opacity-100"
                 title="Delete list"
               >
