@@ -25,6 +25,7 @@ export default function ShelfView() {
   const [params, setParams] = useSearchParams();
   const [tree, setTree] = useState([]);
   const [books, setBooks] = useState([]);
+  const [unshelfed, setUnshelfed] = useState([]);
   const [loading, setLoading] = useState(true);
   const [booksLoading, setBooksLoading] = useState(false);
 
@@ -34,7 +35,9 @@ export default function ShelfView() {
   const shelfId    = params.get('s') ? Number(params.get('s')) : null;
 
   useEffect(() => {
-    api.getShelfTree().then(setTree).finally(() => setLoading(false));
+    Promise.all([api.getShelfTree(), api.getUnshelfedBooks()])
+      .then(([t, u]) => { setTree(t); setUnshelfed(u); })
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
@@ -103,16 +106,31 @@ export default function ShelfView() {
             <Link to="/shelf" className="text-sm text-oak hover:text-leather">Manage shelves →</Link>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {tree.map(b => (
-              <LevelCard
-                key={b.id}
-                primary={b.name}
-                secondary={`${PROXIMITY_LABEL[b.proximity]} · ${plural(b.rooms.length, 'room')}`}
-                onClick={() => nav({ b: b.id })}
-              />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {tree.map(b => (
+                <LevelCard
+                  key={b.id}
+                  primary={b.name}
+                  secondary={`${PROXIMITY_LABEL[b.proximity]} · ${plural(b.rooms.length, 'room')}`}
+                  onClick={() => nav({ b: b.id })}
+                />
+              ))}
+            </div>
+
+            {unshelfed.length > 0 && (
+              <div className="mt-10">
+                <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-4 pb-2 border-b border-neutral-800">
+                  Not yet shelved · {unshelfed.length}
+                </h2>
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 gap-y-7">
+                  {unshelfed.map(book => (
+                    <BookCard key={book.id} book={book} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )
       )}
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 
 const PROXIMITY_LABEL = { home: 'Home', nearby: 'Nearby', remote: 'Remote' };
@@ -321,6 +322,9 @@ export default function ShelfManager() {
 
   return (
     <div className="max-w-2xl">
+      <Link to="/shelf-view" className="text-sm text-neutral-600 hover:text-neutral-300 mb-8 inline-block transition-colors">
+        ← Shelf view
+      </Link>
       <h1 className="font-slab text-2xl text-parchment tracking-wide uppercase mb-8">Shelves</h1>
 
       <div className="space-y-3">

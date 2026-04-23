@@ -241,6 +241,18 @@ router.delete('/shelves/:id', (req, res) => {
   res.status(204).send();
 });
 
+// ── Owned books with no shelf assigned ────────────────────────────────────
+
+router.get('/unshelfed', (_req, res) => {
+  const books = db.prepare(`
+    SELECT id, title, author, cover_path, status, rating
+    FROM books
+    WHERE owned = 1 AND shelf_id IS NULL
+    ORDER BY title
+  `).all().map(b => ({ ...b, cover_path: b.cover_path ? `/uploads/${b.cover_path}` : null }));
+  res.json(books);
+});
+
 // ── Books on a shelf ───────────────────────────────────────────────────────
 
 router.get('/shelves/:id/books', (req, res) => {
