@@ -428,6 +428,12 @@ export default function BookDetail() {
                 <dd className="text-neutral-300">{book.date_finished}</dd>
               </div>
             )}
+            {book.read_count > 1 && (
+              <div className="flex gap-2">
+                <dt className="text-neutral-500 w-24 flex-shrink-0">Times read</dt>
+                <dd className="text-neutral-300">{book.read_count}</dd>
+              </div>
+            )}
           </dl>
 
           {book.tags?.length > 0 && (
