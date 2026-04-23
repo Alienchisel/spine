@@ -6,6 +6,12 @@ import StarRating from '../components/StarRating.jsx';
 import ListPicker from '../components/ListPicker.jsx';
 
 const STATUS_LABEL = { reading: 'Reading', paused: 'Paused', finished: 'Finished', unread: 'Unread' };
+
+function formatDate(dateStr) {
+  return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-GB', {
+    day: 'numeric', month: 'long', year: 'numeric'
+  });
+}
 const STATUS_COLOR = {
   reading:  'text-parchment bg-oak/30',
   paused:   'text-neutral-300 bg-neutral-800',
@@ -412,20 +418,20 @@ export default function BookDetail() {
               <div className="flex gap-2">
                 <dt className="text-neutral-500 w-24 flex-shrink-0">Acquired</dt>
                 <dd className="text-neutral-300">
-                  {[book.acquisition_source, book.acquisition_date].filter(Boolean).join(' · ')}
+                  {[book.acquisition_source, book.acquisition_date ? formatDate(book.acquisition_date) : null].filter(Boolean).join(' · ')}
                 </dd>
               </div>
             )}
             {book.date_started && (
               <div className="flex gap-2">
                 <dt className="text-neutral-500 w-24 flex-shrink-0">Started</dt>
-                <dd className="text-neutral-300">{book.date_started}</dd>
+                <dd className="text-neutral-300">{formatDate(book.date_started)}</dd>
               </div>
             )}
             {book.date_finished && (
               <div className="flex gap-2">
                 <dt className="text-neutral-500 w-24 flex-shrink-0">Finished</dt>
-                <dd className="text-neutral-300">{book.date_finished}</dd>
+                <dd className="text-neutral-300">{formatDate(book.date_finished)}</dd>
               </div>
             )}
             {book.read_count > 1 && (
