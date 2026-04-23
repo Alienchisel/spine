@@ -74,7 +74,8 @@ export default function Diary() {
       .finally(() => setLoading(false));
   }, []);
 
-  async function handleDelete(entryId) {
+  async function handleDelete(entryId, title) {
+    if (!confirm(`Remove "${title}" from diary?`)) return;
     await api.deleteDiaryEntry(entryId);
     setDays(ds =>
       ds
@@ -115,7 +116,7 @@ export default function Diary() {
               </h2>
               <div className="divide-y divide-neutral-800/50">
                 {day.entries.map(entry => (
-                  <DiaryEntry key={entry.id} entry={entry} onDelete={handleDelete} />
+                  <DiaryEntry key={entry.id} entry={entry} onDelete={id => handleDelete(id, entry.title)} />
                 ))}
               </div>
             </div>
