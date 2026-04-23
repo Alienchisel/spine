@@ -11,6 +11,7 @@ import ListDetail from './pages/ListDetail.jsx';
 import Diary from './pages/Diary.jsx';
 import Stats from './pages/Stats.jsx';
 import ShelfManager from './pages/ShelfManager.jsx';
+import ShelfView from './pages/ShelfView.jsx';
 
 export default function App() {
   return (
@@ -30,6 +31,7 @@ export default function App() {
           <Route path="/diary" element={<Diary />} />
           <Route path="/stats" element={<Stats />} />
           <Route path="/shelf" element={<ShelfManager />} />
+          <Route path="/shelf-view" element={<ShelfView />} />
         </Routes>
       </main>
     </div>

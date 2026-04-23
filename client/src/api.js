@@ -56,6 +56,7 @@ export const api = {
   createShelf: (data) => request('/shelf/shelves', { method: 'POST', body: JSON.stringify(data) }),
   updateShelf: (id, data) => request(`/shelf/shelves/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteShelf: (id) => request(`/shelf/shelves/${id}`, { method: 'DELETE' }),
+  getShelfBooks: (shelfId) => request(`/shelf/shelves/${shelfId}/books`),
   getShelfLocation: (bookId) => request(`/shelf/location/${bookId}`),
   getStats: () => request('/stats'),
   getSettings: () => request('/settings'),
