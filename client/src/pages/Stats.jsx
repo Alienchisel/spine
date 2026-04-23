@@ -106,7 +106,7 @@ export default function Stats() {
   if (error) return <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-warn text-sm">{error}</div>;
   if (!stats) return null;
 
-  const { totals, formats, fiction, ratings, pagesRead, minutesListened, byYear, topAuthors, streaks, todayPages, thisYearBooks } = stats;
+  const { totals, formats, fiction, ratings, pagesRead, minutesListened, byYear, topAuthors, languages, streaks, todayPages, thisYearBooks } = stats;
 
   const maxRating = Math.max(...ratings.map(r => r.count), 1);
   const maxYear   = Math.max(...byYear.map(y => y.count), 1);
@@ -249,6 +249,17 @@ export default function Stats() {
             <div className="space-y-2.5">
               {topAuthors.map(a => (
                 <Bar key={a.author} label={a.author} count={a.count} max={maxAuthor} color="bg-binding" />
+              ))}
+            </div>
+          </Section>
+        )}
+
+        {languages.length > 1 && (
+          <Section title="Languages">
+            <div className="space-y-2.5">
+              {languages.map(l => (
+                <Bar key={l.language} label={l.language} count={l.count}
+                  max={Math.max(...languages.map(x => x.count))} color="bg-binding" />
               ))}
             </div>
           </Section>

@@ -118,6 +118,12 @@ router.get('/', (_req, res) => {
     LIMIT 10
   `).all();
 
+  const languages = db.prepare(`
+    SELECT language, COUNT(*) AS count FROM books
+    WHERE language IS NOT NULL
+    GROUP BY language ORDER BY count DESC
+  `).all();
+
   const readingDates = db.prepare('SELECT DISTINCT date FROM reading_log ORDER BY date ASC').all().map(r => r.date);
   const streaks = calcStreaks(readingDates);
 
@@ -130,7 +136,7 @@ router.get('/', (_req, res) => {
     WHERE date_finished IS NOT NULL AND strftime('%Y', date_finished) = strftime('%Y', 'now')
   `).get().total;
 
-  res.json({ totals, formats, fiction, ratings, pagesRead, minutesListened, byYear, topAuthors, streaks, todayPages, thisYearBooks });
+  res.json({ totals, formats, fiction, ratings, pagesRead, minutesListened, byYear, topAuthors, languages, streaks, todayPages, thisYearBooks });
 });
 
 export default router;
