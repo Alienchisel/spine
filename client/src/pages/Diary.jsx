@@ -98,8 +98,16 @@ export default function Diary() {
             Browse your library →
           </Link>
         </div>
-      ) : (
+      ) : (() => {
+        const totalPages   = days.flatMap(d => d.entries).reduce((s, e) => s + (e.pages_read || 0), 0);
+        const totalMinutes = days.flatMap(d => d.entries).reduce((s, e) => s + (e.minutes_read || 0), 0);
+        const parts = [];
+        if (totalPages > 0)   parts.push(`${totalPages.toLocaleString()} ${totalPages === 1 ? 'page' : 'pages'}`);
+        if (totalMinutes > 0) parts.push(`${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m listened`);
+        parts.push(`${days.length} ${days.length === 1 ? 'day' : 'days'}`);
+        return (
         <div className="space-y-8">
+          <p className="text-xs text-neutral-600">{parts.join(' · ')}</p>
           {days.map(day => (
             <div key={day.date}>
               <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-1 pb-2 border-b border-neutral-800">
@@ -113,7 +121,8 @@ export default function Diary() {
             </div>
           ))}
         </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
