@@ -405,14 +405,18 @@ export default function BookDetail() {
                 <dt className="text-neutral-500 w-24 flex-shrink-0">Location</dt>
                 <dd className="text-neutral-300 flex flex-wrap items-center gap-x-2 gap-y-1">
                   <span className="text-neutral-400 text-xs">
-                    {location.building} › {location.room} › {location.unit} › Shelf {location.shelf}
+                    {location.shelf_id
+                      ? `${location.building} › ${location.room} › ${location.unit} › Shelf ${location.shelf}`
+                      : location.building}
                   </span>
-                  <Link
-                    to={`/shelf-view?b=${location.building_id}&r=${location.room_id}&u=${location.unit_id}&s=${location.shelf_id}`}
-                    className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors"
-                  >
-                    Reveal →
-                  </Link>
+                  {location.shelf_id && (
+                    <Link
+                      to={`/shelf-view?b=${location.building_id}&r=${location.room_id}&u=${location.unit_id}&s=${location.shelf_id}`}
+                      className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors"
+                    >
+                      Reveal →
+                    </Link>
+                  )}
                 </dd>
               </div>
             )}

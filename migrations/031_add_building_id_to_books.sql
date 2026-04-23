@@ -1,0 +1,1 @@
+ALTER TABLE books ADD COLUMN building_id INTEGER REFERENCES buildings(id) ON DELETE SET NULL;

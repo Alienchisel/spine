@@ -272,21 +272,29 @@ router.get('/shelves/:id/books', (req, res) => {
 router.get('/location/:bookId', (req, res) => {
   const bookId = Number(req.params.bookId);
   if (!Number.isInteger(bookId) || bookId < 1) return res.status(400).json({ error: 'Invalid id' });
-  const loc = db.prepare(`
+
+  const full = db.prepare(`
     SELECT
       b.id   AS building_id,   b.name AS building,   b.proximity,
       r.id   AS room_id,       r.name AS room,
       u.id   AS unit_id,       u.name AS unit,
       s.id   AS shelf_id,      s.label AS shelf
     FROM books bk
-    JOIN shelves s  ON bk.shelf_id  = s.id
-    JOIN units u    ON s.unit_id    = u.id
-    JOIN rooms r    ON u.room_id    = r.id
-    JOIN buildings b ON r.building_id = b.id
+    JOIN shelves s   ON bk.shelf_id    = s.id
+    JOIN units u     ON s.unit_id      = u.id
+    JOIN rooms r     ON u.room_id      = r.id
+    JOIN buildings b ON r.building_id  = b.id
     WHERE bk.id = ?
   `).get(bookId);
-  if (!loc) return res.json(null);
-  res.json(loc);
+  if (full) return res.json(full);
+
+  const partial = db.prepare(`
+    SELECT b.id AS building_id, b.name AS building, b.proximity
+    FROM books bk
+    JOIN buildings b ON bk.building_id = b.id
+    WHERE bk.id = ?
+  `).get(bookId);
+  res.json(partial ?? null);
 });
 
 export default router;
