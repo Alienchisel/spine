@@ -24,7 +24,7 @@ const SORTS = [
   { key: 'progress', label: 'Progress' },
 ];
 
-const GRID = 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-x-4 gap-y-7';
+const GRID = 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 gap-y-7';
 
 function progress(b) {
   if (b.format === 'audiobook') {
