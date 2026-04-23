@@ -11,6 +11,29 @@ function t(val) {
 
 const VALID_PROXIMITY = ['home', 'nearby', 'remote'];
 
+// ── Full tree (for pickers and manager) ───────────────────────────────────
+
+router.get('/tree', (_req, res) => {
+  const buildings = db.prepare('SELECT * FROM buildings ORDER BY order_index, name').all();
+  const rooms     = db.prepare('SELECT * FROM rooms ORDER BY order_index, name').all();
+  const units     = db.prepare('SELECT * FROM units ORDER BY order_index, name').all();
+  const shelves   = db.prepare(`
+    SELECT s.*, (SELECT COUNT(*) FROM books WHERE shelf_id = s.id) AS book_count
+    FROM shelves s ORDER BY s.order_index, s.label
+  `).all();
+  const tree = buildings.map(b => ({
+    ...b,
+    rooms: rooms.filter(r => r.building_id === b.id).map(r => ({
+      ...r,
+      units: units.filter(u => u.room_id === r.id).map(u => ({
+        ...u,
+        shelves: shelves.filter(s => s.unit_id === u.id),
+      })),
+    })),
+  }));
+  res.json(tree);
+});
+
 // ── Buildings ──────────────────────────────────────────────────────────────
 
 router.get('/buildings', (_req, res) => {

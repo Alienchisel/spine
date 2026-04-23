@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../api.js';
 import StarRating from '../components/StarRating.jsx';
+import ShelfPicker from '../components/ShelfPicker.jsx';
 
 const EMPTY = {
   title: '',
@@ -9,6 +10,7 @@ const EMPTY = {
   status: 'unread',
   owned: false,
   previously_owned: false,
+  shelf_id: null,
   is_custom: false,
   fiction: null,
   source_type: '',
@@ -120,6 +122,7 @@ export default function BookForm() {
   const [pastRooms, setPastRooms] = useState([]);
   const [pastUnits, setPastUnits] = useState([]);
   const [pastLanguages, setPastLanguages] = useState([]);
+  const [shelfTree, setShelfTree] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -129,6 +132,10 @@ export default function BookForm() {
   const [durationH, setDurationH] = useState('');
   const [durationM, setDurationM] = useState('');
   const searchTimeout = useRef(null);
+
+  useEffect(() => {
+    api.getShelfTree().then(setShelfTree).catch(() => {});
+  }, []);
 
   useEffect(() => {
     api.getBooks().then(books => {
@@ -152,6 +159,7 @@ export default function BookForm() {
         status: book.status,
         owned: Boolean(book.owned),
         previously_owned: Boolean(book.previously_owned),
+        shelf_id: book.shelf_id ?? null,
         is_custom: Boolean(book.is_custom),
         fiction: book.fiction === null || book.fiction === undefined ? null : Boolean(book.fiction),
         source_type: book.source_type || '',
@@ -790,36 +798,11 @@ export default function BookForm() {
                 </div>
 
                 {form.owned && form.format === 'physical' && (
-                  <div className="space-y-3 pl-4 border-l-2 border-neutral-800">
-                    <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Shelf location</p>
-                    <div>
-                      <label className={label}>Room</label>
-                      <input className={input} list="rooms-list" value={form.shelf_room}
-                        onChange={(e) => set('shelf_room', e.target.value)}
-                        placeholder="e.g. Reading Room, Living Room…" />
-                      <datalist id="rooms-list">
-                        {pastRooms.map(r => <option key={r} value={r} />)}
-                      </datalist>
-                    </div>
-                    <div className="flex gap-3">
-                      <div className="flex-1">
-                        <label className={label}>Unit</label>
-                        <input className={input} list="units-list" value={form.shelf_unit}
-                          onChange={(e) => set('shelf_unit', e.target.value)}
-                          placeholder="e.g. Unit 3, Bookcase A…" />
-                        <datalist id="units-list">
-                          {pastUnits.map(u => <option key={u} value={u} />)}
-                        </datalist>
-                      </div>
-                      <div className="w-24">
-                        <label className={label}>Shelf</label>
-                        <input type="number" min="1"
-                          className={`${input} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
-                          value={form.shelf_number} onChange={(e) => set('shelf_number', e.target.value)}
-                          placeholder="1" />
-                      </div>
-                    </div>
-                  </div>
+                  <ShelfPicker
+                    shelfId={form.shelf_id}
+                    onChange={id => set('shelf_id', id)}
+                    tree={shelfTree}
+                  />
                 )}
 
                 {!form.is_custom && (

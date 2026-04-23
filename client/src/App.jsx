@@ -10,6 +10,7 @@ import Lists from './pages/Lists.jsx';
 import ListDetail from './pages/ListDetail.jsx';
 import Diary from './pages/Diary.jsx';
 import Stats from './pages/Stats.jsx';
+import ShelfManager from './pages/ShelfManager.jsx';
 
 export default function App() {
   return (
@@ -28,6 +29,7 @@ export default function App() {
           <Route path="/lists/:id" element={<ListDetail />} />
           <Route path="/diary" element={<Diary />} />
           <Route path="/stats" element={<Stats />} />
+          <Route path="/shelf" element={<ShelfManager />} />
         </Routes>
       </main>
     </div>
