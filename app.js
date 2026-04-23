@@ -8,6 +8,7 @@ import readlistRouter from './routes/readlist.js';
 import listsRouter from './routes/lists.js';
 import diaryRouter from './routes/diary.js';
 import statsRouter from './routes/stats.js';
+import settingsRouter from './routes/settings.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -22,6 +23,7 @@ app.use('/api/readlist', readlistRouter);
 app.use('/api/lists', listsRouter);
 app.use('/api/diary', diaryRouter);
 app.use('/api/stats', statsRouter);
+app.use('/api/settings', settingsRouter);
 
 app.use('/api', (_req, res) => {
   res.status(404).json({ error: 'Not found' });

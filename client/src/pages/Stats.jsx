@@ -42,18 +42,71 @@ function formatHours(minutes) {
 
 const FORMAT_LABEL = { physical: 'Physical', ebook: 'Digital', audiobook: 'Audiobook' };
 
+function GoalCard({ label, current, goal, onSave, color = 'bg-oak' }) {
+  const [editing, setEditing] = useState(false);
+  const [input, setInput] = useState('');
+  const pct = goal > 0 ? Math.min(100, Math.round((current / goal) * 100)) : 0;
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    const val = parseInt(input);
+    if (!isNaN(val) && val > 0) onSave(val);
+    setEditing(false);
+  }
+
+  return (
+    <div className="bg-card rounded-lg p-4 space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-neutral-500">{label}</span>
+        {editing ? (
+          <form onSubmit={handleSubmit} className="flex items-center gap-1.5">
+            <input
+              type="number" min="1" autoFocus
+              value={input} onChange={e => setInput(e.target.value)}
+              onBlur={() => setEditing(false)}
+              className="w-16 bg-neutral-800 border border-neutral-600 text-parchment text-xs rounded px-2 py-0.5 focus:outline-none focus:border-oak/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            />
+            <button type="submit" className="text-xs text-oak hover:text-leather transition-colors">set</button>
+          </form>
+        ) : (
+          <button
+            onClick={() => { setInput(goal ? String(goal) : ''); setEditing(true); }}
+            className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors tabular-nums"
+          >
+            {current.toLocaleString()} / {goal ? goal.toLocaleString() : <span className="text-neutral-700">set goal</span>}
+          </button>
+        )}
+      </div>
+      <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+        <div className={`h-full rounded-full transition-all duration-300 ${color}`} style={{ width: `${pct}%` }} />
+      </div>
+      {goal > 0 && (
+        <p className="text-xs text-neutral-600">{pct}%{pct >= 100 ? ' — goal reached!' : ''}</p>
+      )}
+    </div>
+  );
+}
+
 export default function Stats() {
   const [stats, setStats] = useState(null);
+  const [settings, setSettings] = useState({});
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    api.getStats().then(setStats).catch(() => setError('Failed to load stats'));
+    Promise.all([api.getStats(), api.getSettings()])
+      .then(([s, g]) => { setStats(s); setSettings(g); })
+      .catch(() => setError('Failed to load stats'));
   }, []);
+
+  async function saveGoal(key, value) {
+    await api.setSetting(key, value);
+    setSettings(s => ({ ...s, [key]: String(value) }));
+  }
 
   if (error) return <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-warn text-sm">{error}</div>;
   if (!stats) return null;
 
-  const { totals, formats, fiction, ratings, pagesRead, minutesListened, byYear, topAuthors, streaks } = stats;
+  const { totals, formats, fiction, ratings, pagesRead, minutesListened, byYear, topAuthors, streaks, todayPages, thisYearBooks } = stats;
 
   const maxRating = Math.max(...ratings.map(r => r.count), 1);
   const maxYear   = Math.max(...byYear.map(y => y.count), 1);
@@ -65,6 +118,25 @@ export default function Stats() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
       <h1 className="font-slab text-2xl text-parchment tracking-wide uppercase">Stats</h1>
+
+      <Section title="Goals">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <GoalCard
+            label="Pages today"
+            current={todayPages}
+            goal={settings.daily_pages_goal ? parseInt(settings.daily_pages_goal) : 0}
+            onSave={v => saveGoal('daily_pages_goal', v)}
+            color="bg-oak"
+          />
+          <GoalCard
+            label={`Books in ${new Date().getFullYear()}`}
+            current={thisYearBooks}
+            goal={settings.yearly_books_goal ? parseInt(settings.yearly_books_goal) : 0}
+            onSave={v => saveGoal('yearly_books_goal', v)}
+            color="bg-leather"
+          />
+        </div>
+      </Section>
 
       <Section title="Library">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
