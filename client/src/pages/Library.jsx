@@ -290,7 +290,7 @@ export default function Library() {
               <button
                 key={t.key}
                 onClick={() => setTab(t.key)}
-                className={`px-5 py-2 text-sm rounded-md transition-[transform,background-color,color] ease-out duration-150 active:scale-[0.98] ${
+                className={`px-5 py-2 text-sm rounded-md whitespace-nowrap transition-[transform,background-color,color] ease-out duration-150 active:scale-[0.98] ${
                   tab === t.key
                     ? 'bg-binding/25 text-parchment font-semibold'
                     : 'font-medium text-neutral-400 hover:text-neutral-200'
