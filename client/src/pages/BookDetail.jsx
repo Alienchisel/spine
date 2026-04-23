@@ -189,10 +189,16 @@ export default function BookDetail() {
   const navigate = useNavigate();
   const [book, setBook] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [location, setLocation] = useState(null);
 
   useEffect(() => {
     api.getBook(id).then(setBook).finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    if (!book?.id) return;
+    api.getShelfLocation(book.id).then(setLocation).catch(() => setLocation(null));
+  }, [book?.id]);
 
   async function toggleLoved() {
     const updated = await api.patchBook(book.id, { loved: book.loved ? 0 : 1 });
@@ -394,11 +400,19 @@ export default function BookDetail() {
                 </dd>
               </div>
             )}
-            {Boolean(book.owned) && (book.shelf_room || book.shelf_unit || book.shelf_number) && (
+            {location && (
               <div className="flex gap-2">
                 <dt className="text-neutral-500 w-24 flex-shrink-0">Location</dt>
-                <dd className="text-neutral-300">
-                  {[book.shelf_room, book.shelf_unit, book.shelf_number ? `Shelf ${book.shelf_number}` : null].filter(Boolean).join(' · ')}
+                <dd className="text-neutral-300 flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="text-neutral-400 text-xs">
+                    {location.building} › {location.room} › {location.unit} › Shelf {location.shelf}
+                  </span>
+                  <Link
+                    to={`/shelf-view?b=${location.building_id}&r=${location.room_id}&u=${location.unit_id}&s=${location.shelf_id}`}
+                    className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors"
+                  >
+                    Reveal →
+                  </Link>
                 </dd>
               </div>
             )}
