@@ -70,6 +70,7 @@ router.get('/', (_req, res) => {
     SELECT
       COUNT(*)                          AS books,
       SUM(owned = 1)                    AS owned,
+      SUM(previously_owned = 1)         AS previously_owned,
       SUM(status = 'reading')           AS reading,
       SUM(status = 'paused')            AS paused,
       SUM(status = 'finished')          AS finished,

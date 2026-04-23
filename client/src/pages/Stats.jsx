@@ -139,9 +139,10 @@ export default function Stats() {
       </Section>
 
       <Section title="Library">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
           <StatCard label="Total books" value={totals.books?.toLocaleString()} />
           <StatCard label="Owned" value={totals.owned?.toLocaleString()} />
+          <StatCard label="Prev. owned" value={totals.previously_owned?.toLocaleString()} />
           <StatCard label="Finished" value={totals.finished?.toLocaleString()} />
           <StatCard label="Reading" value={totals.reading?.toLocaleString()} />
           <StatCard label="Paused" value={totals.paused?.toLocaleString()} />
