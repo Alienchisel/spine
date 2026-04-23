@@ -157,8 +157,19 @@ describe('books', () => {
       const { status, body } = await req('POST', '/api/books', { title: 'Sold Book', previously_owned: true });
       assert.equal(status, 201);
       assert.equal(body.previously_owned, 1);
+      assert.equal(body.owned, 0);
       const { body: updated } = await req('PUT', `/api/books/${body.id}`, { title: 'Sold Book', previously_owned: false });
       assert.equal(updated.previously_owned, 0);
+    });
+
+    it('owned and previously_owned are mutually exclusive', async () => {
+      const { body: a } = await req('POST', '/api/books', { title: 'Conflict A', owned: true, previously_owned: true });
+      assert.equal(a.owned, 1);       // owned wins
+      assert.equal(a.previously_owned, 0);
+      const { body: b } = await req('POST', '/api/books', { title: 'Conflict B', owned: true });
+      const { body: updated } = await req('PUT', `/api/books/${b.id}`, { title: 'Conflict B', owned: false, previously_owned: true });
+      assert.equal(updated.owned, 0);
+      assert.equal(updated.previously_owned, 1);
     });
 
     it('saves and returns ASIN', async () => {
