@@ -340,6 +340,9 @@ export default function Library() {
                 Clear all
               </button>
             )}
+            <span className="text-xs text-neutral-600 tabular-nums whitespace-nowrap">
+              {sortedFiltered.length} {sortedFiltered.length === 1 ? 'book' : 'books'}
+            </span>
           </div>
         </div>
 
