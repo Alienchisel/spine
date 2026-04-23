@@ -9,8 +9,9 @@ const TABS = [
   { key: 'paused',   label: 'Paused' },
   { key: 'finished', label: 'Finished' },
   { key: 'unread',   label: 'Unread' },
-  { key: 'owned',    label: 'Owned' },
-  { key: 'all',      label: 'All' },
+  { key: 'owned',      label: 'Owned' },
+  { key: 'prev_owned', label: 'Prev. owned' },
+  { key: 'all',        label: 'All' },
 ];
 
 const SESSION_KEY = 'spine-library-state';
@@ -210,7 +211,7 @@ export default function Library() {
 
   useEffect(() => {
     setLoading(true);
-    api.getBooks(tab === 'all' ? null : tab === 'owned' ? null : tab).then(books => {
+    api.getBooks(tab === 'all' ? null : (tab === 'owned' || tab === 'prev_owned') ? null : tab).then(books => {
       setBooks(books);
       setFilters(f => pruneFilters(f, books));
     }).finally(() => setLoading(false));
@@ -219,7 +220,8 @@ export default function Library() {
   const activeCount = countFilters(filters);
 
   const filtered = books.filter(b => {
-    if (tab === 'owned' && !b.owned) return false;
+    if (tab === 'owned'      && !b.owned)            return false;
+    if (tab === 'prev_owned' && !b.previously_owned) return false;
 
     if (query.trim() && !(
       b.title.toLowerCase().includes(query.toLowerCase()) ||
