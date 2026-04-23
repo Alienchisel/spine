@@ -194,7 +194,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
             <img
               src={book.cover_path}
               alt={book.title}
-              className={`${book.format === 'audiobook' ? 'absolute bottom-0 left-0 right-0 w-full' : 'w-full h-full object-cover'} group-hover:scale-105 transition-transform duration-300`}
+              className={`${book.format === 'audiobook' ? 'absolute bottom-0 left-0 right-0 w-full' : 'w-full h-full object-cover object-top'} group-hover:scale-105 transition-transform duration-300`}
             />
           ) : (
             <div className="w-full h-full flex items-end p-3 bg-gradient-to-br from-neutral-700 to-neutral-900">
