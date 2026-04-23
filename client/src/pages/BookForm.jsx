@@ -8,6 +8,7 @@ const EMPTY = {
   author: '',
   status: 'unread',
   owned: false,
+  previously_owned: false,
   is_custom: false,
   fiction: null,
   source_type: '',
@@ -150,6 +151,7 @@ export default function BookForm() {
         author: book.author || '',
         status: book.status,
         owned: Boolean(book.owned),
+        previously_owned: Boolean(book.previously_owned),
         is_custom: Boolean(book.is_custom),
         fiction: book.fiction === null || book.fiction === undefined ? null : Boolean(book.fiction),
         source_type: book.source_type || '',
@@ -756,10 +758,21 @@ export default function BookForm() {
                       <input type="checkbox" checked={form.owned}
                         onChange={(e) => {
                           const owned = e.target.checked;
-                          setForm(f => ({ ...f, owned, ...(!owned && { binding: '', condition: '' }) }));
+                          setForm(f => ({ ...f, owned, previously_owned: owned ? false : f.previously_owned, ...(!owned && { binding: '', condition: '' }) }));
                         }}
                         className="w-4 h-4 rounded border-neutral-700 bg-neutral-900 text-oak focus:ring-0 focus:ring-offset-0" />
                       <span className="text-sm text-neutral-300">I own this book</span>
+                    </label>
+                  )}
+                  {!form.is_custom && !form.owned && (
+                    <label className="flex items-center gap-3 cursor-pointer select-none">
+                      <input type="checkbox" checked={form.previously_owned}
+                        onChange={(e) => set('previously_owned', e.target.checked)}
+                        className="w-4 h-4 rounded border-neutral-700 bg-neutral-900 text-oak focus:ring-0 focus:ring-offset-0" />
+                      <span className="text-sm text-neutral-300">
+                        Previously owned
+                        <span className="text-neutral-600 ml-1.5">— once had it, no longer do</span>
+                      </span>
                     </label>
                   )}
                   <label className="flex items-center gap-3 cursor-pointer select-none">

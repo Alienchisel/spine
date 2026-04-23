@@ -1,0 +1,1 @@
+ALTER TABLE books ADD COLUMN previously_owned INTEGER NOT NULL DEFAULT 0;

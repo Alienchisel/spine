@@ -50,6 +50,10 @@ export default function FilterPanel({ allBooks, filters, onChange }) {
     onChange({ ...filters, owned: filters.owned === val ? null : val });
   }
 
+  function togglePreviouslyOwned(val) {
+    onChange({ ...filters, previouslyOwned: filters.previouslyOwned === val ? null : val });
+  }
+
   function toggleCustom(val) {
     onChange({ ...filters, custom: filters.custom === val ? null : val });
   }
@@ -160,6 +164,8 @@ export default function FilterPanel({ allBooks, filters, onChange }) {
           className={pill(filters.owned === true)}>Owned</button>
         <button type="button" onClick={() => toggleOwned(false)}
           className={pill(filters.owned === false)}>Not owned</button>
+        <button type="button" onClick={() => togglePreviouslyOwned(true)}
+          className={pill(filters.previouslyOwned === true)}>Previously owned</button>
       </FilterSection>
 
       <FilterSection label="Type">

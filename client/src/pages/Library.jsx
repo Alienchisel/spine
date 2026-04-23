@@ -55,9 +55,10 @@ const EMPTY_FILTERS = {
   publishers: [],
   series:     [],
   tags:       [],
-  owned:      null,
-  custom:     null,
-  loved:      null,
+  owned:          null,
+  previouslyOwned: null,
+  custom:         null,
+  loved:          null,
 };
 
 function pruneFilters(filters, books) {
@@ -79,7 +80,7 @@ function pruneFilters(filters, books) {
 function countFilters(f) {
   return f.missing.length + f.formats.length + f.ratings.length +
     f.publishers.length + f.series.length + f.tags.length +
-    (f.owned !== null ? 1 : 0) + (f.custom !== null ? 1 : 0) + (f.loved !== null ? 1 : 0);
+    (f.owned !== null ? 1 : 0) + (f.previouslyOwned !== null ? 1 : 0) + (f.custom !== null ? 1 : 0) + (f.loved !== null ? 1 : 0);
 }
 
 function FilterIcon() {
@@ -246,6 +247,8 @@ export default function Library() {
     if (filters.tags.length > 0 && !filters.tags.some(t => b.tags?.some(bt => bt.name === t))) return false;
     if (filters.owned === true  && !b.owned) return false;
     if (filters.owned === false &&  b.owned) return false;
+    if (filters.previouslyOwned === true  && !b.previously_owned) return false;
+    if (filters.previouslyOwned === false &&  b.previously_owned) return false;
     if (filters.custom === true  && !b.is_custom) return false;
     if (filters.custom === false &&  b.is_custom) return false;
     if (filters.loved  === true  && !b.loved)     return false;

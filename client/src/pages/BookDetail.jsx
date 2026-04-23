@@ -253,6 +253,11 @@ export default function BookDetail() {
                 Owned
               </span>
             )}
+            {!book.owned && Boolean(book.previously_owned) && (
+              <span className="text-xs font-medium px-2.5 py-1 rounded-full text-neutral-400 bg-neutral-800">
+                Previously owned
+              </span>
+            )}
             {Boolean(book.is_custom) && (
               <span className="text-xs font-medium px-2.5 py-1 rounded-full text-leather bg-neutral-800">
                 ✦ Custom

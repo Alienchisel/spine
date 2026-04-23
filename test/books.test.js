@@ -153,6 +153,14 @@ describe('books', () => {
       assert.equal(body.source_type, 'primary');
     });
 
+    it('saves and returns previously_owned flag', async () => {
+      const { status, body } = await req('POST', '/api/books', { title: 'Sold Book', previously_owned: true });
+      assert.equal(status, 201);
+      assert.equal(body.previously_owned, 1);
+      const { body: updated } = await req('PUT', `/api/books/${body.id}`, { title: 'Sold Book', previously_owned: false });
+      assert.equal(updated.previously_owned, 0);
+    });
+
     it('saves and returns ASIN', async () => {
       const { status, body } = await req('POST', '/api/books', { title: 'Audible Book', asin: 'B01N4P45MO' });
       assert.equal(status, 201);
