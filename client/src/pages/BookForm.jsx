@@ -452,6 +452,22 @@ export default function BookForm() {
             {activeTab === 'core' && (
               <div className="space-y-6">
                 <div>
+                  <label className={label}>Title *</label>
+                  <input className={ic('title')} value={form.title}
+                    onChange={(e) => set('title', e.target.value)}
+                    placeholder="Book title" required autoFocus={!isEdit} />
+                </div>
+
+                <div>
+                  <label className={label}>Author</label>
+                  <input className={ic('author')} list="authors-list" value={form.author}
+                    onChange={(e) => set('author', e.target.value)} placeholder="Author name" />
+                  <datalist id="authors-list">
+                    {pastAuthors.map(a => <option key={a} value={a} />)}
+                  </datalist>
+                </div>
+
+                <div>
                   <label className={label}>Format</label>
                   <select className={input} value={form.format}
                     onChange={(e) => {
@@ -460,9 +476,6 @@ export default function BookForm() {
                         ...prev, format: f,
                         binding: f === 'physical' ? prev.binding : '',
                         condition: f === 'physical' ? prev.condition : '',
-                        shelf_room: f === 'physical' ? prev.shelf_room : '',
-                        shelf_unit: f === 'physical' ? prev.shelf_unit : '',
-                        shelf_number: f === 'physical' ? prev.shelf_number : '',
                         page_count: f === 'audiobook' ? '' : prev.page_count,
                         duration_minutes: f !== 'audiobook' ? '' : prev.duration_minutes,
                       }));
@@ -499,22 +512,6 @@ export default function BookForm() {
                     </select>
                   </div>
                 )}
-
-                <div>
-                  <label className={label}>Title *</label>
-                  <input className={ic('title')} value={form.title}
-                    onChange={(e) => set('title', e.target.value)}
-                    placeholder="Book title" required autoFocus={!isEdit} />
-                </div>
-
-                <div>
-                  <label className={label}>Author</label>
-                  <input className={ic('author')} list="authors-list" value={form.author}
-                    onChange={(e) => set('author', e.target.value)} placeholder="Author name" />
-                  <datalist id="authors-list">
-                    {pastAuthors.map(a => <option key={a} value={a} />)}
-                  </datalist>
-                </div>
 
                 <div>
                   <label className={label}>Series</label>
