@@ -22,6 +22,7 @@ export const api = {
   fetchBookDescription: (key) => request(`/search/description?${new URLSearchParams({ key })}`),
   patchBook: (id, data) => request(`/books/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteBook: (id) => request(`/books/${id}`, { method: 'DELETE' }),
+  fetchBookCover: (id) => request(`/books/${id}/fetch-cover`, { method: 'POST' }),
   uploadCover: (file) => {
     const fd = new FormData();
     fd.append('cover', file);

@@ -50,6 +50,22 @@ SPINE_URL=http://your-host:3001 node ingest.js <isbn>
 | `PORT` | `3001` | Port the server listens on |
 | `DB_PATH` | `./spine.db` | Path to the SQLite database file |
 
+## Troubleshooting
+
+`sharp` and `better-sqlite3` are native modules that compile against your local Node/OS during `npm install`. If the setup fails, make sure you have the required build tools:
+
+**Linux (Debian/Ubuntu):**
+```bash
+sudo apt install python3 make g++
+```
+
+**macOS:**
+```bash
+xcode-select --install
+```
+
+**Windows:** Install the [Windows Build Tools](https://github.com/nodejs/node-gyp#on-windows) via node-gyp's instructions.
+
 ## Data
 
 - **Database**: `spine.db` (SQLite, created automatically)

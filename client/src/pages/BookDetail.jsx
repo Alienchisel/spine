@@ -190,6 +190,8 @@ export default function BookDetail() {
   const [book, setBook] = useState(null);
   const [loading, setLoading] = useState(true);
   const [location, setLocation] = useState(null);
+  const [fetchingCover, setFetchingCover] = useState(false);
+  const [coverError, setCoverError] = useState(null);
 
   useEffect(() => {
     api.getBook(id).then(setBook).finally(() => setLoading(false));
@@ -208,6 +210,19 @@ export default function BookDetail() {
   async function toggleReadlist() {
     const updated = await api.patchBook(book.id, { on_readlist: book.on_readlist ? 0 : 1 });
     setBook(updated);
+  }
+
+  async function handleFetchCover() {
+    setFetchingCover(true);
+    setCoverError(null);
+    try {
+      const updated = await api.fetchBookCover(book.id);
+      setBook(updated);
+    } catch (e) {
+      setCoverError(e.message);
+    } finally {
+      setFetchingCover(false);
+    }
   }
 
   async function handleDelete() {
@@ -236,6 +251,18 @@ export default function BookDetail() {
               </div>
             )}
           </div>
+          {!book.cover_path && (book.isbn_13 || book.isbn_10) && (
+            <div className="mt-2 w-[230px]">
+              <button
+                onClick={handleFetchCover}
+                disabled={fetchingCover}
+                className="w-full text-xs text-neutral-500 hover:text-neutral-300 transition-colors disabled:opacity-50"
+              >
+                {fetchingCover ? 'Fetching…' : 'Fetch cover'}
+              </button>
+              {coverError && <p className="text-xs text-red-400 mt-1 text-center">{coverError}</p>}
+            </div>
+          )}
         </div>
 
         <div className="flex-1 min-w-0 pt-1">

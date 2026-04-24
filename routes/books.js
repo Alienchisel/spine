@@ -2,6 +2,7 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import sharp from 'sharp';
 import db from '../db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -343,6 +344,59 @@ router.patch('/:id', (req, res) => {
   })();
 
   res.json(getBookWithTags(id));
+});
+
+router.post('/:id/fetch-cover', async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
+
+  const book = db.prepare('SELECT isbn_13, isbn_10, asin, cover_path FROM books WHERE id = ?').get(id);
+  if (!book) return res.status(404).json({ error: 'Not found' });
+
+  const isbn = book.isbn_13 || book.isbn_10;
+  if (!isbn) return res.status(400).json({ error: 'No ISBN on this book' });
+
+  async function tryFetch(url) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 8000);
+      const response = await fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
+      if (!response.ok) return null;
+      const buf = Buffer.from(await response.arrayBuffer());
+      return buf.length >= 2000 ? buf : null;
+    } catch { return null; }
+  }
+
+  let buffer = null;
+
+  try {
+    const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}&maxResults=1`);
+    if (r.ok) {
+      const data = await r.json();
+      const links = data.items?.[0]?.volumeInfo?.imageLinks;
+      if (links) {
+        const raw = links.extraLarge || links.large || links.medium || links.thumbnail;
+        if (raw) {
+          const url = raw.replace('&edge=curl', '').replace(/zoom=\d+/, 'zoom=0');
+          buffer = await tryFetch(url);
+        }
+      }
+    }
+  } catch { /* fall through */ }
+
+  if (!buffer) buffer = await tryFetch(`https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg`);
+  if (!buffer) return res.status(404).json({ error: 'Cover image not found' });
+
+  try {
+    const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.webp`;
+    await sharp(buffer).resize({ width: 400, withoutEnlargement: true }).webp({ quality: 85 }).toFile(path.join(uploadsDir, filename));
+
+    deleteLocalCover(book.cover_path);
+    db.prepare('UPDATE books SET cover_path = ? WHERE id = ?').run(filename, id);
+    res.json(getBookWithTags(id));
+  } catch {
+    res.status(500).json({ error: 'Failed to process cover' });
+  }
 });
 
 router.delete('/:id', (req, res) => {
