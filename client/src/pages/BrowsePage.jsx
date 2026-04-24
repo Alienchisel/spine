@@ -5,6 +5,7 @@ import BookCard from '../components/BookCard.jsx';
 
 const FIELD_LABEL = {
   author: 'Author',
+  translator: 'Translator',
   publisher: 'Publisher',
   series: 'Series',
   tag: 'Tag',

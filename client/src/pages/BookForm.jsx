@@ -20,6 +20,7 @@ const EMPTY = {
   date_finished: '',
   language: 'English',
   original_language: '',
+  translator: '',
   publisher: '',
   series: '',
   series_number: '',
@@ -119,6 +120,7 @@ export default function BookForm() {
   const [pastAuthors, setPastAuthors] = useState([]);
   const [pastPublishers, setPastPublishers] = useState([]);
   const [pastSeries, setPastSeries] = useState([]);
+  const [pastTranslators, setPastTranslators] = useState([]);
   const [pastNarrators, setPastNarrators] = useState([]);
   const [pastRooms, setPastRooms] = useState([]);
   const [pastUnits, setPastUnits] = useState([]);
@@ -144,6 +146,7 @@ export default function BookForm() {
       setPastAuthors([...new Set(books.map(b => b.author).filter(Boolean))].sort());
       setPastPublishers([...new Set(books.map(b => b.publisher).filter(Boolean))].sort());
       setPastSeries([...new Set(books.map(b => b.series).filter(Boolean))].sort());
+      setPastTranslators([...new Set(books.map(b => b.translator).filter(Boolean))].sort());
       setPastNarrators([...new Set(books.map(b => b.narrator).filter(Boolean))].sort());
       setPastRooms([...new Set(books.map(b => b.shelf_room).filter(Boolean))].sort());
       setPastUnits([...new Set(books.map(b => b.shelf_unit).filter(Boolean))].sort());
@@ -170,6 +173,7 @@ export default function BookForm() {
         date_finished: book.date_finished || '',
         language: book.language || 'English',
         original_language: book.original_language || '',
+        translator: book.translator || '',
         publisher: book.publisher || '',
         series: book.series || '',
         series_number: book.series_number ?? '',
@@ -696,6 +700,16 @@ export default function BookForm() {
                   <input className={input} list="languages-list" value={form.original_language}
                     onChange={(e) => set('original_language', e.target.value)}
                     placeholder="If translated…" />
+                </div>
+
+                <div>
+                  <label className={label}>Translator</label>
+                  <input className={input} list="translators-list" value={form.translator}
+                    onChange={(e) => set('translator', e.target.value)}
+                    placeholder="e.g. James Legge" />
+                  <datalist id="translators-list">
+                    {pastTranslators.map(t => <option key={t} value={t} />)}
+                  </datalist>
                 </div>
 
                 <div>

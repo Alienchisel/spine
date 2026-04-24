@@ -377,6 +377,16 @@ export default function BookDetail() {
                 <dd className="text-neutral-300">{book.original_language}</dd>
               </div>
             )}
+            {book.translator && (
+              <div className="flex gap-2">
+                <dt className="text-neutral-500 w-24 flex-shrink-0">Translator</dt>
+                <dd className="text-neutral-300">
+                  <Link to={`/browse/translator/${encodeURIComponent(book.translator)}`} className="hover:text-white transition-colors">
+                    {book.translator}
+                  </Link>
+                </dd>
+              </div>
+            )}
             {book.publisher && (
               <div className="flex gap-2">
                 <dt className="text-neutral-500 w-24 flex-shrink-0">Publisher</dt>
