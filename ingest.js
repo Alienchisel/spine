@@ -215,8 +215,8 @@ async function main() {
 
   // — Library —
   console.log();
-  const statusIn         = await ask(rl, 'Status (u/r/f/p)', 'unread');
-  const formatIn         = await ask(rl, 'Format (p/d/a)', 'physical');
+  const statusIn         = await ask(rl, 'Status ([u]nread/[r]eading/[f]inished/[p]aused)', 'unread');
+  const formatIn         = await ask(rl, 'Format ([p]hysical/[d]igital/[a]udiobook)', 'physical');
   const ownedIn          = await ask(rl, 'Owned? (y/n)', 'n');
   const prevOwnedIn      = ownedIn.toLowerCase() !== 'y' ? await ask(rl, 'Previously owned? (y/n)', 'n') : 'n';
 
@@ -227,8 +227,8 @@ async function main() {
   let binding = '', condition = '', narrator = '', durationStr = '', asinIn = '';
   if (formatVal === 'physical') {
     console.log();
-    binding   = await ask(rl, 'Binding (h/p)', '');
-    condition = await ask(rl, 'Condition (n/f/v/g/a/p)', '');
+    binding   = await ask(rl, 'Binding ([h]ardcover/[p]aperback)', '');
+    condition = await ask(rl, 'Condition ([n]ew/[f]ine/[v]ery good/[g]ood/f[a]ir/[p]oor)', '');
   } else if (formatVal === 'audiobook') {
     console.log();
     narrator    = await ask(rl, 'Narrator', '');
