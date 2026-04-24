@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 
 function StatCard({ label, value, sub }) {
@@ -20,11 +21,14 @@ function Section({ title, children }) {
   );
 }
 
-function Bar({ label, count, max, color = 'bg-oak' }) {
+function Bar({ label, count, max, color = 'bg-oak', href }) {
   const pct = max > 0 ? Math.round((count / max) * 100) : 0;
+  const labelEl = href
+    ? <Link to={href} className="text-xs text-neutral-400 w-28 flex-shrink-0 truncate hover:text-parchment transition-colors">{label}</Link>
+    : <span className="text-xs text-neutral-400 w-28 flex-shrink-0 truncate">{label}</span>;
   return (
     <div className="flex items-center gap-3">
-      <span className="text-xs text-neutral-400 w-28 flex-shrink-0 truncate">{label}</span>
+      {labelEl}
       <div className="flex-1 h-1.5 bg-neutral-800 rounded-full overflow-hidden">
         <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
       </div>
@@ -248,7 +252,7 @@ export default function Stats() {
           <Section title="Top authors">
             <div className="space-y-2.5">
               {topAuthors.map(a => (
-                <Bar key={a.author} label={a.author} count={a.count} max={maxAuthor} color="bg-binding" />
+                <Bar key={a.author} label={a.author} count={a.count} max={maxAuthor} color="bg-binding" href={`/browse/author/${encodeURIComponent(a.author)}`} />
               ))}
             </div>
           </Section>
