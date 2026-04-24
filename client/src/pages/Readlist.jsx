@@ -35,7 +35,7 @@ function Stars({ rating }) {
   );
 }
 
-function SortableRow({ book, onRemove }) {
+function SortableRow({ book, onRemove, index }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: book.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
 
@@ -45,6 +45,9 @@ function SortableRow({ book, onRemove }) {
       style={style}
       className={`flex items-center gap-4 p-3 rounded-lg bg-neutral-900 border transition-colors ${isDragging ? 'border-neutral-600 shadow-xl opacity-80' : 'border-neutral-800'}`}
     >
+      <span className="text-xs text-neutral-700 tabular-nums w-5 text-right flex-shrink-0 select-none">
+        {index + 1}
+      </span>
       <button
         {...attributes}
         {...listeners}
@@ -136,8 +139,8 @@ export default function Readlist() {
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={books.map(b => b.id)} strategy={verticalListSortingStrategy}>
             <div className="space-y-1.5">
-              {books.map(book => (
-                <SortableRow key={book.id} book={book} onRemove={handleRemove} />
+              {books.map((book, i) => (
+                <SortableRow key={book.id} book={book} onRemove={handleRemove} index={i} />
               ))}
             </div>
           </SortableContext>
