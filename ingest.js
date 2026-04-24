@@ -237,9 +237,12 @@ async function main() {
   }
 
   // — Acquisition —
-  console.log();
-  const acquisition_source = await ask(rl, 'Acquisition source', '');
-  const acquisition_date   = await ask(rl, 'Acquisition date (YYYY-MM-DD)', '');
+  let acquisition_source = '', acquisition_date = '';
+  if (ownedIn.toLowerCase() === 'y' || prevOwnedIn.toLowerCase() === 'y') {
+    console.log();
+    acquisition_source = await ask(rl, 'Acquisition source', '');
+    acquisition_date   = await ask(rl, 'Acquisition date (YYYY-MM-DD)', '');
+  }
 
   // — Notes —
   console.log();
