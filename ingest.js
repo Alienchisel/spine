@@ -213,9 +213,9 @@ async function main() {
   const series           = await ask(rl, 'Series',            '');
   const series_numberStr = series ? await ask(rl, 'Series number', '') : '';
   const tagsIn           = await ask(rl, 'Tags (comma-separated)', '');
+  console.log();
 
   // — Library —
-  console.log();
   const statusIn         = await ask(rl, 'Status ([u]nread/[r]eading/[f]inished/[p]aused)', 'unread');
   const formatIn         = await ask(rl, 'Format ([p]hysical/[d]igital/[a]udiobook)', 'physical');
   const ownedIn          = await ask(rl, 'Owned? (y/n)', 'n');
