@@ -66,7 +66,7 @@ function SortableRow({ book, onRemove, index }) {
       </div>
 
       <div className="flex-1 min-w-0">
-        <Link to={`/books/${book.id}`} className="text-sm font-medium text-neutral-200 hover:text-white transition-colors truncate block">
+        <Link to={`/books/${book.id}`} className="text-sm font-medium text-neutral-200 hover:text-white transition-colors truncate block" title={book.title}>
           {book.title}
         </Link>
         <p className="text-xs text-neutral-500 truncate mt-0.5">

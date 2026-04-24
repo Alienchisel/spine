@@ -38,7 +38,7 @@ function DiaryEntry({ entry, onDelete }) {
       <div className="flex-1 min-w-0">
         <Link
           to={`/books/${entry.book_id}`}
-          className="text-sm font-medium text-neutral-200 hover:text-white transition-colors truncate block"
+          className="text-sm font-medium text-neutral-200 hover:text-white transition-colors truncate block" title={entry.title}
         >
           {entry.title}
         </Link>

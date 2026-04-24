@@ -41,7 +41,7 @@ function BookRow({ book, onRemove }) {
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <Link to={`/books/${book.id}`} className={`text-sm font-medium hover:text-white transition-colors truncate block ${book.is_stub ? 'text-neutral-400' : 'text-neutral-200'}`}>
+          <Link to={`/books/${book.id}`} className={`text-sm font-medium hover:text-white transition-colors truncate block ${book.is_stub ? 'text-neutral-400' : 'text-neutral-200'}`} title={book.title}>
             {book.title}
           </Link>
           {Boolean(book.is_stub) && (
