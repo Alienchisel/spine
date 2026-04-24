@@ -241,7 +241,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
           </div>
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors pointer-events-none" />
         </div>
-        <p className="text-sm font-medium text-neutral-200 truncate group-hover:text-white transition-colors leading-tight">
+        <p className="text-sm font-medium text-neutral-200 truncate group-hover:text-white transition-colors leading-tight" title={book.title}>
           {book.title}
         </p>
         {book.author && (
