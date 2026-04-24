@@ -114,6 +114,7 @@ export default function BookForm() {
   const [tagInput, setTagInput] = useState('');
   const [coverPreview, setCoverPreview] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [fetchingCover, setFetchingCover] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [pastSources, setPastSources] = useState([]);
@@ -306,6 +307,19 @@ export default function BookForm() {
     }
   }
 
+  async function fetchCoverFromIsbn() {
+    setFetchingCover(true);
+    try {
+      const updated = await api.fetchBookCover(id);
+      setCoverPreview(updated.cover_path);
+      set('cover_path', updated.cover_path);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setFetchingCover(false);
+    }
+  }
+
   async function uploadFile(file) {
     setCoverPreview(URL.createObjectURL(file));
     setUploading(true);
@@ -431,6 +445,16 @@ export default function BookForm() {
             <span className="block text-neutral-600 mt-0.5">or paste</span>
             <input type="file" accept="image/*" className="hidden" onChange={(e) => { if (e.target.files[0]) uploadFile(e.target.files[0]); }} />
           </label>
+          {isEdit && (form.isbn_13 || form.isbn_10) && (
+            <button
+              type="button"
+              onClick={fetchCoverFromIsbn}
+              disabled={fetchingCover}
+              className="mt-2 w-full text-center text-xs text-neutral-600 hover:text-neutral-400 transition-colors disabled:opacity-50"
+            >
+              {fetchingCover ? 'Fetching…' : 'Fetch from ISBN'}
+            </button>
+          )}
         </div>
 
         {/* Tabs + form */}
