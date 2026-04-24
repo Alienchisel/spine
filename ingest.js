@@ -98,6 +98,15 @@ async function downloadCover(url) {
   return `/uploads/${filename}`;
 }
 
+const STATUS_EXPAND   = { u: 'unread', r: 'reading', f: 'finished', p: 'paused' };
+const FORMAT_EXPAND   = { p: 'physical', d: 'digital', a: 'audiobook' };
+const BINDING_EXPAND  = { h: 'hardcover', p: 'paperback' };
+const CONDITION_EXPAND = { n: 'new', f: 'fine', v: 'very good', g: 'good', a: 'fair', po: 'poor', p: 'poor' };
+
+function expand(map, val) {
+  return map[val.toLowerCase()] || val;
+}
+
 function ask(rl, label, def) {
   return new Promise(resolve => {
     rl.question(def ? `  ${label} [${def}]: ` : `  ${label}: `, ans => {
@@ -192,6 +201,7 @@ async function main() {
   const pagesStr         = await ask(rl, 'Pages',             meta.page_count ? String(meta.page_count) : '');
   const language         = await ask(rl, 'Language',          meta.language || 'English');
   const original_language = await ask(rl, 'Original language', '');
+  const translator       = await ask(rl, 'Translator',         '');
   const isbn_13          = await ask(rl, 'ISBN-13',           meta.isbn_13);
   const isbn_10          = await ask(rl, 'ISBN-10',           meta.isbn_10);
   const description      = await askMultiline(rl, 'Description', meta.description);
@@ -205,17 +215,19 @@ async function main() {
 
   // — Library —
   console.log();
-  const statusIn         = await ask(rl, 'Status (unread/reading/finished)', 'unread');
-  const formatIn         = await ask(rl, 'Format (physical/digital/audiobook)', 'physical');
+  const statusIn         = await ask(rl, 'Status (u/r/f/p)', 'unread');
+  const formatIn         = await ask(rl, 'Format (p/d/a)', 'physical');
   const ownedIn          = await ask(rl, 'Owned? (y/n)', 'n');
 
   // — Format-specific —
-  const formatVal = formatIn === 'digital' ? 'ebook' : formatIn;
+  const statusVal = expand(STATUS_EXPAND, statusIn);
+  const formatExpanded = expand(FORMAT_EXPAND, formatIn);
+  const formatVal = formatExpanded === 'digital' ? 'ebook' : formatExpanded;
   let binding = '', condition = '', narrator = '', asinIn = '';
   if (formatVal === 'physical') {
     console.log();
-    binding   = await ask(rl, 'Binding (hardcover/paperback)', '');
-    condition = await ask(rl, 'Condition (new/fine/very good/good/fair/poor)', '');
+    binding   = await ask(rl, 'Binding (h/p)', '');
+    condition = await ask(rl, 'Condition (n/f/v/g/a/p)', '');
   } else if (formatVal === 'audiobook') {
     console.log();
     narrator  = await ask(rl, 'Narrator', '');
@@ -253,6 +265,7 @@ async function main() {
     page_count:        pagesStr ? parseInt(pagesStr) : undefined,
     language:          language || undefined,
     original_language: original_language || undefined,
+    translator:        translator || undefined,
     isbn_13:           isbn_13 || undefined,
     isbn_10:           isbn_10 || undefined,
     asin:              asinIn || undefined,
@@ -261,11 +274,11 @@ async function main() {
     series:            series || undefined,
     series_number:     series_numberStr ? parseFloat(series_numberStr) : undefined,
     tags,
-    status:            ['reading', 'paused', 'finished', 'unread'].includes(statusIn) ? statusIn : 'unread',
+    status:            ['reading', 'paused', 'finished', 'unread'].includes(statusVal) ? statusVal : 'unread',
     format:            ['physical', 'ebook', 'audiobook'].includes(formatVal) ? formatVal : undefined,
     owned:             ownedIn.toLowerCase() === 'y' ? 1 : 0,
-    binding:           ['hardcover', 'paperback'].includes(binding) ? binding : undefined,
-    condition:         ['new', 'fine', 'very good', 'good', 'fair', 'poor'].includes(condition) ? condition : undefined,
+    binding:           ['hardcover', 'paperback'].includes(expand(BINDING_EXPAND, binding)) ? expand(BINDING_EXPAND, binding) : undefined,
+    condition:         ['new', 'fine', 'very good', 'good', 'fair', 'poor'].includes(expand(CONDITION_EXPAND, condition)) ? expand(CONDITION_EXPAND, condition) : undefined,
     narrator:          narrator || undefined,
     notes:             notes || undefined,
     cover_path:        cover_path || undefined,
