@@ -111,8 +111,18 @@ export default function Diary() {
           <p className="text-xs text-neutral-600">{parts.join(' · ')}</p>
           {days.map(day => (
             <div key={day.date}>
-              <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-1 pb-2 border-b border-neutral-800">
-                {formatDate(day.date)}
+              <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-1 pb-2 border-b border-neutral-800 flex justify-between items-baseline">
+                <span>{formatDate(day.date)}</span>
+                <span className="text-neutral-700 normal-case tracking-normal font-normal">
+                  {(() => {
+                    const p = day.entries.reduce((s, e) => s + (e.pages_read || 0), 0);
+                    const m = day.entries.reduce((s, e) => s + (e.minutes_read || 0), 0);
+                    const parts = [];
+                    if (p > 0) parts.push(`${p} ${p === 1 ? 'page' : 'pages'}`);
+                    if (m > 0) parts.push(`${Math.floor(m / 60)}h ${m % 60}m`);
+                    return parts.join(' · ');
+                  })()}
+                </span>
               </h2>
               <div className="divide-y divide-neutral-800/50">
                 {day.entries.map(entry => (
