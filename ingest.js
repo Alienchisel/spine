@@ -209,6 +209,7 @@ async function main() {
   // — Classification —
   console.log();
   const fictionIn        = await ask(rl, 'Fiction? (y/n/blank)', '');
+  const sourceTypeIn     = await ask(rl, 'Source type ([p]rimary/[s]econdary/blank)', '');
   const series           = await ask(rl, 'Series',            '');
   const series_numberStr = series ? await ask(rl, 'Series number', '') : '';
   const tagsIn           = await ask(rl, 'Tags (comma-separated)', '');
@@ -289,6 +290,7 @@ async function main() {
     asin:              asinIn || undefined,
     description:       description || undefined,
     fiction:           fictionVal,
+    source_type:       sourceTypeIn.toLowerCase() === 'p' ? 'primary' : sourceTypeIn.toLowerCase() === 's' ? 'secondary' : (sourceTypeIn || undefined),
     series:            series || undefined,
     series_number:     series_numberStr ? parseFloat(series_numberStr) : undefined,
     tags,
