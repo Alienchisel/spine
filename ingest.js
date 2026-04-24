@@ -218,21 +218,28 @@ async function main() {
   const statusIn         = await ask(rl, 'Status (u/r/f/p)', 'unread');
   const formatIn         = await ask(rl, 'Format (p/d/a)', 'physical');
   const ownedIn          = await ask(rl, 'Owned? (y/n)', 'n');
+  const prevOwnedIn      = ownedIn.toLowerCase() !== 'y' ? await ask(rl, 'Previously owned? (y/n)', 'n') : 'n';
 
   // — Format-specific —
   const statusVal = expand(STATUS_EXPAND, statusIn);
   const formatExpanded = expand(FORMAT_EXPAND, formatIn);
   const formatVal = formatExpanded === 'digital' ? 'ebook' : formatExpanded;
-  let binding = '', condition = '', narrator = '', asinIn = '';
+  let binding = '', condition = '', narrator = '', durationStr = '', asinIn = '';
   if (formatVal === 'physical') {
     console.log();
     binding   = await ask(rl, 'Binding (h/p)', '');
     condition = await ask(rl, 'Condition (n/f/v/g/a/p)', '');
   } else if (formatVal === 'audiobook') {
     console.log();
-    narrator  = await ask(rl, 'Narrator', '');
-    asinIn    = parsed.type === 'asin' ? parsed.value : await ask(rl, 'ASIN', '');
+    narrator    = await ask(rl, 'Narrator', '');
+    durationStr = await ask(rl, 'Duration (h:mm or minutes)', '');
+    asinIn      = parsed.type === 'asin' ? parsed.value : await ask(rl, 'ASIN', '');
   }
+
+  // — Acquisition —
+  console.log();
+  const acquisition_source = await ask(rl, 'Acquisition source', '');
+  const acquisition_date   = await ask(rl, 'Acquisition date (YYYY-MM-DD)', '');
 
   // — Notes —
   console.log();
@@ -254,6 +261,14 @@ async function main() {
   const fictionVal = fictionIn.toLowerCase() === 'y' ? true
                    : fictionIn.toLowerCase() === 'n' ? false
                    : undefined;
+
+  function parseDuration(s) {
+    if (!s) return undefined;
+    const hm = s.match(/^(\d+):(\d{1,2})$/);
+    if (hm) return parseInt(hm[1]) * 60 + parseInt(hm[2]);
+    const mins = parseInt(s);
+    return isNaN(mins) ? undefined : mins;
+  }
   const tags = tagsIn ? tagsIn.split(',').map(t => t.trim()).filter(Boolean) : undefined;
 
   const payload = Object.fromEntries(Object.entries({
@@ -277,9 +292,13 @@ async function main() {
     status:            ['reading', 'paused', 'finished', 'unread'].includes(statusVal) ? statusVal : 'unread',
     format:            ['physical', 'ebook', 'audiobook'].includes(formatVal) ? formatVal : undefined,
     owned:             ownedIn.toLowerCase() === 'y' ? 1 : 0,
+    previously_owned:  prevOwnedIn.toLowerCase() === 'y' ? 1 : 0,
     binding:           ['hardcover', 'paperback'].includes(expand(BINDING_EXPAND, binding)) ? expand(BINDING_EXPAND, binding) : undefined,
     condition:         ['new', 'fine', 'very good', 'good', 'fair', 'poor'].includes(expand(CONDITION_EXPAND, condition)) ? expand(CONDITION_EXPAND, condition) : undefined,
     narrator:          narrator || undefined,
+    duration_minutes:  parseDuration(durationStr),
+    acquisition_source: acquisition_source || undefined,
+    acquisition_date:  acquisition_date || undefined,
     notes:             notes || undefined,
     cover_path:        cover_path || undefined,
   }).filter(([, v]) => v !== undefined));
