@@ -225,7 +225,8 @@ export default function Library() {
 
     if (query.trim() && !(
       b.title.toLowerCase().includes(query.toLowerCase()) ||
-      (b.author && b.author.toLowerCase().includes(query.toLowerCase()))
+      (b.author  && b.author.toLowerCase().includes(query.toLowerCase())) ||
+      (b.series  && b.series.toLowerCase().includes(query.toLowerCase()))
     )) return false;
 
     if (filters.missing.includes('cover')     && b.cover_path)            return false;
