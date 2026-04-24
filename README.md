@@ -9,31 +9,14 @@ A personal library manager. Track your books, reading progress, shelves, diary e
 
 ## Setup
 
-1. **Install server dependencies**
+```bash
+npm run setup
+npm start
+```
 
-   ```bash
-   npm install
-   ```
+The app runs at [http://localhost:3001](http://localhost:3001). The database and uploads directory are created automatically on first run.
 
-2. **Install client dependencies**
-
-   ```bash
-   cd client && npm install && cd ..
-   ```
-
-3. **Build the frontend**
-
-   ```bash
-   npm run build
-   ```
-
-4. **Start the server**
-
-   ```bash
-   npm start
-   ```
-
-   The app runs at [http://localhost:3001](http://localhost:3001). The database and uploads directory are created automatically on first run.
+`npm run setup` installs all dependencies and builds the frontend in one step.
 
 ## Development
 
