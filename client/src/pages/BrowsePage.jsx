@@ -22,6 +22,11 @@ export default function BrowsePage() {
         if (field === 'tag') return b.tags?.some(t => t.name === decoded);
         return b[field] === decoded;
       });
+      if (field === 'series') {
+        matched.sort((a, b) => (a.series_number ?? Infinity) - (b.series_number ?? Infinity) || a.title.localeCompare(b.title));
+      } else {
+        matched.sort((a, b) => a.title.localeCompare(b.title));
+      }
       setBooks(matched);
     }).finally(() => setLoading(false));
   }, [field, decoded]);
