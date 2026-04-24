@@ -136,7 +136,12 @@ router.get('/', (_req, res) => {
     WHERE date_finished IS NOT NULL AND strftime('%Y', date_finished) = strftime('%Y', 'now')
   `).get().total;
 
-  res.json({ totals, formats, fiction, ratings, pagesRead, minutesListened, byYear, topAuthors, languages, streaks, todayPages, thisYearBooks });
+  const thisYearPages = db.prepare(`
+    SELECT COALESCE(SUM(pages_read), 0) AS total FROM reading_log
+    WHERE strftime('%Y', date) = strftime('%Y', 'now')
+  `).get().total;
+
+  res.json({ totals, formats, fiction, ratings, pagesRead, minutesListened, byYear, topAuthors, languages, streaks, todayPages, thisYearBooks, thisYearPages });
 });
 
 export default router;

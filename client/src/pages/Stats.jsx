@@ -110,7 +110,7 @@ export default function Stats() {
   if (error) return <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-warn text-sm">{error}</div>;
   if (!stats) return null;
 
-  const { totals, formats, fiction, ratings, pagesRead, minutesListened, byYear, topAuthors, languages, streaks, todayPages, thisYearBooks } = stats;
+  const { totals, formats, fiction, ratings, pagesRead, minutesListened, byYear, topAuthors, languages, streaks, todayPages, thisYearBooks, thisYearPages } = stats;
 
   const maxRating = Math.max(...ratings.map(r => r.count), 1);
   const maxYear   = Math.max(...byYear.map(y => y.count), 1);
@@ -124,12 +124,19 @@ export default function Stats() {
       <h1 className="font-slab text-2xl text-parchment tracking-wide uppercase">Stats</h1>
 
       <Section title="Goals">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <GoalCard
             label="Pages today"
             current={todayPages}
             goal={settings.daily_pages_goal ? parseInt(settings.daily_pages_goal) : 0}
             onSave={v => saveGoal('daily_pages_goal', v)}
+            color="bg-oak"
+          />
+          <GoalCard
+            label={`Pages in ${new Date().getFullYear()}`}
+            current={thisYearPages}
+            goal={settings.yearly_pages_goal ? parseInt(settings.yearly_pages_goal) : 0}
+            onSave={v => saveGoal('yearly_pages_goal', v)}
             color="bg-oak"
           />
           <GoalCard
