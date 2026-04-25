@@ -202,8 +202,8 @@ async function main() {
   const language         = await ask(rl, 'Language',          meta.language || 'English');
   const original_language = await ask(rl, 'Original language', '');
   const translator       = original_language ? await ask(rl, 'Translator', '') : '';
-  const isbn_13          = await ask(rl, 'ISBN-13',           meta.isbn_13);
-  const isbn_10          = await ask(rl, 'ISBN-10',           meta.isbn_10);
+  const isbn_13          = await ask(rl, 'ISBN-13',           meta.isbn_13 || (parsed.type === 'isbn13' ? parsed.value : ''));
+  const isbn_10          = await ask(rl, 'ISBN-10',           meta.isbn_10 || (parsed.type === 'isbn10' ? parsed.value : ''));
   const description      = await askMultiline(rl, 'Description', meta.description);
 
   // — Classification —
