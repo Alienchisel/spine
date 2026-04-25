@@ -12,6 +12,8 @@ const EMPTY = {
   previously_owned: false,
   shelf_id: null,
   building_id: null,
+  room_id: null,
+  unit_id: null,
   is_custom: false,
   fiction: null,
   source_type: '',
@@ -168,6 +170,8 @@ export default function BookForm() {
         previously_owned: Boolean(book.previously_owned),
         shelf_id: book.shelf_id ?? null,
         building_id: book.building_id ?? null,
+        room_id: book.room_id ?? null,
+        unit_id: book.unit_id ?? null,
         is_custom: Boolean(book.is_custom),
         fiction: book.fiction === null || book.fiction === undefined ? null : Boolean(book.fiction),
         source_type: book.source_type || '',
@@ -843,7 +847,9 @@ export default function BookForm() {
                   <ShelfPicker
                     shelfId={form.shelf_id}
                     buildingId={form.building_id}
-                    onChange={({ buildingId, shelfId }) => setForm(f => ({ ...f, building_id: buildingId, shelf_id: shelfId }))}
+                    roomId={form.room_id}
+                    unitId={form.unit_id}
+                    onChange={({ buildingId, roomId, unitId, shelfId }) => setForm(f => ({ ...f, building_id: buildingId, room_id: roomId, unit_id: unitId, shelf_id: shelfId }))}
                     tree={shelfTree}
                   />
                 )}

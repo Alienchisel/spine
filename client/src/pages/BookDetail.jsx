@@ -433,7 +433,11 @@ export default function BookDetail() {
                   <span className="text-neutral-400 text-xs">
                     {location.shelf_id
                       ? `${location.building} › ${location.room} › ${location.unit} › Shelf ${location.shelf}`
-                      : location.building}
+                      : location.unit_id
+                        ? `${location.building} › ${location.room} › ${location.unit}`
+                        : location.room_id
+                          ? `${location.building} › ${location.room}`
+                          : location.building}
                   </span>
                   {location.shelf_id && (
                     <Link

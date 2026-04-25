@@ -288,6 +288,30 @@ router.get('/location/:bookId', (req, res) => {
   `).get(bookId);
   if (full) return res.json(full);
 
+  const unitLevel = db.prepare(`
+    SELECT
+      b.id AS building_id, b.name AS building, b.proximity,
+      r.id AS room_id,     r.name AS room,
+      u.id AS unit_id,     u.name AS unit
+    FROM books bk
+    JOIN units u     ON bk.unit_id    = u.id
+    JOIN rooms r     ON u.room_id     = r.id
+    JOIN buildings b ON r.building_id = b.id
+    WHERE bk.id = ?
+  `).get(bookId);
+  if (unitLevel) return res.json(unitLevel);
+
+  const roomLevel = db.prepare(`
+    SELECT
+      b.id AS building_id, b.name AS building, b.proximity,
+      r.id AS room_id,     r.name AS room
+    FROM books bk
+    JOIN rooms r     ON bk.room_id    = r.id
+    JOIN buildings b ON r.building_id = b.id
+    WHERE bk.id = ?
+  `).get(bookId);
+  if (roomLevel) return res.json(roomLevel);
+
   const partial = db.prepare(`
     SELECT b.id AS building_id, b.name AS building, b.proximity
     FROM books bk

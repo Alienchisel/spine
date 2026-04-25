@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 
 const PROXIMITY_LABEL = { home: 'Home', nearby: 'Nearby', remote: 'Remote' };
 
-function findSelections(shelfId, buildingId, tree) {
+function findSelections(shelfId, buildingId, roomId, unitId, tree) {
   if (shelfId) {
     for (const b of tree) {
       for (const r of b.rooms) {
@@ -14,20 +14,34 @@ function findSelections(shelfId, buildingId, tree) {
       }
     }
   }
+  if (unitId) {
+    for (const b of tree) {
+      for (const r of b.rooms) {
+        const u = r.units.find(u => u.id === unitId);
+        if (u) return { buildingId: b.id, roomId: r.id, unitId: u.id, shelfId: null };
+      }
+    }
+  }
+  if (roomId) {
+    for (const b of tree) {
+      const r = b.rooms.find(r => r.id === roomId);
+      if (r) return { buildingId: b.id, roomId: r.id, unitId: null, shelfId: null };
+    }
+  }
   if (buildingId && tree.find(b => b.id === buildingId)) {
     return { buildingId, roomId: null, unitId: null, shelfId: null };
   }
   return { buildingId: null, roomId: null, unitId: null, shelfId: null };
 }
 
-export default function ShelfPicker({ shelfId, buildingId, onChange, tree }) {
+export default function ShelfPicker({ shelfId, buildingId, roomId, unitId, onChange, tree }) {
   const [sel, setSel] = useState(() =>
-    tree.length ? findSelections(shelfId, buildingId, tree) : { buildingId: null, roomId: null, unitId: null, shelfId: null }
+    tree.length ? findSelections(shelfId, buildingId, roomId, unitId, tree) : { buildingId: null, roomId: null, unitId: null, shelfId: null }
   );
 
   useEffect(() => {
-    setSel(tree.length ? findSelections(shelfId, buildingId, tree) : { buildingId: null, roomId: null, unitId: null, shelfId: null });
-  }, [shelfId, buildingId, tree]);
+    setSel(tree.length ? findSelections(shelfId, buildingId, roomId, unitId, tree) : { buildingId: null, roomId: null, unitId: null, shelfId: null });
+  }, [shelfId, buildingId, roomId, unitId, tree]);
 
   const select = 'w-full bg-neutral-800 border border-neutral-700 rounded-md px-3 py-2.5 text-sm text-white focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 transition-colors duration-150';
 
@@ -38,30 +52,30 @@ export default function ShelfPicker({ shelfId, buildingId, onChange, tree }) {
   function setBuilding(bid) {
     const id = bid ? Number(bid) : null;
     setSel({ buildingId: id, roomId: null, unitId: null, shelfId: null });
-    onChange({ buildingId: id, shelfId: null });
+    onChange({ buildingId: id, roomId: null, unitId: null, shelfId: null });
   }
 
   function setRoom(rid) {
     const id = rid ? Number(rid) : null;
     setSel(s => ({ ...s, roomId: id, unitId: null, shelfId: null }));
-    onChange({ buildingId: sel.buildingId, shelfId: null });
+    onChange({ buildingId: sel.buildingId, roomId: id, unitId: null, shelfId: null });
   }
 
   function setUnit(uid) {
     const id = uid ? Number(uid) : null;
     setSel(s => ({ ...s, unitId: id, shelfId: null }));
-    onChange({ buildingId: sel.buildingId, shelfId: null });
+    onChange({ buildingId: sel.buildingId, roomId: sel.roomId, unitId: id, shelfId: null });
   }
 
   function setShelf(sid) {
     const id = sid ? Number(sid) : null;
     setSel(s => ({ ...s, shelfId: id }));
-    onChange({ buildingId: sel.buildingId, shelfId: id });
+    onChange({ buildingId: sel.buildingId, roomId: sel.roomId, unitId: sel.unitId, shelfId: id });
   }
 
   function clear() {
     setSel({ buildingId: null, roomId: null, unitId: null, shelfId: null });
-    onChange({ buildingId: null, shelfId: null });
+    onChange({ buildingId: null, roomId: null, unitId: null, shelfId: null });
   }
 
   if (!tree.length) return null;
