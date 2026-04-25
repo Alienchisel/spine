@@ -219,7 +219,7 @@ export default function Stats() {
         <Section title="Format">
           <div className="space-y-2.5">
             {formats.filter(f => f.format).map(f => (
-              <Bar key={f.format} label={FORMAT_LABEL[f.format] ?? f.format} count={f.count} max={maxFormat} />
+              <Bar key={f.format} label={FORMAT_LABEL[f.format] ?? f.format} count={f.count} max={maxFormat} href={`/browse/format/${f.format}`} />
             ))}
             {formats.some(f => !f.format) && (
               <Bar label="Unknown" count={formats.find(f => !f.format).count} max={maxFormat} color="bg-neutral-600" />

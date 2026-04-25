@@ -11,7 +11,10 @@ const FIELD_LABEL = {
   series: 'Series',
   tag: 'Tag',
   fiction: '',
+  format: '',
 };
+
+const FORMAT_LABEL = { physical: 'Physical', ebook: 'Digital', audiobook: 'Audiobook' };
 
 export default function BrowsePage() {
   const { field, value } = useParams();
@@ -42,6 +45,7 @@ export default function BrowsePage() {
   const label = FIELD_LABEL[field] ?? field;
   const heading = field === 'fiction'
     ? (decoded === 'fiction' ? 'Fiction' : decoded === 'nonfiction' ? 'Non-fiction' : 'Fiction / NF unset')
+    : field === 'format' ? (FORMAT_LABEL[decoded] ?? decoded)
     : decoded;
 
   return (
