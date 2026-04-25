@@ -114,6 +114,21 @@ function syncTags(bookId, tagNames) {
   }
 }
 
+router.get('/counts', (_req, res) => {
+  const row = db.prepare(`
+    SELECT
+      SUM(status = 'reading')   AS reading,
+      SUM(status = 'paused')    AS paused,
+      SUM(status = 'finished')  AS finished,
+      SUM(status = 'unread')    AS unread,
+      SUM(owned = 1)            AS owned,
+      SUM(previously_owned = 1) AS prev_owned,
+      COUNT(*)                  AS total
+    FROM books
+  `).get();
+  res.json({ ...row, all: row.total });
+});
+
 router.get('/', (req, res) => {
   const { status, loved } = req.query;
   const books = loved === 'true'

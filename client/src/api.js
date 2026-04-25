@@ -13,6 +13,7 @@ async function request(path, options = {}) {
 
 export const api = {
   getBooks: (status) => request(`/books${status ? `?status=${status}` : ''}`),
+  getBookCounts: () => request('/books/counts'),
   getLovedBooks: () => request('/books?loved=true'),
   getBookLists: (bookId) => request(`/books/${bookId}/lists`),
   getBookLog: (bookId) => request(`/books/${bookId}/log`),

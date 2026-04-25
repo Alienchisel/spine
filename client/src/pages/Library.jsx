@@ -204,10 +204,15 @@ export default function Library() {
   });
   const [sort, setSort] = useState(() => getSaved().sort || 'updated');
   const [expandedSeries, setExpandedSeries] = useState(new Set());
+  const [counts, setCounts] = useState({});
 
   useEffect(() => {
     sessionStorage.setItem(SESSION_KEY, JSON.stringify({ tab, query, filtersOpen, filters, sort }));
   }, [tab, query, filtersOpen, filters, sort]);
+
+  useEffect(() => {
+    api.getBookCounts().then(setCounts).catch(() => {});
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -297,7 +302,7 @@ export default function Library() {
                     : 'font-medium text-neutral-400 hover:text-neutral-200'
                 }`}
               >
-                {t.label}
+                {t.label}{counts[t.key] != null ? <span className="ml-1.5 text-xs opacity-50 tabular-nums">{counts[t.key]}</span> : null}
               </button>
             ))}
           </div>
