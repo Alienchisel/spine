@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 
@@ -21,6 +21,110 @@ function formatProgress(entry) {
     return `${entry.pages_read} ${entry.pages_read === 1 ? 'page' : 'pages'}`;
   }
   return null;
+}
+
+const DAY_HEADERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+function dayStreak(days) {
+  const dates = days.map(d => d.date).sort();
+  if (!dates.length) return 0;
+  const today = new Date().toISOString().slice(0, 10);
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  if (dates[dates.length - 1] !== today && dates[dates.length - 1] !== yesterday) return 0;
+  let n = 1;
+  for (let i = dates.length - 1; i > 0; i--) {
+    if ((new Date(dates[i]) - new Date(dates[i - 1])) / 86400000 === 1) n++;
+    else break;
+  }
+  return n;
+}
+
+function intensityClass(pages) {
+  if (pages >= 100) return 'bg-oak/80 text-parchment';
+  if (pages >= 50)  return 'bg-oak/55 text-parchment';
+  if (pages >= 20)  return 'bg-oak/35 text-neutral-200';
+  return 'bg-oak/20 text-neutral-300';
+}
+
+function ReadingCalendar({ days, onDayClick }) {
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0, 10);
+  const [viewYear, setViewYear] = useState(today.getFullYear());
+  const [viewMonth, setViewMonth] = useState(today.getMonth());
+
+  const pagesByDate = useMemo(() => {
+    const map = {};
+    for (const day of days) {
+      map[day.date] = day.entries.reduce((s, e) => s + (e.pages_read || 0), 0);
+    }
+    return map;
+  }, [days]);
+
+  const readingDates = useMemo(() => new Set(days.map(d => d.date)), [days]);
+
+  const firstDow = new Date(viewYear, viewMonth, 1).getDay(); // 0=Sun
+  const startOffset = (firstDow + 6) % 7; // Mon-first
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const totalCells = Math.ceil((startOffset + daysInMonth) / 7) * 7;
+
+  const monthLabel = new Date(viewYear, viewMonth).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  const isCurrentMonth = viewYear === today.getFullYear() && viewMonth === today.getMonth();
+
+  function prevMonth() {
+    if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); }
+    else setViewMonth(m => m - 1);
+  }
+  function nextMonth() {
+    if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); }
+    else setViewMonth(m => m + 1);
+  }
+
+  function cellDateStr(i) {
+    const d = i - startOffset + 1;
+    if (d < 1 || d > daysInMonth) return null;
+    return `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  }
+
+  return (
+    <div className="mb-8">
+      <div className="flex items-center justify-between mb-3">
+        <button onClick={prevMonth} className="text-neutral-600 hover:text-neutral-300 transition-colors w-6 text-center">‹</button>
+        <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">{monthLabel}</span>
+        <button onClick={nextMonth} disabled={isCurrentMonth} className="text-neutral-600 hover:text-neutral-300 transition-colors w-6 text-center disabled:opacity-20">›</button>
+      </div>
+
+      <div className="grid grid-cols-7 mb-1">
+        {DAY_HEADERS.map((h, i) => (
+          <div key={i} className="text-center text-xs text-neutral-700 py-0.5">{h}</div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-7 gap-y-1">
+        {Array.from({ length: totalCells }, (_, i) => {
+          const dateStr = cellDateStr(i);
+          if (!dateStr) return <div key={i} />;
+          const pages = pagesByDate[dateStr] || 0;
+          const hasEntry = readingDates.has(dateStr);
+          const isFuture = dateStr > todayStr;
+          const isToday = dateStr === todayStr;
+          return (
+            <div
+              key={dateStr}
+              onClick={() => hasEntry && onDayClick(dateStr)}
+              title={hasEntry ? `${pages} pages` : undefined}
+              className={[
+                'flex items-center justify-center rounded text-xs h-7 mx-px select-none',
+                isFuture ? 'text-neutral-800' : hasEntry ? intensityClass(pages) + ' cursor-pointer hover:ring-1 hover:ring-oak/50' : 'text-neutral-600',
+                isToday ? 'ring-1 ring-neutral-600' : '',
+              ].join(' ')}
+            >
+              {parseInt(dateStr.slice(-2))}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 function DiaryEntry({ entry, onDelete }) {
@@ -66,6 +170,7 @@ export default function Diary() {
   const [days, setDays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const dayRefs = useRef({});
 
   useEffect(() => {
     api.getDiary()
@@ -102,15 +207,25 @@ export default function Diary() {
       ) : (() => {
         const totalPages   = days.flatMap(d => d.entries).reduce((s, e) => s + (e.pages_read || 0), 0);
         const totalMinutes = days.flatMap(d => d.entries).reduce((s, e) => s + (e.minutes_read || 0), 0);
+        const streak = dayStreak(days);
         const parts = [];
         if (totalPages > 0)   parts.push(`${totalPages.toLocaleString()} ${totalPages === 1 ? 'page' : 'pages'}`);
         if (totalMinutes > 0) parts.push(`${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m listened`);
         parts.push(`${days.length} ${days.length === 1 ? 'day' : 'days'}`);
+        if (streak > 1) parts.push(`${streak}-day streak`);
         return (
-        <div className="space-y-8">
-          <p className="text-xs text-neutral-600">{parts.join(' · ')}</p>
+        <div>
+          <p className="text-xs text-neutral-600 mb-6">{parts.join(' · ')}</p>
+          <ReadingCalendar
+            days={days}
+            onDayClick={dateStr => {
+              const el = dayRefs.current[dateStr];
+              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
+          />
+          <div className="space-y-8">
           {days.map(day => (
-            <div key={day.date}>
+            <div key={day.date} ref={el => { if (el) dayRefs.current[day.date] = el; }}>
               <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-1 pb-2 border-b border-neutral-800 flex justify-between items-baseline">
                 <span>{formatDate(day.date)}</span>
                 <span className="text-neutral-700 normal-case tracking-normal font-normal">
@@ -131,6 +246,7 @@ export default function Diary() {
               </div>
             </div>
           ))}
+          </div>
         </div>
         );
       })()}
