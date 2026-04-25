@@ -614,17 +614,17 @@ export default function BookForm() {
 
                 {form.format === 'physical' && (
                   <>
-                    {form.owned && (
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className={label}>Binding</label>
-                          <select className={input} value={form.binding}
-                            onChange={(e) => set('binding', e.target.value)}>
-                            <option value="">—</option>
-                            <option value="paperback">Paperback</option>
-                            <option value="hardcover">Hardcover</option>
-                          </select>
-                        </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className={label}>Binding</label>
+                        <select className={input} value={form.binding}
+                          onChange={(e) => set('binding', e.target.value)}>
+                          <option value="">—</option>
+                          <option value="paperback">Paperback</option>
+                          <option value="hardcover">Hardcover</option>
+                        </select>
+                      </div>
+                      {(form.owned || form.previously_owned) && (
                         <div>
                           <div className="flex items-center gap-1.5 mb-1.5">
                             <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Condition</span>
@@ -641,8 +641,8 @@ export default function BookForm() {
                             <option value="poor">Poor</option>
                           </select>
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                     <div>
                       <label className={label}>Page count</label>
                       <input type="number" min="1" max="99999" className={ic('page_count')}
