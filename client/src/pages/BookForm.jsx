@@ -355,9 +355,12 @@ export default function BookForm() {
     if (!form.title.trim()) { setActiveTab('core'); return; }
     setSaving(true);
     setError(null);
+    const pendingTag = tagInput.trim().replace(/,$/, '');
+    const tags = pendingTag && !form.tags.includes(pendingTag) ? [...form.tags, pendingTag] : form.tags;
     try {
       const payload = {
         ...form,
+        tags,
         title: form.title.trim(),
         author: form.author.trim() || null,
         date_started: form.date_started || null,
