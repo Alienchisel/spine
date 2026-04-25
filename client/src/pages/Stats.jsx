@@ -42,10 +42,12 @@ function Section({ title, children }) {
   );
 }
 
+const FROM_STATS = { from: 'Stats', fromPath: '/stats' };
+
 function Bar({ label, count, max, color = 'bg-oak', href }) {
   const pct = max > 0 ? Math.round((count / max) * 100) : 0;
   const labelEl = href
-    ? <Link to={href} className="text-xs text-neutral-400 w-28 flex-shrink-0 truncate hover:text-parchment transition-colors" title={label}>{label}</Link>
+    ? <Link to={href} state={FROM_STATS} className="text-xs text-neutral-400 w-28 flex-shrink-0 truncate hover:text-parchment transition-colors" title={label}>{label}</Link>
     : <span className="text-xs text-neutral-400 w-28 flex-shrink-0 truncate" title={label}>{label}</span>;
   return (
     <div className="flex items-center gap-3">

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
 import { sortTitle } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
@@ -28,6 +28,9 @@ function starsLabel(r) {
 export default function BrowsePage() {
   const { field, value } = useParams();
   const decoded = decodeURIComponent(value);
+  const { state } = useLocation();
+  const backLabel = state?.from ? `← ${state.from}` : '← Library';
+  const backPath  = state?.fromPath ?? '/';
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -65,8 +68,8 @@ export default function BrowsePage() {
 
   return (
     <div>
-      <Link to="/" className="text-sm text-neutral-600 hover:text-neutral-300 mb-8 inline-block transition-colors">
-        ← Library
+      <Link to={backPath} className="text-sm text-neutral-600 hover:text-neutral-300 mb-8 inline-block transition-colors">
+        {backLabel}
       </Link>
       <div className="mb-8">
         {label && <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1">{label}</p>}
