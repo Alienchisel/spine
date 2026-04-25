@@ -28,7 +28,7 @@ const SORTS = [
 
 const GRID = {
   comfortable: 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-x-4 gap-y-7',
-  compact:     'grid grid-cols-6 sm:grid-cols-9 md:grid-cols-12 gap-x-2 gap-y-3',
+  compact:     'grid grid-cols-6 sm:grid-cols-9 md:grid-cols-12 gap-0.5',
 };
 
 function progress(b) {
