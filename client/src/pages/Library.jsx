@@ -180,7 +180,7 @@ function MangaSeriesCard({ seriesName, books, expanded, onToggle }) {
           {books.length}
         </div>
       </div>
-      <p className="text-sm font-medium text-neutral-200 truncate leading-tight">{seriesName}</p>
+      <p className="text-sm font-medium text-neutral-200 truncate leading-tight" title={seriesName}>{seriesName}</p>
       {sorted[0]?.author && (
         <p className="text-xs text-neutral-500 truncate mt-0.5">{sorted[0].author}</p>
       )}

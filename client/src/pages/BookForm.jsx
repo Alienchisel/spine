@@ -419,7 +419,7 @@ export default function BookForm() {
                       ? <img src={r.cover_url} alt="" className="w-8 h-12 object-cover rounded flex-shrink-0" />
                       : <div className="w-8 h-12 bg-neutral-800 rounded flex-shrink-0" />}
                     <div className="min-w-0">
-                      <p className="text-sm text-white truncate">{r.title}</p>
+                      <p className="text-sm text-white truncate" title={r.title}>{r.title}</p>
                       {r.author && <p className="text-xs text-neutral-500 truncate">{r.author}</p>}
                       {r.publisher && <p className="text-xs text-neutral-600 truncate">{r.publisher}</p>}
                     </div>
