@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { sortTitle } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
@@ -193,8 +193,12 @@ function MangaSeriesCard({ seriesName, books, expanded, onToggle }) {
 }
 
 
+const VALID_TABS = new Set(['reading', 'paused', 'finished', 'unread', 'owned', 'prev_owned', 'all']);
+
 export default function Library() {
-  const [tab, setTab] = useState(() => getSaved().tab || 'reading');
+  const [searchParams] = useSearchParams();
+  const urlTab = searchParams.get('tab');
+  const [tab, setTab] = useState(() => (urlTab && VALID_TABS.has(urlTab)) ? urlTab : (getSaved().tab || 'reading'));
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState(() => getSaved().query || '');

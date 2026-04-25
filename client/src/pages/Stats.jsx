@@ -2,14 +2,17 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 
-function StatCard({ label, value, sub }) {
-  return (
-    <div className="bg-card rounded-lg p-4">
+function StatCard({ label, value, sub, href }) {
+  const inner = (
+    <>
       <div className="text-2xl font-semibold text-parchment">{value ?? '—'}</div>
       <div className="text-xs text-neutral-500 mt-0.5">{label}</div>
       {sub && <div className="text-xs text-neutral-600 mt-1">{sub}</div>}
-    </div>
+    </>
   );
+  return href
+    ? <Link to={href} className="bg-card rounded-lg p-4 block hover:ring-1 hover:ring-neutral-600 transition-shadow">{inner}</Link>
+    : <div className="bg-card rounded-lg p-4">{inner}</div>;
 }
 
 function Section({ title, children }) {
@@ -151,13 +154,13 @@ export default function Stats() {
 
       <Section title="Library">
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-          <StatCard label="Total books" value={totals.books?.toLocaleString()} />
-          <StatCard label="Owned" value={totals.owned?.toLocaleString()} />
-          <StatCard label="Prev. owned" value={totals.previously_owned?.toLocaleString()} />
-          <StatCard label="Finished" value={totals.finished?.toLocaleString()} />
-          <StatCard label="Reading" value={totals.reading?.toLocaleString()} />
-          <StatCard label="Paused" value={totals.paused?.toLocaleString()} />
-          <StatCard label="Unread" value={totals.unread?.toLocaleString()} />
+          <StatCard label="Total books" value={totals.books?.toLocaleString()} href="/?tab=all" />
+          <StatCard label="Owned" value={totals.owned?.toLocaleString()} href="/?tab=owned" />
+          <StatCard label="Prev. owned" value={totals.previously_owned?.toLocaleString()} href="/?tab=prev_owned" />
+          <StatCard label="Finished" value={totals.finished?.toLocaleString()} href="/?tab=finished" />
+          <StatCard label="Reading" value={totals.reading?.toLocaleString()} href="/?tab=reading" />
+          <StatCard label="Paused" value={totals.paused?.toLocaleString()} href="/?tab=paused" />
+          <StatCard label="Unread" value={totals.unread?.toLocaleString()} href="/?tab=unread" />
         </div>
       </Section>
 
