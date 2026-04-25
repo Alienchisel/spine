@@ -191,10 +191,12 @@ export default function BookDetail() {
   const [loading, setLoading] = useState(true);
   const [location, setLocation] = useState(null);
   const [log, setLog] = useState([]);
+  const [descExpanded, setDescExpanded] = useState(false);
 
   useEffect(() => {
     api.getBook(id).then(setBook).finally(() => setLoading(false));
     api.getBookLog(id).then(setLog).catch(() => {});
+    setDescExpanded(false);
   }, [id]);
 
   useEffect(() => {
@@ -301,14 +303,26 @@ export default function BookDetail() {
             <ProgressSection book={book} onChange={(updated) => { setBook(updated); api.getBookLog(id).then(setLog).catch(() => {}); }} />
           )}
 
-          {book.description && (
-            <div className="mb-6">
-              <div className="text-neutral-400 text-sm leading-relaxed prose-sm prose-invert prose-neutral max-w-none
-                [&_strong]:text-neutral-300 [&_em]:text-neutral-400 [&_p]:mb-2 [&_p:last-child]:mb-0">
-                <ReactMarkdown>{book.description}</ReactMarkdown>
+          {book.description && (() => {
+            const long = book.description.length > 400;
+            return (
+              <div className="mb-6">
+                <div className={`text-neutral-400 text-sm leading-relaxed prose-sm prose-invert prose-neutral max-w-none
+                  [&_strong]:text-neutral-300 [&_em]:text-neutral-400 [&_p]:mb-2 [&_p:last-child]:mb-0
+                  ${long && !descExpanded ? 'line-clamp-4' : ''}`}>
+                  <ReactMarkdown>{book.description}</ReactMarkdown>
+                </div>
+                {long && (
+                  <button
+                    onClick={() => setDescExpanded(e => !e)}
+                    className="mt-1 text-xs text-neutral-600 hover:text-neutral-400 transition-colors"
+                  >
+                    {descExpanded ? 'Show less' : 'Read more'}
+                  </button>
+                )}
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           <dl className="space-y-2.5 text-sm mb-6">
             {book.fiction !== null && book.fiction !== undefined && (
