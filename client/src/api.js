@@ -42,6 +42,7 @@ export const api = {
   deleteList: (id) => request(`/lists/${id}`, { method: 'DELETE' }),
   addToList: (listId, bookId) => request(`/lists/${listId}/books`, { method: 'POST', body: JSON.stringify({ book_id: bookId }) }),
   removeFromList: (listId, bookId) => request(`/lists/${listId}/books/${bookId}`, { method: 'DELETE' }),
+  reorderList: (listId, ids) => request(`/lists/${listId}/order`, { method: 'PUT', body: JSON.stringify({ ids }) }),
   getShelfTree: () => request('/shelf/tree'),
   getBuildings: () => request('/shelf/buildings'),
   createBuilding: (data) => request('/shelf/buildings', { method: 'POST', body: JSON.stringify(data) }),

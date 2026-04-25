@@ -209,7 +209,8 @@ async function main() {
   // — Classification —
   console.log();
   const fictionIn        = await ask(rl, 'Fiction? (y/n/blank)', '');
-  const sourceTypeIn     = await ask(rl, 'Source type ([p]rimary/[s]econdary/blank)', '');
+  const isFiction        = fictionIn.toLowerCase() === 'y';
+  const sourceTypeIn     = isFiction ? '' : await ask(rl, 'Source type ([p]rimary/[s]econdary/blank)', '');
   const series           = await ask(rl, 'Series',            '');
   const series_numberStr = series ? await ask(rl, 'Series number', '') : '';
   const tagsIn           = await ask(rl, 'Tags (comma-separated)', '');

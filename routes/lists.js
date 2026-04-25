@@ -11,11 +11,11 @@ function getListOrFail(res, id) {
 
 function booksForList(listId) {
   const rows = db.prepare(`
-    SELECT b.*, lb.added_at
+    SELECT b.*, lb.added_at, lb.position
     FROM books b
     JOIN list_books lb ON lb.book_id = b.id
     WHERE lb.list_id = ?
-    ORDER BY lb.added_at DESC
+    ORDER BY lb.position ASC, lb.added_at DESC
   `).all(listId);
   return rows.map(b => {
     const tags = db.prepare(`
@@ -95,8 +95,22 @@ router.post('/:id/books', (req, res) => {
   if (!Number.isInteger(bookId) || bookId < 1) return res.status(400).json({ error: 'Invalid book_id' });
   const book = db.prepare('SELECT id FROM books WHERE id = ?').get(bookId);
   if (!book) return res.status(404).json({ error: 'Book not found' });
-  db.prepare('INSERT OR IGNORE INTO list_books (list_id, book_id) VALUES (?, ?)').run(id, bookId);
+  const maxPos = db.prepare('SELECT COALESCE(MAX(position), -1) AS m FROM list_books WHERE list_id = ?').get(id).m;
+  db.prepare('INSERT OR IGNORE INTO list_books (list_id, book_id, position) VALUES (?, ?, ?)').run(id, bookId, maxPos + 1);
   res.status(201).json({ ok: true });
+});
+
+// PUT /api/lists/:id/order — reorder books
+router.put('/:id/order', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid list id' });
+  const list = getListOrFail(res, id);
+  if (!list) return;
+  const { ids } = req.body;
+  if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids must be an array' });
+  const update = db.prepare('UPDATE list_books SET position = ? WHERE list_id = ? AND book_id = ?');
+  db.transaction(() => { ids.forEach((bookId, i) => update.run(i, id, bookId)); })();
+  res.json({ ok: true });
 });
 
 // DELETE /api/lists/:id/books/:bookId — remove a book

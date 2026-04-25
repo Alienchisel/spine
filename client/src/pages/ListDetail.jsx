@@ -1,9 +1,23 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { api } from '../api.js';
 
 const SORTS = [
-  { key: 'added',  label: 'Date added' },
+  { key: 'added',  label: 'Custom order' },
   { key: 'title',  label: 'Title A–Z' },
   { key: 'author', label: 'Author A–Z' },
   { key: 'rating', label: 'Rating' },
@@ -17,6 +31,14 @@ function applySort(books, sort) {
   return b;
 }
 
+function DragHandle() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
+      <path fillRule="evenodd" d="M2.75 4a.75.75 0 0 1 .75-.75h9a.75.75 0 0 1 0 1.5h-9A.75.75 0 0 1 2.75 4Zm0 4a.75.75 0 0 1 .75-.75h9a.75.75 0 0 1 0 1.5h-9A.75.75 0 0 1 2.75 8Zm.75 3.25a.75.75 0 0 0 0 1.5h9a.75.75 0 0 0 0-1.5h-9Z" clipRule="evenodd" />
+    </svg>
+  );
+}
+
 function Stars({ rating }) {
   if (!rating) return null;
   const full = Math.floor(rating);
@@ -28,9 +50,29 @@ function Stars({ rating }) {
   );
 }
 
-function BookRow({ book, onRemove }) {
+function SortableRow({ book, onRemove, draggable }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: book.id });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+
   return (
-    <div className={`flex items-center gap-4 p-3 rounded-lg border transition-colors ${book.is_stub ? 'bg-neutral-900/50 border-neutral-800/50' : 'bg-neutral-900 border-neutral-800'}`}>
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-4 p-3 rounded-lg border transition-colors ${isDragging ? 'border-neutral-600 shadow-xl opacity-80' : book.is_stub ? 'bg-neutral-900/50 border-neutral-800/50' : 'bg-neutral-900 border-neutral-800'}`}
+    >
+      {draggable ? (
+        <button
+          {...attributes}
+          {...listeners}
+          className="text-neutral-600 hover:text-neutral-400 transition-colors cursor-grab active:cursor-grabbing flex-shrink-0"
+          aria-label="Drag to reorder"
+        >
+          <DragHandle />
+        </button>
+      ) : (
+        <div className="w-3.5 flex-shrink-0" />
+      )}
+
       <div className="w-9 h-[54px] flex-shrink-0 rounded overflow-hidden bg-neutral-800">
         {book.cover_path ? (
           <img src={book.cover_path} alt={book.title} className="w-full h-full object-cover" />
@@ -149,6 +191,8 @@ export default function ListDetail() {
   const [renameValue, setRenameValue] = useState('');
   const [renameError, setRenameError] = useState(null);
 
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
   useEffect(() => {
     api.getList(id)
       .then(setList)
@@ -179,9 +223,20 @@ export default function ListDetail() {
     }
   }
 
+  function handleDragEnd(event) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = list.books.findIndex(b => b.id === active.id);
+    const newIndex = list.books.findIndex(b => b.id === over.id);
+    const reordered = arrayMove(list.books, oldIndex, newIndex);
+    setList(l => ({ ...l, books: reordered }));
+    api.reorderList(id, reordered.map(b => b.id));
+  }
+
   if (loading) return <div className="text-neutral-700 text-sm">Loading…</div>;
   if (error)   return <div className="text-red-500 text-sm">{error}</div>;
 
+  const draggable = sort === 'added';
   const sorted = applySort(list.books, sort);
 
   return (
@@ -232,11 +287,15 @@ export default function ListDetail() {
               {SORTS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
             </select>
           </div>
-          <div className="space-y-1.5">
-            {sorted.map(book => (
-              <BookRow key={book.id} book={book} onRemove={handleRemove} />
-            ))}
-          </div>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={sorted.map(b => b.id)} strategy={verticalListSortingStrategy}>
+              <div className="space-y-1.5">
+                {sorted.map(book => (
+                  <SortableRow key={book.id} book={book} onRemove={handleRemove} draggable={draggable} />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         </>
       )}
     </div>
