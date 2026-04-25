@@ -110,7 +110,7 @@ export default function Stats() {
   if (error) return <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-warn text-sm">{error}</div>;
   if (!stats) return null;
 
-  const { totals, formats, fiction, ratings, pagesRead, minutesListened, byYear, topAuthors, languages, streaks, todayPages, thisYearBooks, thisYearPages, topTags } = stats;
+  const { totals, formats, fiction, ratings, pagesRead, minutesListened, byYear, topAuthors, languages, streaks, todayPages, thisYearBooks, thisYearPages, topTags, avgPagesPerDay } = stats;
 
   const maxRating = Math.max(...ratings.map(r => r.count), 1);
   const maxYear   = Math.max(...byYear.map(y => y.count), 1);
@@ -162,9 +162,12 @@ export default function Stats() {
       </Section>
 
       <Section title="Reading">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <StatCard label="Pages read" value={pagesRead?.toLocaleString()} />
           <StatCard label="Time listened" value={formatHours(minutesListened)} />
+          {avgPagesPerDay != null && (
+            <StatCard label="Avg pages / reading day" value={avgPagesPerDay?.toLocaleString()} />
+          )}
         </div>
       </Section>
 

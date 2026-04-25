@@ -141,6 +141,11 @@ router.get('/', (_req, res) => {
     WHERE strftime('%Y', date) = strftime('%Y', 'now')
   `).get().total;
 
+  const readingDays = db.prepare(
+    'SELECT COUNT(DISTINCT date) AS days, COALESCE(SUM(pages_read), 0) AS pages FROM reading_log'
+  ).get();
+  const avgPagesPerDay = readingDays.days > 0 ? Math.round(readingDays.pages / readingDays.days) : null;
+
   const topTags = db.prepare(`
     SELECT t.name, COUNT(*) AS count
     FROM tags t
@@ -150,7 +155,7 @@ router.get('/', (_req, res) => {
     LIMIT 15
   `).all();
 
-  res.json({ totals, formats, fiction, ratings, pagesRead, minutesListened, byYear, topAuthors, languages, streaks, todayPages, thisYearBooks, thisYearPages, topTags });
+  res.json({ totals, formats, fiction, ratings, pagesRead, minutesListened, byYear, topAuthors, languages, streaks, todayPages, thisYearBooks, thisYearPages, topTags, avgPagesPerDay });
 });
 
 export default router;
