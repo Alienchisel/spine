@@ -116,7 +116,7 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
                   </svg>
                 )}
               </span>
-              <span className={`truncate ${checked ? 'text-neutral-200' : 'text-neutral-400'}`}>{list.name}</span>
+              <span className={`truncate ${checked ? 'text-neutral-200' : 'text-neutral-400'}`} title={list.name}>{list.name}</span>
             </button>
           );
         })
