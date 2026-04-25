@@ -199,6 +199,7 @@ export default function Stats() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <RecordCard label="Longest read" book={records.longestRead} value={records.longestRead?.page_count ? `${records.longestRead.page_count.toLocaleString()} pages` : null} />
             <RecordCard label="Shortest read" book={records.shortestRead} value={records.shortestRead?.page_count ? `${records.shortestRead.page_count.toLocaleString()} pages` : null} />
+            {records.longestAudiobook && <RecordCard label="Longest audiobook" book={records.longestAudiobook} value={formatHours(records.longestAudiobook.duration_minutes)} />}
             <RecordCard label="Oldest edition" book={records.oldestEdition} value={records.oldestEdition?.year_published ? `Published ${records.oldestEdition.year_published}` : null} />
             <RecordCard label="Newest edition" book={records.newestEdition} value={records.newestEdition?.year_published ? `Published ${records.newestEdition.year_published}` : null} />
             <RecordCard label="First finished" book={records.firstFinished} value={records.firstFinished?.date_finished ? new Date(records.firstFinished.date_finished + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : null} />
