@@ -251,6 +251,14 @@ async function main() {
   console.log();
   const notes = await ask(rl, 'Notes', '');
 
+  // — Personal —
+  let ratingStr = '', lovedIn = '';
+  if (expand(STATUS_EXPAND, statusIn) === 'finished') {
+    console.log();
+    ratingStr = await ask(rl, 'Rating (0.5–5 or blank)', '');
+    lovedIn   = await ask(rl, 'Loved? (y/n)', 'n');
+  }
+
   rl.close();
 
   let cover_path = null;
@@ -307,6 +315,8 @@ async function main() {
     acquisition_source: acquisition_source || undefined,
     acquisition_date:  acquisition_date || undefined,
     notes:             notes || undefined,
+    rating:            ratingStr ? parseFloat(ratingStr) : undefined,
+    loved:             lovedIn.toLowerCase() === 'y' ? 1 : undefined,
     cover_path:        cover_path || undefined,
   }).filter(([, v]) => v !== undefined));
 
