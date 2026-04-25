@@ -23,7 +23,11 @@ export default function BrowsePage() {
     api.getBooks().then(all => {
       const matched = all.filter(b => {
         if (field === 'tag') return b.tags?.some(t => t.name === decoded);
-        if (field === 'fiction') return decoded === 'fiction' ? b.fiction === 1 : b.fiction === 0;
+        if (field === 'fiction') {
+          if (decoded === 'fiction')    return b.fiction === 1;
+          if (decoded === 'nonfiction') return b.fiction === 0;
+          if (decoded === 'unset')      return b.fiction === null || b.fiction === undefined;
+        }
         return b[field] === decoded;
       });
       if (field === 'series') {
@@ -36,7 +40,9 @@ export default function BrowsePage() {
   }, [field, decoded]);
 
   const label = FIELD_LABEL[field] ?? field;
-  const heading = field === 'fiction' ? (decoded === 'fiction' ? 'Fiction' : 'Non-fiction') : decoded;
+  const heading = field === 'fiction'
+    ? (decoded === 'fiction' ? 'Fiction' : decoded === 'nonfiction' ? 'Non-fiction' : 'Fiction / NF unset')
+    : decoded;
 
   return (
     <div>
