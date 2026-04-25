@@ -63,6 +63,7 @@ export const api = {
   getRoomBooks: (roomId) => request(`/shelf/rooms/${roomId}/books`),
   getUnitBooks: (unitId) => request(`/shelf/units/${unitId}/books`),
   getShelfBooks: (shelfId) => request(`/shelf/shelves/${shelfId}/books`),
+  reorderShelf: (shelfId, ids) => request(`/shelf/shelves/${shelfId}/order`, { method: 'PUT', body: JSON.stringify({ ids }) }),
   getUnshelfedBooks: () => request('/shelf/unshelfed'),
   getShelfLocation: (bookId) => request(`/shelf/location/${bookId}`),
   getStats: () => request('/stats'),

@@ -314,9 +314,19 @@ router.get('/shelves/:id/books', (req, res) => {
     SELECT b.id, b.title, b.author, b.cover_path, b.status, b.rating, b.series, b.series_number, b.format
     FROM books b
     WHERE b.shelf_id = ?
-    ORDER BY b.series, b.series_number, b.title
+    ORDER BY CASE WHEN b.shelf_position IS NULL THEN 1 ELSE 0 END, b.shelf_position, b.series, b.series_number, b.title
   `).all(id).map(b => ({ ...b, cover_path: b.cover_path ? `/uploads/${b.cover_path}` : null }));
   res.json(books);
+});
+
+router.put('/shelves/:id/order', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid id' });
+  const { ids } = req.body;
+  if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids must be an array' });
+  const update = db.prepare('UPDATE books SET shelf_position = ? WHERE id = ? AND shelf_id = ?');
+  db.transaction(() => ids.forEach((bookId, pos) => update.run(pos, bookId, id)))();
+  res.status(204).end();
 });
 
 // ── Location breadcrumb for a book ─────────────────────────────────────────
