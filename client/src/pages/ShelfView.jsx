@@ -115,7 +115,7 @@ export default function ShelfView() {
                 <LevelCard
                   key={b.id}
                   primary={b.name}
-                  secondary={`${PROXIMITY_LABEL[b.proximity]} · ${plural(b.rooms.length, 'room')}`}
+                  secondary={[PROXIMITY_LABEL[b.proximity], plural(b.rooms.length, 'room'), b.book_count > 0 && plural(b.book_count, 'book')].filter(Boolean).join(' · ')}
                   onClick={() => nav({ b: b.id })}
                 />
               ))}
