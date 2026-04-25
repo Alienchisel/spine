@@ -15,8 +15,21 @@ const VALID_PROXIMITY = ['home', 'nearby', 'remote'];
 
 router.get('/tree', (_req, res) => {
   const buildings = db.prepare('SELECT * FROM buildings ORDER BY order_index, name').all();
-  const rooms     = db.prepare('SELECT * FROM rooms ORDER BY order_index, name').all();
-  const units     = db.prepare('SELECT * FROM units ORDER BY order_index, name').all();
+  const rooms     = db.prepare(`
+    SELECT r.*,
+      (SELECT COUNT(*) FROM books WHERE room_id = r.id)
+      + (SELECT COUNT(*) FROM books WHERE unit_id IN (SELECT id FROM units WHERE room_id = r.id))
+      + (SELECT COUNT(*) FROM books b JOIN shelves s ON b.shelf_id = s.id JOIN units u ON s.unit_id = u.id WHERE u.room_id = r.id)
+      AS book_count
+    FROM rooms r ORDER BY r.order_index, r.name
+  `).all();
+  const units     = db.prepare(`
+    SELECT u.*,
+      (SELECT COUNT(*) FROM books WHERE unit_id = u.id)
+      + (SELECT COUNT(*) FROM books WHERE shelf_id IN (SELECT id FROM shelves WHERE unit_id = u.id))
+      AS book_count
+    FROM units u ORDER BY u.order_index, u.name
+  `).all();
   const shelves   = db.prepare(`
     SELECT s.*, (SELECT COUNT(*) FROM books WHERE shelf_id = s.id) AS book_count
     FROM shelves s ORDER BY s.order_index, s.label

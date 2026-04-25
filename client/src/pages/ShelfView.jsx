@@ -147,7 +147,7 @@ export default function ShelfView() {
               <LevelCard
                 key={r.id}
                 primary={r.name}
-                secondary={plural(r.units.length, 'unit')}
+                secondary={[plural(r.units.length, 'unit'), r.book_count > 0 && plural(r.book_count, 'book')].filter(Boolean).join(' · ')}
                 onClick={() => nav({ b: buildingId, r: r.id })}
               />
             ))}
@@ -163,7 +163,7 @@ export default function ShelfView() {
               <LevelCard
                 key={u.id}
                 primary={u.name}
-                secondary={plural(u.shelves.length, 'shelf', 'shelves')}
+                secondary={[plural(u.shelves.length, 'shelf', 'shelves'), u.book_count > 0 && plural(u.book_count, 'book')].filter(Boolean).join(' · ')}
                 onClick={() => nav({ b: buildingId, r: roomId, u: u.id })}
               />
             ))}
