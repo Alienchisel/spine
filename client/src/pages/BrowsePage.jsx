@@ -13,6 +13,7 @@ const FIELD_LABEL = {
   fiction: '',
   format: '',
   language: 'Language',
+  narrator: 'Narrator',
   rating: 'Rating',
   year_finished: 'Finished',
 };

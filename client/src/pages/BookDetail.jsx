@@ -369,7 +369,10 @@ export default function BookDetail() {
             {book.narrator && (
               <div className="flex gap-2">
                 <dt className="text-neutral-500 w-24 flex-shrink-0">Narrator</dt>
-                <dd className="text-neutral-300">{book.narrator}</dd>
+                <dd className="text-neutral-300">
+                  <Link to={`/browse/narrator/${encodeURIComponent(book.narrator)}`} className="hover:text-white transition-colors">
+                    {book.narrator}
+                  </Link>
               </div>
             )}
             {book.year_published && (
