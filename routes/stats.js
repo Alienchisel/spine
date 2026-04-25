@@ -165,8 +165,8 @@ router.get('/', (_req, res) => {
     longestRead:      bookRecord(`SELECT * FROM books WHERE date_finished IS NOT NULL AND page_count > 0 ORDER BY page_count DESC LIMIT 1`),
     shortestRead:     bookRecord(`SELECT * FROM books WHERE date_finished IS NOT NULL AND page_count > 0 ORDER BY page_count ASC LIMIT 1`),
     longestAudiobook: bookRecord(`SELECT * FROM books WHERE date_finished IS NOT NULL AND format = 'audiobook' AND duration_minutes > 0 ORDER BY duration_minutes DESC LIMIT 1`),
-    oldestEdition:    bookRecord(`SELECT * FROM books WHERE date_finished IS NOT NULL AND year_published IS NOT NULL ORDER BY year_published ASC LIMIT 1`),
-    newestEdition:    bookRecord(`SELECT * FROM books WHERE date_finished IS NOT NULL AND year_published IS NOT NULL ORDER BY year_published DESC LIMIT 1`),
+    oldestEdition:    bookRecord(`SELECT * FROM books WHERE year_published IS NOT NULL ORDER BY year_published ASC LIMIT 1`),
+    newestEdition:    bookRecord(`SELECT * FROM books WHERE year_published IS NOT NULL ORDER BY year_published DESC LIMIT 1`),
     firstFinished:    bookRecord(`SELECT * FROM books WHERE date_finished IS NOT NULL ORDER BY date_finished ASC LIMIT 1`),
     lastFinished:     bookRecord(`SELECT * FROM books WHERE date_finished IS NOT NULL ORDER BY date_finished DESC LIMIT 1`),
   };
