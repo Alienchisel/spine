@@ -181,6 +181,7 @@ export default function Stats() {
           <StatCard label="Reading" value={totals.reading?.toLocaleString()} href="/?tab=reading" />
           <StatCard label="Paused" value={totals.paused?.toLocaleString()} href="/?tab=paused" />
           <StatCard label="Unread" value={totals.unread?.toLocaleString()} href="/?tab=unread" />
+          {totals.loved > 0 && <StatCard label="Loved" value={totals.loved?.toLocaleString()} href="/?tab=loved" />}
         </div>
       </Section>
 

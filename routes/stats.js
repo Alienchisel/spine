@@ -74,7 +74,8 @@ router.get('/', (_req, res) => {
       SUM(status = 'reading')           AS reading,
       SUM(status = 'paused')            AS paused,
       SUM(status = 'finished')          AS finished,
-      SUM(status = 'unread')            AS unread
+      SUM(status = 'unread')            AS unread,
+      SUM(loved = 1)                    AS loved
     FROM books
   `).get();
 
