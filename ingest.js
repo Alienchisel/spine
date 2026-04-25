@@ -230,7 +230,8 @@ async function main() {
   if (formatVal === 'physical') {
     console.log();
     binding   = await ask(rl, 'Binding ([h]ardcover/[p]aperback)', '');
-    condition = await ask(rl, 'Condition ([n]ew/[f]ine/[v]ery good/[g]ood/f[a]ir/[p]oor)', '');
+    const isPhysicallyOwned = ownedIn.toLowerCase() === 'y' || prevOwnedIn.toLowerCase() === 'y';
+    condition = isPhysicallyOwned ? await ask(rl, 'Condition ([n]ew/[f]ine/[v]ery good/[g]ood/f[a]ir/[p]oor)', '') : '';
   } else if (formatVal === 'audiobook') {
     console.log();
     narrator    = await ask(rl, 'Narrator', '');
