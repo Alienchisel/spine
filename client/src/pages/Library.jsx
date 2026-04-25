@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
+import { sortTitle } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
 import FilterPanel from '../components/FilterPanel.jsx';
 
@@ -37,7 +38,7 @@ function progress(b) {
 function applySort(books, sort) {
   const sorted = [...books];
   if (sort === 'added')    return sorted.sort((a, b) => b.id - a.id);
-  if (sort === 'title')    return sorted.sort((a, b) => a.title.localeCompare(b.title));
+  if (sort === 'title')    return sorted.sort((a, b) => sortTitle(a.title).localeCompare(sortTitle(b.title)));
   if (sort === 'author')   return sorted.sort((a, b) => (a.author || '').localeCompare(b.author || ''));
   if (sort === 'rating')   return sorted.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
   if (sort === 'progress') return sorted.sort((a, b) => progress(b) - progress(a));
@@ -127,7 +128,7 @@ function buildDisplayItems(books, expandedSeries) {
 
 function sortVolumes(books) {
   return [...books].sort((a, b) =>
-    (a.series_number ?? Infinity) - (b.series_number ?? Infinity) || a.title.localeCompare(b.title)
+    (a.series_number ?? Infinity) - (b.series_number ?? Infinity) || sortTitle(a.title).localeCompare(sortTitle(b.title))
   );
 }
 

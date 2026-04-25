@@ -15,6 +15,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { api } from '../api.js';
+import { sortTitle } from '../utils.js';
 
 const SORTS = [
   { key: 'added',  label: 'Custom order' },
@@ -25,7 +26,7 @@ const SORTS = [
 
 function applySort(books, sort) {
   const b = [...books];
-  if (sort === 'title')  return b.sort((a, z) => a.title.localeCompare(z.title));
+  if (sort === 'title')  return b.sort((a, z) => sortTitle(a.title).localeCompare(sortTitle(z.title)));
   if (sort === 'author') return b.sort((a, z) => (a.author || '').localeCompare(z.author || ''));
   if (sort === 'rating') return b.sort((a, z) => (z.rating ?? 0) - (a.rating ?? 0));
   return b;

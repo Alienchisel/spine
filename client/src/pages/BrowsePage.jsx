@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../api.js';
+import { sortTitle } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
 
 const FIELD_LABEL = {
@@ -24,9 +25,9 @@ export default function BrowsePage() {
         return b[field] === decoded;
       });
       if (field === 'series') {
-        matched.sort((a, b) => (a.series_number ?? Infinity) - (b.series_number ?? Infinity) || a.title.localeCompare(b.title));
+        matched.sort((a, b) => (a.series_number ?? Infinity) - (b.series_number ?? Infinity) || sortTitle(a.title).localeCompare(sortTitle(b.title)));
       } else {
-        matched.sort((a, b) => a.title.localeCompare(b.title));
+        matched.sort((a, b) => sortTitle(a.title).localeCompare(sortTitle(b.title)));
       }
       setBooks(matched);
     }).finally(() => setLoading(false));
