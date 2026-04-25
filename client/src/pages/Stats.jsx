@@ -229,8 +229,8 @@ export default function Stats() {
 
         <Section title="Fiction / Non-fiction">
           <div className="space-y-2.5">
-            <Bar label="Fiction" count={fiction.fiction ?? 0} max={fictionTotal || 1} color="bg-leather" />
-            <Bar label="Non-fiction" count={fiction.nonfiction ?? 0} max={fictionTotal || 1} color="bg-binding" />
+            <Bar label="Fiction" count={fiction.fiction ?? 0} max={fictionTotal || 1} color="bg-leather" href="/browse/fiction/fiction" />
+            <Bar label="Non-fiction" count={fiction.nonfiction ?? 0} max={fictionTotal || 1} color="bg-binding" href="/browse/fiction/nonfiction" />
             {fiction.unset > 0 && (
               <Bar label="Unset" count={fiction.unset} max={totals.books || 1} color="bg-neutral-600" />
             )}

@@ -10,6 +10,7 @@ const FIELD_LABEL = {
   publisher: 'Publisher',
   series: 'Series',
   tag: 'Tag',
+  fiction: '',
 };
 
 export default function BrowsePage() {
@@ -22,6 +23,7 @@ export default function BrowsePage() {
     api.getBooks().then(all => {
       const matched = all.filter(b => {
         if (field === 'tag') return b.tags?.some(t => t.name === decoded);
+        if (field === 'fiction') return decoded === 'fiction' ? b.fiction === 1 : b.fiction === 0;
         return b[field] === decoded;
       });
       if (field === 'series') {
@@ -34,6 +36,7 @@ export default function BrowsePage() {
   }, [field, decoded]);
 
   const label = FIELD_LABEL[field] ?? field;
+  const heading = field === 'fiction' ? (decoded === 'fiction' ? 'Fiction' : 'Non-fiction') : decoded;
 
   return (
     <div>
@@ -41,8 +44,8 @@ export default function BrowsePage() {
         ← Library
       </Link>
       <div className="mb-8">
-        <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1">{label}</p>
-        <h1 className="text-2xl font-bold text-white">{decoded}</h1>
+        {label && <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1">{label}</p>}
+        <h1 className="text-2xl font-bold text-white">{heading}</h1>
         {!loading && <p className="text-sm text-neutral-500 mt-1">{books.length} {books.length === 1 ? 'book' : 'books'}</p>}
       </div>
 
