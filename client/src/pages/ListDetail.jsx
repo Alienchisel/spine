@@ -26,7 +26,7 @@ const SORTS = [
 
 function applySort(books, sort) {
   const b = [...books];
-  if (sort === 'title')  return b.sort((a, z) => sortTitle(a.title).localeCompare(sortTitle(z.title)));
+  if (sort === 'title')  return b.sort((a, z) => sortTitle(a.title).localeCompare(sortTitle(z.title)) || (a.series_number ?? Infinity) - (z.series_number ?? Infinity));
   if (sort === 'author') return b.sort((a, z) => (a.author || '').localeCompare(z.author || ''));
   if (sort === 'rating') return b.sort((a, z) => (z.rating ?? 0) - (a.rating ?? 0));
   return b;
@@ -96,6 +96,9 @@ function SortableRow({ book, onRemove, draggable }) {
         <p className="text-xs text-neutral-500 truncate mt-0.5">
           {[book.author, book.series && `${book.series}${book.series_number ? ` #${book.series_number}` : ''}`].filter(Boolean).join(' · ')}
         </p>
+        {book.notes && (
+          <p className="text-xs text-neutral-600 truncate mt-0.5">{book.notes}</p>
+        )}
       </div>
 
       <div className="flex-shrink-0 flex items-center gap-4">

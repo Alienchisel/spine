@@ -27,7 +27,7 @@ export default function BrowsePage() {
       if (field === 'series') {
         matched.sort((a, b) => (a.series_number ?? Infinity) - (b.series_number ?? Infinity) || sortTitle(a.title).localeCompare(sortTitle(b.title)));
       } else {
-        matched.sort((a, b) => sortTitle(a.title).localeCompare(sortTitle(b.title)));
+        matched.sort((a, b) => sortTitle(a.title).localeCompare(sortTitle(b.title)) || (a.series_number ?? Infinity) - (b.series_number ?? Infinity));
       }
       setBooks(matched);
     }).finally(() => setLoading(false));

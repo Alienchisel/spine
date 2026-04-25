@@ -38,7 +38,7 @@ function progress(b) {
 function applySort(books, sort) {
   const sorted = [...books];
   if (sort === 'added')    return sorted.sort((a, b) => b.id - a.id);
-  if (sort === 'title')    return sorted.sort((a, b) => sortTitle(a.title).localeCompare(sortTitle(b.title)));
+  if (sort === 'title')    return sorted.sort((a, b) => sortTitle(a.title).localeCompare(sortTitle(b.title)) || (a.series_number ?? Infinity) - (b.series_number ?? Infinity));
   if (sort === 'author')   return sorted.sort((a, b) => (a.author || '').localeCompare(b.author || ''));
   if (sort === 'rating')   return sorted.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
   if (sort === 'progress') return sorted.sort((a, b) => progress(b) - progress(a));
