@@ -373,6 +373,7 @@ export default function BookDetail() {
                   <Link to={`/browse/narrator/${encodeURIComponent(book.narrator)}`} className="hover:text-white transition-colors">
                     {book.narrator}
                   </Link>
+                </dd>
               </div>
             )}
             {book.year_published && (
