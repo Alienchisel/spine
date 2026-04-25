@@ -119,7 +119,7 @@ export default function ShelfPicker({ shelfId, buildingId, roomId, unitId, onCha
           <label className="block text-xs font-semibold text-neutral-500 mb-1.5 uppercase tracking-wider">Shelf</label>
           <select className={select} value={sel.shelfId ?? ''} onChange={e => setShelf(e.target.value)}>
             <option value="">—</option>
-            {shelves.map(s => <option key={s.id} value={s.id}>Shelf {s.label}</option>)}
+            {shelves.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
           </select>
         </div>
       )}
