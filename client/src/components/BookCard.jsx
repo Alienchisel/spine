@@ -23,7 +23,7 @@ function PencilIcon() {
   );
 }
 
-export default function BookCard({ book: initialBook, onProgressUpdate }) {
+export default function BookCard({ book: initialBook, onProgressUpdate, compact }) {
   const [book, setBook] = useState(initialBook);
   const [open, setOpen] = useState(false);
   const [loving, setLoving] = useState(false);
@@ -241,15 +241,17 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
           </div>
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors pointer-events-none" />
         </div>
-        <p className="text-sm font-medium text-neutral-200 truncate group-hover:text-white transition-colors leading-tight" title={book.title}>
-          {book.title}
-        </p>
-        {book.author && (
-          <p className="text-xs text-neutral-500 truncate mt-0.5">{book.author}</p>
-        )}
+        {!compact && <>
+          <p className="text-sm font-medium text-neutral-200 truncate group-hover:text-white transition-colors leading-tight" title={book.title}>
+            {book.title}
+          </p>
+          {book.author && (
+            <p className="text-xs text-neutral-500 truncate mt-0.5">{book.author}</p>
+          )}
+        </>}
       </Link>
 
-      {ratingPrompt && (
+      {!compact && ratingPrompt && (
         <div className="mt-1.5 flex items-center gap-2">
           <StarRating value={null} onChange={handleRate} />
           <button
@@ -261,7 +263,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate }) {
         </div>
       )}
 
-      {(book.status === 'reading' || book.status === 'paused') && (
+      {!compact && (book.status === 'reading' || book.status === 'paused') && (
         <div className="mt-1.5">
           <button
             onClick={openEditor}

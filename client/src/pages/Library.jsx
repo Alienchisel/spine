@@ -26,7 +26,10 @@ const SORTS = [
   { key: 'progress', label: 'Progress' },
 ];
 
-const GRID = 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 gap-y-7';
+const GRID = {
+  comfortable: 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-x-4 gap-y-7',
+  compact:     'grid grid-cols-6 sm:grid-cols-9 md:grid-cols-12 gap-x-2 gap-y-3',
+};
 
 function progress(b) {
   if (b.format === 'audiobook') {
@@ -132,7 +135,7 @@ function sortVolumes(books) {
   );
 }
 
-function MangaSeriesCard({ seriesName, books, expanded, onToggle }) {
+function MangaSeriesCard({ seriesName, books, expanded, onToggle, compact }) {
   const sorted = sortVolumes(books);
   const statusCounts = books.reduce((acc, b) => {
     acc[b.status] = (acc[b.status] || 0) + 1;
@@ -181,13 +184,15 @@ function MangaSeriesCard({ seriesName, books, expanded, onToggle }) {
           {books.length}
         </div>
       </div>
-      <p className="text-sm font-medium text-neutral-200 truncate leading-tight" title={seriesName}>{seriesName}</p>
-      {sorted[0]?.author && (
-        <p className="text-xs text-neutral-500 truncate mt-0.5">{sorted[0].author}</p>
-      )}
-      {statusParts.length > 0 && (
-        <p className="text-xs text-neutral-600 truncate mt-0.5">{statusParts.join(' · ')}</p>
-      )}
+      {!compact && <>
+        <p className="text-sm font-medium text-neutral-200 truncate leading-tight" title={seriesName}>{seriesName}</p>
+        {sorted[0]?.author && (
+          <p className="text-xs text-neutral-500 truncate mt-0.5">{sorted[0].author}</p>
+        )}
+        {statusParts.length > 0 && (
+          <p className="text-xs text-neutral-600 truncate mt-0.5">{statusParts.join(' · ')}</p>
+        )}
+      </>}
     </button>
   );
 }
@@ -210,9 +215,11 @@ export default function Library() {
   const [sort, setSort] = useState(() => getSaved().sort || 'updated');
   const [expandedSeries, setExpandedSeries] = useState(new Set());
   const [counts, setCounts] = useState({});
+  const [density, setDensity] = useState(() => getSaved().density || 'comfortable');
 
   useEffect(() => {
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ tab, query, filtersOpen, filters, sort }));
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ tab, query, filtersOpen, filters, sort, density }));
+
   }, [tab, query, filtersOpen, filters, sort]);
 
   useEffect(() => {
@@ -354,6 +361,24 @@ export default function Library() {
             <span className="text-xs text-neutral-600 tabular-nums whitespace-nowrap">
               {sortedFiltered.length} {sortedFiltered.length === 1 ? 'book' : 'books'}
             </span>
+            <button
+              onClick={() => setDensity(d => d === 'comfortable' ? 'compact' : 'comfortable')}
+              title={density === 'comfortable' ? 'Switch to compact view' : 'Switch to comfortable view'}
+              className="text-neutral-600 hover:text-neutral-300 transition-colors flex-shrink-0"
+            >
+              {density === 'comfortable' ? (
+                <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4">
+                  <rect x="1" y="1" width="4" height="4" rx="0.5"/><rect x="6" y="1" width="4" height="4" rx="0.5"/><rect x="11" y="1" width="4" height="4" rx="0.5"/>
+                  <rect x="1" y="6" width="4" height="4" rx="0.5"/><rect x="6" y="6" width="4" height="4" rx="0.5"/><rect x="11" y="6" width="4" height="4" rx="0.5"/>
+                  <rect x="1" y="11" width="4" height="4" rx="0.5"/><rect x="6" y="11" width="4" height="4" rx="0.5"/><rect x="11" y="11" width="4" height="4" rx="0.5"/>
+                </svg>
+              ) : (
+                <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4">
+                  <rect x="1" y="1" width="6.5" height="6.5" rx="0.5"/><rect x="8.5" y="1" width="6.5" height="6.5" rx="0.5"/>
+                  <rect x="1" y="8.5" width="6.5" height="6.5" rx="0.5"/><rect x="8.5" y="8.5" width="6.5" height="6.5" rx="0.5"/>
+                </svg>
+              )}
+            </button>
           </div>
         </div>
 
@@ -378,7 +403,7 @@ export default function Library() {
           )}
         </div>
       ) : (
-        <div className={GRID}>
+        <div className={GRID[density]}>
           {displayItems.map(item =>
             item.type === 'series' ? (
               <MangaSeriesCard
@@ -387,12 +412,14 @@ export default function Library() {
                 books={item.books}
                 expanded={expandedSeries.has(item.name)}
                 onToggle={() => toggleSeries(item.name)}
+                compact={density === 'compact'}
               />
             ) : (
               <BookCard
                 key={item.book.id}
                 book={item.book}
                 onProgressUpdate={handleProgressUpdate}
+                compact={density === 'compact'}
               />
             )
           )}
