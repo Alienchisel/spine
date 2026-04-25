@@ -12,9 +12,18 @@ const FIELD_LABEL = {
   tag: 'Tag',
   fiction: '',
   format: '',
+  language: 'Language',
+  rating: 'Rating',
+  year_finished: 'Finished',
 };
 
 const FORMAT_LABEL = { physical: 'Physical', ebook: 'Digital', audiobook: 'Audiobook' };
+
+function starsLabel(r) {
+  const full = Math.floor(r);
+  const half = r % 1 !== 0;
+  return '★'.repeat(full) + (half ? '½' : '');
+}
 
 export default function BrowsePage() {
   const { field, value } = useParams();
@@ -31,10 +40,14 @@ export default function BrowsePage() {
           if (decoded === 'nonfiction') return b.fiction === 0;
           if (decoded === 'unset')      return b.fiction === null || b.fiction === undefined;
         }
+        if (field === 'rating')        return b.rating === parseFloat(decoded);
+        if (field === 'year_finished') return b.date_finished?.startsWith(decoded);
         return b[field] === decoded;
       });
       if (field === 'series') {
         matched.sort((a, b) => (a.series_number ?? Infinity) - (b.series_number ?? Infinity) || sortTitle(a.title).localeCompare(sortTitle(b.title)));
+      } else if (field === 'year_finished') {
+        matched.sort((a, b) => (a.date_finished || '').localeCompare(b.date_finished || ''));
       } else {
         matched.sort((a, b) => sortTitle(a.title).localeCompare(sortTitle(b.title)) || (a.series_number ?? Infinity) - (b.series_number ?? Infinity));
       }
@@ -45,7 +58,9 @@ export default function BrowsePage() {
   const label = FIELD_LABEL[field] ?? field;
   const heading = field === 'fiction'
     ? (decoded === 'fiction' ? 'Fiction' : decoded === 'nonfiction' ? 'Non-fiction' : 'Fiction / NF unset')
-    : field === 'format' ? (FORMAT_LABEL[decoded] ?? decoded)
+    : field === 'format'       ? (FORMAT_LABEL[decoded] ?? decoded)
+    : field === 'rating'       ? starsLabel(parseFloat(decoded))
+    : field === 'year_finished' ? decoded
     : decoded;
 
   return (

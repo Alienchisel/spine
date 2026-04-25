@@ -251,6 +251,7 @@ export default function Stats() {
                   count={entry.count}
                   max={maxRating}
                   color="bg-oak"
+                  href={`/browse/rating/${r}`}
                 />
               );
             })}
@@ -283,7 +284,7 @@ export default function Stats() {
             <div className="space-y-2.5">
               {languages.map(l => (
                 <Bar key={l.language} label={l.language} count={l.count}
-                  max={Math.max(...languages.map(x => x.count))} color="bg-binding" />
+                  max={Math.max(...languages.map(x => x.count))} color="bg-binding" href={`/browse/language/${encodeURIComponent(l.language)}`} />
               ))}
             </div>
           </Section>
@@ -294,7 +295,7 @@ export default function Stats() {
         <Section title="Finished by year">
           <div className="space-y-2.5">
             {byYear.map(y => (
-              <Bar key={y.year} label={y.year} count={y.count} max={maxYear} color="bg-leather" />
+              <Bar key={y.year} label={y.year} count={y.count} max={maxYear} color="bg-leather" href={`/browse/year_finished/${y.year}`} />
             ))}
           </div>
         </Section>
