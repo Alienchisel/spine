@@ -141,6 +141,15 @@ router.get('/:id', (req, res) => {
   res.json(book);
 });
 
+router.get('/:id/log', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
+  const rows = db.prepare(
+    'SELECT date, pages_read, minutes_read FROM reading_log WHERE book_id = ? ORDER BY date DESC'
+  ).all(id);
+  res.json(rows);
+});
+
 router.get('/:id/lists', (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });

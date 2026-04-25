@@ -15,6 +15,7 @@ export const api = {
   getBooks: (status) => request(`/books${status ? `?status=${status}` : ''}`),
   getLovedBooks: () => request('/books?loved=true'),
   getBookLists: (bookId) => request(`/books/${bookId}/lists`),
+  getBookLog: (bookId) => request(`/books/${bookId}/log`),
   getBook: (id) => request(`/books/${id}`),
   createBook: (data) => request('/books', { method: 'POST', body: JSON.stringify(data) }),
   updateBook: (id, data) => request(`/books/${id}`, { method: 'PUT', body: JSON.stringify(data) }),

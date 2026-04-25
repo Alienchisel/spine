@@ -190,9 +190,11 @@ export default function BookDetail() {
   const [book, setBook] = useState(null);
   const [loading, setLoading] = useState(true);
   const [location, setLocation] = useState(null);
+  const [log, setLog] = useState([]);
 
   useEffect(() => {
     api.getBook(id).then(setBook).finally(() => setLoading(false));
+    api.getBookLog(id).then(setLog).catch(() => {});
   }, [id]);
 
   useEffect(() => {
@@ -296,7 +298,7 @@ export default function BookDetail() {
           </div>
 
           {(book.status === 'reading' || book.status === 'paused') && (
-            <ProgressSection book={book} onChange={setBook} />
+            <ProgressSection book={book} onChange={(updated) => { setBook(updated); api.getBookLog(id).then(setLog).catch(() => {}); }} />
           )}
 
           {book.description && (
@@ -496,6 +498,24 @@ export default function BookDetail() {
               <div className="text-neutral-400 text-sm leading-relaxed prose-sm prose-invert prose-neutral max-w-none
                 [&_strong]:text-neutral-300 [&_em]:text-neutral-400 [&_p]:mb-2 [&_p:last-child]:mb-0">
                 <ReactMarkdown>{book.notes}</ReactMarkdown>
+              </div>
+            </div>
+          )}
+
+          {log.length > 0 && (
+            <div className="border-t border-neutral-800 pt-5">
+              <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Reading log</p>
+              <div className="space-y-1">
+                {log.map((entry) => (
+                  <div key={entry.date} className="flex justify-between text-xs text-neutral-500">
+                    <span>{formatDate(entry.date)}</span>
+                    <span className="text-neutral-600">
+                      {book.format === 'audiobook'
+                        ? entry.minutes_read ? `${Math.floor(entry.minutes_read / 60)}h ${entry.minutes_read % 60}m` : null
+                        : entry.pages_read ? `${entry.pages_read} p.` : null}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
           )}
