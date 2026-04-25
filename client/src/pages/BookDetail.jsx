@@ -12,6 +12,14 @@ function formatDate(dateStr) {
     day: 'numeric', month: 'long', year: 'numeric'
   });
 }
+
+function formatPartialDate(val) {
+  if (!val) return null;
+  const parts = val.split('-');
+  if (parts.length === 1) return parts[0];
+  if (parts.length === 2) return new Date(`${val}-01T12:00:00`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  return formatDate(val);
+}
 const STATUS_COLOR = {
   reading:  'text-parchment bg-oak/30',
   paused:   'text-neutral-300 bg-neutral-800',
@@ -466,7 +474,7 @@ export default function BookDetail() {
               <div className="flex gap-2">
                 <dt className="text-neutral-500 w-24 flex-shrink-0">Acquired</dt>
                 <dd className="text-neutral-300">
-                  {[book.acquisition_source, book.acquisition_date ? formatDate(book.acquisition_date) : null].filter(Boolean).join(' · ')}
+                  {[book.acquisition_source, formatPartialDate(book.acquisition_date)].filter(Boolean).join(' · ')}
                 </dd>
               </div>
             )}

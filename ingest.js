@@ -244,7 +244,7 @@ async function main() {
   if (ownedIn.toLowerCase() === 'y' || prevOwnedIn.toLowerCase() === 'y') {
     console.log();
     acquisition_source = await ask(rl, 'Acquisition source', '');
-    acquisition_date   = await ask(rl, 'Acquisition date (YYYY-MM-DD)', '');
+    acquisition_date   = await ask(rl, 'Acquisition date (YYYY, YYYY-MM, or YYYY-MM-DD)', '');
   }
 
   // — Notes —

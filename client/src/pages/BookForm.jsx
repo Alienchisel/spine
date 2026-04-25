@@ -868,8 +868,45 @@ export default function BookForm() {
 
                     <div>
                       <label className={label}>Acquisition date</label>
-                      <input type="date" className={input} value={form.acquisition_date}
-                        onChange={(e) => set('acquisition_date', e.target.value)} />
+                      {(() => {
+                        const parts = (form.acquisition_date || '').split('-');
+                        const acqYear  = parts[0] || '';
+                        const acqMonth = parts[1] || '';
+                        const acqDay   = parts[2] || '';
+                        function setAcq(y, m, d) {
+                          let v = y;
+                          if (y && m) { v = `${y}-${m}`; if (d) v = `${y}-${m}-${d}`; }
+                          set('acquisition_date', v);
+                        }
+                        return (
+                          <div className="flex gap-2">
+                            <input
+                              type="number" min="1800" max="2099" placeholder="Year"
+                              className={`w-24 ${input}`}
+                              value={acqYear}
+                              onChange={e => setAcq(e.target.value, acqYear && acqMonth ? acqMonth : '', acqYear && acqDay ? acqDay : '')}
+                            />
+                            <select
+                              className={`flex-1 ${input}`}
+                              value={acqMonth}
+                              onChange={e => setAcq(acqYear, e.target.value, e.target.value ? acqDay : '')}
+                            >
+                              <option value="">Month</option>
+                              {['January','February','March','April','May','June','July','August','September','October','November','December'].map((m, i) => (
+                                <option key={m} value={String(i + 1).padStart(2, '0')}>{m}</option>
+                              ))}
+                            </select>
+                            {acqMonth && (
+                              <input
+                                type="number" min="1" max="31" placeholder="Day"
+                                className={`w-20 ${input}`}
+                                value={acqDay ? parseInt(acqDay) : ''}
+                                onChange={e => setAcq(acqYear, acqMonth, e.target.value ? String(parseInt(e.target.value)).padStart(2, '0') : '')}
+                              />
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </>
                 )}

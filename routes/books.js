@@ -53,6 +53,19 @@ function isValidDate(val) {
   return !isNaN(d.getTime());
 }
 
+const PARTIAL_DATE_RE = /^\d{4}(-\d{2}(-\d{2})?)?$/;
+function isValidPartialDate(val) {
+  if (!PARTIAL_DATE_RE.test(val)) return false;
+  const parts = val.split('-');
+  if (parts.length >= 2 && (Number(parts[1]) < 1 || Number(parts[1]) > 12)) return false;
+  if (parts.length === 3) {
+    const day = Number(parts[2]);
+    if (day < 1 || day > 31) return false;
+    if (isNaN(new Date(val).getTime())) return false;
+  }
+  return true;
+}
+
 function validateBook(body) {
   const { title, author, status, format, binding, condition, rating, page_count, duration_minutes, date_started, date_finished, year_published, year_edition, isbn_10, isbn_13 } = body;
   const errors = [];
@@ -70,7 +83,7 @@ function validateBook(body) {
   if (duration_minutes != null && (duration_minutes < 1 || !Number.isInteger(Number(duration_minutes)))) errors.push('Duration must be a positive integer');
   if (date_started && !isValidDate(date_started.trim())) errors.push('Invalid date started');
   if (date_finished && !isValidDate(date_finished.trim())) errors.push('Invalid date finished');
-  if (body.acquisition_date && !isValidDate(body.acquisition_date.trim())) errors.push('Invalid acquisition date');
+  if (body.acquisition_date && !isValidPartialDate(body.acquisition_date.trim())) errors.push('Invalid acquisition date');
   if (year_published != null && (year_published < 1 || !Number.isInteger(Number(year_published)))) errors.push('Invalid publication year');
   if (year_edition != null && (year_edition < 1 || !Number.isInteger(Number(year_edition)))) errors.push('Invalid edition year');
   if (body.series_number != null && isNaN(Number(body.series_number))) errors.push('Invalid series number');
