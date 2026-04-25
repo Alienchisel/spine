@@ -110,7 +110,7 @@ export default function Stats() {
   if (error) return <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-warn text-sm">{error}</div>;
   if (!stats) return null;
 
-  const { totals, formats, fiction, ratings, pagesRead, minutesListened, byYear, topAuthors, languages, streaks, todayPages, thisYearBooks, thisYearPages } = stats;
+  const { totals, formats, fiction, ratings, pagesRead, minutesListened, byYear, topAuthors, languages, streaks, todayPages, thisYearBooks, thisYearPages, topTags } = stats;
 
   const maxRating = Math.max(...ratings.map(r => r.count), 1);
   const maxYear   = Math.max(...byYear.map(y => y.count), 1);
@@ -260,6 +260,16 @@ export default function Stats() {
             <div className="space-y-2.5">
               {topAuthors.map(a => (
                 <Bar key={a.author} label={a.author} count={a.count} max={maxAuthor} color="bg-binding" href={`/browse/author/${encodeURIComponent(a.author)}`} />
+              ))}
+            </div>
+          </Section>
+        )}
+
+        {topTags?.length > 0 && (
+          <Section title="Top tags">
+            <div className="space-y-2.5">
+              {topTags.map(t => (
+                <Bar key={t.name} label={t.name} count={t.count} max={topTags[0].count} color="bg-oak" href={`/browse/tag/${encodeURIComponent(t.name)}`} />
               ))}
             </div>
           </Section>

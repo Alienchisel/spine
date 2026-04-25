@@ -141,7 +141,16 @@ router.get('/', (_req, res) => {
     WHERE strftime('%Y', date) = strftime('%Y', 'now')
   `).get().total;
 
-  res.json({ totals, formats, fiction, ratings, pagesRead, minutesListened, byYear, topAuthors, languages, streaks, todayPages, thisYearBooks, thisYearPages });
+  const topTags = db.prepare(`
+    SELECT t.name, COUNT(*) AS count
+    FROM tags t
+    JOIN book_tags bt ON bt.tag_id = t.id
+    GROUP BY t.id
+    ORDER BY count DESC
+    LIMIT 15
+  `).all();
+
+  res.json({ totals, formats, fiction, ratings, pagesRead, minutesListened, byYear, topAuthors, languages, streaks, todayPages, thisYearBooks, thisYearPages, topTags });
 });
 
 export default router;
