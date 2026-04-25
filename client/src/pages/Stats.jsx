@@ -2,6 +2,24 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 
+function RecordCard({ label, book, value }) {
+  if (!book) return null;
+  return (
+    <Link to={`/books/${book.id}`} className="bg-card rounded-lg p-3 flex items-center gap-3 hover:ring-1 hover:ring-neutral-600 transition-shadow">
+      <div className="w-8 h-12 flex-shrink-0 rounded overflow-hidden bg-neutral-800">
+        {book.cover_path
+          ? <img src={book.cover_path} alt={book.title} className="w-full h-full object-cover object-top" />
+          : <div className="w-full h-full bg-gradient-to-br from-neutral-700 to-neutral-900" />}
+      </div>
+      <div className="min-w-0">
+        <p className="text-xs text-neutral-500 mb-0.5">{label}</p>
+        <p className="text-xs font-medium text-neutral-200 truncate">{book.title}</p>
+        {value && <p className="text-xs text-neutral-600 mt-0.5">{value}</p>}
+      </div>
+    </Link>
+  );
+}
+
 function StatCard({ label, value, sub, href }) {
   const inner = (
     <>
@@ -113,7 +131,7 @@ export default function Stats() {
   if (error) return <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-warn text-sm">{error}</div>;
   if (!stats) return null;
 
-  const { totals, formats, fiction, ratings, pagesRead, minutesListened, byYear, topAuthors, languages, streaks, todayPages, thisYearBooks, thisYearPages, topTags, avgPagesPerDay } = stats;
+  const { totals, formats, fiction, ratings, pagesRead, minutesListened, byYear, topAuthors, languages, streaks, todayPages, thisYearBooks, thisYearPages, topTags, avgPagesPerDay, records } = stats;
 
   const maxRating = Math.max(...ratings.map(r => r.count), 1);
   const maxYear   = Math.max(...byYear.map(y => y.count), 1);
@@ -173,6 +191,19 @@ export default function Stats() {
           )}
         </div>
       </Section>
+
+      {Object.values(records).some(Boolean) && (
+        <Section title="Records">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <RecordCard label="Longest read" book={records.longestRead} value={records.longestRead?.page_count ? `${records.longestRead.page_count.toLocaleString()} pages` : null} />
+            <RecordCard label="Shortest read" book={records.shortestRead} value={records.shortestRead?.page_count ? `${records.shortestRead.page_count.toLocaleString()} pages` : null} />
+            <RecordCard label="Oldest edition" book={records.oldestEdition} value={records.oldestEdition?.year_published ? `Published ${records.oldestEdition.year_published}` : null} />
+            <RecordCard label="Newest edition" book={records.newestEdition} value={records.newestEdition?.year_published ? `Published ${records.newestEdition.year_published}` : null} />
+            <RecordCard label="First finished" book={records.firstFinished} value={records.firstFinished?.date_finished} />
+            <RecordCard label="Last finished" book={records.lastFinished} value={records.lastFinished?.date_finished} />
+          </div>
+        </Section>
+      )}
 
       <Section title="Streaks">
         <div className="grid grid-cols-3 gap-3">

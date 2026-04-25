@@ -155,7 +155,22 @@ router.get('/', (_req, res) => {
     LIMIT 15
   `).all();
 
-  res.json({ totals, formats, fiction, ratings, pagesRead, minutesListened, byYear, topAuthors, languages, streaks, todayPages, thisYearBooks, thisYearPages, topTags, avgPagesPerDay });
+  function bookRecord(sql) {
+    const b = db.prepare(sql).get();
+    if (!b) return null;
+    return { id: b.id, title: b.title, author: b.author, cover_path: b.cover_path ? `/uploads/${b.cover_path}` : null, year_published: b.year_published, page_count: b.page_count, date_finished: b.date_finished, duration_minutes: b.duration_minutes };
+  }
+
+  const records = {
+    longestRead:   bookRecord(`SELECT * FROM books WHERE date_finished IS NOT NULL AND page_count > 0 ORDER BY page_count DESC LIMIT 1`),
+    shortestRead:  bookRecord(`SELECT * FROM books WHERE date_finished IS NOT NULL AND page_count > 0 ORDER BY page_count ASC LIMIT 1`),
+    oldestEdition: bookRecord(`SELECT * FROM books WHERE date_finished IS NOT NULL AND year_published IS NOT NULL ORDER BY year_published ASC LIMIT 1`),
+    newestEdition: bookRecord(`SELECT * FROM books WHERE date_finished IS NOT NULL AND year_published IS NOT NULL ORDER BY year_published DESC LIMIT 1`),
+    firstFinished: bookRecord(`SELECT * FROM books WHERE date_finished IS NOT NULL ORDER BY date_finished ASC LIMIT 1`),
+    lastFinished:  bookRecord(`SELECT * FROM books WHERE date_finished IS NOT NULL ORDER BY date_finished DESC LIMIT 1`),
+  };
+
+  res.json({ totals, formats, fiction, ratings, pagesRead, minutesListened, byYear, topAuthors, languages, streaks, todayPages, thisYearBooks, thisYearPages, topTags, avgPagesPerDay, records });
 });
 
 export default router;
