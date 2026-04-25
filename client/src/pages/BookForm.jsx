@@ -848,7 +848,7 @@ export default function BookForm() {
                   />
                 )}
 
-                {!form.is_custom && (
+                {(form.owned || form.previously_owned) && !form.is_custom && (
                   <>
                     <div>
                       <label className={label}>Acquisition source</label>
