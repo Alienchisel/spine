@@ -41,10 +41,13 @@ export default function ShelfView() {
   }, []);
 
   useEffect(() => {
-    if (!shelfId) { setBooks([]); return; }
+    if (!roomId && !unitId && !shelfId) { setBooks([]); return; }
     setBooksLoading(true);
-    api.getShelfBooks(shelfId).then(setBooks).finally(() => setBooksLoading(false));
-  }, [shelfId]);
+    const fetch = shelfId ? api.getShelfBooks(shelfId)
+      : unitId  ? api.getUnitBooks(unitId)
+      : api.getRoomBooks(roomId);
+    fetch.then(setBooks).finally(() => setBooksLoading(false));
+  }, [roomId, unitId, shelfId]);
 
   const building = tree.find(b => b.id === buildingId);
   const rooms    = building?.rooms ?? [];
@@ -152,11 +155,9 @@ export default function ShelfView() {
         )
       )}
 
-      {/* Units */}
-      {roomId && !unitId && (
-        units.length === 0 ? (
-          <p className="text-neutral-600 text-sm">No units in this room.</p>
-        ) : (
+      {/* Units + room-level books */}
+      {roomId && !unitId && (<>
+        {units.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {units.map(u => (
               <LevelCard
@@ -167,14 +168,22 @@ export default function ShelfView() {
               />
             ))}
           </div>
-        )
-      )}
+        )}
+        {booksLoading ? (
+          <div className="text-neutral-700 text-sm mt-6">Loading…</div>
+        ) : books.length > 0 && (
+          <div className={`grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 gap-y-7 ${units.length > 0 ? 'mt-8' : ''}`}>
+            {books.map(book => <BookCard key={book.id} book={book} />)}
+          </div>
+        )}
+        {!booksLoading && units.length === 0 && books.length === 0 && (
+          <p className="text-neutral-600 text-sm">No books in this room yet.</p>
+        )}
+      </>)}
 
-      {/* Shelves */}
-      {unitId && !shelfId && (
-        shelves.length === 0 ? (
-          <p className="text-neutral-600 text-sm">No shelves in this unit.</p>
-        ) : (
+      {/* Shelves + unit-level books */}
+      {unitId && !shelfId && (<>
+        {shelves.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {shelves.map(s => (
               <LevelCard
@@ -185,10 +194,20 @@ export default function ShelfView() {
               />
             ))}
           </div>
-        )
-      )}
+        )}
+        {booksLoading ? (
+          <div className="text-neutral-700 text-sm mt-6">Loading…</div>
+        ) : books.length > 0 && (
+          <div className={`grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 gap-y-7 ${shelves.length > 0 ? 'mt-8' : ''}`}>
+            {books.map(book => <BookCard key={book.id} book={book} />)}
+          </div>
+        )}
+        {!booksLoading && shelves.length === 0 && books.length === 0 && (
+          <p className="text-neutral-600 text-sm">No books in this unit yet.</p>
+        )}
+      </>)}
 
-      {/* Books */}
+      {/* Shelf-level books */}
       {shelfId && (
         booksLoading ? (
           <div className="text-neutral-700 text-sm">Loading…</div>
@@ -196,9 +215,7 @@ export default function ShelfView() {
           <p className="text-neutral-600 text-sm">No books on this shelf yet.</p>
         ) : (
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 gap-y-7">
-            {books.map(book => (
-              <BookCard key={book.id} book={book} />
-            ))}
+            {books.map(book => <BookCard key={book.id} book={book} />)}
           </div>
         )
       )}

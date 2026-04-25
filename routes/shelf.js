@@ -247,9 +247,40 @@ router.get('/unshelfed', (_req, res) => {
   const books = db.prepare(`
     SELECT id, title, author, cover_path, status, rating
     FROM books
-    WHERE owned = 1 AND shelf_id IS NULL
+    WHERE owned = 1 AND shelf_id IS NULL AND unit_id IS NULL AND room_id IS NULL AND building_id IS NULL
     ORDER BY title
   `).all().map(b => ({ ...b, cover_path: b.cover_path ? `/uploads/${b.cover_path}` : null }));
+  res.json(books);
+});
+
+// ── Books in a room (all shelves + unit-only + room-only) ─────────────────
+
+router.get('/rooms/:id/books', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid id' });
+  const books = db.prepare(`
+    SELECT b.id, b.title, b.author, b.cover_path, b.status, b.rating, b.series, b.series_number, b.format
+    FROM books b
+    WHERE b.room_id = ?
+      OR b.unit_id IN (SELECT id FROM units WHERE room_id = ?)
+      OR b.shelf_id IN (SELECT s.id FROM shelves s JOIN units u ON s.unit_id = u.id WHERE u.room_id = ?)
+    ORDER BY b.series, b.series_number, b.title
+  `).all(id, id, id).map(b => ({ ...b, cover_path: b.cover_path ? `/uploads/${b.cover_path}` : null }));
+  res.json(books);
+});
+
+// ── Books in a unit (all shelves + unit-only) ──────────────────────────────
+
+router.get('/units/:id/books', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid id' });
+  const books = db.prepare(`
+    SELECT b.id, b.title, b.author, b.cover_path, b.status, b.rating, b.series, b.series_number, b.format
+    FROM books b
+    WHERE b.unit_id = ?
+      OR b.shelf_id IN (SELECT id FROM shelves WHERE unit_id = ?)
+    ORDER BY b.series, b.series_number, b.title
+  `).all(id, id).map(b => ({ ...b, cover_path: b.cover_path ? `/uploads/${b.cover_path}` : null }));
   res.json(books);
 });
 
