@@ -201,7 +201,7 @@ async function main() {
   const pagesStr         = await ask(rl, 'Pages',             meta.page_count ? String(meta.page_count) : '');
   const language         = await ask(rl, 'Language',          meta.language || 'English');
   const original_language = await ask(rl, 'Original language', '');
-  const translator       = await ask(rl, 'Translator',         '');
+  const translator       = original_language ? await ask(rl, 'Translator', '') : '';
   const isbn_13          = await ask(rl, 'ISBN-13',           meta.isbn_13);
   const isbn_10          = await ask(rl, 'ISBN-10',           meta.isbn_10);
   const description      = await askMultiline(rl, 'Description', meta.description);
