@@ -126,7 +126,7 @@ function askMultiline(rl, label, def) {
         const result = lines.join('\n').trim();
         resolve(result || def || '');
       } else {
-        lines.push(line);
+        lines.push(line.trim());
       }
     }
     rl.on('line', onLine);
