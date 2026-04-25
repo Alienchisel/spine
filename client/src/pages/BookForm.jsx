@@ -126,6 +126,7 @@ export default function BookForm() {
   const [pastRooms, setPastRooms] = useState([]);
   const [pastUnits, setPastUnits] = useState([]);
   const [pastLanguages, setPastLanguages] = useState([]);
+  const [pastTags, setPastTags] = useState([]);
   const [shelfTree, setShelfTree] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -152,6 +153,7 @@ export default function BookForm() {
       setPastRooms([...new Set(books.map(b => b.shelf_room).filter(Boolean))].sort());
       setPastUnits([...new Set(books.map(b => b.shelf_unit).filter(Boolean))].sort());
       setPastLanguages([...new Set([...books.map(b => b.language), ...books.map(b => b.original_language)].filter(Boolean))].sort());
+      setPastTags([...new Set(books.flatMap(b => b.tags?.map(t => t.name) ?? []))].sort());
     });
   }, []);
 
@@ -892,9 +894,12 @@ export default function BookForm() {
                       ))}
                     </div>
                   )}
-                  <input className={input} value={tagInput}
+                  <input className={input} list="tags-list" value={tagInput}
                     onChange={(e) => setTagInput(e.target.value)} onKeyDown={addTag}
                     placeholder="Type a tag, press Enter or comma to add" />
+                  <datalist id="tags-list">
+                    {pastTags.filter(t => !form.tags.includes(t)).map(t => <option key={t} value={t} />)}
+                  </datalist>
                 </div>
 
                 <div>
