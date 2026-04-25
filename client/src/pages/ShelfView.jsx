@@ -124,7 +124,7 @@ export default function ShelfView() {
             {unshelfed.length > 0 && (
               <div className="mt-10">
                 <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-4 pb-2 border-b border-neutral-800">
-                  Not yet shelved · {unshelfed.length}
+                  No location assigned · {unshelfed.length}
                 </h2>
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 gap-y-7">
                   {unshelfed.map(book => (
