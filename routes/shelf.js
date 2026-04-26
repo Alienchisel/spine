@@ -16,30 +16,30 @@ const VALID_PROXIMITY = ['home', 'nearby', 'remote'];
 router.get('/tree', (_req, res) => {
   const buildings = db.prepare(`
     SELECT b.*,
-      (SELECT COUNT(*) FROM books WHERE building_id = b.id)
-      + (SELECT COUNT(*) FROM books WHERE room_id IN (SELECT id FROM rooms WHERE building_id = b.id))
-      + (SELECT COUNT(*) FROM books WHERE unit_id IN (SELECT u.id FROM units u JOIN rooms r ON u.room_id = r.id WHERE r.building_id = b.id))
-      + (SELECT COUNT(*) FROM books bk JOIN shelves s ON bk.shelf_id = s.id JOIN units u ON s.unit_id = u.id JOIN rooms r ON u.room_id = r.id WHERE r.building_id = b.id)
+      (SELECT COUNT(*) FROM books WHERE building_id = b.id AND owned = 1)
+      + (SELECT COUNT(*) FROM books WHERE room_id IN (SELECT id FROM rooms WHERE building_id = b.id) AND owned = 1)
+      + (SELECT COUNT(*) FROM books WHERE unit_id IN (SELECT u.id FROM units u JOIN rooms r ON u.room_id = r.id WHERE r.building_id = b.id) AND owned = 1)
+      + (SELECT COUNT(*) FROM books bk JOIN shelves s ON bk.shelf_id = s.id JOIN units u ON s.unit_id = u.id JOIN rooms r ON u.room_id = r.id WHERE r.building_id = b.id AND bk.owned = 1)
       AS book_count
     FROM buildings b ORDER BY b.order_index, b.name
   `).all();
   const rooms     = db.prepare(`
     SELECT r.*,
-      (SELECT COUNT(*) FROM books WHERE room_id = r.id)
-      + (SELECT COUNT(*) FROM books WHERE unit_id IN (SELECT id FROM units WHERE room_id = r.id))
-      + (SELECT COUNT(*) FROM books b JOIN shelves s ON b.shelf_id = s.id JOIN units u ON s.unit_id = u.id WHERE u.room_id = r.id)
+      (SELECT COUNT(*) FROM books WHERE room_id = r.id AND owned = 1)
+      + (SELECT COUNT(*) FROM books WHERE unit_id IN (SELECT id FROM units WHERE room_id = r.id) AND owned = 1)
+      + (SELECT COUNT(*) FROM books b JOIN shelves s ON b.shelf_id = s.id JOIN units u ON s.unit_id = u.id WHERE u.room_id = r.id AND b.owned = 1)
       AS book_count
     FROM rooms r ORDER BY r.order_index, r.name
   `).all();
   const units     = db.prepare(`
     SELECT u.*,
-      (SELECT COUNT(*) FROM books WHERE unit_id = u.id)
-      + (SELECT COUNT(*) FROM books WHERE shelf_id IN (SELECT id FROM shelves WHERE unit_id = u.id))
+      (SELECT COUNT(*) FROM books WHERE unit_id = u.id AND owned = 1)
+      + (SELECT COUNT(*) FROM books WHERE shelf_id IN (SELECT id FROM shelves WHERE unit_id = u.id) AND owned = 1)
       AS book_count
     FROM units u ORDER BY u.order_index, u.name
   `).all();
   const shelves   = db.prepare(`
-    SELECT s.*, (SELECT COUNT(*) FROM books WHERE shelf_id = s.id) AS book_count
+    SELECT s.*, (SELECT COUNT(*) FROM books WHERE shelf_id = s.id AND owned = 1) AS book_count
     FROM shelves s ORDER BY s.order_index, s.label
   `).all();
   const tree = buildings.map(b => ({
@@ -65,7 +65,7 @@ router.get('/buildings', (_req, res) => {
         JOIN shelves s ON bk.shelf_id = s.id
         JOIN units u ON s.unit_id = u.id
         JOIN rooms r ON u.room_id = r.id
-        WHERE r.building_id = b.id) AS book_count
+        WHERE r.building_id = b.id AND bk.owned = 1) AS book_count
     FROM buildings b
     ORDER BY b.order_index, b.name
   `).all();
@@ -133,7 +133,7 @@ router.get('/buildings/:id/rooms', (req, res) => {
       (SELECT COUNT(*) FROM books bk
         JOIN shelves s ON bk.shelf_id = s.id
         JOIN units u ON s.unit_id = u.id
-        WHERE u.room_id = r.id) AS book_count
+        WHERE u.room_id = r.id AND bk.owned = 1) AS book_count
     FROM rooms r
     WHERE r.building_id = ?
     ORDER BY r.order_index, r.name
@@ -191,7 +191,7 @@ router.get('/rooms/:id/units', (req, res) => {
       (SELECT COUNT(*) FROM shelves WHERE unit_id = u.id) AS shelf_count,
       (SELECT COUNT(*) FROM books bk
         JOIN shelves s ON bk.shelf_id = s.id
-        WHERE s.unit_id = u.id) AS book_count
+        WHERE s.unit_id = u.id AND bk.owned = 1) AS book_count
     FROM units u
     WHERE u.room_id = ?
     ORDER BY u.order_index, u.name
@@ -246,7 +246,7 @@ router.get('/units/:id/shelves', (req, res) => {
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid id' });
   const shelves = db.prepare(`
     SELECT s.*,
-      (SELECT COUNT(*) FROM books WHERE shelf_id = s.id) AS book_count
+      (SELECT COUNT(*) FROM books WHERE shelf_id = s.id AND owned = 1) AS book_count
     FROM shelves s
     WHERE s.unit_id = ?
     ORDER BY s.order_index, s.label
@@ -392,7 +392,7 @@ router.get('/shelves/:id/books', (req, res) => {
   const books = db.prepare(`
     SELECT b.id, b.title, b.author, b.cover_path, b.status, b.rating, b.series, b.series_number, b.format
     FROM books b
-    WHERE b.shelf_id = ?
+    WHERE b.shelf_id = ? AND b.owned = 1
     ORDER BY CASE WHEN b.shelf_position IS NULL THEN 1 ELSE 0 END, b.shelf_position, b.series, b.series_number, b.title
   `).all(id).map(b => ({ ...b, cover_path: b.cover_path ? `/uploads/${b.cover_path}` : null }));
   res.json(books);
