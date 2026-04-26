@@ -256,7 +256,7 @@ export default function Library() {
     if (filters.missing.includes('cover')     && b.cover_path)            return false;
     if (filters.missing.includes('author')    && b.author)                return false;
     if (filters.missing.includes('format')    && b.format)                return false;
-    if (filters.missing.includes('isbn')      && (b.is_custom || b.isbn_10 || b.isbn_13 || b.asin)) return false;
+    if (filters.missing.includes('isbn')      && (b.is_custom || b.format === 'ebook' || b.isbn_10 || b.isbn_13 || b.asin)) return false;
     if (filters.missing.includes('isbn')      && (b.year_published < 1970 && !(b.year_edition >= 1970))) return false;
     if (filters.missing.includes('publisher') && b.publisher)             return false;
     if (filters.missing.includes('year')      && b.year_published)        return false;
