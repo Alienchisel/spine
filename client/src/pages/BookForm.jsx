@@ -602,6 +602,7 @@ export default function BookForm() {
                         ...f,
                         status: s,
                         read_count: s === 'finished' && f.read_count === 0 ? 1 : f.read_count,
+                        date_started: s === 'reading' && !f.date_started ? today : f.date_started,
                         date_finished: s === 'finished' && !f.date_finished ? today : f.date_finished,
                       }));
                     }}>
