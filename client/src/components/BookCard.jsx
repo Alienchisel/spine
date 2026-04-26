@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
+import { realTagNames } from '../utils.js';
 import ListPicker from './ListPicker.jsx';
 import StarRating from './StarRating.jsx';
 
@@ -116,7 +117,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact 
         const finished = await api.updateBook(book.id, {
           ...updated,
           status: 'finished',
-          tags: updated.tags?.map(t => t.name) ?? [],
+          tags: realTagNames(updated.tags),
         });
         setBook(finished);
         onProgressUpdate?.(finished);
@@ -167,7 +168,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact 
       const rated = await api.updateBook(book.id, {
         ...book,
         rating,
-        tags: book.tags?.map(t => t.name) ?? [],
+        tags: realTagNames(book.tags),
       });
       setBook(rated);
       onProgressUpdate?.(rated);

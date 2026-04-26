@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../api.js';
+import { realTagNames } from '../utils.js';
 import StarRating from '../components/StarRating.jsx';
 import ShelfPicker from '../components/ShelfPicker.jsx';
 
@@ -207,7 +208,7 @@ export default function BookForm() {
         notes: book.notes || '',
         review: book.review || '',
         read_count: book.read_count || 0,
-        tags: book.tags?.map((t) => t.name) || [],
+        tags: realTagNames(book.tags),
         cover_path: book.cover_path || null,
       });
       if (book.duration_minutes) {

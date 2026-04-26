@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import { api } from '../api.js';
 import StarRating from '../components/StarRating.jsx';
 import ListPicker from '../components/ListPicker.jsx';
+import { realTagNames } from '../utils.js';
 
 const STATUS_LABEL = { reading: 'Reading', paused: 'Paused', finished: 'Finished', unread: 'Unread' };
 
@@ -226,7 +227,7 @@ export default function BookDetail() {
     const updated = await api.updateBook(book.id, {
       ...book,
       rating,
-      tags: book.tags?.map(t => t.name) ?? [],
+      tags: realTagNames(book.tags),
     });
     setBook(updated);
   }
@@ -533,7 +534,13 @@ export default function BookDetail() {
           {book.tags?.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mb-6">
               {book.tags.map((t) => (
-                <Link key={t.id} to={`/browse/tag/${encodeURIComponent(t.name)}`} className="text-xs bg-neutral-800 text-neutral-400 px-2.5 py-1 rounded-full hover:bg-neutral-700 hover:text-neutral-200 transition-colors">
+                <Link
+                  key={t.virtual ? `v:${t.name}` : t.id}
+                  to={`/browse/tag/${encodeURIComponent(t.name)}`}
+                  className={t.virtual
+                    ? 'text-xs border border-neutral-700 text-neutral-500 px-2.5 py-1 rounded-full hover:border-neutral-500 hover:text-neutral-300 transition-colors'
+                    : 'text-xs bg-neutral-800 text-neutral-400 px-2.5 py-1 rounded-full hover:bg-neutral-700 hover:text-neutral-200 transition-colors'}
+                >
                   {t.name}
                 </Link>
               ))}

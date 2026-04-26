@@ -103,7 +103,27 @@ function getBookWithTags(id) {
     WHERE bt.book_id = ?
     ORDER BY t.name
   `).all(id);
-  return { ...book, cover_path: toCoverUrl(book.cover_path), tags };
+  return { ...book, cover_path: toCoverUrl(book.cover_path), tags: [...tags, ...computeVirtualTags(book)] };
+}
+
+const VIRTUAL_TAG_RULES = [
+  {
+    name: 'Antique',
+    test: (book) => {
+      const year = book.year_edition || book.year_published;
+      return Boolean(year && new Date().getFullYear() - year >= 100);
+    },
+  },
+  {
+    name: 'Translated',
+    test: (book) => Boolean(book.original_language && book.original_language !== book.language),
+  },
+];
+
+function computeVirtualTags(book) {
+  return VIRTUAL_TAG_RULES
+    .filter(r => r.test(book))
+    .map(r => ({ id: null, name: r.name, virtual: true }));
 }
 
 function syncTags(bookId, tagNames) {
@@ -156,7 +176,7 @@ router.get('/', (req, res) => {
       JOIN book_tags bt ON bt.tag_id = t.id
       WHERE bt.book_id = ?
     `).all(b.id);
-    return { ...b, cover_path: toCoverUrl(b.cover_path), tags };
+    return { ...b, cover_path: toCoverUrl(b.cover_path), tags: [...tags, ...computeVirtualTags(b)] };
   });
   res.json(withTags);
 });
