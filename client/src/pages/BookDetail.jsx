@@ -28,7 +28,36 @@ const STATUS_COLOR = {
   unread:   'text-neutral-400 bg-neutral-800',
 };
 
-function ProgressSection({ book, onChange }) {
+function computeEta(log, remaining, isAudiobook) {
+  if (!log?.length || remaining <= 0) return null;
+  const key = isAudiobook ? 'minutes_read' : 'pages_read';
+  const active = log.filter(e => (e[key] || 0) > 0);
+  if (active.length < 2) return null;
+  const recent = active.slice(0, Math.min(10, active.length));
+  const avg = recent.reduce((sum, e) => sum + e[key], 0) / recent.length;
+  if (avg <= 0) return null;
+  const sessions = Math.ceil(remaining / avg);
+  if (sessions > 60) return null;
+
+  let finishDate = null;
+  if (recent.length >= 2 && recent[0].date && recent[recent.length - 1].date) {
+    const newest = new Date(recent[0].date + 'T12:00:00');
+    const oldest = new Date(recent[recent.length - 1].date + 'T12:00:00');
+    const daySpan = (newest - oldest) / 86400000;
+    if (daySpan > 0) {
+      const sessionsPerDay = (recent.length - 1) / daySpan;
+      const daysLeft = Math.round(sessions / sessionsPerDay);
+      if (daysLeft <= 365) {
+        finishDate = new Date();
+        finishDate.setDate(finishDate.getDate() + daysLeft);
+      }
+    }
+  }
+
+  return { sessions, finishDate };
+}
+
+function ProgressSection({ book, onChange, log }) {
   const isAudiobook = book.format === 'audiobook';
   const modeKey = `spine-progress-mode-${book.id}`;
   const [mode, setMode] = useState(() => localStorage.getItem(modeKey) || (isAudiobook ? 'min' : 'page'));
@@ -143,7 +172,25 @@ function ProgressSection({ book, onChange }) {
         <div className="h-full bg-oak rounded-full transition-all duration-300" style={{ width: `${pct ?? 0}%` }} />
       </div>
 
-      <p className="text-sm text-neutral-400 mb-4">{progressText}</p>
+      <p className="text-sm text-neutral-400 mb-1">{progressText}</p>
+      {(() => {
+        const remaining = isAudiobook
+          ? (book.duration_minutes && book.current_minutes != null ? book.duration_minutes - book.current_minutes : null)
+          : (book.page_count && book.current_page != null ? book.page_count - book.current_page : null);
+        const eta = computeEta(log, remaining, isAudiobook);
+        if (!eta) return <div className="mb-3" />;
+        const { sessions, finishDate } = eta;
+        const unit = isAudiobook ? 'listening session' : 'reading day';
+        const dateStr = finishDate
+          ? finishDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+          : null;
+        return (
+          <p className="text-xs text-neutral-500 mb-3">
+            ~{sessions} {unit}{sessions !== 1 ? 's' : ''} remaining
+            {dateStr && <> · est. {dateStr}</>}
+          </p>
+        );
+      })()}
 
       <form onSubmit={handleSubmit} className="flex flex-wrap items-center gap-2">
         <select value={mode} onChange={(e) => changeMode(e.target.value)}
@@ -480,7 +527,7 @@ export default function BookDetail() {
           </div>
 
           {(book.status === 'reading' || book.status === 'paused') && (
-            <ProgressSection book={book} onChange={(updated) => { setBook(updated); api.getBookLog(id).then(setLog).catch(() => {}); }} />
+            <ProgressSection book={book} log={log} onChange={(updated) => { setBook(updated); api.getBookLog(id).then(setLog).catch(() => {}); }} />
           )}
 
           {book.description && (() => {
