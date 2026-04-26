@@ -80,13 +80,14 @@ export default function ShelfView() {
   }, []);
 
   useEffect(() => {
-    if (!roomId && !unitId && !shelfId) { setBooks([]); return; }
+    if (!buildingId && !roomId && !unitId && !shelfId) { setBooks([]); return; }
     setBooksLoading(true);
-    const fetch = shelfId ? api.getShelfBooks(shelfId)
-      : unitId  ? api.getUnitBooks(unitId)
-      : api.getRoomBooks(roomId);
+    const fetch = shelfId    ? api.getShelfBooks(shelfId)
+      : unitId              ? api.getUnitBooks(unitId)
+      : roomId              ? api.getRoomBooks(roomId)
+      : api.getBuildingBooks(buildingId);
     fetch.then(setBooks).finally(() => setBooksLoading(false));
-  }, [roomId, unitId, shelfId]);
+  }, [buildingId, roomId, unitId, shelfId]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -188,11 +189,9 @@ export default function ShelfView() {
         )
       )}
 
-      {/* Rooms */}
-      {buildingId && !roomId && (
-        rooms.length === 0 ? (
-          <p className="text-neutral-600 text-sm">No rooms in this building.</p>
-        ) : (
+      {/* Rooms + building-level books */}
+      {buildingId && !roomId && (<>
+        {rooms.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {rooms.map(r => (
               <LevelCard
@@ -203,8 +202,18 @@ export default function ShelfView() {
               />
             ))}
           </div>
-        )
-      )}
+        )}
+        {booksLoading ? (
+          <div className="text-neutral-700 text-sm mt-6">Loading…</div>
+        ) : books.length > 0 && (
+          <div className={`grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 gap-y-7 ${rooms.length > 0 ? 'mt-8' : ''}`}>
+            {books.map(book => <BookCard key={book.id} book={book} />)}
+          </div>
+        )}
+        {!booksLoading && rooms.length === 0 && books.length === 0 && (
+          <p className="text-neutral-600 text-sm">No books in this building yet.</p>
+        )}
+      </>)}
 
       {/* Units + room-level books */}
       {roomId && !unitId && (<>

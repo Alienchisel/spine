@@ -60,6 +60,7 @@ export const api = {
   createShelf: (data) => request('/shelf/shelves', { method: 'POST', body: JSON.stringify(data) }),
   updateShelf: (id, data) => request(`/shelf/shelves/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteShelf: (id) => request(`/shelf/shelves/${id}`, { method: 'DELETE' }),
+  getBuildingBooks: (buildingId) => request(`/shelf/buildings/${buildingId}/books`),
   getRoomBooks: (roomId) => request(`/shelf/rooms/${roomId}/books`),
   getUnitBooks: (unitId) => request(`/shelf/units/${unitId}/books`),
   getShelfBooks: (shelfId) => request(`/shelf/shelves/${shelfId}/books`),
