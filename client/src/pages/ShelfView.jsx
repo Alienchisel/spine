@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import {
   DndContext,
@@ -20,32 +20,35 @@ import BookCard from '../components/BookCard.jsx';
 function SortableShelfCover({ book }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: book.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
-  const draggedRef = useRef(false);
-  useEffect(() => { if (isDragging) draggedRef.current = true; }, [isDragging]);
 
   return (
     <div
       ref={setNodeRef}
       style={style}
       {...attributes}
-      {...listeners}
-      className={`flex-shrink-0 cursor-grab active:cursor-grabbing select-none transition-opacity ${isDragging ? 'opacity-40' : ''}`}
+      className={`flex-shrink-0 select-none transition-opacity ${isDragging ? 'opacity-40' : ''}`}
     >
-      <Link
-        to={`/books/${book.id}`}
-        draggable={false}
-        className="block"
-        onClick={e => { if (draggedRef.current) { e.preventDefault(); draggedRef.current = false; } }}
-      >
-        <div className="w-[240px] h-[360px] rounded overflow-hidden bg-neutral-800 shadow-xl ring-1 ring-white/5 hover:ring-white/20 transition-all hover:scale-[1.02] duration-200">
-          {book.cover_path
-            ? <img src={book.cover_path} alt={book.title} draggable={false} className="w-full h-full object-cover object-top" />
-            : <div className="w-full h-full flex items-end p-2 bg-gradient-to-br from-neutral-700 to-neutral-900">
-                <span className="text-xs text-neutral-400 leading-tight line-clamp-4">{book.title}</span>
-              </div>}
-        </div>
-        <p className="text-xs text-neutral-500 mt-2 w-[240px] truncate">{book.title}</p>
-      </Link>
+      <div className="relative group">
+        <Link to={`/books/${book.id}`} draggable={false} className="block">
+          <div className="w-[240px] h-[360px] rounded overflow-hidden bg-neutral-800 shadow-xl ring-1 ring-white/5 hover:ring-white/20 transition-all hover:scale-[1.02] duration-200">
+            {book.cover_path
+              ? <img src={book.cover_path} alt={book.title} draggable={false} className="w-full h-full object-cover object-top" />
+              : <div className="w-full h-full flex items-end p-2 bg-gradient-to-br from-neutral-700 to-neutral-900">
+                  <span className="text-xs text-neutral-400 leading-tight line-clamp-4">{book.title}</span>
+                </div>}
+          </div>
+        </Link>
+        <button
+          {...listeners}
+          className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-sm rounded px-2 py-1 text-neutral-500 hover:text-neutral-200 transition-colors cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100"
+          aria-label="Drag to reorder"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4">
+            <path fillRule="evenodd" d="M2.75 4a.75.75 0 0 1 .75-.75h9a.75.75 0 0 1 0 1.5h-9A.75.75 0 0 1 2.75 4Zm0 4a.75.75 0 0 1 .75-.75h9a.75.75 0 0 1 0 1.5h-9A.75.75 0 0 1 2.75 8Zm.75 3.25a.75.75 0 0 0 0 1.5h9a.75.75 0 0 0 0-1.5h-9Z" clipRule="evenodd" />
+          </svg>
+        </button>
+      </div>
+      <p className="text-xs text-neutral-500 mt-2 w-[240px] truncate">{book.title}</p>
     </div>
   );
 }
