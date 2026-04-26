@@ -282,14 +282,32 @@ router.get('/buildings/:id/books', (req, res) => {
   const books = db.prepare(`
     SELECT b.id, b.title, b.author, b.cover_path, b.status, b.rating, b.series, b.series_number, b.format
     FROM books b
+    -- resolve effective room
+    LEFT JOIN rooms       r_direct ON r_direct.id = b.room_id
+    LEFT JOIN units       u_for_r  ON u_for_r.id  = b.unit_id
+    LEFT JOIN rooms       r_via_u  ON r_via_u.id  = u_for_r.room_id
+    LEFT JOIN shelves     s_direct ON s_direct.id = b.shelf_id
+    LEFT JOIN units       u_via_s  ON u_via_s.id  = s_direct.unit_id
+    LEFT JOIN rooms       r_via_s  ON r_via_s.id  = u_via_s.room_id
+    -- resolve effective unit
+    LEFT JOIN units       u_direct ON u_direct.id = b.unit_id
+    LEFT JOIN units       u_via_sh ON u_via_sh.id = s_direct.unit_id
     WHERE b.owned = 1
       AND (
         b.building_id = ?
-        OR b.room_id IN (SELECT id FROM rooms WHERE building_id = ?)
-        OR b.unit_id IN (SELECT u.id FROM units u JOIN rooms r ON u.room_id = r.id WHERE r.building_id = ?)
-        OR b.shelf_id IN (SELECT s.id FROM shelves s JOIN units u ON s.unit_id = u.id JOIN rooms r ON u.room_id = r.id WHERE r.building_id = ?)
+        OR r_direct.building_id = ?
+        OR r_via_u.building_id  = ?
+        OR r_via_s.building_id  = ?
       )
-    ORDER BY COALESCE(b.series, b.title), b.series_number, b.title
+    ORDER BY
+      COALESCE(r_direct.order_index, r_via_u.order_index, r_via_s.order_index, 0),
+      COALESCE(r_direct.name,        r_via_u.name,        r_via_s.name),
+      COALESCE(u_direct.order_index, u_via_sh.order_index, 0),
+      COALESCE(u_direct.name,        u_via_sh.name),
+      COALESCE(s_direct.order_index, 0),
+      CASE WHEN b.shelf_position IS NULL THEN 1 ELSE 0 END,
+      b.shelf_position,
+      COALESCE(b.series, b.title), b.series_number, b.title
   `).all(id, id, id, id).map(b => ({ ...b, cover_path: b.cover_path ? `/uploads/${b.cover_path}` : null }));
   res.json(books);
 });
@@ -302,13 +320,22 @@ router.get('/rooms/:id/books', (req, res) => {
   const books = db.prepare(`
     SELECT b.id, b.title, b.author, b.cover_path, b.status, b.rating, b.series, b.series_number, b.format
     FROM books b
+    LEFT JOIN units   u_direct ON u_direct.id = b.unit_id
+    LEFT JOIN shelves s_direct ON s_direct.id = b.shelf_id
+    LEFT JOIN units   u_via_s  ON u_via_s.id  = s_direct.unit_id
     WHERE b.owned = 1
       AND (
         b.room_id = ?
-        OR b.unit_id IN (SELECT id FROM units WHERE room_id = ?)
-        OR b.shelf_id IN (SELECT s.id FROM shelves s JOIN units u ON s.unit_id = u.id WHERE u.room_id = ?)
+        OR u_direct.room_id = ?
+        OR u_via_s.room_id  = ?
       )
-    ORDER BY COALESCE(b.series, b.title), b.series_number, b.title
+    ORDER BY
+      COALESCE(u_direct.order_index, u_via_s.order_index, 0),
+      COALESCE(u_direct.name,        u_via_s.name),
+      COALESCE(s_direct.order_index, 0),
+      CASE WHEN b.shelf_position IS NULL THEN 1 ELSE 0 END,
+      b.shelf_position,
+      COALESCE(b.series, b.title), b.series_number, b.title
   `).all(id, id, id).map(b => ({ ...b, cover_path: b.cover_path ? `/uploads/${b.cover_path}` : null }));
   res.json(books);
 });
@@ -321,12 +348,14 @@ router.get('/units/:id/books', (req, res) => {
   const books = db.prepare(`
     SELECT b.id, b.title, b.author, b.cover_path, b.status, b.rating, b.series, b.series_number, b.format
     FROM books b
+    LEFT JOIN shelves s ON s.id = b.shelf_id
     WHERE b.owned = 1
-      AND (
-        b.unit_id = ?
-        OR b.shelf_id IN (SELECT id FROM shelves WHERE unit_id = ?)
-      )
-    ORDER BY COALESCE(b.series, b.title), b.series_number, b.title
+      AND (b.unit_id = ? OR s.unit_id = ?)
+    ORDER BY
+      COALESCE(s.order_index, 0),
+      CASE WHEN b.shelf_position IS NULL THEN 1 ELSE 0 END,
+      b.shelf_position,
+      COALESCE(b.series, b.title), b.series_number, b.title
   `).all(id, id).map(b => ({ ...b, cover_path: b.cover_path ? `/uploads/${b.cover_path}` : null }));
   res.json(books);
 });
