@@ -282,11 +282,14 @@ router.get('/buildings/:id/books', (req, res) => {
   const books = db.prepare(`
     SELECT b.id, b.title, b.author, b.cover_path, b.status, b.rating, b.series, b.series_number, b.format
     FROM books b
-    WHERE b.building_id = ?
-      OR b.room_id IN (SELECT id FROM rooms WHERE building_id = ?)
-      OR b.unit_id IN (SELECT u.id FROM units u JOIN rooms r ON u.room_id = r.id WHERE r.building_id = ?)
-      OR b.shelf_id IN (SELECT s.id FROM shelves s JOIN units u ON s.unit_id = u.id JOIN rooms r ON u.room_id = r.id WHERE r.building_id = ?)
-    ORDER BY b.series, b.series_number, b.title
+    WHERE b.owned = 1
+      AND (
+        b.building_id = ?
+        OR b.room_id IN (SELECT id FROM rooms WHERE building_id = ?)
+        OR b.unit_id IN (SELECT u.id FROM units u JOIN rooms r ON u.room_id = r.id WHERE r.building_id = ?)
+        OR b.shelf_id IN (SELECT s.id FROM shelves s JOIN units u ON s.unit_id = u.id JOIN rooms r ON u.room_id = r.id WHERE r.building_id = ?)
+      )
+    ORDER BY COALESCE(b.series, b.title), b.series_number, b.title
   `).all(id, id, id, id).map(b => ({ ...b, cover_path: b.cover_path ? `/uploads/${b.cover_path}` : null }));
   res.json(books);
 });
@@ -299,10 +302,13 @@ router.get('/rooms/:id/books', (req, res) => {
   const books = db.prepare(`
     SELECT b.id, b.title, b.author, b.cover_path, b.status, b.rating, b.series, b.series_number, b.format
     FROM books b
-    WHERE b.room_id = ?
-      OR b.unit_id IN (SELECT id FROM units WHERE room_id = ?)
-      OR b.shelf_id IN (SELECT s.id FROM shelves s JOIN units u ON s.unit_id = u.id WHERE u.room_id = ?)
-    ORDER BY b.series, b.series_number, b.title
+    WHERE b.owned = 1
+      AND (
+        b.room_id = ?
+        OR b.unit_id IN (SELECT id FROM units WHERE room_id = ?)
+        OR b.shelf_id IN (SELECT s.id FROM shelves s JOIN units u ON s.unit_id = u.id WHERE u.room_id = ?)
+      )
+    ORDER BY COALESCE(b.series, b.title), b.series_number, b.title
   `).all(id, id, id).map(b => ({ ...b, cover_path: b.cover_path ? `/uploads/${b.cover_path}` : null }));
   res.json(books);
 });
@@ -315,9 +321,12 @@ router.get('/units/:id/books', (req, res) => {
   const books = db.prepare(`
     SELECT b.id, b.title, b.author, b.cover_path, b.status, b.rating, b.series, b.series_number, b.format
     FROM books b
-    WHERE b.unit_id = ?
-      OR b.shelf_id IN (SELECT id FROM shelves WHERE unit_id = ?)
-    ORDER BY b.series, b.series_number, b.title
+    WHERE b.owned = 1
+      AND (
+        b.unit_id = ?
+        OR b.shelf_id IN (SELECT id FROM shelves WHERE unit_id = ?)
+      )
+    ORDER BY COALESCE(b.series, b.title), b.series_number, b.title
   `).all(id, id).map(b => ({ ...b, cover_path: b.cover_path ? `/uploads/${b.cover_path}` : null }));
   res.json(books);
 });
