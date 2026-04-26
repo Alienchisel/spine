@@ -340,21 +340,21 @@ export default function BookForm() {
     }
   }
 
-  async function fetchAndSetCover(url) {
-    setCoverPreview(url);
-    setUploading(true);
-    try {
-      const result = await api.fetchCover(url);
-      set('cover_path', result.path);
-      setCoverPreview(result.path);
-    } catch {
-      setCoverPreview(null);
-    } finally {
-      setUploading(false);
-    }
-  }
-
   useEffect(() => {
+    async function fetchAndSetCover(url) {
+      setCoverPreview(url);
+      setUploading(true);
+      try {
+        const result = await api.fetchCover(url);
+        set('cover_path', result.path);
+        setCoverPreview(result.path);
+      } catch {
+        setCoverPreview(null);
+      } finally {
+        setUploading(false);
+      }
+    }
+
     function handlePaste(e) {
       const items = Array.from(e.clipboardData?.items || []);
 
@@ -377,7 +377,6 @@ export default function BookForm() {
         htmlItem.getAsString((html) => {
           const m = html.match(/src=["']([^"']+)["']/);
           if (m?.[1]?.startsWith('https://')) { fetchAndSetCover(m[1]); return; }
-          // Fall through to text/plain check if no useful src found
           const textItem = items.find(i => i.type === 'text/plain');
           if (textItem) textItem.getAsString((text) => {
             const url = text.trim();
@@ -394,6 +393,7 @@ export default function BookForm() {
         if (url.startsWith('https://')) fetchAndSetCover(url);
       });
     }
+
     window.addEventListener('paste', handlePaste);
     return () => window.removeEventListener('paste', handlePaste);
   }, []);
