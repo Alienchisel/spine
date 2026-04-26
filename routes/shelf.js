@@ -268,7 +268,7 @@ router.get('/unshelfed', (_req, res) => {
   const books = db.prepare(`
     SELECT id, title, author, cover_path, status, rating
     FROM books
-    WHERE owned = 1 AND shelf_id IS NULL AND unit_id IS NULL AND room_id IS NULL AND building_id IS NULL
+    WHERE owned = 1 AND (format = 'physical' OR format IS NULL) AND shelf_id IS NULL AND unit_id IS NULL AND room_id IS NULL AND building_id IS NULL
     ORDER BY title
   `).all().map(b => ({ ...b, cover_path: b.cover_path ? `/uploads/${b.cover_path}` : null }));
   res.json(books);
