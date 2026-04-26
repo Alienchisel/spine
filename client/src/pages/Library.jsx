@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { sortTitle } from '../utils.js';
@@ -6,16 +6,17 @@ import BookCard from '../components/BookCard.jsx';
 import FilterPanel from '../components/FilterPanel.jsx';
 
 const TABS = [
-  { key: 'reading',  label: 'Reading' },
-  { key: 'paused',   label: 'Paused' },
-  { key: 'finished', label: 'Finished' },
-  { key: 'unread',   label: 'Unread' },
-  { key: 'owned',      label: 'Owned' },
+  { key: 'reading',   label: 'Reading' },
+  { key: 'paused',    label: 'Paused' },
+  { key: 'finished',  label: 'Finished' },
+  { key: 'unread',    label: 'Unread' },
+  { key: 'owned',     label: 'Owned' },
   { key: 'prev_owned', label: 'Prev. owned' },
-  { key: 'all',        label: 'All' },
+  { key: 'all',       label: 'All' },
 ];
 
 const SESSION_KEY = 'spine-library-state';
+const PAGE_SIZE = 50;
 
 const SORTS = [
   { key: 'updated',  label: 'Recently updated' },
@@ -23,10 +24,10 @@ const SORTS = [
   { key: 'title',    label: 'Title A–Z' },
   { key: 'author',   label: 'Author A–Z' },
   { key: 'rating',   label: 'Rating' },
-  { key: 'progress',  label: 'Progress' },
-  { key: 'started',   label: 'Date started' },
-  { key: 'finished',  label: 'Date finished' },
-  { key: 'length',    label: 'Length' },
+  { key: 'progress', label: 'Progress' },
+  { key: 'started',  label: 'Date started' },
+  { key: 'finished', label: 'Date finished' },
+  { key: 'length',   label: 'Length' },
 ];
 
 const GRID = {
@@ -34,75 +35,61 @@ const GRID = {
   compact:     'grid grid-cols-6 sm:grid-cols-9 md:grid-cols-12 gap-0.5',
 };
 
-function progress(b) {
-  if (b.format === 'audiobook') {
-    return b.duration_minutes ? (b.current_minutes ?? 0) / b.duration_minutes : 0;
-  }
-  return b.page_count ? (b.current_page ?? 0) / b.page_count : 0;
-}
-
-function applySort(books, sort) {
-  const sorted = [...books];
-  if (sort === 'added')    return sorted.sort((a, b) => b.id - a.id);
-  if (sort === 'title')    return sorted.sort((a, b) => sortTitle(a.title).localeCompare(sortTitle(b.title)) || (a.series_number ?? Infinity) - (b.series_number ?? Infinity));
-  if (sort === 'author')   return sorted.sort((a, b) => (a.author || '').localeCompare(b.author || ''));
-  if (sort === 'rating')   return sorted.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
-  if (sort === 'progress') return sorted.sort((a, b) => progress(b) - progress(a));
-  if (sort === 'started')  return sorted.sort((a, b) => (b.date_started ?? '').localeCompare(a.date_started ?? ''));
-  if (sort === 'finished') return sorted.sort((a, b) => (b.date_finished ?? '').localeCompare(a.date_finished ?? ''));
-  if (sort === 'length')   return sorted.sort((a, b) => {
-    const len = b => b.format === 'audiobook' ? (b.duration_minutes || Infinity) : (b.page_count || Infinity);
-    return len(a) - len(b);
-  });
-  return sorted;
-}
-
 function getSaved() {
   try { return JSON.parse(sessionStorage.getItem(SESSION_KEY)) ?? {}; }
   catch { return {}; }
 }
 
 const EMPTY_FILTERS = {
-  missing:    [],
-  formats:    [],
-  ratings:    [],
-  publishers: [],
-  series:     [],
-  tags:       [],
-  owned:          null,
+  missing:         [],
+  formats:         [],
+  ratings:         [],
+  publishers:      [],
+  series:          [],
+  tags:            [],
+  owned:           null,
   previouslyOwned: null,
-  custom:         null,
-  loved:          null,
+  custom:          null,
+  loved:           null,
 };
-
-function pruneFilters(filters, books) {
-  const publishers = new Set(books.map(b => b.publisher || 'empty'));
-  const series     = new Set(books.map(b => b.series     || 'empty'));
-  const formats    = new Set(books.map(b => b.format     || 'empty'));
-  const ratings    = new Set(books.map(b => String(b.rating ?? 'empty')));
-  const tags       = new Set(books.flatMap(b => b.tags?.map(t => t.name) || []));
-  return {
-    ...filters,
-    publishers: filters.publishers.filter(p => publishers.has(p)),
-    series:     filters.series.filter(s => series.has(s)),
-    formats:    filters.formats.filter(f => formats.has(f)),
-    ratings:    filters.ratings.filter(r => ratings.has(String(r))),
-    tags:       filters.tags.filter(t => tags.has(t)),
-  };
-}
 
 function countFilters(f) {
   return f.missing.length + f.formats.length + f.ratings.length +
     f.publishers.length + f.series.length + f.tags.length +
-    (f.owned !== null ? 1 : 0) + (f.previouslyOwned !== null ? 1 : 0) + (f.custom !== null ? 1 : 0) + (f.loved !== null ? 1 : 0);
+    (f.owned !== null ? 1 : 0) + (f.previouslyOwned !== null ? 1 : 0) +
+    (f.custom !== null ? 1 : 0) + (f.loved !== null ? 1 : 0);
 }
 
-function FilterIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
-      <path fillRule="evenodd" d="M2 4a.75.75 0 0 1 .75-.75h10.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 4ZM4 8a.75.75 0 0 1 .75-.75h6.5a.75.75 0 0 1 0 1.5h-6.5A.75.75 0 0 1 4 8Zm2.75 3.25a.75.75 0 0 0 0 1.5h2.5a.75.75 0 0 0 0-1.5h-2.5Z" clipRule="evenodd" />
-    </svg>
-  );
+function pruneFilters(filters, facets) {
+  const fmtSet  = new Set(facets.formats);
+  const pubSet  = new Set(facets.publishers);
+  const serSet  = new Set(facets.series);
+  const rtSet   = new Set(facets.ratings.map(String));
+  const tagSet  = new Set(facets.tags);
+  return {
+    ...filters,
+    formats:    filters.formats.filter(f => f === 'empty' ? facets.hasEmptyFormat    : fmtSet.has(f)),
+    publishers: filters.publishers.filter(p => p === 'empty' ? facets.hasEmptyPublisher : pubSet.has(p)),
+    series:     filters.series.filter(s => s === 'empty' ? facets.hasEmptySeries    : serSet.has(s)),
+    ratings:    filters.ratings.filter(r => r === 'empty' ? facets.hasEmptyRating    : rtSet.has(String(r))),
+    tags:       filters.tags.filter(t => tagSet.has(t)),
+  };
+}
+
+function buildApiParams(tab, sort, filters, q, offset) {
+  const p = { tab, sort, limit: PAGE_SIZE, offset };
+  if (q) p.q = q;
+  if (filters.missing.length)    p.missing        = filters.missing;
+  if (filters.formats.length)    p.formats        = filters.formats;
+  if (filters.ratings.length)    p.ratings        = filters.ratings.map(String);
+  if (filters.publishers.length) p.publishers     = filters.publishers;
+  if (filters.series.length)     p.series         = filters.series;
+  if (filters.tags.length)       p.tags           = filters.tags;
+  if (filters.owned !== null)           p.owned           = String(filters.owned);
+  if (filters.previouslyOwned !== null) p.previouslyOwned = String(filters.previouslyOwned);
+  if (filters.custom !== null)          p.custom          = String(filters.custom);
+  if (filters.loved !== null)           p.loved           = String(filters.loved);
+  return p;
 }
 
 function buildDisplayItems(books, expandedSeries) {
@@ -165,23 +152,15 @@ function SeriesCard({ seriesName, books, expanded, onToggle, compact }) {
           const leftPct = n === 1 ? 0 : (i * 45 / (n - 1));
           const width = n === 1 ? '100%' : '55%';
           return (
-            <div
-              key={vol.id}
-              className="absolute top-0 bottom-0 overflow-hidden"
-              style={{ left: `${leftPct}%`, width }}
-            >
+            <div key={vol.id} className="absolute top-0 bottom-0 overflow-hidden" style={{ left: `${leftPct}%`, width }}>
               {vol.cover_path ? (
                 <img src={vol.cover_path} alt="" className="h-full w-full object-cover" />
               ) : (
                 <div className="h-full w-full bg-gradient-to-br from-neutral-700 to-neutral-900 flex items-end p-2">
-                  {i === n - 1 && (
-                    <span className="text-xs text-neutral-400 font-medium leading-tight line-clamp-4">{seriesName}</span>
-                  )}
+                  {i === n - 1 && <span className="text-xs text-neutral-400 font-medium leading-tight line-clamp-4">{seriesName}</span>}
                 </div>
               )}
-              {i > 0 && (
-                <div className="absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-black/50 to-transparent pointer-events-none" />
-              )}
+              {i > 0 && <div className="absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-black/50 to-transparent pointer-events-none" />}
             </div>
           );
         })}
@@ -191,107 +170,95 @@ function SeriesCard({ seriesName, books, expanded, onToggle, compact }) {
       </div>
       {!compact && <>
         <p className="text-sm font-medium text-neutral-200 truncate leading-tight" title={seriesName}>{seriesName}</p>
-        {sorted[0]?.author && (
-          <p className="text-xs text-neutral-500 truncate mt-0.5">{sorted[0].author}</p>
-        )}
-        {statusParts.length > 0 && (
-          <p className="text-xs text-neutral-600 truncate mt-0.5">{statusParts.join(' · ')}</p>
-        )}
+        {sorted[0]?.author && <p className="text-xs text-neutral-500 truncate mt-0.5">{sorted[0].author}</p>}
+        {statusParts.length > 0 && <p className="text-xs text-neutral-600 truncate mt-0.5">{statusParts.join(' · ')}</p>}
       </>}
     </button>
   );
 }
 
+function FilterIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
+      <path fillRule="evenodd" d="M2 4a.75.75 0 0 1 .75-.75h10.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 4ZM4 8a.75.75 0 0 1 .75-.75h6.5a.75.75 0 0 1 0 1.5h-6.5A.75.75 0 0 1 4 8Zm2.75 3.25a.75.75 0 0 0 0 1.5h2.5a.75.75 0 0 0 0-1.5h-2.5Z" clipRule="evenodd" />
+    </svg>
+  );
+}
 
 const VALID_TABS = new Set(['reading', 'paused', 'finished', 'unread', 'owned', 'prev_owned', 'loved', 'all']);
 
 export default function Library() {
   const [searchParams] = useSearchParams();
   const urlTab = searchParams.get('tab');
-  const [tab, setTab] = useState(() => (urlTab && VALID_TABS.has(urlTab)) ? urlTab : (getSaved().tab || 'reading'));
-  const [books, setBooks] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [query, setQuery] = useState(() => getSaved().query || '');
-  const [filtersOpen, setFiltersOpen] = useState(() => getSaved().filtersOpen ?? false);
-  const [filters, setFilters] = useState(() => {
-    const s = getSaved().filters;
-    return s ? { ...EMPTY_FILTERS, ...s } : EMPTY_FILTERS;
-  });
-  const [sort, setSort] = useState(() => getSaved().sort || 'updated');
+  const saved = getSaved();
+
+  const [tab,         setTab]         = useState(() => (urlTab && VALID_TABS.has(urlTab)) ? urlTab : (saved.tab || 'reading'));
+  const [queryRaw,    setQueryRaw]    = useState(() => saved.query || '');
+  const [query,       setQuery]       = useState(() => saved.query || '');
+  const [filtersOpen, setFiltersOpen] = useState(() => saved.filtersOpen ?? false);
+  const [filters,     setFilters]     = useState(() => saved.filters ? { ...EMPTY_FILTERS, ...saved.filters } : EMPTY_FILTERS);
+  const [sort,        setSort]        = useState(() => saved.sort || 'updated');
+  const [density,     setDensity]     = useState(() => saved.density || 'comfortable');
+
+  const [books,       setBooks]       = useState([]);
+  const [total,       setTotal]       = useState(0);
+  const [loading,     setLoading]     = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [facets,      setFacets]      = useState(null);
+  const [counts,      setCounts]      = useState({});
   const [expandedSeries, setExpandedSeries] = useState(new Set());
-  const [counts, setCounts] = useState({});
-  const [density, setDensity] = useState(() => getSaved().density || 'comfortable');
 
+  const loadedRef = useRef(0);
+
+  // Debounce search query
   useEffect(() => {
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ tab, query, filtersOpen, filters, sort, density }));
+    const timer = setTimeout(() => setQuery(queryRaw), 300);
+    return () => clearTimeout(timer);
+  }, [queryRaw]);
 
-  }, [tab, query, filtersOpen, filters, sort, density]);
+  // Persist UI state
+  useEffect(() => {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ tab, query: queryRaw, filtersOpen, filters, sort, density }));
+  }, [tab, queryRaw, filtersOpen, filters, sort, density]);
 
+  // Tab counts badge
   useEffect(() => {
     api.getBookCounts().then(setCounts).catch(() => {});
   }, []);
 
+  // Fetch facets when tab changes; prune active filters
   useEffect(() => {
-    setLoading(true);
-    api.getBooks(tab === 'all' ? null : (tab === 'owned' || tab === 'prev_owned' || tab === 'loved') ? null : tab).then(books => {
-      setBooks(books);
-      setFilters(f => pruneFilters(f, books));
-    }).finally(() => setLoading(false));
+    api.getBookFacets({ tab }).then(f => {
+      setFacets(f);
+      setFilters(prev => pruneFilters(prev, f));
+    }).catch(() => {});
   }, [tab]);
 
-  const activeCount = countFilters(filters);
+  // Fetch books on tab / sort / filter / query change — always reset to page 1
+  useEffect(() => {
+    setLoading(true);
+    setBooks([]);
+    loadedRef.current = 0;
+    api.getBooks(buildApiParams(tab, sort, filters, query, 0)).then(({ books: b, total: t }) => {
+      setBooks(b);
+      setTotal(t);
+      loadedRef.current = b.length;
+    }).finally(() => setLoading(false));
+  }, [tab, sort, filters, query]);
 
-  const filtered = books.filter(b => {
-    if (tab === 'owned'      && !b.owned)            return false;
-    if (tab === 'prev_owned' && !b.previously_owned) return false;
-    if (tab === 'loved'      && !b.loved)            return false;
-
-    if (query.trim() && !(
-      b.title.toLowerCase().includes(query.toLowerCase()) ||
-      (b.author  && b.author.toLowerCase().includes(query.toLowerCase())) ||
-      (b.series  && b.series.toLowerCase().includes(query.toLowerCase())) ||
-      b.tags?.some(t => t.name.toLowerCase().includes(query.toLowerCase()))
-    )) return false;
-
-    if (filters.missing.includes('cover')     && b.cover_path)            return false;
-    if (filters.missing.includes('author')    && b.author)                return false;
-    if (filters.missing.includes('format')    && b.format)                return false;
-    if (filters.missing.includes('isbn')      && (b.is_custom || b.format === 'ebook' || b.isbn_10 || b.isbn_13 || b.asin)) return false;
-    if (filters.missing.includes('isbn')      && (b.year_published < 1970 && !(b.year_edition >= 1970))) return false;
-    if (filters.missing.includes('publisher') && b.publisher)             return false;
-    if (filters.missing.includes('year')      && b.year_published)        return false;
-    if (filters.missing.includes('pages')     && (b.format === 'audiobook' ? b.duration_minutes : b.page_count)) return false;
-    if (filters.missing.includes('language')  && b.language)              return false;
-    if (filters.missing.includes('rating')       && (b.rating || b.status !== 'finished')) return false;
-    if (filters.missing.includes('fiction')      && b.fiction !== null && b.fiction !== undefined) return false;
-    if (filters.missing.includes('description')  && b.description)          return false;
-
-    if (filters.formats.length    > 0 && !filters.formats.includes(b.format    || 'empty')) return false;
-    if (filters.ratings.length    > 0 && !filters.ratings.includes(b.rating    || 'empty')) return false;
-    if (filters.publishers.length > 0 && !filters.publishers.includes(b.publisher || 'empty')) return false;
-    if (filters.series.length     > 0 && !filters.series.includes(b.series     || 'empty')) return false;
-    if (filters.tags.length > 0 && !filters.tags.some(t => b.tags?.some(bt => bt.name === t))) return false;
-    if (filters.owned === true  && !b.owned) return false;
-    if (filters.owned === false &&  b.owned) return false;
-    if (filters.previouslyOwned === true  && !b.previously_owned) return false;
-    if (filters.previouslyOwned === false &&  b.previously_owned) return false;
-    if (filters.custom === true  && !b.is_custom) return false;
-    if (filters.custom === false &&  b.is_custom) return false;
-    if (filters.loved  === true  && !b.loved)     return false;
-    if (filters.loved  === false &&  b.loved)     return false;
-
-    return true;
-  });
-
-  const sortedFiltered = applySort(filtered, sort);
-  const displayItems = buildDisplayItems(sortedFiltered, expandedSeries);
+  function handleLoadMore() {
+    setLoadingMore(true);
+    api.getBooks(buildApiParams(tab, sort, filters, query, loadedRef.current)).then(({ books: b, total: t }) => {
+      setBooks(prev => [...prev, ...b]);
+      setTotal(t);
+      loadedRef.current += b.length;
+    }).finally(() => setLoadingMore(false));
+  }
 
   function handleProgressUpdate(updated) {
+    const statusTabs = ['reading', 'paused', 'finished', 'unread'];
     setBooks(bs => {
-      const statusTabs = ['reading', 'paused', 'finished', 'unread'];
-      if (statusTabs.includes(tab) && updated.status !== tab) {
-        return bs.filter(b => b.id !== updated.id);
-      }
+      if (statusTabs.includes(tab) && updated.status !== tab) return bs.filter(b => b.id !== updated.id);
       return bs.map(b => b.id === updated.id ? updated : b);
     });
   }
@@ -299,11 +266,14 @@ export default function Library() {
   function toggleSeries(name) {
     setExpandedSeries(prev => {
       const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
+      if (next.has(name)) next.delete(name); else next.add(name);
       return next;
     });
   }
+
+  const activeCount   = countFilters(filters);
+  const displayItems  = buildDisplayItems(books, expandedSeries);
+  const hasMore       = loadedRef.current < total;
 
   return (
     <div>
@@ -335,8 +305,8 @@ export default function Library() {
             </select>
             <input
               type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              value={queryRaw}
+              onChange={(e) => setQueryRaw(e.target.value)}
               placeholder="Search by title or author…"
               className="bg-neutral-800 border border-leather/30 rounded-lg px-4 py-2 text-sm text-parchment placeholder-neutral-500 focus:outline-none focus:border-leather/70 focus:ring-1 focus:ring-oak/25 transition-colors duration-150 w-full sm:w-56"
             />
@@ -365,7 +335,7 @@ export default function Library() {
               </button>
             )}
             <span className="text-xs text-neutral-600 tabular-nums whitespace-nowrap">
-              {sortedFiltered.length} {sortedFiltered.length === 1 ? 'book' : 'books'}
+              {total} {total === 1 ? 'book' : 'books'}
             </span>
             <button
               onClick={() => setDensity(d => d === 'comfortable' ? 'compact' : 'comfortable')}
@@ -388,48 +358,59 @@ export default function Library() {
           </div>
         </div>
 
-        {filtersOpen && (
-          <FilterPanel allBooks={books} filters={filters} onChange={setFilters} />
+        {filtersOpen && facets && (
+          <FilterPanel facets={facets} filters={filters} onChange={setFilters} />
         )}
       </div>
 
       {loading ? (
         <div className="text-neutral-700 text-sm">Loading…</div>
-      ) : sortedFiltered.length === 0 ? (
+      ) : books.length === 0 ? (
         <div className="text-center py-32">
-          {query || activeCount > 0 ? (
+          {queryRaw || activeCount > 0 ? (
             <p className="text-neutral-600">No books match the current filters.</p>
           ) : (
             <>
               <p className="text-neutral-600 mb-3">Nothing here yet.</p>
-              <Link to="/books/new" className="text-sm text-oak hover:text-leather">
-                Add your first book →
-              </Link>
+              <Link to="/books/new" className="text-sm text-oak hover:text-leather">Add your first book →</Link>
             </>
           )}
         </div>
       ) : (
-        <div className={GRID[density]}>
-          {displayItems.map(item =>
-            item.type === 'series' ? (
-              <SeriesCard
-                key={item.name}
-                seriesName={item.name}
-                books={item.books}
-                expanded={expandedSeries.has(item.name)}
-                onToggle={() => toggleSeries(item.name)}
-                compact={density === 'compact'}
-              />
-            ) : (
-              <BookCard
-                key={item.book.id}
-                book={item.book}
-                onProgressUpdate={handleProgressUpdate}
-                compact={density === 'compact'}
-              />
-            )
+        <>
+          <div className={GRID[density]}>
+            {displayItems.map(item =>
+              item.type === 'series' ? (
+                <SeriesCard
+                  key={item.name}
+                  seriesName={item.name}
+                  books={item.books}
+                  expanded={expandedSeries.has(item.name)}
+                  onToggle={() => toggleSeries(item.name)}
+                  compact={density === 'compact'}
+                />
+              ) : (
+                <BookCard
+                  key={item.book.id}
+                  book={item.book}
+                  onProgressUpdate={handleProgressUpdate}
+                  compact={density === 'compact'}
+                />
+              )
+            )}
+          </div>
+          {hasMore && (
+            <div className="mt-10 flex justify-center">
+              <button
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+                className="text-sm text-neutral-500 hover:text-neutral-200 disabled:opacity-40 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
+              >
+                {loadingMore ? 'Loading…' : `Load more · ${total - loadedRef.current} remaining`}
+              </button>
+            </div>
           )}
-        </div>
+        </>
       )}
     </div>
   );

@@ -1,21 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
-import { sortTitle } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
 
 const FIELD_LABEL = {
-  author: 'Author',
-  translator: 'Translator',
-  publisher: 'Publisher',
-  series: 'Series',
-  tag: 'Tag',
-  fiction: '',
-  format: '',
-  language: 'Language',
-  narrator: 'Narrator',
-  rating: 'Rating',
-  year_finished: 'Finished',
+  author: 'Author', translator: 'Translator', publisher: 'Publisher',
+  series: 'Series', tag: 'Tag', fiction: '', format: '', language: 'Language',
+  narrator: 'Narrator', rating: 'Rating', year_finished: 'Finished',
 };
 
 const FORMAT_LABEL = { physical: 'Physical', ebook: 'Digital', audiobook: 'Audiobook' };
@@ -26,46 +17,58 @@ function starsLabel(r) {
   return '★'.repeat(full) + (half ? '½' : '');
 }
 
+function browseSort(field) {
+  if (field === 'series')       return 'series_order';
+  if (field === 'year_finished') return 'finished';
+  return 'title';
+}
+
+const PAGE_SIZE = 50;
+
 export default function BrowsePage() {
   const { field, value } = useParams();
   const decoded = decodeURIComponent(value);
   const { state } = useLocation();
   const backLabel = state?.from ? `← ${state.from}` : '← Library';
   const backPath  = state?.fromPath ?? '/';
-  const [books, setBooks] = useState([]);
-  const [loading, setLoading] = useState(true);
+
+  const [books,       setBooks]       = useState([]);
+  const [total,       setTotal]       = useState(0);
+  const [loading,     setLoading]     = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const loadedRef = useRef(0);
 
   useEffect(() => {
-    api.getBooks().then(all => {
-      const matched = all.filter(b => {
-        if (field === 'tag') return b.tags?.some(t => t.name === decoded);
-        if (field === 'fiction') {
-          if (decoded === 'fiction')    return b.fiction === 1;
-          if (decoded === 'nonfiction') return b.fiction === 0;
-          if (decoded === 'unset')      return b.fiction === null || b.fiction === undefined;
-        }
-        if (field === 'rating')        return b.rating === parseFloat(decoded);
-        if (field === 'year_finished') return b.date_finished?.startsWith(decoded);
-        return b[field] === decoded;
-      });
-      if (field === 'series') {
-        matched.sort((a, b) => (a.series_number ?? Infinity) - (b.series_number ?? Infinity) || sortTitle(a.title).localeCompare(sortTitle(b.title)));
-      } else if (field === 'year_finished') {
-        matched.sort((a, b) => (a.date_finished || '').localeCompare(b.date_finished || ''));
-      } else {
-        matched.sort((a, b) => sortTitle(a.title).localeCompare(sortTitle(b.title)) || (a.series_number ?? Infinity) - (b.series_number ?? Infinity));
-      }
-      setBooks(matched);
-    }).finally(() => setLoading(false));
+    setLoading(true);
+    setBooks([]);
+    loadedRef.current = 0;
+    api.getBooks({ field, value: decoded, sort: browseSort(field), limit: PAGE_SIZE, offset: 0 })
+      .then(({ books: b, total: t }) => {
+        setBooks(b);
+        setTotal(t);
+        loadedRef.current = b.length;
+      }).finally(() => setLoading(false));
   }, [field, decoded]);
+
+  function handleLoadMore() {
+    setLoadingMore(true);
+    api.getBooks({ field, value: decoded, sort: browseSort(field), limit: PAGE_SIZE, offset: loadedRef.current })
+      .then(({ books: b, total: t }) => {
+        setBooks(prev => [...prev, ...b]);
+        setTotal(t);
+        loadedRef.current += b.length;
+      }).finally(() => setLoadingMore(false));
+  }
 
   const label = FIELD_LABEL[field] ?? field;
   const heading = field === 'fiction'
     ? (decoded === 'fiction' ? 'Fiction' : decoded === 'nonfiction' ? 'Non-fiction' : 'Fiction / NF unset')
-    : field === 'format'       ? (FORMAT_LABEL[decoded] ?? decoded)
-    : field === 'rating'       ? starsLabel(parseFloat(decoded))
+    : field === 'format'        ? (FORMAT_LABEL[decoded] ?? decoded)
+    : field === 'rating'        ? starsLabel(parseFloat(decoded))
     : field === 'year_finished' ? decoded
     : decoded;
+
+  const hasMore = loadedRef.current < total;
 
   return (
     <div>
@@ -75,7 +78,7 @@ export default function BrowsePage() {
       <div className="mb-8">
         {label && <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1">{label}</p>}
         <h1 className="text-2xl font-bold text-white">{heading}</h1>
-        {!loading && <p className="text-sm text-neutral-500 mt-1">{books.length} {books.length === 1 ? 'book' : 'books'}</p>}
+        {!loading && <p className="text-sm text-neutral-500 mt-1">{total} {total === 1 ? 'book' : 'books'}</p>}
       </div>
 
       {loading ? (
@@ -83,9 +86,22 @@ export default function BrowsePage() {
       ) : books.length === 0 ? (
         <div className="text-neutral-600 text-sm">No books found.</div>
       ) : (
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 gap-y-7">
-          {books.map(book => <BookCard key={book.id} book={book} />)}
-        </div>
+        <>
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 gap-y-7">
+            {books.map(book => <BookCard key={book.id} book={book} />)}
+          </div>
+          {hasMore && (
+            <div className="mt-10 flex justify-center">
+              <button
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+                className="text-sm text-neutral-500 hover:text-neutral-200 disabled:opacity-40 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
+              >
+                {loadingMore ? 'Loading…' : `Load more · ${total - loadedRef.current} remaining`}
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

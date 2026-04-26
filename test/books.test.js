@@ -28,7 +28,8 @@ describe('books', () => {
     it('returns empty list initially', async () => {
       const { status, body } = await req('GET', '/api/books');
       assert.equal(status, 200);
-      assert.deepEqual(body, []);
+      assert.deepEqual(body.books, []);
+      assert.equal(body.total, 0);
     });
   });
 

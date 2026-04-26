@@ -9,8 +9,8 @@ export default function Loved() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    api.getLovedBooks()
-      .then(setBooks)
+    api.getBooks({ tab: 'loved' })
+      .then(({ books }) => setBooks(books))
       .catch(() => setError('Failed to load loved books.'))
       .finally(() => setLoading(false));
   }, []);

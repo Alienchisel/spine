@@ -37,7 +37,7 @@ function FilterSection({ label, children }) {
   );
 }
 
-export default function FilterPanel({ allBooks, filters, onChange }) {
+export default function FilterPanel({ facets, filters, onChange }) {
   function toggle(section, value) {
     const cur = filters[section];
     onChange({
@@ -62,19 +62,15 @@ export default function FilterPanel({ allBooks, filters, onChange }) {
     onChange({ ...filters, loved: filters.loved === val ? null : val });
   }
 
-  const formats = ['physical', 'ebook', 'audiobook'].filter(f => allBooks.some(b => b.format === f));
-  const hasEmptyFormat = allBooks.some(b => !b.format);
-
-  const publishers = [...new Set(allBooks.map(b => b.publisher).filter(Boolean))].sort();
-  const hasEmptyPublisher = allBooks.some(b => !b.publisher);
-
-  const seriesVals = [...new Set(allBooks.map(b => b.series).filter(Boolean))].sort();
-  const hasEmptySeries = allBooks.some(b => !b.series);
-
-  const tags = [...new Set(allBooks.flatMap(b => b.tags?.map(t => t.name) || []))].sort();
-
-  const ratings = [5, 4.5, 4, 3.5, 3, 2.5, 2, 1.5, 1, 0.5].filter(r => allBooks.some(b => b.rating === r));
-  const hasEmptyRating = allBooks.some(b => !b.rating);
+  const formats        = facets.formats;
+  const hasEmptyFormat = facets.hasEmptyFormat;
+  const publishers     = facets.publishers;
+  const hasEmptyPublisher = facets.hasEmptyPublisher;
+  const seriesVals     = facets.series;
+  const hasEmptySeries = facets.hasEmptySeries;
+  const tags           = facets.tags;
+  const ratings        = facets.ratings;
+  const hasEmptyRating = facets.hasEmptyRating;
 
   return (
     <div className="space-y-3 pt-4 pb-3 border-t border-neutral-800/60">

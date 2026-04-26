@@ -113,6 +113,7 @@ const VIRTUAL_TAG_RULES = [
       const year = book.year_edition;
       return Boolean(year && new Date().getFullYear() - year >= 100);
     },
+    sql: "(year_edition IS NOT NULL AND (CAST(strftime('%Y','now') AS INTEGER) - year_edition) >= 100)",
   },
   {
     name: 'Vintage',
@@ -121,24 +122,171 @@ const VIRTUAL_TAG_RULES = [
       const age = year && new Date().getFullYear() - year;
       return Boolean(age && age >= 50 && age < 100);
     },
+    sql: "(year_edition IS NOT NULL AND (CAST(strftime('%Y','now') AS INTEGER) - year_edition) >= 50 AND (CAST(strftime('%Y','now') AS INTEGER) - year_edition) < 100)",
   },
   {
     name: 'Translated',
     test: (book) => Boolean(book.original_language && book.original_language !== book.language),
+    sql: "(original_language IS NOT NULL AND original_language != '' AND (language IS NULL OR original_language != language))",
   },
   {
     name: 'Re-read',
     test: (book) => book.read_count > 1,
+    sql: "(read_count > 1)",
   },
   {
     name: 'Long',
     test: (book) => book.page_count >= 500,
+    sql: "(page_count >= 500)",
   },
   {
     name: 'Short',
     test: (book) => book.page_count > 0 && book.page_count <= 150,
+    sql: "(page_count > 0 AND page_count <= 150)",
   },
 ];
+
+const BROWSE_FIELDS = new Set(['author', 'translator', 'publisher', 'series', 'narrator', 'language', 'format']);
+
+function buildFilterConditions(query) {
+  const conditions = [];
+  const params = [];
+
+  const tab = query.tab || query.status;
+  if      (tab === 'reading')    conditions.push("status = 'reading'");
+  else if (tab === 'paused')     conditions.push("status = 'paused'");
+  else if (tab === 'finished')   conditions.push("status = 'finished'");
+  else if (tab === 'unread')     conditions.push("status = 'unread'");
+  else if (tab === 'owned')      conditions.push("owned = 1");
+  else if (tab === 'prev_owned') conditions.push("previously_owned = 1");
+  else if (tab === 'loved')      conditions.push("loved = 1");
+
+  if (query.field && query.value != null) {
+    const f = query.field;
+    const v = query.value;
+    if (f === 'tag') {
+      conditions.push("id IN (SELECT bt.book_id FROM book_tags bt JOIN tags t ON t.id = bt.tag_id WHERE t.name = ?)");
+      params.push(v);
+    } else if (f === 'fiction') {
+      if (v === 'fiction')    conditions.push("fiction = 1");
+      else if (v === 'nonfiction') conditions.push("fiction = 0");
+      else                    conditions.push("fiction IS NULL");
+    } else if (f === 'rating') {
+      conditions.push("rating = ?");
+      params.push(parseFloat(v));
+    } else if (f === 'year_finished') {
+      conditions.push("date_finished LIKE ?");
+      params.push(v + '%');
+    } else if (BROWSE_FIELDS.has(f)) {
+      conditions.push(`${f} = ?`);
+      params.push(v);
+    }
+  }
+
+  if (query.q) {
+    const like = `%${query.q.toLowerCase()}%`;
+    conditions.push("(LOWER(title) LIKE ? OR LOWER(COALESCE(author,'')) LIKE ? OR LOWER(COALESCE(series,'')) LIKE ? OR id IN (SELECT bt.book_id FROM book_tags bt JOIN tags t ON t.id = bt.tag_id WHERE LOWER(t.name) LIKE ?))");
+    params.push(like, like, like, like);
+  }
+
+  const fmts = [].concat(query.formats || []).filter(Boolean);
+  if (fmts.length) {
+    const hasEmpty = fmts.includes('empty');
+    const real = fmts.filter(f => f !== 'empty');
+    if (hasEmpty && real.length) { conditions.push(`(format IS NULL OR format IN (${real.map(() => '?').join(',')}))`); params.push(...real); }
+    else if (hasEmpty) conditions.push("format IS NULL");
+    else { conditions.push(`format IN (${real.map(() => '?').join(',')})`); params.push(...real); }
+  }
+
+  const rts = [].concat(query.ratings || []).filter(Boolean);
+  if (rts.length) {
+    const hasEmpty = rts.includes('empty');
+    const real = rts.filter(r => r !== 'empty').map(Number).filter(n => !isNaN(n));
+    if (hasEmpty && real.length) { conditions.push(`(rating IS NULL OR rating IN (${real.map(() => '?').join(',')}))`); params.push(...real); }
+    else if (hasEmpty) conditions.push("rating IS NULL");
+    else { conditions.push(`rating IN (${real.map(() => '?').join(',')})`); params.push(...real); }
+  }
+
+  const pubs = [].concat(query.publishers || []).filter(Boolean);
+  if (pubs.length) {
+    const hasEmpty = pubs.includes('empty');
+    const real = pubs.filter(p => p !== 'empty');
+    if (hasEmpty && real.length) { conditions.push(`(publisher IS NULL OR publisher IN (${real.map(() => '?').join(',')}))`); params.push(...real); }
+    else if (hasEmpty) conditions.push("(publisher IS NULL OR publisher = '')");
+    else { conditions.push(`publisher IN (${real.map(() => '?').join(',')})`); params.push(...real); }
+  }
+
+  const sers = [].concat(query.series || []).filter(Boolean);
+  if (sers.length) {
+    const hasEmpty = sers.includes('empty');
+    const real = sers.filter(s => s !== 'empty');
+    if (hasEmpty && real.length) { conditions.push(`(series IS NULL OR series IN (${real.map(() => '?').join(',')}))`); params.push(...real); }
+    else if (hasEmpty) conditions.push("(series IS NULL OR series = '')");
+    else { conditions.push(`series IN (${real.map(() => '?').join(',')})`); params.push(...real); }
+  }
+
+  const selectedTags = [].concat(query.tags || []).filter(Boolean);
+  if (selectedTags.length) {
+    const virtualNames = new Set(VIRTUAL_TAG_RULES.map(r => r.name));
+    const realTags = selectedTags.filter(t => !virtualNames.has(t));
+    const virtualTags = selectedTags.filter(t => virtualNames.has(t));
+    if (realTags.length) {
+      conditions.push(`id IN (SELECT bt.book_id FROM book_tags bt JOIN tags t ON t.id = bt.tag_id WHERE t.name IN (${realTags.map(() => '?').join(',')}))`);
+      params.push(...realTags);
+    }
+    for (const name of virtualTags) {
+      const rule = VIRTUAL_TAG_RULES.find(r => r.name === name);
+      if (rule) conditions.push(rule.sql);
+    }
+  }
+
+  const missing = [].concat(query.missing || []).filter(Boolean);
+  for (const m of missing) {
+    if (m === 'cover')       conditions.push("(cover_path IS NULL OR cover_path = '')");
+    else if (m === 'author') conditions.push("(author IS NULL OR author = '')");
+    else if (m === 'format') conditions.push("format IS NULL");
+    else if (m === 'isbn')   conditions.push("COALESCE(is_custom,0)=0 AND (format IS NULL OR format NOT IN ('ebook')) AND isbn_10 IS NULL AND isbn_13 IS NULL AND asin IS NULL AND NOT (COALESCE(year_published,0)<1970 AND COALESCE(year_edition,0)<1970)");
+    else if (m === 'publisher')    conditions.push("(publisher IS NULL OR publisher = '')");
+    else if (m === 'year')         conditions.push("year_published IS NULL");
+    else if (m === 'pages')        conditions.push("CASE WHEN format='audiobook' THEN duration_minutes IS NULL ELSE page_count IS NULL END");
+    else if (m === 'language')     conditions.push("(language IS NULL OR language = '')");
+    else if (m === 'rating')       conditions.push("rating IS NULL AND status='finished'");
+    else if (m === 'fiction')      conditions.push("fiction IS NULL");
+    else if (m === 'description')  conditions.push("(description IS NULL OR description = '')");
+  }
+
+  if (query.owned === 'true')           conditions.push("owned = 1");
+  else if (query.owned === 'false')     conditions.push("COALESCE(owned,0) = 0");
+  if (query.previouslyOwned === 'true') conditions.push("previously_owned = 1");
+  if (query.custom === 'true')          conditions.push("is_custom = 1");
+  else if (query.custom === 'false')    conditions.push("COALESCE(is_custom,0) = 0");
+  if (query.loved === 'true')           conditions.push("loved = 1");
+  else if (query.loved === 'false')     conditions.push("COALESCE(loved,0) = 0");
+
+  return { conditions, params };
+}
+
+function buildOrderBy(sort, field) {
+  const titleSort = "LOWER(CASE WHEN LOWER(title) LIKE 'the %' THEN SUBSTR(title,5) WHEN LOWER(title) LIKE 'an %' THEN SUBSTR(title,4) WHEN LOWER(title) LIKE 'a %' THEN SUBSTR(title,3) ELSE title END)";
+  if (field === 'series')       return `COALESCE(series_number,9999) ASC, ${titleSort} ASC`;
+  if (field === 'year_finished') return "date_finished ASC";
+  if (field)                     return `${titleSort} ASC, COALESCE(series_number,9999) ASC`;
+  switch (sort) {
+    case 'added':    return "id DESC";
+    case 'title':    return `${titleSort} ASC, COALESCE(series_number,9999) ASC`;
+    case 'author':   return "LOWER(COALESCE(author,'')) ASC";
+    case 'rating':   return "COALESCE(rating,0) DESC";
+    case 'progress': return "CASE WHEN format='audiobook' THEN CAST(COALESCE(current_minutes,0) AS REAL)/NULLIF(duration_minutes,0) ELSE CAST(COALESCE(current_page,0) AS REAL)/NULLIF(page_count,0) END DESC";
+    case 'started':  return "COALESCE(date_started,'') DESC";
+    case 'finished': return "COALESCE(date_finished,'') DESC";
+    case 'length':   return "COALESCE(page_count,duration_minutes,0) DESC";
+    default:         return "updated_at DESC";
+  }
+}
+
+function appendWhere(where, extra) {
+  return where ? `${where} AND (${extra})` : `WHERE (${extra})`;
+}
 
 function computeVirtualTags(book) {
   return VIRTUAL_TAG_RULES
@@ -182,23 +330,76 @@ router.get('/counts', (_req, res) => {
   res.json({ ...row, all: row.total });
 });
 
-router.get('/', (req, res) => {
-  const { status, loved } = req.query;
-  const books = loved === 'true'
-    ? db.prepare('SELECT * FROM books WHERE loved = 1 ORDER BY updated_at DESC').all()
-    : status
-      ? db.prepare('SELECT * FROM books WHERE status = ? ORDER BY updated_at DESC').all(status)
-      : db.prepare('SELECT * FROM books ORDER BY updated_at DESC').all();
+router.get('/facets', (req, res) => {
+  const { conditions, params } = buildFilterConditions(req.query);
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
-  const withTags = books.map(b => {
-    const tags = db.prepare(`
-      SELECT t.id, t.name FROM tags t
-      JOIN book_tags bt ON bt.tag_id = t.id
-      WHERE bt.book_id = ?
-    `).all(b.id);
-    return { ...b, cover_path: toCoverUrl(b.cover_path), tags: [...tags, ...computeVirtualTags(b)] };
+  const distCol = (col, notEmpty = false) => {
+    const w = notEmpty ? appendWhere(where, `${col} IS NOT NULL AND ${col} != ''`) : where;
+    return db.prepare(`SELECT DISTINCT ${col} FROM books ${w} ORDER BY ${col}`).all(...params).map(r => r[col]).filter(v => v != null && v !== '');
+  };
+  const hasEmpty = (col) => {
+    const w = appendWhere(where, `${col} IS NULL OR ${col} = ''`);
+    return db.prepare(`SELECT 1 FROM books ${w} LIMIT 1`).get(...params) != null;
+  };
+
+  const formats    = distCol('format');
+  const publishers = distCol('publisher', true);
+  const series     = distCol('series', true);
+  const ratings    = db.prepare(`SELECT DISTINCT rating FROM books ${where ? where + ' AND rating IS NOT NULL' : 'WHERE rating IS NOT NULL'} ORDER BY rating DESC`).all(...params).map(r => r.rating);
+  const authors    = distCol('author', true);
+  const narrators  = distCol('narrator', true);
+  const translators = distCol('translator', true);
+  const sources    = distCol('acquisition_source', true);
+  const rooms      = distCol('shelf_room', true);
+  const units      = distCol('shelf_unit', true);
+  const langRows   = db.prepare(`SELECT language, original_language FROM books ${where}`).all(...params);
+  const languages  = [...new Set(langRows.flatMap(r => [r.language, r.original_language]).filter(Boolean))].sort();
+
+  const realTagRows = db.prepare(`SELECT DISTINCT t.name FROM tags t JOIN book_tags bt ON bt.tag_id = t.id WHERE bt.book_id IN (SELECT id FROM books ${where}) ORDER BY t.name`).all(...params);
+  const realTags = realTagRows.map(r => r.name);
+  const virtualTags = VIRTUAL_TAG_RULES.filter(rule => {
+    const w = appendWhere(where, rule.sql);
+    return db.prepare(`SELECT 1 FROM books ${w} LIMIT 1`).get(...params) != null;
+  }).map(r => r.name);
+  const tags = [...new Set([...realTags, ...virtualTags])].sort();
+
+  res.json({
+    formats,    hasEmptyFormat:    hasEmpty('format'),
+    publishers, hasEmptyPublisher: hasEmpty('publisher'),
+    series,     hasEmptySeries:    hasEmpty('series'),
+    ratings,    hasEmptyRating:    db.prepare(`SELECT 1 FROM books ${appendWhere(where, 'rating IS NULL')} LIMIT 1`).get(...params) != null,
+    tags,
+    authors, narrators, translators, sources, rooms, units, languages,
   });
-  res.json(withTags);
+});
+
+router.get('/', (req, res) => {
+  const { conditions, params } = buildFilterConditions(req.query);
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  const orderBy = buildOrderBy(req.query.sort, req.query.field);
+  const limit = Math.min(Math.max(1, parseInt(req.query.limit) || 50), 200);
+  const offset = Math.max(0, parseInt(req.query.offset) || 0);
+
+  const total = db.prepare(`SELECT COUNT(*) as n FROM books ${where}`).get(...params).n;
+
+  const rows = db.prepare(`SELECT * FROM books ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`).all(...params, limit, offset);
+
+  const ids = rows.map(r => r.id);
+  const tagMap = new Map(ids.map(id => [id, []]));
+  if (ids.length) {
+    db.prepare(`SELECT bt.book_id, t.id, t.name FROM tags t JOIN book_tags bt ON bt.tag_id = t.id WHERE bt.book_id IN (${ids.map(() => '?').join(',')}) ORDER BY t.name`)
+      .all(...ids)
+      .forEach(({ book_id, id, name }) => tagMap.get(book_id)?.push({ id, name }));
+  }
+
+  const books = rows.map(b => ({
+    ...b,
+    cover_path: toCoverUrl(b.cover_path),
+    tags: [...(tagMap.get(b.id) || []), ...computeVirtualTags(b)],
+  }));
+
+  res.json({ books, total, offset, limit });
 });
 
 router.get('/:id', (req, res) => {

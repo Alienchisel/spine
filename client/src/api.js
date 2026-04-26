@@ -11,10 +11,21 @@ async function request(path, options = {}) {
   return res.json();
 }
 
+function buildQuery(params) {
+  const q = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v == null || v === '') continue;
+    if (Array.isArray(v)) v.forEach(item => q.append(k, String(item)));
+    else q.set(k, String(v));
+  }
+  const s = q.toString();
+  return s ? `?${s}` : '';
+}
+
 export const api = {
-  getBooks: (status) => request(`/books${status ? `?status=${status}` : ''}`),
+  getBooks: (params = {}) => request(`/books${buildQuery(params)}`),
+  getBookFacets: (params = {}) => request(`/books/facets${buildQuery(params)}`),
   getBookCounts: () => request('/books/counts'),
-  getLovedBooks: () => request('/books?loved=true'),
   getBookLists: (bookId) => request(`/books/${bookId}/lists`),
   getBookLog: (bookId) => request(`/books/${bookId}/log`),
   getBook: (id) => request(`/books/${id}`),

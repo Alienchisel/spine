@@ -148,17 +148,17 @@ export default function BookForm() {
   }, []);
 
   useEffect(() => {
-    api.getBooks().then(books => {
-      setPastSources([...new Set(books.map(b => b.acquisition_source).filter(Boolean))].sort());
-      setPastAuthors([...new Set(books.map(b => b.author).filter(Boolean))].sort());
-      setPastPublishers([...new Set(books.map(b => b.publisher).filter(Boolean))].sort());
-      setPastSeries([...new Set(books.map(b => b.series).filter(Boolean))].sort());
-      setPastTranslators([...new Set(books.map(b => b.translator).filter(Boolean))].sort());
-      setPastNarrators([...new Set(books.map(b => b.narrator).filter(Boolean))].sort());
-      setPastRooms([...new Set(books.map(b => b.shelf_room).filter(Boolean))].sort());
-      setPastUnits([...new Set(books.map(b => b.shelf_unit).filter(Boolean))].sort());
-      setPastLanguages([...new Set([...books.map(b => b.language), ...books.map(b => b.original_language)].filter(Boolean))].sort());
-      setPastTags([...new Set(books.flatMap(b => b.tags?.map(t => t.name) ?? []))].sort());
+    api.getBookFacets().then(f => {
+      setPastSources(f.sources || []);
+      setPastAuthors(f.authors || []);
+      setPastPublishers(f.publishers || []);
+      setPastSeries(f.series || []);
+      setPastTranslators(f.translators || []);
+      setPastNarrators(f.narrators || []);
+      setPastRooms(f.rooms || []);
+      setPastUnits(f.units || []);
+      setPastLanguages(f.languages || []);
+      setPastTags(f.tags?.filter(t => !['Antique','Vintage','Translated','Re-read','Long','Short'].includes(t)) || []);
     });
   }, []);
 
