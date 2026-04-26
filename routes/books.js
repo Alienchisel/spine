@@ -110,13 +110,33 @@ const VIRTUAL_TAG_RULES = [
   {
     name: 'Antique',
     test: (book) => {
-      const year = book.year_edition || book.year_published;
+      const year = book.year_edition;
       return Boolean(year && new Date().getFullYear() - year >= 100);
+    },
+  },
+  {
+    name: 'Vintage',
+    test: (book) => {
+      const year = book.year_edition;
+      const age = year && new Date().getFullYear() - year;
+      return Boolean(age && age >= 50 && age < 100);
     },
   },
   {
     name: 'Translated',
     test: (book) => Boolean(book.original_language && book.original_language !== book.language),
+  },
+  {
+    name: 'Re-read',
+    test: (book) => book.read_count > 1,
+  },
+  {
+    name: 'Long',
+    test: (book) => book.page_count >= 500,
+  },
+  {
+    name: 'Short',
+    test: (book) => book.page_count > 0 && book.page_count <= 150,
   },
 ];
 
