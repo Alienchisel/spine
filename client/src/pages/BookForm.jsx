@@ -377,6 +377,7 @@ export default function BookForm() {
         duration_minutes: form.duration_minutes ? parseInt(form.duration_minutes) : null,
         year_published: form.year_published ? parseInt(form.year_published) : null,
         year_edition: form.year_edition ? parseInt(form.year_edition) : null,
+        year_approximate: form.year_edition ? form.year_approximate : false,
         series_number: form.series_number !== '' ? parseFloat(form.series_number) : null,
       };
       if (isEdit) {
