@@ -766,18 +766,20 @@ export default function BookForm() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className={label}>Year published</label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className={label} style={{ marginBottom: 0 }}>Year published</span>
+                      {form.year_published && (
+                        <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                          <input type="checkbox" checked={form.year_approximate}
+                            onChange={(e) => set('year_approximate', e.target.checked)}
+                            className="w-3.5 h-3.5 rounded border-neutral-700 bg-neutral-900 text-oak focus:ring-0 focus:ring-offset-0" />
+                          <span className="text-xs text-neutral-500">ca.</span>
+                        </label>
+                      )}
+                    </div>
                     <input type="number" min="1" max="9999" className={input}
                       value={form.year_published} onChange={(e) => set('year_published', e.target.value)}
                       placeholder="e.g. 1965" />
-                    {form.year_published && (
-                      <label className="flex items-center gap-1.5 mt-1.5 cursor-pointer select-none">
-                        <input type="checkbox" checked={form.year_approximate}
-                          onChange={(e) => set('year_approximate', e.target.checked)}
-                          className="w-3.5 h-3.5 rounded border-neutral-700 bg-neutral-900 text-oak focus:ring-0 focus:ring-offset-0" />
-                        <span className="text-xs text-neutral-500">approximate (ca.)</span>
-                      </label>
-                    )}
                   </div>
                   <div>
                     <label className={label}>Edition year</label>
