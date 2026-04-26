@@ -1,10 +1,10 @@
 import { useState } from 'react';
 
-function Star({ n, display }) {
+function Star({ n, display, size }) {
   const filled = display >= n;
   const half = !filled && display >= n - 0.5;
   return (
-    <span className="relative inline-block text-2xl leading-none select-none">
+    <span className={`relative inline-block ${size} leading-none select-none`}>
       <span className="text-neutral-700">★</span>
       {(filled || half) && (
         <span
@@ -18,7 +18,7 @@ function Star({ n, display }) {
   );
 }
 
-export default function StarRating({ value, onChange, readOnly = false }) {
+export default function StarRating({ value, onChange, readOnly = false, size = 'text-2xl' }) {
   const [hover, setHover] = useState(null);
   const display = hover ?? value ?? 0;
 
@@ -34,7 +34,7 @@ export default function StarRating({ value, onChange, readOnly = false }) {
     >
       {[1, 2, 3, 4, 5].map((n) => (
         <div key={n} className={`relative ${readOnly ? 'cursor-default' : 'cursor-pointer'}`}>
-          <Star n={n} display={display} />
+          <Star n={n} display={display} size={size} />
           {!readOnly && (
             <>
               <div

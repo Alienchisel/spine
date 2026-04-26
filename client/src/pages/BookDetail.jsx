@@ -222,6 +222,15 @@ export default function BookDetail() {
     setBook(updated);
   }
 
+  async function handleRate(rating) {
+    const updated = await api.updateBook(book.id, {
+      ...book,
+      rating,
+      tags: book.tags?.map(t => t.name) ?? [],
+    });
+    setBook(updated);
+  }
+
   async function handleDelete() {
     if (!confirm(`Delete "${book.title}"?`)) return;
     await api.deleteBook(id);
@@ -247,6 +256,43 @@ export default function BookDetail() {
                 <span className="text-xs text-neutral-400 font-medium leading-tight">{book.title}</span>
               </div>
             )}
+          </div>
+
+          {/* Action panel */}
+          <div className="mt-3 border border-neutral-800 rounded-lg overflow-hidden">
+            <div className="flex justify-around items-start py-3 px-2">
+              <button
+                onClick={toggleLoved}
+                className={`flex flex-col items-center gap-1.5 transition-colors ${book.loved ? 'text-red-400' : 'text-neutral-600 hover:text-neutral-300'}`}
+                title={book.loved ? 'Remove from loved' : 'Mark as loved'}
+              >
+                <span className="text-2xl leading-none">{book.loved ? '♥' : '♡'}</span>
+                <span className="text-[10px] uppercase tracking-wider">Loved</span>
+              </button>
+              <button
+                onClick={toggleReadlist}
+                className={`flex flex-col items-center gap-1.5 transition-colors ${book.on_readlist ? 'text-sky-400' : 'text-neutral-600 hover:text-neutral-300'}`}
+                title={book.on_readlist ? 'Remove from readlist' : 'Add to readlist'}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-5 h-5">
+                  <path d="M2 2.75A2.75 2.75 0 0 1 4.75 0h6.5A2.75 2.75 0 0 1 14 2.75v12.5a.75.75 0 0 1-1.18.617L8 12.21l-4.82 3.657A.75.75 0 0 1 2 15.25V2.75Z" />
+                </svg>
+                <span className="text-[10px] uppercase tracking-wider">Readlist</span>
+              </button>
+              <div className="flex flex-col items-center gap-1.5 text-neutral-600">
+                <ListPicker bookId={book.id} iconClassName="w-5 h-5" />
+                <span className="text-[10px] uppercase tracking-wider pointer-events-none">Lists</span>
+              </div>
+            </div>
+            <div className="border-t border-neutral-800 py-3 px-2">
+              <p className="text-[10px] uppercase tracking-wider text-neutral-600 text-center mb-2.5">Rate</p>
+              <div className="flex justify-center">
+                <StarRating value={book.rating} onChange={handleRate} size="text-3xl" />
+              </div>
+              {book.rating && (
+                <p className="text-center text-xs text-neutral-600 mt-2">{book.rating} / 5</p>
+              )}
+            </div>
           </div>
         </div>
 
@@ -287,24 +333,6 @@ export default function BookDetail() {
                 ✦ Custom
               </span>
             )}
-            {book.rating && <StarRating value={book.rating} readOnly />}
-            <button
-              onClick={toggleReadlist}
-              className={`leading-none transition-colors ${book.on_readlist ? 'text-sky-400' : 'text-neutral-600 hover:text-neutral-400'}`}
-              title={book.on_readlist ? 'Remove from readlist' : 'Add to readlist'}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-5 h-5">
-                <path d="M2 2.75A2.75 2.75 0 0 1 4.75 0h6.5A2.75 2.75 0 0 1 14 2.75v12.5a.75.75 0 0 1-1.18.617L8 12.21l-4.82 3.657A.75.75 0 0 1 2 15.25V2.75Z" />
-              </svg>
-            </button>
-            <button
-              onClick={toggleLoved}
-              className={`text-xl leading-none transition-colors ${book.loved ? 'text-red-400' : 'text-neutral-600 hover:text-neutral-400'}`}
-              title={book.loved ? 'Remove from loved' : 'Mark as loved'}
-            >
-              {book.loved ? '♥' : '♡'}
-            </button>
-            <ListPicker bookId={book.id} />
           </div>
 
           {(book.status === 'reading' || book.status === 'paused') && (
