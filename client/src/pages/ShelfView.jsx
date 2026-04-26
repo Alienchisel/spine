@@ -133,7 +133,7 @@ export default function ShelfView() {
     building && { label: building.name, action: () => nav({ b: buildingId }) },
     room     && { label: room.name,     action: () => nav({ b: buildingId, r: roomId }) },
     unit     && { label: unit.name,     action: () => nav({ b: buildingId, r: roomId, u: unitId }) },
-    shelf    && { label: `Shelf ${shelf.label}`, action: null },
+    shelf    && { label: shelf.label, action: null },
   ].filter(Boolean);
 
   if (loading) return <div className="text-neutral-700 text-sm">Loading…</div>;
@@ -258,7 +258,7 @@ export default function ShelfView() {
             {shelves.map(s => (
               <LevelCard
                 key={s.id}
-                primary={`Shelf ${s.label}`}
+                primary={s.label}
                 secondary={plural(s.book_count, 'book')}
                 onClick={() => nav({ b: buildingId, r: roomId, u: unitId, s: s.id })}
               />

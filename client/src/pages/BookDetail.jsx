@@ -444,7 +444,7 @@ export default function BookDetail() {
                 <dd className="text-neutral-300 flex flex-wrap items-center gap-x-2 gap-y-1">
                   <span className="text-neutral-400 text-xs">
                     {location.shelf_id
-                      ? `${location.building} › ${location.room} › ${location.unit} › Shelf ${location.shelf}`
+                      ? `${location.building} › ${location.room} › ${location.unit} › ${location.shelf}`
                       : location.unit_id
                         ? `${location.building} › ${location.room} › ${location.unit}`
                         : location.room_id
