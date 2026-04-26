@@ -597,7 +597,13 @@ export default function BookForm() {
                   <select className={input} value={form.status}
                     onChange={(e) => {
                       const s = e.target.value;
-                      setForm(f => ({ ...f, status: s, read_count: s === 'finished' && f.read_count === 0 ? 1 : f.read_count }));
+                      const today = new Date().toISOString().slice(0, 10);
+                      setForm(f => ({
+                        ...f,
+                        status: s,
+                        read_count: s === 'finished' && f.read_count === 0 ? 1 : f.read_count,
+                        date_finished: s === 'finished' && !f.date_finished ? today : f.date_finished,
+                      }));
                     }}>
                     <option value="unread">Unread</option>
                     <option value="reading">Reading</option>
