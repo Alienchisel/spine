@@ -116,7 +116,7 @@ function UnitSection({ unit, dragHandle, onEdit, onDelete, onAddShelf, onEditShe
           <button onClick={() => setOpen(o => !o)} className="flex items-center gap-1.5 text-left min-w-0">
             <span className="text-neutral-600 text-xs w-3 flex-shrink-0">{open ? '▾' : '▸'}</span>
             <span className="text-xs text-neutral-300">{unit.name}</span>
-            <span className="text-xs text-neutral-600 ml-1">{unit.shelf_count} {unit.shelf_count === 1 ? 'shelf' : 'shelves'}</span>
+            <span className="text-xs text-neutral-600 ml-1">{unit.shelves.length} {unit.shelves.length === 1 ? 'shelf' : 'shelves'}</span>
           </button>
         </div>
         <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -188,7 +188,7 @@ function RoomSection({ room, dragHandle, onEdit, onDelete, onAddUnit, onReorderU
           <button onClick={() => setOpen(o => !o)} className="flex items-center gap-1.5 text-left min-w-0">
             <span className="text-neutral-600 text-xs w-3 flex-shrink-0">{open ? '▾' : '▸'}</span>
             <span className="text-xs text-neutral-200">{room.name}</span>
-            <span className="text-xs text-neutral-600 ml-1">{room.unit_count} {room.unit_count === 1 ? 'unit' : 'units'}</span>
+            <span className="text-xs text-neutral-600 ml-1">{room.units.length} {room.units.length === 1 ? 'unit' : 'units'}</span>
           </button>
         </div>
         <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -292,7 +292,7 @@ function BuildingSection({ building, dragHandle, onEdit, onDelete, onAddRoom, on
           <span className="text-xs text-neutral-600 bg-neutral-800 px-1.5 py-0.5 rounded">
             {PROXIMITY_LABEL[building.proximity]}
           </span>
-          <span className="text-xs text-neutral-600">{building.room_count} {building.room_count === 1 ? 'room' : 'rooms'}</span>
+          <span className="text-xs text-neutral-600">{building.rooms.length} {building.rooms.length === 1 ? 'room' : 'rooms'}</span>
           </button>
         </div>
         <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">

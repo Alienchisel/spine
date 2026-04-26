@@ -225,7 +225,7 @@ export default function Library() {
   useEffect(() => {
     sessionStorage.setItem(SESSION_KEY, JSON.stringify({ tab, query, filtersOpen, filters, sort, density }));
 
-  }, [tab, query, filtersOpen, filters, sort]);
+  }, [tab, query, filtersOpen, filters, sort, density]);
 
   useEffect(() => {
     api.getBookCounts().then(setCounts).catch(() => {});
