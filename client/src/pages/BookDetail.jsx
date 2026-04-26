@@ -193,6 +193,100 @@ function ProgressSection({ book, onChange }) {
   );
 }
 
+function ReadsSection({ bookId, reads, onUpdate }) {
+  const [adding, setAdding] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [form, setForm] = useState({ date_started: '', date_finished: '' });
+  const [saving, setSaving] = useState(false);
+
+  const inputCls = 'bg-neutral-900 border border-neutral-700 text-neutral-300 text-xs rounded px-2 py-1 focus:outline-none focus:border-neutral-500 transition-colors';
+
+  function startAdd() {
+    setAdding(true);
+    setEditId(null);
+    setForm({ date_started: '', date_finished: '' });
+  }
+
+  function startEdit(r) {
+    setEditId(r.id);
+    setAdding(false);
+    setForm({ date_started: r.date_started || '', date_finished: r.date_finished || '' });
+  }
+
+  async function handleAdd(e) {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await api.addRead(bookId, { date_started: form.date_started || null, date_finished: form.date_finished || null });
+      setAdding(false);
+      setForm({ date_started: '', date_finished: '' });
+      onUpdate();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleUpdate(e, readId) {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await api.updateRead(bookId, readId, { date_started: form.date_started || null, date_finished: form.date_finished || null });
+      setEditId(null);
+      onUpdate();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(readId) {
+    if (!confirm('Remove this read entry?')) return;
+    await api.deleteRead(bookId, readId);
+    onUpdate();
+  }
+
+  return (
+    <div className="border-t border-neutral-800 pt-5 mb-6">
+      <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Read history</p>
+      {reads.length > 0 ? (
+        <div className="space-y-2 mb-3">
+          {reads.map((r, i) => editId === r.id ? (
+            <form key={r.id} onSubmit={(e) => handleUpdate(e, r.id)} className="flex flex-wrap items-center gap-2">
+              <input type="date" value={form.date_started} onChange={(e) => setForm(f => ({ ...f, date_started: e.target.value }))} className={inputCls} />
+              <span className="text-neutral-600 text-xs">→</span>
+              <input type="date" value={form.date_finished} onChange={(e) => setForm(f => ({ ...f, date_finished: e.target.value }))} className={inputCls} />
+              <button type="submit" disabled={saving} className="text-xs text-oak hover:text-oak/80 transition-colors disabled:opacity-40">Save</button>
+              <button type="button" onClick={() => setEditId(null)} className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors">Cancel</button>
+            </form>
+          ) : (
+            <div key={r.id} className="flex items-center gap-3 group">
+              <span className="text-xs text-neutral-600 w-4 text-right flex-shrink-0">{i + 1}.</span>
+              <span className="text-xs text-neutral-400 flex-1">
+                {r.date_started ? formatDate(r.date_started) : '—'}
+                {r.date_finished ? <> <span className="text-neutral-600">→</span> {formatDate(r.date_finished)}</> : ''}
+              </span>
+              <button onClick={() => startEdit(r)} className="text-xs text-neutral-700 hover:text-neutral-400 opacity-0 group-hover:opacity-100 transition-all">Edit</button>
+              <button onClick={() => handleDelete(r.id)} className="text-xs text-neutral-700 hover:text-warn opacity-0 group-hover:opacity-100 transition-all ml-1">×</button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-neutral-600 mb-3">No reads logged yet.</p>
+      )}
+      {adding ? (
+        <form onSubmit={handleAdd} className="flex flex-wrap items-center gap-2">
+          <input type="date" value={form.date_started} onChange={(e) => setForm(f => ({ ...f, date_started: e.target.value }))} className={inputCls} placeholder="Start date" />
+          <span className="text-neutral-600 text-xs">→</span>
+          <input type="date" value={form.date_finished} onChange={(e) => setForm(f => ({ ...f, date_finished: e.target.value }))} className={inputCls} placeholder="Finish date" />
+          <button type="submit" disabled={saving} className="text-xs text-oak hover:text-oak/80 transition-colors disabled:opacity-40">Add</button>
+          <button type="button" onClick={() => setAdding(false)} className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors">Cancel</button>
+        </form>
+      ) : (
+        <button onClick={startAdd} className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors">+ Log a read</button>
+      )}
+    </div>
+  );
+}
+
 export default function BookDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -200,12 +294,18 @@ export default function BookDetail() {
   const [loading, setLoading] = useState(true);
   const [location, setLocation] = useState(null);
   const [log, setLog] = useState([]);
+  const [reads, setReads] = useState([]);
   const [descExpanded, setDescExpanded] = useState(false);
   const [ratingPrompt, setRatingPrompt] = useState(false);
+
+  function loadReads() {
+    api.getBookReads(id).then(setReads).catch(() => {});
+  }
 
   useEffect(() => {
     api.getBook(id).then(setBook).finally(() => setLoading(false));
     api.getBookLog(id).then(setLog).catch(() => {});
+    loadReads();
     setDescExpanded(false);
   }, [id]);
 
@@ -226,14 +326,20 @@ export default function BookDetail() {
 
   async function handleFinish() {
     const today = new Date().toISOString().slice(0, 10);
+    const dateFinished = book.date_finished || today;
     const updated = await api.updateBook(book.id, {
       ...book,
       status: 'finished',
-      date_finished: book.date_finished || today,
+      date_finished: dateFinished,
       read_count: (book.read_count || 0) + 1,
       tags: realTagNames(book.tags),
     });
     setBook(updated);
+    await api.addRead(book.id, {
+      date_started: book.date_started || null,
+      date_finished: dateFinished,
+    });
+    loadReads();
     if (!book.rating) setRatingPrompt(true);
   }
 
@@ -579,6 +685,10 @@ export default function BookDetail() {
                 </Link>
               ))}
             </div>
+          )}
+
+          {(book.status !== 'unread' || reads.length > 0) && (
+            <ReadsSection bookId={book.id} reads={reads} onUpdate={loadReads} />
           )}
 
           {(book.status === 'finished' || book.read_count > 0) && book.review && (

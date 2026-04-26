@@ -225,6 +225,44 @@ router.get('/:id/lists', (req, res) => {
   res.json(rows.map(r => r.list_id));
 });
 
+router.get('/:id/reads', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
+  res.json(db.prepare('SELECT * FROM reads WHERE book_id = ? ORDER BY COALESCE(date_finished, date_started, created_at) ASC').all(id));
+});
+
+router.post('/:id/reads', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
+  if (!db.prepare('SELECT id FROM books WHERE id = ?').get(id)) return res.status(404).json({ error: 'Not found' });
+  const { date_started, date_finished } = req.body;
+  if (date_started && !isValidDate(date_started)) return res.status(400).json({ error: 'Invalid date_started' });
+  if (date_finished && !isValidDate(date_finished)) return res.status(400).json({ error: 'Invalid date_finished' });
+  const result = db.prepare('INSERT INTO reads (book_id, date_started, date_finished) VALUES (?, ?, ?)').run(id, date_started || null, date_finished || null);
+  res.status(201).json(db.prepare('SELECT * FROM reads WHERE id = ?').get(result.lastInsertRowid));
+});
+
+router.put('/:id/reads/:readId', (req, res) => {
+  const id = Number(req.params.id);
+  const readId = Number(req.params.readId);
+  if (!Number.isInteger(id) || id < 1 || !Number.isInteger(readId) || readId < 1) return res.status(400).json({ error: 'Invalid id' });
+  if (!db.prepare('SELECT id FROM reads WHERE id = ? AND book_id = ?').get(readId, id)) return res.status(404).json({ error: 'Not found' });
+  const { date_started, date_finished } = req.body;
+  if (date_started && !isValidDate(date_started)) return res.status(400).json({ error: 'Invalid date_started' });
+  if (date_finished && !isValidDate(date_finished)) return res.status(400).json({ error: 'Invalid date_finished' });
+  db.prepare('UPDATE reads SET date_started = ?, date_finished = ? WHERE id = ?').run(date_started || null, date_finished || null, readId);
+  res.json(db.prepare('SELECT * FROM reads WHERE id = ?').get(readId));
+});
+
+router.delete('/:id/reads/:readId', (req, res) => {
+  const id = Number(req.params.id);
+  const readId = Number(req.params.readId);
+  if (!Number.isInteger(id) || id < 1 || !Number.isInteger(readId) || readId < 1) return res.status(400).json({ error: 'Invalid id' });
+  if (!db.prepare('SELECT id FROM reads WHERE id = ? AND book_id = ?').get(readId, id)) return res.status(404).json({ error: 'Not found' });
+  db.prepare('DELETE FROM reads WHERE id = ?').run(readId);
+  res.status(204).send();
+});
+
 router.post('/', (req, res) => {
   const { title, author, status, owned, previously_owned, is_custom, is_stub, loved, fiction, source_type, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, review, page_count, duration_minutes, publisher, series, series_number, isbn_10, isbn_13, asin, language, original_language, translator, narrator, year_published, year_approximate, year_edition, shelf_id, building_id, room_id, unit_id, tags } = req.body;
   const errors = validateBook(req.body);
