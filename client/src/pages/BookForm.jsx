@@ -118,6 +118,7 @@ export default function BookForm() {
   const [tagInput, setTagInput] = useState('');
   const [coverPreview, setCoverPreview] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [coverError, setCoverError] = useState(null);
   const [fetchingCover, setFetchingCover] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -331,10 +332,14 @@ export default function BookForm() {
 
   async function uploadFile(file) {
     setCoverPreview(URL.createObjectURL(file));
+    setCoverError(null);
     setUploading(true);
     try {
       const result = await api.uploadCover(file);
       set('cover_path', result.path);
+    } catch (e) {
+      setCoverPreview(null);
+      setCoverError(e.message || 'Upload failed');
     } finally {
       setUploading(false);
     }
@@ -343,13 +348,15 @@ export default function BookForm() {
   useEffect(() => {
     async function fetchAndSetCover(url) {
       setCoverPreview(url);
+      setCoverError(null);
       setUploading(true);
       try {
         const result = await api.fetchCover(url);
         set('cover_path', result.path);
         setCoverPreview(result.path);
-      } catch {
+      } catch (e) {
         setCoverPreview(null);
+        setCoverError(e.message || 'Failed to fetch cover');
       } finally {
         setUploading(false);
       }
@@ -507,6 +514,9 @@ export default function BookForm() {
             <span className="block text-neutral-600 mt-0.5">or paste</span>
             <input type="file" accept="image/*" className="hidden" onChange={(e) => { if (e.target.files[0]) uploadFile(e.target.files[0]); }} />
           </label>
+          {coverError && (
+            <p className="mt-2 text-xs text-warn text-center">{coverError}</p>
+          )}
           {isEdit && (form.isbn_13 || form.isbn_10) && (
             <button
               type="button"

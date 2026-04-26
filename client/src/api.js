@@ -32,7 +32,11 @@ export const api = {
   uploadCover: (file) => {
     const fd = new FormData();
     fd.append('cover', file);
-    return fetch('/api/upload', { method: 'POST', body: fd }).then(r => r.json());
+    return fetch('/api/upload', { method: 'POST', body: fd }).then(async r => {
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'Upload failed');
+      return data;
+    });
   },
   fetchCover: (url) => request('/upload/fetch', { method: 'POST', body: JSON.stringify({ url }) }),
   getReadlist: () => request('/readlist'),
