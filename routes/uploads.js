@@ -49,14 +49,16 @@ router.post('/', upload.single('cover'), async (req, res) => {
 
 router.post('/fetch', async (req, res) => {
   const { url } = req.body;
-  if (!url?.startsWith('https://covers.openlibrary.org/')) {
-    return res.status(400).json({ error: 'Invalid cover URL' });
-  }
+  let parsed;
+  try { parsed = new URL(url); } catch { return res.status(400).json({ error: 'Invalid URL' }); }
+  if (parsed.protocol !== 'https:') return res.status(400).json({ error: 'Only HTTPS URLs are allowed' });
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 5000);
+    const timer = setTimeout(() => controller.abort(), 8000);
     const response = await fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
     if (!response.ok) return res.status(502).json({ error: 'Failed to fetch cover' });
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.startsWith('image/')) return res.status(400).json({ error: 'URL does not point to an image' });
     const buffer = Buffer.from(await response.arrayBuffer());
     const filePath = await saveResized(buffer);
     res.json({ path: filePath });

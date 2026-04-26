@@ -340,10 +340,59 @@ export default function BookForm() {
     }
   }
 
+  async function fetchAndSetCover(url) {
+    setCoverPreview(url);
+    setUploading(true);
+    try {
+      const result = await api.fetchCover(url);
+      set('cover_path', result.path);
+      setCoverPreview(result.path);
+    } catch {
+      setCoverPreview(null);
+    } finally {
+      setUploading(false);
+    }
+  }
+
   useEffect(() => {
     function handlePaste(e) {
-      const item = Array.from(e.clipboardData?.items || []).find(i => i.type.startsWith('image/'));
-      if (item) uploadFile(item.getAsFile());
+      const items = Array.from(e.clipboardData?.items || []);
+
+      // Binary image data — highest priority
+      const imageItem = items.find(i => i.type.startsWith('image/'));
+      if (imageItem) {
+        const file = imageItem.getAsFile();
+        if (file) { uploadFile(file); return; }
+      }
+
+      // Don't intercept pastes into text fields
+      const tag = e.target.tagName;
+      const isTextField = (tag === 'INPUT' && e.target.type !== 'file') || tag === 'TEXTAREA' || tag === 'SELECT';
+      if (isTextField) return;
+
+      // text/html — browsers often include this when copying an image via right-click,
+      // even when no binary data is present (CORS-restricted images, etc.)
+      const htmlItem = items.find(i => i.type === 'text/html');
+      if (htmlItem) {
+        htmlItem.getAsString((html) => {
+          const m = html.match(/src=["']([^"']+)["']/);
+          if (m?.[1]?.startsWith('https://')) { fetchAndSetCover(m[1]); return; }
+          // Fall through to text/plain check if no useful src found
+          const textItem = items.find(i => i.type === 'text/plain');
+          if (textItem) textItem.getAsString((text) => {
+            const url = text.trim();
+            if (url.startsWith('https://')) fetchAndSetCover(url);
+          });
+        });
+        return;
+      }
+
+      // Plain text URL
+      const textItem = items.find(i => i.type === 'text/plain');
+      if (textItem) textItem.getAsString((text) => {
+        const url = text.trim();
+        if (url.startsWith('https://')) fetchAndSetCover(url);
+      });
     }
     window.addEventListener('paste', handlePaste);
     return () => window.removeEventListener('paste', handlePaste);
