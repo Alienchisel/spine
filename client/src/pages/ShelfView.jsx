@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import {
   DndContext,
@@ -20,6 +20,9 @@ import BookCard from '../components/BookCard.jsx';
 function SortableShelfCover({ book }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: book.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
+  const draggedRef = useRef(false);
+  useEffect(() => { if (isDragging) draggedRef.current = true; }, [isDragging]);
+
   return (
     <div
       ref={setNodeRef}
@@ -28,7 +31,12 @@ function SortableShelfCover({ book }) {
       {...listeners}
       className={`flex-shrink-0 cursor-grab active:cursor-grabbing select-none transition-opacity ${isDragging ? 'opacity-40' : ''}`}
     >
-      <Link to={`/books/${book.id}`} draggable={false} className="block">
+      <Link
+        to={`/books/${book.id}`}
+        draggable={false}
+        className="block"
+        onClick={e => { if (draggedRef.current) { e.preventDefault(); draggedRef.current = false; } }}
+      >
         <div className="w-[240px] h-[360px] rounded overflow-hidden bg-neutral-800 shadow-xl ring-1 ring-white/5 hover:ring-white/20 transition-all hover:scale-[1.02] duration-200">
           {book.cover_path
             ? <img src={book.cover_path} alt={book.title} draggable={false} className="w-full h-full object-cover object-top" />
