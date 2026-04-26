@@ -86,7 +86,7 @@ function ReadingCalendar({ days, onDayClick }) {
   }
 
   return (
-    <div className="mb-8">
+    <div>
       <div className="flex items-center justify-between mb-3">
         <button onClick={prevMonth} className="text-neutral-600 hover:text-neutral-300 transition-colors w-6 text-center">‹</button>
         <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">{monthLabel}</span>
@@ -190,7 +190,7 @@ export default function Diary() {
   }
 
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-4xl">
       <h1 className="text-xl font-bold text-white mb-8">Diary</h1>
 
       {loading ? (
@@ -216,36 +216,40 @@ export default function Diary() {
         return (
         <div>
           <p className="text-xs text-neutral-600 mb-6">{parts.join(' · ')}</p>
-          <ReadingCalendar
-            days={days}
-            onDayClick={dateStr => {
-              const el = dayRefs.current[dateStr];
-              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }}
-          />
-          <div className="space-y-8">
-          {days.map(day => (
-            <div key={day.date} ref={el => { if (el) dayRefs.current[day.date] = el; }}>
-              <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-1 pb-2 border-b border-neutral-800 flex justify-between items-baseline">
-                <span>{formatDate(day.date)}</span>
-                <span className="text-neutral-700 normal-case tracking-normal font-normal">
-                  {(() => {
-                    const p = day.entries.reduce((s, e) => s + (e.pages_read || 0), 0);
-                    const m = day.entries.reduce((s, e) => s + (e.minutes_read || 0), 0);
-                    const parts = [];
-                    if (p > 0) parts.push(`${p} ${p === 1 ? 'page' : 'pages'}`);
-                    if (m > 0) parts.push(`${Math.floor(m / 60)}h ${m % 60}m`);
-                    return parts.join(' · ');
-                  })()}
-                </span>
-              </h2>
-              <div className="divide-y divide-neutral-800/50">
-                {day.entries.map(entry => (
-                  <DiaryEntry key={entry.id} entry={entry} onDelete={id => handleDelete(id, entry.title)} />
-                ))}
-              </div>
+          <div className="flex gap-10 items-start">
+            <div className="flex-1 min-w-0 space-y-8">
+              {days.map(day => (
+                <div key={day.date} ref={el => { if (el) dayRefs.current[day.date] = el; }}>
+                  <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-1 pb-2 border-b border-neutral-800 flex justify-between items-baseline">
+                    <span>{formatDate(day.date)}</span>
+                    <span className="text-neutral-700 normal-case tracking-normal font-normal">
+                      {(() => {
+                        const p = day.entries.reduce((s, e) => s + (e.pages_read || 0), 0);
+                        const m = day.entries.reduce((s, e) => s + (e.minutes_read || 0), 0);
+                        const parts = [];
+                        if (p > 0) parts.push(`${p} ${p === 1 ? 'page' : 'pages'}`);
+                        if (m > 0) parts.push(`${Math.floor(m / 60)}h ${m % 60}m`);
+                        return parts.join(' · ');
+                      })()}
+                    </span>
+                  </h2>
+                  <div className="divide-y divide-neutral-800/50">
+                    {day.entries.map(entry => (
+                      <DiaryEntry key={entry.id} entry={entry} onDelete={id => handleDelete(id, entry.title)} />
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
+            <div className="w-52 flex-shrink-0 sticky top-20">
+              <ReadingCalendar
+                days={days}
+                onDayClick={dateStr => {
+                  const el = dayRefs.current[dateStr];
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+              />
+            </div>
           </div>
         </div>
         );
