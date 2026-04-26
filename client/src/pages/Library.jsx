@@ -96,25 +96,21 @@ function FilterIcon() {
   );
 }
 
-function isManga(book) {
-  return book.tags?.some(t => t.name.toLowerCase() === 'manga');
-}
-
 function buildDisplayItems(books, expandedSeries) {
-  const mangaGroups = new Map();
+  const seriesGroups = new Map();
   for (const book of books) {
-    if (isManga(book) && book.series) {
-      if (!mangaGroups.has(book.series)) mangaGroups.set(book.series, []);
-      mangaGroups.get(book.series).push(book);
+    if (book.series) {
+      if (!seriesGroups.has(book.series)) seriesGroups.set(book.series, []);
+      seriesGroups.get(book.series).push(book);
     }
   }
   const seenSeries = new Set();
   const items = [];
   for (const book of books) {
-    if (isManga(book) && book.series && mangaGroups.get(book.series).length > 1) {
+    if (book.series && seriesGroups.get(book.series).length > 1) {
       if (!seenSeries.has(book.series)) {
         seenSeries.add(book.series);
-        const groupBooks = mangaGroups.get(book.series);
+        const groupBooks = seriesGroups.get(book.series);
         items.push({ type: 'series', name: book.series, books: groupBooks });
         if (expandedSeries.has(book.series)) {
           for (const vol of sortVolumes(groupBooks)) {
@@ -135,7 +131,7 @@ function sortVolumes(books) {
   );
 }
 
-function MangaSeriesCard({ seriesName, books, expanded, onToggle, compact }) {
+function SeriesCard({ seriesName, books, expanded, onToggle, compact }) {
   const sorted = sortVolumes(books);
   const statusCounts = books.reduce((acc, b) => {
     acc[b.status] = (acc[b.status] || 0) + 1;
@@ -407,7 +403,7 @@ export default function Library() {
         <div className={GRID[density]}>
           {displayItems.map(item =>
             item.type === 'series' ? (
-              <MangaSeriesCard
+              <SeriesCard
                 key={item.name}
                 seriesName={item.name}
                 books={item.books}
