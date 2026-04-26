@@ -24,6 +24,7 @@ const SORTS = [
   { key: 'author',   label: 'Author A–Z' },
   { key: 'rating',   label: 'Rating' },
   { key: 'progress',  label: 'Progress' },
+  { key: 'started',   label: 'Date started' },
   { key: 'finished',  label: 'Date finished' },
   { key: 'length',    label: 'Length' },
 ];
@@ -47,9 +48,10 @@ function applySort(books, sort) {
   if (sort === 'author')   return sorted.sort((a, b) => (a.author || '').localeCompare(b.author || ''));
   if (sort === 'rating')   return sorted.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
   if (sort === 'progress') return sorted.sort((a, b) => progress(b) - progress(a));
+  if (sort === 'started')  return sorted.sort((a, b) => (b.date_started ?? '').localeCompare(a.date_started ?? ''));
   if (sort === 'finished') return sorted.sort((a, b) => (b.date_finished ?? '').localeCompare(a.date_finished ?? ''));
   if (sort === 'length')   return sorted.sort((a, b) => {
-    const len = b => b.format === 'audiobook' ? (b.duration_minutes ?? 0) : (b.page_count ?? 0);
+    const len = b => b.format === 'audiobook' ? (b.duration_minutes || Infinity) : (b.page_count || Infinity);
     return len(a) - len(b);
   });
   return sorted;
