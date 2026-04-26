@@ -170,6 +170,7 @@ router.get('/', (_req, res) => {
     newestEdition:    bookRecord(`SELECT * FROM books WHERE year_published IS NOT NULL ORDER BY year_published DESC LIMIT 1`),
     firstFinished:    bookRecord(`SELECT * FROM books WHERE date_finished IS NOT NULL ORDER BY date_finished ASC LIMIT 1`),
     lastFinished:     bookRecord(`SELECT * FROM books WHERE date_finished IS NOT NULL ORDER BY date_finished DESC LIMIT 1`),
+    mostReread:       bookRecord(`SELECT * FROM books WHERE read_count > 1 ORDER BY read_count DESC LIMIT 1`),
   };
 
   res.json({ totals, formats, fiction, ratings, pagesRead, minutesListened, byYear, topAuthors, languages, streaks, todayPages, thisYearBooks, thisYearPages, topTags, avgPagesPerDay, records });

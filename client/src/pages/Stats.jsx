@@ -205,6 +205,7 @@ export default function Stats() {
             <RecordCard label="Newest edition" book={records.newestEdition} value={records.newestEdition?.year_published ? `Published ${records.newestEdition.year_published}` : null} />
             <RecordCard label="First finished" book={records.firstFinished} value={records.firstFinished?.date_finished ? new Date(records.firstFinished.date_finished + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : null} />
             <RecordCard label="Last finished" book={records.lastFinished} value={records.lastFinished?.date_finished ? new Date(records.lastFinished.date_finished + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : null} />
+            {records.mostReread && <RecordCard label="Most re-read" book={records.mostReread} value={`${records.mostReread.read_count} times`} />}
           </div>
         </Section>
       )}
