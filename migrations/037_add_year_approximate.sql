@@ -1,0 +1,1 @@
+ALTER TABLE books ADD COLUMN year_approximate INTEGER NOT NULL DEFAULT 0;

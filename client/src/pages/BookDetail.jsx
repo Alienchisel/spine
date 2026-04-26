@@ -408,7 +408,7 @@ export default function BookDetail() {
               <div className="flex gap-2">
                 <dt className="text-neutral-500 w-24 flex-shrink-0">Published</dt>
                 <dd className="text-neutral-300">
-                  {book.year_published}
+                  {book.year_approximate ? `ca. ${book.year_published}` : book.year_published}
                   {book.year_edition && book.year_edition !== book.year_published
                     ? ` (this edition ${book.year_edition})`
                     : ''}

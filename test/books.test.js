@@ -193,6 +193,15 @@ describe('books', () => {
       const { status } = await req('POST', '/api/books', { title: 'Bad Rating', rating: 3.3 });
       assert.equal(status, 400);
     });
+
+    it('saves and returns year_approximate flag', async () => {
+      const { status, body } = await req('POST', '/api/books', { title: 'Old Book', year_published: 1900, year_approximate: true });
+      assert.equal(status, 201);
+      assert.equal(body.year_published, 1900);
+      assert.equal(body.year_approximate, 1);
+      const { body: updated } = await req('PUT', `/api/books/${body.id}`, { title: 'Old Book', year_published: 1900, year_approximate: false });
+      assert.equal(updated.year_approximate, 0);
+    });
   });
 
   describe('PATCH /api/books/:id', () => {
