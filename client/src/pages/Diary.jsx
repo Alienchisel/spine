@@ -99,7 +99,7 @@ function ReadingCalendar({ days, onDayClick }) {
         ))}
       </div>
 
-      <div className="grid grid-cols-7 gap-y-1">
+      <div className="grid grid-cols-7 gap-1">
         {Array.from({ length: totalCells }, (_, i) => {
           const dateStr = cellDateStr(i);
           if (!dateStr) return <div key={i} />;
@@ -113,8 +113,8 @@ function ReadingCalendar({ days, onDayClick }) {
               onClick={() => hasEntry && onDayClick(dateStr)}
               title={hasEntry ? `${pages} pages` : undefined}
               className={[
-                'flex items-center justify-center rounded text-xs h-7 mx-px select-none',
-                isFuture ? 'text-neutral-800' : hasEntry ? intensityClass(pages) + ' cursor-pointer hover:ring-1 hover:ring-oak/50' : 'text-neutral-600',
+                'flex items-center justify-center rounded text-xs h-7 select-none',
+                isFuture ? 'text-neutral-800' : hasEntry ? intensityClass(pages) + ' cursor-pointer hover:ring-1 hover:ring-oak/50' : 'text-neutral-700 bg-neutral-800/40',
                 isToday ? 'ring-1 ring-neutral-600' : '',
               ].join(' ')}
             >
@@ -241,7 +241,7 @@ export default function Diary() {
                 </div>
               ))}
             </div>
-            <div className="w-52 flex-shrink-0 sticky top-20">
+            <div className="w-64 flex-shrink-0 sticky top-20">
               <ReadingCalendar
                 days={days}
                 onDayClick={dateStr => {
