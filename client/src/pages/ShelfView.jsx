@@ -48,7 +48,6 @@ function SortableShelfCover({ book }) {
           </svg>
         </button>
       </div>
-      <p className="text-xs text-neutral-500 mt-2 w-[240px] truncate">{book.title}</p>
     </div>
   );
 }
