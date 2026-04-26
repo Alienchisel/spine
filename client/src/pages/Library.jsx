@@ -23,7 +23,9 @@ const SORTS = [
   { key: 'title',    label: 'Title A–Z' },
   { key: 'author',   label: 'Author A–Z' },
   { key: 'rating',   label: 'Rating' },
-  { key: 'progress', label: 'Progress' },
+  { key: 'progress',  label: 'Progress' },
+  { key: 'finished',  label: 'Date finished' },
+  { key: 'length',    label: 'Length' },
 ];
 
 const GRID = {
@@ -45,6 +47,11 @@ function applySort(books, sort) {
   if (sort === 'author')   return sorted.sort((a, b) => (a.author || '').localeCompare(b.author || ''));
   if (sort === 'rating')   return sorted.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
   if (sort === 'progress') return sorted.sort((a, b) => progress(b) - progress(a));
+  if (sort === 'finished') return sorted.sort((a, b) => (b.date_finished ?? '').localeCompare(a.date_finished ?? ''));
+  if (sort === 'length')   return sorted.sort((a, b) => {
+    const len = b => b.format === 'audiobook' ? (b.duration_minutes ?? 0) : (b.page_count ?? 0);
+    return len(a) - len(b);
+  });
   return sorted;
 }
 
