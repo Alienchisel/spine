@@ -161,6 +161,7 @@ router.get('/', (_req, res) => {
     FROM books
     WHERE series IS NOT NULL
     GROUP BY series
+    HAVING count >= 2
     ORDER BY count DESC
     LIMIT 10
   `).all();
