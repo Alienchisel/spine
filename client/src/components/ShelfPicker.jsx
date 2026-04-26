@@ -58,19 +58,19 @@ export default function ShelfPicker({ shelfId, buildingId, roomId, unitId, onCha
   function setRoom(rid) {
     const id = rid ? Number(rid) : null;
     setSel(s => ({ ...s, roomId: id, unitId: null, shelfId: null }));
-    onChange({ buildingId: sel.buildingId, roomId: id, unitId: null, shelfId: null });
+    onChange({ buildingId: null, roomId: id, unitId: null, shelfId: null });
   }
 
   function setUnit(uid) {
     const id = uid ? Number(uid) : null;
     setSel(s => ({ ...s, unitId: id, shelfId: null }));
-    onChange({ buildingId: sel.buildingId, roomId: sel.roomId, unitId: id, shelfId: null });
+    onChange({ buildingId: null, roomId: null, unitId: id, shelfId: null });
   }
 
   function setShelf(sid) {
     const id = sid ? Number(sid) : null;
     setSel(s => ({ ...s, shelfId: id }));
-    onChange({ buildingId: sel.buildingId, roomId: sel.roomId, unitId: sel.unitId, shelfId: id });
+    onChange({ buildingId: null, roomId: null, unitId: null, shelfId: id });
   }
 
   function clear() {

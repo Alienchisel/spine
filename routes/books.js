@@ -232,9 +232,9 @@ router.post('/', (req, res) => {
       year_published || null,
       year_edition || null,
       shelf_id || null,
-      building_id || null,
-      room_id || null,
-      unit_id || null
+      !shelf_id ? (building_id || null) : null,
+      !shelf_id ? (room_id || null) : null,
+      !shelf_id && !room_id ? (unit_id || null) : null
     );
     if (tags?.length) syncTags(result.lastInsertRowid, tags);
     return result.lastInsertRowid;
@@ -314,10 +314,10 @@ router.put('/:id', (req, res) => {
       t(narrator),
       year_published || null,
       year_edition || null,
-      shelf_id ?? null,
-      building_id ?? null,
-      room_id ?? null,
-      unit_id ?? null,
+      shelf_id || null,
+      !shelf_id ? (building_id || null) : null,
+      !shelf_id ? (room_id || null) : null,
+      !shelf_id && !room_id ? (unit_id || null) : null,
       newReadCount,
       id
     );
