@@ -517,6 +517,10 @@ export default function BookForm() {
                         condition: f === 'physical' ? prev.condition : '',
                         page_count: f === 'audiobook' ? '' : prev.page_count,
                         duration_minutes: f !== 'audiobook' ? '' : prev.duration_minutes,
+                        shelf_id: f === 'physical' ? prev.shelf_id : null,
+                        building_id: f === 'physical' ? prev.building_id : null,
+                        room_id: f === 'physical' ? prev.room_id : null,
+                        unit_id: f === 'physical' ? prev.unit_id : null,
                       }));
                       if (f !== 'audiobook') { setDurationH(''); setDurationM(''); }
                     }}>
