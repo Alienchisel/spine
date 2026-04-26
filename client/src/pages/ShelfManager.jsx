@@ -1,6 +1,28 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import {
+  DndContext, closestCenter, PointerSensor, useSensor, useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext, useSortable, verticalListSortingStrategy, arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { api } from '../api.js';
+
+function DragHandle({ listeners }) {
+  return (
+    <button
+      type="button"
+      {...listeners}
+      className="text-neutral-700 hover:text-neutral-400 transition-colors cursor-grab active:cursor-grabbing flex-shrink-0 px-0.5"
+      aria-label="Drag to reorder"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3">
+        <path fillRule="evenodd" d="M2.75 4a.75.75 0 0 1 .75-.75h9a.75.75 0 0 1 0 1.5h-9A.75.75 0 0 1 2.75 4Zm0 4a.75.75 0 0 1 .75-.75h9a.75.75 0 0 1 0 1.5h-9A.75.75 0 0 1 2.75 8Zm.75 3.25a.75.75 0 0 0 0 1.5h9a.75.75 0 0 0 0-1.5h-9Z" clipRule="evenodd" />
+      </svg>
+    </button>
+  );
+}
 
 const PROXIMITY_LABEL = { home: 'Home', nearby: 'Nearby', remote: 'Remote' };
 const PROXIMITY_OPTIONS = ['home', 'nearby', 'remote'];
@@ -75,7 +97,7 @@ function ShelfRow({ shelf, onEdit, onDelete }) {
   );
 }
 
-function UnitSection({ unit, onEdit, onDelete, onAddShelf, onEditShelf, onDeleteShelf }) {
+function UnitSection({ unit, dragHandle, onEdit, onDelete, onAddShelf, onEditShelf, onDeleteShelf }) {
   const [open, setOpen] = useState(true);
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -89,11 +111,14 @@ function UnitSection({ unit, onEdit, onDelete, onAddShelf, onEditShelf, onDelete
   return (
     <div>
       <div className="flex items-center justify-between py-1.5 pl-10 pr-2 group">
-        <button onClick={() => setOpen(o => !o)} className="flex items-center gap-1.5 text-left min-w-0">
-          <span className="text-neutral-600 text-xs w-3 flex-shrink-0">{open ? '▾' : '▸'}</span>
-          <span className="text-xs text-neutral-300">{unit.name}</span>
-          <span className="text-xs text-neutral-600 ml-1">{unit.shelf_count} {unit.shelf_count === 1 ? 'shelf' : 'shelves'}</span>
-        </button>
+        <div className="flex items-center gap-1 min-w-0">
+          <span className="opacity-0 group-hover:opacity-100 transition-opacity">{dragHandle}</span>
+          <button onClick={() => setOpen(o => !o)} className="flex items-center gap-1.5 text-left min-w-0">
+            <span className="text-neutral-600 text-xs w-3 flex-shrink-0">{open ? '▾' : '▸'}</span>
+            <span className="text-xs text-neutral-300">{unit.name}</span>
+            <span className="text-xs text-neutral-600 ml-1">{unit.shelf_count} {unit.shelf_count === 1 ? 'shelf' : 'shelves'}</span>
+          </button>
+        </div>
         <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
           {open && !adding && (
             <button onClick={() => setAdding(true)} className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors whitespace-nowrap">+ shelf</button>
@@ -121,10 +146,33 @@ function UnitSection({ unit, onEdit, onDelete, onAddShelf, onEditShelf, onDelete
   );
 }
 
-function RoomSection({ room, onEdit, onDelete, onAddUnit, onEditUnit, onDeleteUnit, onAddShelf, onEditShelf, onDeleteShelf }) {
+function SortableUnit({ unit, ...props }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: unit.id });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} className={isDragging ? 'opacity-40' : ''}>
+      <UnitSection unit={unit} dragHandle={<DragHandle listeners={listeners} />} {...props} />
+    </div>
+  );
+}
+
+function RoomSection({ room, dragHandle, onEdit, onDelete, onAddUnit, onReorderUnits, onEditUnit, onDeleteUnit, onAddShelf, onEditShelf, onDeleteShelf }) {
   const [open, setOpen] = useState(true);
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [units, setUnits] = useState(room.units);
+  useEffect(() => setUnits(room.units), [room.units]);
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  function handleUnitDragEnd({ active, over }) {
+    if (!over || active.id === over.id) return;
+    const oldIdx = units.findIndex(u => u.id === active.id);
+    const newIdx = units.findIndex(u => u.id === over.id);
+    const reordered = arrayMove(units, oldIdx, newIdx);
+    setUnits(reordered);
+    onReorderUnits(room.id, reordered.map(u => u.id));
+  }
 
   if (editing) return (
     <div className="py-1.5 pl-6">
@@ -135,11 +183,14 @@ function RoomSection({ room, onEdit, onDelete, onAddUnit, onEditUnit, onDeleteUn
   return (
     <div>
       <div className="flex items-center justify-between py-1.5 pl-6 pr-2 group">
-        <button onClick={() => setOpen(o => !o)} className="flex items-center gap-1.5 text-left min-w-0">
-          <span className="text-neutral-600 text-xs w-3 flex-shrink-0">{open ? '▾' : '▸'}</span>
-          <span className="text-xs text-neutral-200">{room.name}</span>
-          <span className="text-xs text-neutral-600 ml-1">{room.unit_count} {room.unit_count === 1 ? 'unit' : 'units'}</span>
-        </button>
+        <div className="flex items-center gap-1 min-w-0">
+          <span className="opacity-0 group-hover:opacity-100 transition-opacity">{dragHandle}</span>
+          <button onClick={() => setOpen(o => !o)} className="flex items-center gap-1.5 text-left min-w-0">
+            <span className="text-neutral-600 text-xs w-3 flex-shrink-0">{open ? '▾' : '▸'}</span>
+            <span className="text-xs text-neutral-200">{room.name}</span>
+            <span className="text-xs text-neutral-600 ml-1">{room.unit_count} {room.unit_count === 1 ? 'unit' : 'units'}</span>
+          </button>
+        </div>
         <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
           {open && !adding && (
             <button onClick={() => setAdding(true)} className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors whitespace-nowrap">+ unit</button>
@@ -150,11 +201,15 @@ function RoomSection({ room, onEdit, onDelete, onAddUnit, onEditUnit, onDeleteUn
       </div>
       {open && (
         <div>
-          {room.units.map(u => (
-            <UnitSection key={u.id} unit={u}
-              onEdit={onEditUnit} onDelete={onDeleteUnit}
-              onAddShelf={onAddShelf} onEditShelf={onEditShelf} onDeleteShelf={onDeleteShelf} />
-          ))}
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleUnitDragEnd}>
+            <SortableContext items={units.map(u => u.id)} strategy={verticalListSortingStrategy}>
+              {units.map(u => (
+                <SortableUnit key={u.id} unit={u}
+                  onEdit={onEditUnit} onDelete={onDeleteUnit}
+                  onAddShelf={onAddShelf} onEditShelf={onEditShelf} onDeleteShelf={onDeleteShelf} />
+              ))}
+            </SortableContext>
+          </DndContext>
           {adding && (
             <div className="pl-10 py-1.5">
               <InlineInput placeholder="e.g. Bookcase A, Desk…"
@@ -168,12 +223,36 @@ function RoomSection({ room, onEdit, onDelete, onAddUnit, onEditUnit, onDeleteUn
   );
 }
 
+function SortableRoom({ room, ...props }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: room.id });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} className={isDragging ? 'opacity-40' : ''}>
+      <RoomSection room={room} dragHandle={<DragHandle listeners={listeners} />} {...props} />
+    </div>
+  );
+}
+
 function BuildingSection({ building, onEdit, onDelete, onAddRoom, onEditRoom, onDeleteRoom,
-  onAddUnit, onEditUnit, onDeleteUnit, onAddShelf, onEditShelf, onDeleteShelf }) {
+  onAddUnit, onReorderUnits, onEditUnit, onDeleteUnit, onAddShelf, onEditShelf, onDeleteShelf,
+  onReorderRooms }) {
   const [open, setOpen] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editingProximity, setEditingProximity] = useState(building.proximity);
   const [adding, setAdding] = useState(false);
+  const [rooms, setRooms] = useState(building.rooms);
+  useEffect(() => setRooms(building.rooms), [building.rooms]);
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  function handleRoomDragEnd({ active, over }) {
+    if (!over || active.id === over.id) return;
+    const oldIdx = rooms.findIndex(r => r.id === active.id);
+    const newIdx = rooms.findIndex(r => r.id === over.id);
+    const reordered = arrayMove(rooms, oldIdx, newIdx);
+    setRooms(reordered);
+    onReorderRooms(building.id, reordered.map(r => r.id));
+  }
 
   if (editing) return (
     <div className="py-2 pl-2">
@@ -213,12 +292,17 @@ function BuildingSection({ building, onEdit, onDelete, onAddRoom, onEditRoom, on
       </div>
       {open && (
         <div className="py-1">
-          {building.rooms.map(r => (
-            <RoomSection key={r.id} room={r}
-              onEdit={onEditRoom} onDelete={onDeleteRoom}
-              onAddUnit={onAddUnit} onEditUnit={onEditUnit} onDeleteUnit={onDeleteUnit}
-              onAddShelf={onAddShelf} onEditShelf={onEditShelf} onDeleteShelf={onDeleteShelf} />
-          ))}
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleRoomDragEnd}>
+            <SortableContext items={rooms.map(r => r.id)} strategy={verticalListSortingStrategy}>
+              {rooms.map(r => (
+                <SortableRoom key={r.id} room={r}
+                  onEdit={onEditRoom} onDelete={onDeleteRoom}
+                  onAddUnit={onAddUnit} onReorderUnits={onReorderUnits}
+                  onEditUnit={onEditUnit} onDeleteUnit={onDeleteUnit}
+                  onAddShelf={onAddShelf} onEditShelf={onEditShelf} onDeleteShelf={onDeleteShelf} />
+              ))}
+            </SortableContext>
+          </DndContext>
           {adding && (
             <div className="pl-6 py-1.5">
               <InlineInput placeholder="e.g. Living Room, Office…"
@@ -274,6 +358,10 @@ export default function ShelfManager() {
     reload();
   }
 
+  async function reorderRooms(buildingId, ids) {
+    await api.reorderRooms(buildingId, ids);
+  }
+
   async function editRoom(id, name) {
     const r = tree.flatMap(b => b.rooms).find(x => x.id === id);
     await api.updateRoom(id, { name, order_index: r?.order_index });
@@ -284,6 +372,10 @@ export default function ShelfManager() {
     if (!confirm('Delete this room and all its units and shelves?')) return;
     await api.deleteRoom(id);
     reload();
+  }
+
+  async function reorderUnits(roomId, ids) {
+    await api.reorderUnits(roomId, ids);
   }
 
   async function addUnit(roomId, name) {
@@ -331,8 +423,8 @@ export default function ShelfManager() {
         {tree.map(b => (
           <BuildingSection key={b.id} building={b}
             onEdit={editBuilding} onDelete={deleteBuilding}
-            onAddRoom={addRoom} onEditRoom={editRoom} onDeleteRoom={deleteRoom}
-            onAddUnit={addUnit} onEditUnit={editUnit} onDeleteUnit={deleteUnit}
+            onAddRoom={addRoom} onEditRoom={editRoom} onDeleteRoom={deleteRoom} onReorderRooms={reorderRooms}
+            onAddUnit={addUnit} onEditUnit={editUnit} onDeleteUnit={deleteUnit} onReorderUnits={reorderUnits}
             onAddShelf={addShelf} onEditShelf={editShelf} onDeleteShelf={deleteShelf} />
         ))}
 

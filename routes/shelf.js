@@ -215,6 +215,22 @@ router.delete('/units/:id', (req, res) => {
   res.status(204).send();
 });
 
+router.put('/rooms/order', (req, res) => {
+  const { building_id, ids } = req.body;
+  if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids must be an array' });
+  const update = db.prepare('UPDATE rooms SET order_index = ? WHERE id = ? AND building_id = ?');
+  db.transaction(() => ids.forEach((id, i) => update.run(i, id, building_id)))();
+  res.status(204).end();
+});
+
+router.put('/units/order', (req, res) => {
+  const { room_id, ids } = req.body;
+  if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids must be an array' });
+  const update = db.prepare('UPDATE units SET order_index = ? WHERE id = ? AND room_id = ?');
+  db.transaction(() => ids.forEach((id, i) => update.run(i, id, room_id)))();
+  res.status(204).end();
+});
+
 // ── Shelves ────────────────────────────────────────────────────────────────
 
 router.get('/units/:id/shelves', (req, res) => {
