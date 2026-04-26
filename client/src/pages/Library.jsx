@@ -236,14 +236,17 @@ export default function Library() {
 
   // Fetch books on tab / sort / filter / query change — always reset to page 1
   useEffect(() => {
+    let stale = false;
     setLoading(true);
     setBooks([]);
     loadedRef.current = 0;
     api.getBooks(buildApiParams(tab, sort, filters, query, 0)).then(({ books: b, total: t }) => {
+      if (stale) return;
       setBooks(b);
       setTotal(t);
       loadedRef.current = b.length;
-    }).finally(() => setLoading(false));
+    }).finally(() => { if (!stale) setLoading(false); });
+    return () => { stale = true; };
   }, [tab, sort, filters, query]);
 
   function handleLoadMore() {

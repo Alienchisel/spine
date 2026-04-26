@@ -204,7 +204,7 @@ export default function Diary() {
         <div className="text-red-500 text-sm">{error}</div>
       ) : days.length === 0 ? (
         <div className="text-center py-32">
-          <p className="text-neutral-600 mb-3">No reading logged{years.length > 0 ? ` in ${year}` : ' yet'}.{years.length > 0 && year === CURRENT_YEAR && years[0] !== CURRENT_YEAR ? '' : ''}</p>
+          <p className="text-neutral-600 mb-3">No reading logged{years.length > 0 ? ` in ${year}` : ' yet'}.</p>
           {years.length === 0 && (
             <Link to="/" className="text-sm text-oak hover:text-leather">Browse your library →</Link>
           )}

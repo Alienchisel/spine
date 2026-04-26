@@ -38,6 +38,7 @@ function FilterSection({ label, children }) {
 }
 
 export default function FilterPanel({ facets, filters, onChange }) {
+  if (!facets) return null;
   function toggle(section, value) {
     const cur = filters[section];
     onChange({
