@@ -201,6 +201,7 @@ export default function BookDetail() {
   const [location, setLocation] = useState(null);
   const [log, setLog] = useState([]);
   const [descExpanded, setDescExpanded] = useState(false);
+  const [ratingPrompt, setRatingPrompt] = useState(false);
 
   useEffect(() => {
     api.getBook(id).then(setBook).finally(() => setLoading(false));
@@ -233,6 +234,7 @@ export default function BookDetail() {
       tags: realTagNames(book.tags),
     });
     setBook(updated);
+    if (!book.rating) setRatingPrompt(true);
   }
 
   async function handleRate(rating) {
@@ -242,6 +244,7 @@ export default function BookDetail() {
       tags: realTagNames(book.tags),
     });
     setBook(updated);
+    setRatingPrompt(false);
   }
 
   async function handleDelete() {
@@ -308,11 +311,20 @@ export default function BookDetail() {
               </div>
             )}
             <div className="border-t border-neutral-800 py-3 px-2">
-              <p className="text-[10px] uppercase tracking-wider text-neutral-600 text-center mb-2.5">Rate</p>
+              <p className="text-[10px] uppercase tracking-wider text-neutral-600 text-center mb-2.5">
+                {ratingPrompt ? 'How was it?' : 'Rate'}
+              </p>
               <div className="flex justify-center">
                 <StarRating value={book.rating} onChange={handleRate} size="text-3xl" />
               </div>
-              {book.rating && (
+              {ratingPrompt && !book.rating && (
+                <div className="text-center mt-2">
+                  <button onClick={() => setRatingPrompt(false)} className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors">
+                    skip
+                  </button>
+                </div>
+              )}
+              {book.rating && !ratingPrompt && (
                 <p className="text-center text-xs text-neutral-600 mt-2">{book.rating} / 5</p>
               )}
             </div>
