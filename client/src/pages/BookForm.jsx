@@ -882,12 +882,12 @@ export default function BookForm() {
                           <div className="flex gap-2">
                             <input
                               type="number" min="1800" max="2099" placeholder="Year"
-                              className={`w-24 ${input}`}
+                              className={`w-24 ${inputNoWidth}`}
                               value={acqYear}
                               onChange={e => setAcq(e.target.value, acqYear && acqMonth ? acqMonth : '', acqYear && acqDay ? acqDay : '')}
                             />
                             <select
-                              className={`flex-1 ${input}`}
+                              className={`flex-1 ${inputNoWidth}`}
                               value={acqMonth}
                               onChange={e => setAcq(acqYear, e.target.value, e.target.value ? acqDay : '')}
                             >
@@ -899,7 +899,7 @@ export default function BookForm() {
                             {acqMonth && (
                               <input
                                 type="number" min="1" max="31" placeholder="Day"
-                                className={`w-20 ${input}`}
+                                className={`w-16 ${inputNoWidth}`}
                                 value={acqDay ? parseInt(acqDay) : ''}
                                 onChange={e => setAcq(acqYear, acqMonth, e.target.value ? String(parseInt(e.target.value)).padStart(2, '0') : '')}
                               />
