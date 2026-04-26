@@ -198,7 +198,7 @@ function MangaSeriesCard({ seriesName, books, expanded, onToggle, compact }) {
 }
 
 
-const VALID_TABS = new Set(['reading', 'paused', 'finished', 'unread', 'owned', 'prev_owned', 'all']);
+const VALID_TABS = new Set(['reading', 'paused', 'finished', 'unread', 'owned', 'prev_owned', 'loved', 'all']);
 
 export default function Library() {
   const [searchParams] = useSearchParams();
@@ -228,7 +228,7 @@ export default function Library() {
 
   useEffect(() => {
     setLoading(true);
-    api.getBooks(tab === 'all' ? null : (tab === 'owned' || tab === 'prev_owned') ? null : tab).then(books => {
+    api.getBooks(tab === 'all' ? null : (tab === 'owned' || tab === 'prev_owned' || tab === 'loved') ? null : tab).then(books => {
       setBooks(books);
       setFilters(f => pruneFilters(f, books));
     }).finally(() => setLoading(false));
@@ -239,6 +239,7 @@ export default function Library() {
   const filtered = books.filter(b => {
     if (tab === 'owned'      && !b.owned)            return false;
     if (tab === 'prev_owned' && !b.previously_owned) return false;
+    if (tab === 'loved'      && !b.loved)            return false;
 
     if (query.trim() && !(
       b.title.toLowerCase().includes(query.toLowerCase()) ||
