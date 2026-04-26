@@ -274,9 +274,9 @@ function ReadsSection({ bookId, reads, onUpdate }) {
       )}
       {adding ? (
         <form onSubmit={handleAdd} className="flex flex-wrap items-center gap-2">
-          <input type="date" value={form.date_started} onChange={(e) => setForm(f => ({ ...f, date_started: e.target.value }))} className={inputCls} placeholder="Start date" />
+          <input type="date" value={form.date_started} onChange={(e) => setForm(f => ({ ...f, date_started: e.target.value }))} className={inputCls} />
           <span className="text-neutral-600 text-xs">→</span>
-          <input type="date" value={form.date_finished} onChange={(e) => setForm(f => ({ ...f, date_finished: e.target.value }))} className={inputCls} placeholder="Finish date" />
+          <input type="date" value={form.date_finished} onChange={(e) => setForm(f => ({ ...f, date_finished: e.target.value }))} className={inputCls} />
           <button type="submit" disabled={saving} className="text-xs text-oak hover:text-oak/80 transition-colors disabled:opacity-40">Add</button>
           <button type="button" onClick={() => setAdding(false)} className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors">Cancel</button>
         </form>
@@ -335,11 +335,14 @@ export default function BookDetail() {
       tags: realTagNames(book.tags),
     });
     setBook(updated);
-    await api.addRead(book.id, {
-      date_started: book.date_started || null,
-      date_finished: dateFinished,
-    });
-    loadReads();
+    try {
+      await api.addRead(book.id, {
+        date_started: book.date_started || null,
+        date_finished: dateFinished,
+      });
+    } finally {
+      loadReads();
+    }
     if (!book.rating) setRatingPrompt(true);
   }
 
