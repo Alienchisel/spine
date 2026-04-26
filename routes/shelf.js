@@ -84,6 +84,14 @@ router.post('/buildings', (req, res) => {
   res.status(201).json(db.prepare('SELECT * FROM buildings WHERE id = ?').get(result.lastInsertRowid));
 });
 
+router.put('/buildings/order', (req, res) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids must be an array' });
+  const update = db.prepare('UPDATE buildings SET order_index = ? WHERE id = ?');
+  db.transaction(() => ids.forEach((id, i) => update.run(i, id)))();
+  res.status(204).end();
+});
+
 router.get('/buildings/:id', (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid id' });

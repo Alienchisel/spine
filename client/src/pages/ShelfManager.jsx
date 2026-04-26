@@ -223,6 +223,16 @@ function RoomSection({ room, dragHandle, onEdit, onDelete, onAddUnit, onReorderU
   );
 }
 
+function SortableBuilding({ building, ...props }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: building.id });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} className={isDragging ? 'opacity-40' : ''}>
+      <BuildingSection building={building} dragHandle={<DragHandle listeners={listeners} />} {...props} />
+    </div>
+  );
+}
+
 function SortableRoom({ room, ...props }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: room.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
@@ -233,7 +243,7 @@ function SortableRoom({ room, ...props }) {
   );
 }
 
-function BuildingSection({ building, onEdit, onDelete, onAddRoom, onEditRoom, onDeleteRoom,
+function BuildingSection({ building, dragHandle, onEdit, onDelete, onAddRoom, onEditRoom, onDeleteRoom,
   onAddUnit, onReorderUnits, onEditUnit, onDeleteUnit, onAddShelf, onEditShelf, onDeleteShelf,
   onReorderRooms }) {
   const [open, setOpen] = useState(true);
@@ -274,14 +284,17 @@ function BuildingSection({ building, onEdit, onDelete, onAddRoom, onEditRoom, on
   return (
     <div className="border border-neutral-800 rounded-lg overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 bg-neutral-900/50 group">
-        <button onClick={() => setOpen(o => !o)} className="flex items-center gap-2 text-left min-w-0">
-          <span className="text-neutral-500 text-xs w-3 flex-shrink-0">{open ? '▾' : '▸'}</span>
+        <div className="flex items-center gap-1 min-w-0">
+          <span className="opacity-0 group-hover:opacity-100 transition-opacity">{dragHandle}</span>
+          <button onClick={() => setOpen(o => !o)} className="flex items-center gap-2 text-left min-w-0">
+            <span className="text-neutral-500 text-xs w-3 flex-shrink-0">{open ? '▾' : '▸'}</span>
           <span className="text-sm font-medium text-parchment">{building.name}</span>
           <span className="text-xs text-neutral-600 bg-neutral-800 px-1.5 py-0.5 rounded">
             {PROXIMITY_LABEL[building.proximity]}
           </span>
           <span className="text-xs text-neutral-600">{building.room_count} {building.room_count === 1 ? 'room' : 'rooms'}</span>
-        </button>
+          </button>
+        </div>
         <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
           {open && !adding && (
             <button onClick={() => setAdding(true)} className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors whitespace-nowrap">+ room</button>
@@ -324,6 +337,17 @@ export default function ShelfManager() {
   const [addingBuilding, setAddingBuilding] = useState(false);
   const [newBuildingName, setNewBuildingName] = useState('');
   const [newBuildingProximity, setNewBuildingProximity] = useState('home');
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  function handleBuildingDragEnd({ active, over }) {
+    if (!over || active.id === over.id) return;
+    const oldIdx = tree.findIndex(b => b.id === active.id);
+    const newIdx = tree.findIndex(b => b.id === over.id);
+    const reordered = arrayMove(tree, oldIdx, newIdx);
+    setTree(reordered);
+    api.reorderBuildings(reordered.map(b => b.id));
+  }
 
   async function reload() {
     const t = await api.getShelfTree();
@@ -419,9 +443,11 @@ export default function ShelfManager() {
       </Link>
       <h1 className="font-slab text-2xl text-parchment tracking-wide uppercase mb-8">Shelves</h1>
 
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleBuildingDragEnd}>
+      <SortableContext items={tree.map(b => b.id)} strategy={verticalListSortingStrategy}>
       <div className="space-y-3">
         {tree.map(b => (
-          <BuildingSection key={b.id} building={b}
+          <SortableBuilding key={b.id} building={b}
             onEdit={editBuilding} onDelete={deleteBuilding}
             onAddRoom={addRoom} onEditRoom={editRoom} onDeleteRoom={deleteRoom} onReorderRooms={reorderRooms}
             onAddUnit={addUnit} onEditUnit={editUnit} onDeleteUnit={deleteUnit} onReorderUnits={reorderUnits}
@@ -468,6 +494,8 @@ export default function ShelfManager() {
           </button>
         )}
       </div>
+      </SortableContext>
+      </DndContext>
     </div>
   );
 }
