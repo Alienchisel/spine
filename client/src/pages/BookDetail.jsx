@@ -223,6 +223,18 @@ export default function BookDetail() {
     setBook(updated);
   }
 
+  async function handleFinish() {
+    const today = new Date().toISOString().slice(0, 10);
+    const updated = await api.updateBook(book.id, {
+      ...book,
+      status: 'finished',
+      date_finished: book.date_finished || today,
+      read_count: (book.read_count || 0) + 1,
+      tags: realTagNames(book.tags),
+    });
+    setBook(updated);
+  }
+
   async function handleRate(rating) {
     const updated = await api.updateBook(book.id, {
       ...book,
@@ -285,6 +297,16 @@ export default function BookDetail() {
                 <span className="text-[10px] uppercase tracking-wider pointer-events-none">Lists</span>
               </div>
             </div>
+            {(book.status === 'reading' || book.status === 'paused') && (
+              <div className="border-t border-neutral-800 py-2.5 px-3">
+                <button
+                  onClick={handleFinish}
+                  className="w-full text-xs text-neutral-500 hover:text-parchment transition-colors text-center"
+                >
+                  Mark as finished
+                </button>
+              </div>
+            )}
             <div className="border-t border-neutral-800 py-3 px-2">
               <p className="text-[10px] uppercase tracking-wider text-neutral-600 text-center mb-2.5">Rate</p>
               <div className="flex justify-center">
