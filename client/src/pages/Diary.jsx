@@ -25,6 +25,28 @@ function formatProgress(entry) {
 
 const DAY_HEADERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
+function mondayOf(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  const dow = d.getDay();
+  d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
+  return d.toISOString().slice(0, 10);
+}
+
+function weekStreak(days) {
+  if (!days.length) return 0;
+  const weeks = [...new Set(days.map(d => mondayOf(d.date)))].sort();
+  const today = new Date().toISOString().slice(0, 10);
+  const thisWeek = mondayOf(today);
+  const lastWeek = mondayOf(new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10));
+  if (weeks[weeks.length - 1] !== thisWeek && weeks[weeks.length - 1] !== lastWeek) return 0;
+  let n = 1;
+  for (let i = weeks.length - 1; i > 0; i--) {
+    if ((new Date(weeks[i]) - new Date(weeks[i - 1])) / 86400000 === 7) n++;
+    else break;
+  }
+  return n;
+}
+
 function dayStreak(days) {
   const dates = days.map(d => d.date).sort();
   if (!dates.length) return 0;
@@ -208,6 +230,7 @@ export default function Diary() {
         const totalPages   = days.flatMap(d => d.entries).reduce((s, e) => s + (e.pages_read || 0), 0);
         const totalMinutes = days.flatMap(d => d.entries).reduce((s, e) => s + (e.minutes_read || 0), 0);
         const streak = dayStreak(days);
+        const wStreak = weekStreak(days);
         const parts = [];
         if (totalPages > 0)   parts.push(`${totalPages.toLocaleString()} ${totalPages === 1 ? 'page' : 'pages'}`);
         if (totalMinutes > 0) parts.push(`${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m listened`);
@@ -242,6 +265,16 @@ export default function Diary() {
               ))}
             </div>
             <div className="w-64 flex-shrink-0 sticky top-20">
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                <div className="bg-neutral-800 rounded-lg p-3 text-center">
+                  <p className="text-xs text-neutral-500 mb-1.5">Days in a row</p>
+                  <p className="text-2xl font-semibold text-parchment">{streak}</p>
+                </div>
+                <div className="bg-neutral-800 rounded-lg p-3 text-center">
+                  <p className="text-xs text-neutral-500 mb-1.5">Weeks in a row</p>
+                  <p className="text-2xl font-semibold text-parchment">{wStreak}</p>
+                </div>
+              </div>
               <ReadingCalendar
                 days={days}
                 onDayClick={dateStr => {
