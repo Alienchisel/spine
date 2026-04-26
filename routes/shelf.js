@@ -145,6 +145,14 @@ router.post('/rooms', (req, res) => {
   res.status(201).json(db.prepare('SELECT * FROM rooms WHERE id = ?').get(result.lastInsertRowid));
 });
 
+router.put('/rooms/order', (req, res) => {
+  const { building_id, ids } = req.body;
+  if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids must be an array' });
+  const update = db.prepare('UPDATE rooms SET order_index = ? WHERE id = ? AND building_id = ?');
+  db.transaction(() => ids.forEach((id, i) => update.run(i, id, building_id)))();
+  res.status(204).end();
+});
+
 router.put('/rooms/:id', (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid id' });
@@ -195,6 +203,14 @@ router.post('/units', (req, res) => {
   res.status(201).json(db.prepare('SELECT * FROM units WHERE id = ?').get(result.lastInsertRowid));
 });
 
+router.put('/units/order', (req, res) => {
+  const { room_id, ids } = req.body;
+  if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids must be an array' });
+  const update = db.prepare('UPDATE units SET order_index = ? WHERE id = ? AND room_id = ?');
+  db.transaction(() => ids.forEach((id, i) => update.run(i, id, room_id)))();
+  res.status(204).end();
+});
+
 router.put('/units/:id', (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid id' });
@@ -213,22 +229,6 @@ router.delete('/units/:id', (req, res) => {
   if (!db.prepare('SELECT id FROM units WHERE id = ?').get(id)) return res.status(404).json({ error: 'Not found' });
   db.prepare('DELETE FROM units WHERE id = ?').run(id);
   res.status(204).send();
-});
-
-router.put('/rooms/order', (req, res) => {
-  const { building_id, ids } = req.body;
-  if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids must be an array' });
-  const update = db.prepare('UPDATE rooms SET order_index = ? WHERE id = ? AND building_id = ?');
-  db.transaction(() => ids.forEach((id, i) => update.run(i, id, building_id)))();
-  res.status(204).end();
-});
-
-router.put('/units/order', (req, res) => {
-  const { room_id, ids } = req.body;
-  if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids must be an array' });
-  const update = db.prepare('UPDATE units SET order_index = ? WHERE id = ? AND room_id = ?');
-  db.transaction(() => ids.forEach((id, i) => update.run(i, id, room_id)))();
-  res.status(204).end();
 });
 
 // ── Shelves ────────────────────────────────────────────────────────────────

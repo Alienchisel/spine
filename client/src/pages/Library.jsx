@@ -157,9 +157,9 @@ function SeriesCard({ seriesName, books, expanded, onToggle, compact }) {
     <button
       type="button"
       onClick={onToggle}
-      className={`bg-card rounded-lg p-2 pb-2.5 hover:-translate-y-0.5 transition-[transform,background-color] ease-out duration-150 text-left w-full ${expanded ? 'ring-1 ring-binding/40' : ''}`}
+      className={`transition-[transform,background-color] ease-out duration-150 text-left w-full ${compact ? 'hover:opacity-80' : `bg-card rounded-lg p-2 pb-2.5 hover:-translate-y-0.5 ${expanded ? 'ring-1 ring-binding/40' : ''}`}`}
     >
-      <div className="relative aspect-[2/3] mb-2.5 rounded overflow-hidden shadow-xl ring-1 ring-white/5">
+      <div className={`relative aspect-[2/3] overflow-hidden ring-1 ring-white/5 ${compact ? 'rounded-sm' : 'mb-2.5 rounded shadow-xl'}`}>
         {sorted.slice(0, 4).map((vol, i, arr) => {
           const n = arr.length;
           const leftPct = n === 1 ? 0 : (i * 45 / (n - 1));
@@ -313,7 +313,7 @@ export default function Library() {
             {TABS.map((t) => (
               <button
                 key={t.key}
-                onClick={() => setTab(t.key)}
+                onClick={() => { setTab(t.key); setExpandedSeries(new Set()); }}
                 className={`px-5 py-2 text-sm rounded-md whitespace-nowrap transition-[transform,background-color,color] ease-out duration-150 active:scale-[0.98] ${
                   tab === t.key
                     ? 'bg-binding/25 text-parchment font-semibold'
