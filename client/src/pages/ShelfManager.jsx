@@ -62,7 +62,7 @@ function ShelfRow({ shelf, onEdit, onDelete }) {
   return (
     <div className="flex items-center justify-between py-1.5 pl-16 pr-2 group">
       <div className="flex items-center gap-2">
-        <span className="text-xs text-neutral-400">Shelf {shelf.label}</span>
+        <span className="text-xs text-neutral-400">{shelf.label}</span>
         {shelf.book_count > 0 && (
           <span className="text-xs text-neutral-600">· {shelf.book_count} {shelf.book_count === 1 ? 'book' : 'books'}</span>
         )}

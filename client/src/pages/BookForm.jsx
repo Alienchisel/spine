@@ -587,7 +587,10 @@ export default function BookForm() {
                 <div>
                   <label className={label}>Status</label>
                   <select className={input} value={form.status}
-                    onChange={(e) => set('status', e.target.value)}>
+                    onChange={(e) => {
+                      const s = e.target.value;
+                      setForm(f => ({ ...f, status: s, read_count: s === 'finished' && f.read_count === 0 ? 1 : f.read_count }));
+                    }}>
                     <option value="unread">Unread</option>
                     <option value="reading">Reading</option>
                     <option value="paused">Paused</option>
