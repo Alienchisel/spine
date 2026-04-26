@@ -156,6 +156,15 @@ router.get('/', (_req, res) => {
     LIMIT 15
   `).all();
 
+  const topSeries = db.prepare(`
+    SELECT series, COUNT(*) AS count
+    FROM books
+    WHERE series IS NOT NULL
+    GROUP BY series
+    ORDER BY count DESC
+    LIMIT 10
+  `).all();
+
   function bookRecord(sql) {
     const b = db.prepare(sql).get();
     if (!b) return null;
@@ -173,7 +182,7 @@ router.get('/', (_req, res) => {
     mostReread:       bookRecord(`SELECT * FROM books WHERE read_count > 1 ORDER BY read_count DESC LIMIT 1`),
   };
 
-  res.json({ totals, formats, fiction, ratings, pagesRead, minutesListened, byYear, topAuthors, languages, streaks, todayPages, thisYearBooks, thisYearPages, topTags, avgPagesPerDay, records });
+  res.json({ totals, formats, fiction, ratings, pagesRead, minutesListened, byYear, topAuthors, languages, streaks, todayPages, thisYearBooks, thisYearPages, topTags, topSeries, avgPagesPerDay, records });
 });
 
 export default router;
