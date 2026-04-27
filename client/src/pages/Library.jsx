@@ -185,7 +185,7 @@ function FilterIcon() {
   );
 }
 
-const VALID_TABS = new Set(['reading', 'paused', 'finished', 'unread', 'owned', 'prev_owned', 'loved', 'all']);
+const VALID_TABS = new Set(['reading', 'paused', 'finished', 'unread', 'owned', 'prev_owned', 'all']);
 
 export default function Library() {
   const [searchParams] = useSearchParams();
@@ -209,6 +209,7 @@ export default function Library() {
   const [expandedSeries, setExpandedSeries] = useState(new Set());
 
   const loadedRef = useRef(0);
+  const genRef    = useRef(0);
 
   // Debounce search query
   useEffect(() => {
@@ -237,6 +238,7 @@ export default function Library() {
   // Fetch books on tab / sort / filter / query change — always reset to page 1
   useEffect(() => {
     let stale = false;
+    genRef.current += 1;
     setLoading(true);
     setBooks([]);
     loadedRef.current = 0;
@@ -250,20 +252,26 @@ export default function Library() {
   }, [tab, sort, filters, query]);
 
   function handleLoadMore() {
+    const gen = genRef.current;
     setLoadingMore(true);
     api.getBooks(buildApiParams(tab, sort, filters, query, loadedRef.current)).then(({ books: b, total: t }) => {
+      if (gen !== genRef.current) return;
       setBooks(prev => [...prev, ...b]);
       setTotal(t);
       loadedRef.current += b.length;
-    }).finally(() => setLoadingMore(false));
+    }).finally(() => { if (gen === genRef.current) setLoadingMore(false); });
   }
 
   function handleProgressUpdate(updated) {
     const statusTabs = ['reading', 'paused', 'finished', 'unread'];
-    setBooks(bs => {
-      if (statusTabs.includes(tab) && updated.status !== tab) return bs.filter(b => b.id !== updated.id);
-      return bs.map(b => b.id === updated.id ? updated : b);
-    });
+    const removing = statusTabs.includes(tab) && updated.status !== tab;
+    if (removing) {
+      loadedRef.current -= 1;
+      setTotal(t => t - 1);
+      setBooks(bs => bs.filter(b => b.id !== updated.id));
+    } else {
+      setBooks(bs => bs.map(b => b.id === updated.id ? updated : b));
+    }
   }
 
   function toggleSeries(name) {
