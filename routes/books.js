@@ -447,6 +447,7 @@ router.get('/', (req, res) => {
   const ids = rows.map(r => r.id);
   const tagMap = new Map(ids.map(id => [id, []]));
   const authorMap = new Map(ids.map(id => [id, []]));
+  const narratorMap = new Map(ids.map(id => [id, []]));
   if (ids.length) {
     const ph = ids.map(() => '?').join(',');
     db.prepare(`SELECT bt.book_id, t.id, t.name FROM tags t JOIN book_tags bt ON bt.tag_id = t.id WHERE bt.book_id IN (${ph}) ORDER BY t.name`)
@@ -455,6 +456,9 @@ router.get('/', (req, res) => {
     db.prepare(`SELECT ba.book_id, a.id, a.name FROM authors a JOIN book_authors ba ON ba.author_id = a.id WHERE ba.book_id IN (${ph}) ORDER BY ba.position`)
       .all(...ids)
       .forEach(({ book_id, id, name }) => authorMap.get(book_id)?.push({ id, name }));
+    db.prepare(`SELECT bn.book_id, n.id, n.name FROM narrators n JOIN book_narrators bn ON bn.narrator_id = n.id WHERE bn.book_id IN (${ph}) ORDER BY bn.position`)
+      .all(...ids)
+      .forEach(({ book_id, id, name }) => narratorMap.get(book_id)?.push({ id, name }));
   }
 
   const books = rows.map(b => ({
@@ -462,6 +466,7 @@ router.get('/', (req, res) => {
     cover_path: toCoverUrl(b.cover_path),
     tags: [...(tagMap.get(b.id) || []), ...computeVirtualTags(b)],
     authors: authorMap.get(b.id) || [],
+    narrators: narratorMap.get(b.id) || [],
   }));
 
   res.json({ books, total, offset, limit });

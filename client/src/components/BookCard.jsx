@@ -259,6 +259,9 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact 
           {book.authors?.length > 0 && (
             <p className="text-xs text-neutral-500 truncate mt-0.5" title={book.authors.map(a=>a.name).join(', ')}>{formatAuthors(book.authors)}</p>
           )}
+          {isAudiobook && book.narrators?.length > 0 && (
+            <p className="text-xs text-neutral-600 truncate mt-0.5" title={book.narrators.map(n=>n.name).join(', ')}>{formatAuthors(book.narrators)}</p>
+          )}
         </>}
       </Link>
 
