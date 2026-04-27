@@ -122,6 +122,14 @@ router.get('/', (_req, res) => {
     LIMIT 10
   `).all();
 
+  const topNarrators = db.prepare(`
+    SELECT n.name AS narrator, COUNT(DISTINCT bn.book_id) AS count
+    FROM narrators n JOIN book_narrators bn ON bn.narrator_id = n.id
+    GROUP BY n.id
+    ORDER BY count DESC
+    LIMIT 10
+  `).all();
+
   const languages = db.prepare(`
     SELECT language, COUNT(*) AS count FROM books
     WHERE language IS NOT NULL
@@ -187,7 +195,7 @@ router.get('/', (_req, res) => {
     mostReread:       bookRecord(`SELECT * FROM books WHERE read_count > 1 ORDER BY read_count DESC LIMIT 1`),
   };
 
-  res.json({ totals, formats, fiction, ratings, pagesRead, minutesListened, byYear, topAuthors, languages, streaks, todayPages, thisYearBooks, thisYearPages, topTags, topSeries, avgPagesPerDay, records });
+  res.json({ totals, formats, fiction, ratings, pagesRead, minutesListened, byYear, topAuthors, topNarrators, languages, streaks, todayPages, thisYearBooks, thisYearPages, topTags, topSeries, avgPagesPerDay, records });
 });
 
 export default router;

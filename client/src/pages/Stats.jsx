@@ -138,11 +138,12 @@ export default function Stats() {
   if (error) return <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-warn text-sm">{error}</div>;
   if (!stats) return null;
 
-  const { totals, formats, fiction, ratings, pagesRead, minutesListened, byYear, topAuthors, languages, streaks, todayPages, thisYearBooks, thisYearPages, topTags, topSeries, avgPagesPerDay, records } = stats;
+  const { totals, formats, fiction, ratings, pagesRead, minutesListened, byYear, topAuthors, topNarrators, languages, streaks, todayPages, thisYearBooks, thisYearPages, topTags, topSeries, avgPagesPerDay, records } = stats;
 
   const maxRating = Math.max(...ratings.map(r => r.count), 1);
   const maxYear   = Math.max(...byYear.map(y => y.count), 1);
-  const maxAuthor = Math.max(...topAuthors.map(a => a.count), 1);
+  const maxAuthor   = Math.max(...topAuthors.map(a => a.count), 1);
+  const maxNarrator = Math.max(...(topNarrators?.map(n => n.count) || []), 1);
   const maxFormat = Math.max(...formats.map(f => f.count), 1);
 
   const fictionTotal = (fiction.fiction ?? 0) + (fiction.nonfiction ?? 0);
@@ -308,6 +309,16 @@ export default function Stats() {
             <div className="space-y-2.5">
               {topAuthors.map(a => (
                 <Bar key={a.author} label={a.author} count={a.count} max={maxAuthor} color="bg-binding" href={`/browse/author/${encodeURIComponent(a.author)}`} />
+              ))}
+            </div>
+          </Section>
+        )}
+
+        {topNarrators?.length > 0 && (
+          <Section title="Top narrators">
+            <div className="space-y-2.5">
+              {topNarrators.map(n => (
+                <Bar key={n.narrator} label={n.narrator} count={n.count} max={maxNarrator} color="bg-oak" href={`/browse/narrator/${encodeURIComponent(n.narrator)}`} />
               ))}
             </div>
           </Section>
