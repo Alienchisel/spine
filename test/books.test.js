@@ -241,4 +241,97 @@ describe('books', () => {
       assert.equal(status, 404);
     });
   });
+
+  describe('reads', () => {
+    let bookId;
+
+    before(async () => {
+      const { body } = await req('POST', '/api/books', { title: 'Read History Book' });
+      bookId = body.id;
+    });
+
+    it('returns empty reads list initially', async () => {
+      const { status, body } = await req('GET', `/api/books/${bookId}/reads`);
+      assert.equal(status, 200);
+      assert.deepEqual(body, []);
+    });
+
+    it('creates a read entry', async () => {
+      const { status, body } = await req('POST', `/api/books/${bookId}/reads`, {
+        date_started: '2024-01-01',
+        date_finished: '2024-01-15',
+      });
+      assert.equal(status, 201);
+      assert.equal(body.date_started, '2024-01-01');
+      assert.equal(body.date_finished, '2024-01-15');
+      assert.equal(body.book_id, bookId);
+    });
+
+    it('creates a read entry with only date_started', async () => {
+      const { status, body } = await req('POST', `/api/books/${bookId}/reads`, {
+        date_started: '2024-02-01',
+      });
+      assert.equal(status, 201);
+      assert.equal(body.date_started, '2024-02-01');
+      assert.equal(body.date_finished, null);
+    });
+
+    it('rejects date_finished before date_started on POST', async () => {
+      const { status, body } = await req('POST', `/api/books/${bookId}/reads`, {
+        date_started: '2024-03-15',
+        date_finished: '2024-03-01',
+      });
+      assert.equal(status, 400);
+      assert.ok(body.error);
+    });
+
+    it('rejects invalid date on POST', async () => {
+      const { status } = await req('POST', `/api/books/${bookId}/reads`, {
+        date_started: '2024-99-99',
+      });
+      assert.equal(status, 400);
+    });
+
+    it('updates a read entry', async () => {
+      const { body: created } = await req('POST', `/api/books/${bookId}/reads`, {
+        date_started: '2024-04-01',
+      });
+      const { status, body } = await req('PUT', `/api/books/${bookId}/reads/${created.id}`, {
+        date_started: '2024-04-01',
+        date_finished: '2024-04-30',
+      });
+      assert.equal(status, 200);
+      assert.equal(body.date_finished, '2024-04-30');
+    });
+
+    it('rejects date_finished before date_started on PUT', async () => {
+      const { body: created } = await req('POST', `/api/books/${bookId}/reads`, {
+        date_started: '2024-05-01',
+      });
+      const { status, body } = await req('PUT', `/api/books/${bookId}/reads/${created.id}`, {
+        date_started: '2024-05-15',
+        date_finished: '2024-05-01',
+      });
+      assert.equal(status, 400);
+      assert.ok(body.error);
+    });
+
+    it('deletes a read entry', async () => {
+      const { body: created } = await req('POST', `/api/books/${bookId}/reads`, {
+        date_finished: '2024-06-01',
+      });
+      const { status } = await req('DELETE', `/api/books/${bookId}/reads/${created.id}`);
+      assert.equal(status, 204);
+    });
+
+    it('returns 404 for unknown read id', async () => {
+      const { status } = await req('DELETE', `/api/books/${bookId}/reads/99999`);
+      assert.equal(status, 404);
+    });
+
+    it('returns 400 for non-integer book id on reads', async () => {
+      const { status } = await req('GET', '/api/books/abc/reads');
+      assert.equal(status, 400);
+    });
+  });
 });
