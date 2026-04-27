@@ -611,6 +611,7 @@ router.put('/:id', (req, res) => {
   const isManualReadCount = incomingReadCount !== null && incomingReadCount !== existing.read_count;
   const isFinishTransition = status === 'finished' && existing.status !== 'finished';
   const newReadCount = isManualReadCount ? incomingReadCount : existing.read_count + (isFinishTransition ? 1 : 0);
+  const effectiveIsStub = (is_stub && !(t(title) && authors?.length > 0)) ? 1 : 0;
 
   const updateBook = db.transaction(() => {
     db.prepare(`
@@ -636,7 +637,7 @@ router.put('/:id', (req, res) => {
       owned ? 1 : 0,
       !owned && previously_owned ? 1 : 0,
       is_custom ? 1 : 0,
-      is_stub ? 1 : 0,
+      effectiveIsStub,
       loved ? 1 : 0,
       fiction == null ? null : (fiction ? 1 : 0),
       t(source_type) || null,
