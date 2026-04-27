@@ -8,16 +8,23 @@ router.get('/', (_req, res) => {
     SELECT * FROM books WHERE on_readlist = 1
     ORDER BY readlist_position ASC, id ASC
   `).all();
-  const withTags = books.map(b => {
-    const tags = db.prepare(`
-      SELECT t.id, t.name FROM tags t
-      JOIN book_tags bt ON bt.tag_id = t.id
-      WHERE bt.book_id = ?
-    `).all(b.id);
-    const cover_path = b.cover_path ? `/uploads/${b.cover_path}` : null;
-    return { ...b, cover_path, tags };
-  });
-  res.json(withTags);
+  if (!books.length) return res.json([]);
+  const ids = books.map(b => b.id);
+  const tagRows = db.prepare(`
+    SELECT bt.book_id, t.id, t.name FROM tags t
+    JOIN book_tags bt ON bt.tag_id = t.id
+    WHERE bt.book_id IN (${ids.map(() => '?').join(',')})
+  `).all(...ids);
+  const tagMap = new Map();
+  for (const row of tagRows) {
+    if (!tagMap.has(row.book_id)) tagMap.set(row.book_id, []);
+    tagMap.get(row.book_id).push({ id: row.id, name: row.name });
+  }
+  res.json(books.map(b => ({
+    ...b,
+    cover_path: b.cover_path ? `/uploads/${b.cover_path}` : null,
+    tags: tagMap.get(b.id) ?? [],
+  })));
 });
 
 router.put('/order', (req, res) => {
@@ -25,7 +32,7 @@ router.put('/order', (req, res) => {
   if (!Array.isArray(ids) || ids.some(id => !Number.isInteger(Number(id)))) {
     return res.status(400).json({ error: 'ids must be an array of integers' });
   }
-  const update = db.prepare('UPDATE books SET readlist_position = ? WHERE id = ?');
+  const update = db.prepare('UPDATE books SET readlist_position = ? WHERE id = ? AND on_readlist = 1');
   db.transaction(() => {
     ids.forEach((id, i) => update.run(i, Number(id)));
   })();

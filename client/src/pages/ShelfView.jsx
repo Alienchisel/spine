@@ -77,6 +77,7 @@ export default function ShelfView() {
   const [unshelfed, setUnshelfed] = useState([]);
   const [loading, setLoading] = useState(true);
   const [booksLoading, setBooksLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const buildingId = params.get('b') ? Number(params.get('b')) : null;
   const roomId     = params.get('r') ? Number(params.get('r')) : null;
@@ -86,17 +87,19 @@ export default function ShelfView() {
   useEffect(() => {
     Promise.all([api.getShelfTree(), api.getUnshelfedBooks()])
       .then(([t, u]) => { setTree(t); setUnshelfed(u); })
+      .catch(() => setError('Failed to load shelves.'))
       .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
     if (!buildingId && !roomId && !unitId && !shelfId) { setBooks([]); return; }
+    setBooks([]);
     setBooksLoading(true);
     const fetch = shelfId    ? api.getShelfBooks(shelfId)
       : unitId              ? api.getUnitBooks(unitId)
       : roomId              ? api.getRoomBooks(roomId)
       : api.getBuildingBooks(buildingId);
-    fetch.then(setBooks).finally(() => setBooksLoading(false));
+    fetch.then(setBooks).catch(() => {}).finally(() => setBooksLoading(false));
   }, [buildingId, roomId, unitId, shelfId]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
@@ -108,7 +111,8 @@ export default function ShelfView() {
     const newIndex = books.findIndex(b => b.id === over.id);
     const reordered = arrayMove(books, oldIndex, newIndex);
     setBooks(reordered);
-    api.reorderShelf(shelfId, reordered.map(b => b.id));
+    api.reorderShelf(shelfId, reordered.map(b => b.id))
+      .catch(() => api.getShelfBooks(shelfId).then(setBooks).catch(() => {}));
   }
 
   const building = tree.find(b => b.id === buildingId);
@@ -140,6 +144,12 @@ export default function ShelfView() {
 
   return (
     <div>
+      {error && (
+        <div className="mb-4 flex items-center justify-between bg-warn/10 border border-warn/30 rounded px-3 py-2">
+          <p className="text-xs text-warn">{error}</p>
+          <button onClick={() => setError(null)} className="text-xs text-warn/60 hover:text-warn ml-4">×</button>
+        </div>
+      )}
       <div className="flex items-center justify-between mb-6">
         <nav className="flex items-center gap-1.5 text-sm text-neutral-500">
           {crumbs.map((c, i) => (
