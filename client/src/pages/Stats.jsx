@@ -90,7 +90,7 @@ function GoalCard({ label, current, goal, onSave, color = 'bg-oak' }) {
             <input
               type="number" min="1" autoFocus
               value={input} onChange={e => setInput(e.target.value)}
-              onBlur={() => setEditing(false)}
+              onBlur={(e) => { if (e.relatedTarget?.type === 'submit') return; setEditing(false); }}
               className="w-16 bg-neutral-800 border border-neutral-600 text-parchment text-xs rounded px-2 py-0.5 focus:outline-none focus:border-oak/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
             <button type="submit" className="text-xs text-oak hover:text-leather transition-colors">set</button>
@@ -126,8 +126,13 @@ export default function Stats() {
   }, []);
 
   async function saveGoal(key, value) {
-    await api.setSetting(key, value);
+    const prev = settings[key];
     setSettings(s => ({ ...s, [key]: String(value) }));
+    try {
+      await api.setSetting(key, value);
+    } catch {
+      setSettings(s => ({ ...s, [key]: prev }));
+    }
   }
 
   if (error) return <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-warn text-sm">{error}</div>;

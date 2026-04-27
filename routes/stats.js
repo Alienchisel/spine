@@ -23,9 +23,12 @@ function toYearMonth(dateStr) {
 function nextDay(d)   { return addDays(d, 1); }
 function nextWeek(w)  {
   const [y, wn] = w.split('-W').map(Number);
-  const jan4 = new Date(Date.UTC(y, 0, 4));
   const weeksInYear = toISOWeek(`${y}-12-28`) === `${y}-W53` ? 53 : 52;
   return wn < weeksInYear ? `${y}-W${String(wn + 1).padStart(2, '0')}` : `${y + 1}-W01`;
+}
+function prevMonth(m) {
+  const [y, mo] = m.split('-').map(Number);
+  return mo > 1 ? `${y}-${String(mo - 1).padStart(2, '0')}` : `${y - 1}-12`;
 }
 function nextMonth(m) {
   const [y, mo] = m.split('-').map(Number);
@@ -59,7 +62,7 @@ function calcStreaks(dates) {
   return {
     days:   longestAndCurrent(dates,  nextDay,   today,                    addDays(today, -1)),
     weeks:  longestAndCurrent(weeks,  nextWeek,  toISOWeek(today),         toISOWeek(addDays(today, -7))),
-    months: longestAndCurrent(months, nextMonth, toYearMonth(today),       toYearMonth(addDays(today, -32))),
+    months: longestAndCurrent(months, nextMonth, toYearMonth(today),       prevMonth(toYearMonth(today))),
   };
 }
 
