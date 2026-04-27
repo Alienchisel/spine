@@ -228,10 +228,14 @@ export default function ListDetail() {
   }
 
   async function handleRemove(bookId) {
-    await api.removeFromList(id, bookId);
-    setList(l => ({ ...l, books: l.books.filter(b => b.id !== bookId) }));
-    setTotal(t => t - 1);
-    loadedRef.current -= 1;
+    try {
+      await api.removeFromList(id, bookId);
+      setList(l => ({ ...l, books: l.books.filter(b => b.id !== bookId) }));
+      setTotal(t => t - 1);
+      loadedRef.current -= 1;
+    } catch {
+      setError('Failed to remove book from list.');
+    }
   }
 
   async function handleRename(e) {
