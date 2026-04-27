@@ -145,6 +145,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact 
       const updated = await api.patchBook(book.id, { loved: book.loved ? 0 : 1 });
       setBook(updated);
       onProgressUpdate?.(updated);
+    } catch {
     } finally {
       setLoving(false);
     }
@@ -158,6 +159,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact 
       const updated = await api.patchBook(book.id, { on_readlist: book.on_readlist ? 0 : 1 });
       setBook(updated);
       onProgressUpdate?.(updated);
+    } catch {
     } finally {
       setListing(false);
     }
@@ -172,8 +174,9 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact 
       });
       setBook(rated);
       onProgressUpdate?.(rated);
-    } finally {
       setRatingPrompt(false);
+    } catch {
+      setError('Failed to save rating');
     }
   }
 
@@ -183,7 +186,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact 
 
   const progressLabel = isAudiobook
     ? (book.current_minutes != null ? `${pct}%` : null)
-    : (book.current_page ? (hasPct ? `${pct}%` : `p. ${book.current_page}`) : null);
+    : (book.current_page != null ? (hasPct ? `${pct}%` : `p. ${book.current_page}`) : null);
 
   const numCls = 'bg-neutral-800 border border-neutral-700 text-parchment text-xs rounded px-2 py-1 focus:outline-none focus:border-leather [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none';
 
@@ -260,14 +263,17 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact 
       </Link>
 
       {!compact && ratingPrompt && (
-        <div className="mt-1.5 flex items-center gap-2">
-          <StarRating value={null} onChange={handleRate} />
-          <button
-            onClick={() => setRatingPrompt(false)}
-            className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors"
-          >
-            skip
-          </button>
+        <div className="mt-1.5">
+          <div className="flex items-center gap-2">
+            <StarRating value={null} onChange={handleRate} />
+            <button
+              onClick={() => setRatingPrompt(false)}
+              className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors"
+            >
+              skip
+            </button>
+          </div>
+          {error && <p className="text-xs text-warn mt-0.5">{error}</p>}
         </div>
       )}
 
