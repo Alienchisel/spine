@@ -9,23 +9,50 @@ function getListOrFail(res, id) {
   return list;
 }
 
-function booksForList(listId) {
+const PAGE_SIZE = 50;
+
+const LIST_ORDER_BY = {
+  title:  "b.title COLLATE NOCASE ASC, lb.position ASC",
+  author: "b.author COLLATE NOCASE ASC, b.title COLLATE NOCASE ASC",
+  rating: "COALESCE(b.rating, 0) DESC, b.title COLLATE NOCASE ASC",
+  added:  "lb.position ASC, lb.added_at DESC",
+};
+
+function booksForList(listId, { sort = 'added', limit = null, offset = 0 } = {}) {
+  const orderBy = LIST_ORDER_BY[sort] || LIST_ORDER_BY.added;
+  const limitSql = limit != null ? `LIMIT ${limit} OFFSET ${offset}` : '';
+  const total = db.prepare('SELECT COUNT(*) AS c FROM list_books WHERE list_id = ?').get(listId).c;
+
   const rows = db.prepare(`
     SELECT b.*, lb.added_at, lb.position
     FROM books b
     JOIN list_books lb ON lb.book_id = b.id
     WHERE lb.list_id = ?
-    ORDER BY lb.position ASC, lb.added_at DESC
+    ORDER BY ${orderBy}
+    ${limitSql}
   `).all(listId);
-  return rows.map(b => {
-    const tags = db.prepare(`
-      SELECT t.id, t.name FROM tags t
+
+  const ids = rows.map(r => r.id);
+  const tagsByBook = {};
+  if (ids.length > 0) {
+    const tagRows = db.prepare(`
+      SELECT bt.book_id, t.id, t.name FROM tags t
       JOIN book_tags bt ON bt.tag_id = t.id
-      WHERE bt.book_id = ?
-    `).all(b.id);
-    const cover_path = b.cover_path ? `/uploads/${b.cover_path}` : null;
-    return { ...b, cover_path, tags };
-  });
+      WHERE bt.book_id IN (${ids.map(() => '?').join(',')})
+    `).all(...ids);
+    for (const tr of tagRows) {
+      if (!tagsByBook[tr.book_id]) tagsByBook[tr.book_id] = [];
+      tagsByBook[tr.book_id].push({ id: tr.id, name: tr.name });
+    }
+  }
+
+  const books = rows.map(b => ({
+    ...b,
+    cover_path: b.cover_path ? `/uploads/${b.cover_path}` : null,
+    tags: tagsByBook[b.id] || [],
+  }));
+
+  return { books, total };
 }
 
 // GET /api/lists — all lists with book count
@@ -57,7 +84,11 @@ router.get('/:id', (req, res) => {
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid list id' });
   const list = getListOrFail(res, id);
   if (!list) return;
-  res.json({ ...list, books: booksForList(id) });
+  const sort   = LIST_ORDER_BY[req.query.sort] ? req.query.sort : 'added';
+  const limit  = req.query.limit  ? Math.min(Math.max(1, parseInt(req.query.limit)  || PAGE_SIZE), 500) : null;
+  const offset = req.query.offset ? Math.max(0, parseInt(req.query.offset) || 0) : 0;
+  const { books, total } = booksForList(id, { sort, limit, offset });
+  res.json({ ...list, books, total });
 });
 
 // PUT /api/lists/:id — rename

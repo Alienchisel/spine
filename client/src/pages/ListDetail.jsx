@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   DndContext,
@@ -15,7 +15,8 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { api } from '../api.js';
-import { sortTitle } from '../utils.js';
+
+const PAGE_SIZE = 50;
 
 const SORTS = [
   { key: 'added',  label: 'Custom order' },
@@ -23,14 +24,6 @@ const SORTS = [
   { key: 'author', label: 'Author A–Z' },
   { key: 'rating', label: 'Rating' },
 ];
-
-function applySort(books, sort) {
-  const b = [...books];
-  if (sort === 'title')  return b.sort((a, z) => sortTitle(a.title).localeCompare(sortTitle(z.title)) || (a.series_number ?? Infinity) - (z.series_number ?? Infinity));
-  if (sort === 'author') return b.sort((a, z) => (a.author || '').localeCompare(z.author || ''));
-  if (sort === 'rating') return b.sort((a, z) => (z.rating ?? 0) - (a.rating ?? 0));
-  return b;
-}
 
 function DragHandle() {
   return (
@@ -188,29 +181,57 @@ function QuickAdd({ listId, onAdded }) {
 export default function ListDetail() {
   const { id } = useParams();
   const [list, setList] = useState(null);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
   const [sort, setSort] = useState('added');
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
   const [renameError, setRenameError] = useState(null);
+  const loadedRef = useRef(0);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   useEffect(() => {
-    api.getList(id)
-      .then(setList)
+    let stale = false;
+    setLoading(true);
+    loadedRef.current = 0;
+    const params = sort === 'added' ? { sort } : { sort, limit: PAGE_SIZE, offset: 0 };
+    api.getList(id, params)
+      .then(data => {
+        if (stale) return;
+        setList(data);
+        setTotal(data.total);
+        loadedRef.current = data.books.length;
+      })
       .catch(() => setError('Failed to load list.'))
-      .finally(() => setLoading(false));
-  }, [id]);
+      .finally(() => { if (!stale) setLoading(false); });
+    return () => { stale = true; };
+  }, [id, sort]);
+
+  const loadMore = useCallback(async () => {
+    setLoadingMore(true);
+    try {
+      const data = await api.getList(id, { sort, limit: PAGE_SIZE, offset: loadedRef.current });
+      setList(l => ({ ...l, books: [...l.books, ...data.books] }));
+      loadedRef.current += data.books.length;
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [id, sort]);
 
   function handleAdded(book) {
     setList(l => ({ ...l, books: [{ ...book, added_at: new Date().toISOString() }, ...l.books] }));
+    setTotal(t => t + 1);
+    loadedRef.current += 1;
   }
 
   async function handleRemove(bookId) {
     await api.removeFromList(id, bookId);
     setList(l => ({ ...l, books: l.books.filter(b => b.id !== bookId) }));
+    setTotal(t => t - 1);
+    loadedRef.current -= 1;
   }
 
   async function handleRename(e) {
@@ -241,7 +262,6 @@ export default function ListDetail() {
   if (error)   return <div className="text-red-500 text-sm">{error}</div>;
 
   const draggable = sort === 'added';
-  const sorted = applySort(list.books, sort);
 
   return (
     <div>
@@ -271,12 +291,12 @@ export default function ListDetail() {
             {list.name}
           </h1>
         )}
-        <span className="text-xs text-neutral-600 mt-0.5">{list.books.length} {list.books.length === 1 ? 'book' : 'books'}</span>
+        <span className="text-xs text-neutral-600 mt-0.5">{total} {total === 1 ? 'book' : 'books'}</span>
       </div>
 
       <QuickAdd listId={id} onAdded={handleAdded} />
 
-      {list.books.length === 0 ? (
+      {total === 0 ? (
         <div className="text-center py-24">
           <p className="text-neutral-600">This list is empty. Add a book above.</p>
         </div>
@@ -292,14 +312,25 @@ export default function ListDetail() {
             </select>
           </div>
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={sorted.map(b => b.id)} strategy={verticalListSortingStrategy}>
+            <SortableContext items={list.books.map(b => b.id)} strategy={verticalListSortingStrategy}>
               <div className="space-y-1.5">
-                {sorted.map(book => (
+                {list.books.map(book => (
                   <SortableRow key={book.id} book={book} onRemove={handleRemove} draggable={draggable} />
                 ))}
               </div>
             </SortableContext>
           </DndContext>
+          {sort !== 'added' && list.books.length < total && (
+            <div className="mt-6 text-center">
+              <button
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="text-sm text-neutral-500 hover:text-neutral-300 disabled:opacity-40 transition-colors"
+              >
+                {loadingMore ? 'Loading…' : `Load more · ${total - list.books.length} remaining`}
+              </button>
+            </div>
+          )}
         </>
       )}
     </div>

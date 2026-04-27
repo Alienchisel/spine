@@ -55,7 +55,7 @@ export const api = {
   getDiary: (year) => request(`/diary${year ? `?year=${year}` : ''}`),
   deleteDiaryEntry: (id) => request(`/diary/${id}`, { method: 'DELETE' }),
   getLists: () => request('/lists'),
-  getList: (id) => request(`/lists/${id}`),
+  getList: (id, params = {}) => request(`/lists/${id}${buildQuery(params)}`),
   createList: (name) => request('/lists', { method: 'POST', body: JSON.stringify({ name }) }),
   renameList: (id, name) => request(`/lists/${id}`, { method: 'PUT', body: JSON.stringify({ name }) }),
   deleteList: (id) => request(`/lists/${id}`, { method: 'DELETE' }),
