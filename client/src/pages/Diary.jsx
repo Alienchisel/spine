@@ -24,10 +24,10 @@ function formatProgress(entry) {
 
 const DAY_HEADERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
-function intensityClass(pages) {
-  if (pages >= 100) return 'bg-oak/80 text-parchment';
-  if (pages >= 50)  return 'bg-oak/55 text-parchment';
-  if (pages >= 20)  return 'bg-oak/35 text-neutral-200';
+function intensityClass(pages, minutes) {
+  if (pages >= 100 || minutes >= 120) return 'bg-oak/80 text-parchment';
+  if (pages >= 50  || minutes >= 60)  return 'bg-oak/55 text-parchment';
+  if (pages >= 20  || minutes >= 30)  return 'bg-oak/35 text-neutral-200';
   return 'bg-oak/20 text-neutral-300';
 }
 
@@ -49,6 +49,12 @@ function ReadingCalendar({ days, selectedYear, onDayClick }) {
   const pagesByDate = useMemo(() => {
     const map = {};
     for (const day of days) map[day.date] = day.entries.reduce((s, e) => s + (e.pages_read || 0), 0);
+    return map;
+  }, [days]);
+
+  const minutesByDate = useMemo(() => {
+    const map = {};
+    for (const day of days) map[day.date] = day.entries.reduce((s, e) => s + (e.minutes_read || 0), 0);
     return map;
   }, [days]);
 
@@ -97,17 +103,19 @@ function ReadingCalendar({ days, selectedYear, onDayClick }) {
           const dateStr = cellDateStr(i);
           if (!dateStr) return <div key={i} />;
           const pages    = pagesByDate[dateStr] || 0;
+          const minutes  = minutesByDate[dateStr] || 0;
           const hasEntry = readingDates.has(dateStr);
           const isFuture = dateStr > todayStr;
           const isToday  = dateStr === todayStr;
+          const tipParts = [pages > 0 && `${pages}p`, minutes > 0 && `${minutes}m`].filter(Boolean);
           return (
             <div
               key={dateStr}
               onClick={() => hasEntry && onDayClick(dateStr)}
-              title={hasEntry ? `${pages} pages` : undefined}
+              title={hasEntry ? tipParts.join(' · ') : undefined}
               className={[
                 'flex items-center justify-center rounded text-xs h-7 select-none',
-                isFuture ? 'text-neutral-800' : hasEntry ? `${intensityClass(pages)} cursor-pointer hover:ring-1 hover:ring-oak/50` : 'text-neutral-700 bg-neutral-800/40',
+                isFuture ? 'text-neutral-800' : hasEntry ? `${intensityClass(pages, minutes)} cursor-pointer hover:ring-1 hover:ring-oak/50` : 'text-neutral-700 bg-neutral-800/40',
                 isToday ? 'ring-1 ring-neutral-600' : '',
               ].join(' ')}
             >
@@ -152,8 +160,9 @@ export default function Diary() {
   const [days,    setDays]    = useState([]);
   const [years,   setYears]   = useState([]);
   const [stats,   setStats]   = useState({ dayStreak: 0, weekStreak: 0 });
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState(null);
+  const [loading,     setLoading]     = useState(true);
+  const [error,       setError]       = useState(null);
+  const [deleteError, setDeleteError] = useState(null);
   const dayRefs = useRef({});
 
   useEffect(() => {
@@ -170,8 +179,12 @@ export default function Diary() {
 
   async function handleDelete(entryId, title) {
     if (!confirm(`Remove "${title}" from diary?`)) return;
-    await api.deleteDiaryEntry(entryId);
-    setDays(ds => ds.map(d => ({ ...d, entries: d.entries.filter(e => e.id !== entryId) })).filter(d => d.entries.length > 0));
+    try {
+      await api.deleteDiaryEntry(entryId);
+      setDays(ds => ds.map(d => ({ ...d, entries: d.entries.filter(e => e.id !== entryId) })).filter(d => d.entries.length > 0));
+    } catch {
+      setDeleteError('Failed to remove entry.');
+    }
   }
 
   const totalPages   = days.flatMap(d => d.entries).reduce((s, e) => s + (e.pages_read   || 0), 0);
@@ -211,6 +224,12 @@ export default function Diary() {
         </div>
       ) : (
         <div>
+          {deleteError && (
+            <div className="flex items-center justify-between bg-red-950/40 border border-red-900/50 rounded-lg px-4 py-2 mb-4 text-xs text-red-400">
+              {deleteError}
+              <button onClick={() => setDeleteError(null)} className="ml-4 text-red-600 hover:text-red-400">×</button>
+            </div>
+          )}
           {summaryParts.length > 0 && (
             <p className="text-xs text-neutral-600 mb-6">{summaryParts.join(' · ')}</p>
           )}
