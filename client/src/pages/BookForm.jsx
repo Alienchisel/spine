@@ -35,9 +35,6 @@ const EMPTY = {
   isbn_10: '',
   isbn_13: '',
   asin: '',
-  shelf_room: '',
-  shelf_unit: '',
-  shelf_number: '',
   format: '',
   binding: '',
   condition: '',
@@ -191,9 +188,6 @@ export default function BookForm() {
         year_published: book.year_published ?? '',
         year_approximate: Boolean(book.year_approximate),
         year_edition: book.year_edition ?? '',
-        shelf_room: book.shelf_room || '',
-        shelf_unit: book.shelf_unit || '',
-        shelf_number: book.shelf_number ?? '',
         description: book.description || '',
         format: book.format || '',
         binding: book.binding || '',
@@ -264,7 +258,8 @@ export default function BookForm() {
         setCoverPreview(path);
         set('cover_path', path);
       } catch {
-        set('cover_path', result.cover_url);
+        // preview stays as external URL but cover_path stays empty — external URLs
+        // can't be stored as filenames and would break display via toCoverUrl()
       }
     }
   }
@@ -308,7 +303,7 @@ export default function BookForm() {
         setCoverPreview(path);
         set('cover_path', path);
       } catch {
-        set('cover_path', result.cover_url);
+        // same as above — don't store an external URL that toCoverUrl() would mangle
       }
     }
   }
