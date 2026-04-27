@@ -630,13 +630,18 @@ export default function BookDetail() {
                 </dd>
               </div>
             )}
-            {book.narrator && (
+            {book.narrators?.length > 0 && (
               <div className="flex gap-2">
-                <dt className="text-neutral-500 w-24 flex-shrink-0">Narrator</dt>
+                <dt className="text-neutral-500 w-24 flex-shrink-0">{book.narrators.length === 1 ? 'Narrator' : 'Narrators'}</dt>
                 <dd className="text-neutral-300">
-                  <Link to={`/browse/narrator/${encodeURIComponent(book.narrator)}`} className="hover:text-white transition-colors">
-                    {book.narrator}
-                  </Link>
+                  {book.narrators.map((n, i) => (
+                    <span key={n.id}>
+                      {i > 0 && <span className="text-neutral-600">, </span>}
+                      <Link to={`/browse/narrator/${encodeURIComponent(n.name)}`} className="hover:text-white transition-colors">
+                        {n.name}
+                      </Link>
+                    </span>
+                  ))}
                 </dd>
               </div>
             )}

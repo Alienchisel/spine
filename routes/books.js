@@ -103,7 +103,13 @@ function getBookWithTags(id) {
     WHERE bt.book_id = ?
     ORDER BY t.name
   `).all(id);
-  return { ...book, cover_path: toCoverUrl(book.cover_path), tags: [...tags, ...computeVirtualTags(book)] };
+  const narrators = db.prepare(`
+    SELECT n.id, n.name FROM narrators n
+    JOIN book_narrators bn ON bn.narrator_id = n.id
+    WHERE bn.book_id = ?
+    ORDER BY bn.position, n.name
+  `).all(id);
+  return { ...book, cover_path: toCoverUrl(book.cover_path), tags: [...tags, ...computeVirtualTags(book)], narrators };
 }
 
 const VIRTUAL_TAG_RULES = [
@@ -146,7 +152,7 @@ const VIRTUAL_TAG_RULES = [
   },
 ];
 
-const BROWSE_FIELDS = new Set(['author', 'translator', 'publisher', 'series', 'narrator', 'language', 'format']);
+const BROWSE_FIELDS = new Set(['author', 'translator', 'publisher', 'series', 'language', 'format']);
 
 function buildFilterConditions(query) {
   const conditions = [];
@@ -166,6 +172,9 @@ function buildFilterConditions(query) {
     const v = query.value;
     if (f === 'tag') {
       conditions.push("id IN (SELECT bt.book_id FROM book_tags bt JOIN tags t ON t.id = bt.tag_id WHERE t.name = ?)");
+      params.push(v);
+    } else if (f === 'narrator') {
+      conditions.push("id IN (SELECT bn.book_id FROM book_narrators bn JOIN narrators n ON bn.narrator_id = n.id WHERE n.name = ?)");
       params.push(v);
     } else if (f === 'fiction') {
       if (v === 'fiction')    conditions.push("fiction = 1");
@@ -294,6 +303,23 @@ function computeVirtualTags(book) {
     .map(r => ({ id: null, name: r.name, virtual: true }));
 }
 
+function syncNarrators(bookId, names) {
+  const seen = new Set();
+  const unique = (names || []).map(n => n.trim()).filter(n => {
+    if (!n) return false;
+    const key = n.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  db.prepare('DELETE FROM book_narrators WHERE book_id = ?').run(bookId);
+  unique.forEach((name, position) => {
+    let row = db.prepare('SELECT id FROM narrators WHERE name = ? COLLATE NOCASE').get(name);
+    if (!row) row = { id: db.prepare('INSERT INTO narrators (name) VALUES (?)').run(name).lastInsertRowid };
+    db.prepare('INSERT OR IGNORE INTO book_narrators (book_id, narrator_id, position) VALUES (?, ?, ?)').run(bookId, row.id, position);
+  });
+}
+
 function syncTags(bookId, tagNames) {
   const seen = new Set();
   const unique = tagNames.map(n => n.trim()).filter(n => {
@@ -348,7 +374,12 @@ router.get('/facets', (req, res) => {
   const series     = distCol('series', true);
   const ratings    = db.prepare(`SELECT DISTINCT rating FROM books ${where ? where + ' AND rating IS NOT NULL' : 'WHERE rating IS NOT NULL'} ORDER BY rating DESC`).all(...params).map(r => r.rating);
   const authors    = distCol('author', true);
-  const narrators  = distCol('narrator', true);
+  const narrators  = db.prepare(`
+    SELECT DISTINCT n.name FROM narrators n
+    JOIN book_narrators bn ON bn.narrator_id = n.id
+    WHERE bn.book_id IN (SELECT id FROM books ${where})
+    ORDER BY n.name
+  `).all(...params).map(r => r.name);
   const translators = distCol('translator', true);
   const sources    = distCol('acquisition_source', true);
   const langRows   = db.prepare(`SELECT language, original_language FROM books ${where}`).all(...params);
@@ -465,14 +496,14 @@ router.delete('/:id/reads/:readId', (req, res) => {
 });
 
 router.post('/', (req, res) => {
-  const { title, author, status, owned, previously_owned, is_custom, is_stub, loved, fiction, source_type, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, review, page_count, duration_minutes, publisher, series, series_number, isbn_10, isbn_13, asin, language, original_language, translator, narrator, year_published, year_approximate, year_edition, shelf_id, building_id, room_id, unit_id, tags } = req.body;
+  const { title, author, status, owned, previously_owned, is_custom, is_stub, loved, fiction, source_type, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, review, page_count, duration_minutes, publisher, series, series_number, isbn_10, isbn_13, asin, language, original_language, translator, narrators, year_published, year_approximate, year_edition, shelf_id, building_id, room_id, unit_id, tags } = req.body;
   const errors = validateBook(req.body);
   if (errors.length) return res.status(400).json({ error: errors[0] });
 
   const insertBook = db.transaction(() => {
     const result = db.prepare(`
-      INSERT INTO books (title, author, status, owned, previously_owned, is_custom, is_stub, loved, fiction, source_type, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, review, page_count, duration_minutes, publisher, series, series_number, isbn_10, isbn_13, asin, language, original_language, translator, narrator, year_published, year_approximate, year_edition, shelf_id, building_id, room_id, unit_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO books (title, author, status, owned, previously_owned, is_custom, is_stub, loved, fiction, source_type, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, review, page_count, duration_minutes, publisher, series, series_number, isbn_10, isbn_13, asin, language, original_language, translator, year_published, year_approximate, year_edition, shelf_id, building_id, room_id, unit_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       t(title),
       t(author),
@@ -507,7 +538,6 @@ router.post('/', (req, res) => {
       t(language) || 'English',
       t(original_language),
       t(translator),
-      t(narrator),
       year_published || null,
       year_approximate ? 1 : 0,
       year_edition || null,
@@ -517,6 +547,7 @@ router.post('/', (req, res) => {
       !shelf_id && !room_id ? (unit_id || null) : null
     );
     if (tags?.length) syncTags(result.lastInsertRowid, tags);
+    if (narrators !== undefined) syncNarrators(result.lastInsertRowid, narrators);
     return result.lastInsertRowid;
   });
 
@@ -530,7 +561,7 @@ router.put('/:id', (req, res) => {
   const existing = db.prepare('SELECT cover_path, status, read_count FROM books WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ error: 'Not found' });
 
-  const { title, author, status, owned, previously_owned, is_custom, is_stub, loved, fiction, source_type, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, review, page_count, duration_minutes, publisher, series, series_number, isbn_10, isbn_13, asin, language, original_language, translator, narrator, year_published, year_approximate, year_edition, shelf_id, building_id, room_id, unit_id, tags } = req.body;
+  const { title, author, status, owned, previously_owned, is_custom, is_stub, loved, fiction, source_type, cover_path, rating, date_started, date_finished, acquisition_source, acquisition_date, format, binding, condition, description, notes, review, page_count, duration_minutes, publisher, series, series_number, isbn_10, isbn_13, asin, language, original_language, translator, narrators, year_published, year_approximate, year_edition, shelf_id, building_id, room_id, unit_id, tags } = req.body;
   const errors = validateBook(req.body);
   if (errors.length) return res.status(400).json({ error: errors[0] });
 
@@ -548,7 +579,7 @@ router.put('/:id', (req, res) => {
         format = ?, binding = ?, condition = ?,
         description = ?, notes = ?, review = ?, page_count = ?, duration_minutes = ?,
         publisher = ?, series = ?, series_number = ?, isbn_10 = ?, isbn_13 = ?, asin = ?, language = ?, original_language = ?,
-        translator = ?, narrator = ?,
+        translator = ?,
         year_published = ?, year_approximate = ?, year_edition = ?,
         shelf_id = ?,
         building_id = ?,
@@ -591,7 +622,6 @@ router.put('/:id', (req, res) => {
       t(language) || 'English',
       t(original_language),
       t(translator),
-      t(narrator),
       year_published || null,
       year_approximate ? 1 : 0,
       year_edition || null,
@@ -603,6 +633,7 @@ router.put('/:id', (req, res) => {
       id
     );
     if (tags !== undefined) syncTags(id, tags);
+    if (narrators !== undefined) syncNarrators(id, narrators);
     if (t(title) && t(author)) {
       db.prepare(`
         UPDATE books SET

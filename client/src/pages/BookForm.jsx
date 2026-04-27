@@ -41,7 +41,7 @@ const EMPTY = {
   page_count: '',
   current_page: '',
   duration_minutes: '',
-  narrator: '',
+  narrators: [],
   description: '',
   notes: '',
   review: '',
@@ -112,7 +112,8 @@ export default function BookForm() {
   const isEdit = Boolean(id);
   const [form, setForm] = useState(EMPTY);
   const [activeTab, setActiveTab] = useState('core');
-  const [tagInput, setTagInput] = useState('');
+  const [tagInput,      setTagInput]      = useState('');
+  const [narratorInput, setNarratorInput] = useState('');
   const [coverPreview, setCoverPreview] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [coverError, setCoverError] = useState(null);
@@ -195,7 +196,7 @@ export default function BookForm() {
         page_count: book.page_count ?? '',
         current_page: book.current_page ?? '',
         duration_minutes: book.duration_minutes ?? '',
-        narrator: book.narrator || '',
+        narrators: book.narrators?.map(n => n.name) || [],
         notes: book.notes || '',
         review: book.review || '',
         read_count: book.read_count || 0,
@@ -404,6 +405,14 @@ export default function BookForm() {
     setTagInput('');
   }
 
+  function addNarrator(e) {
+    if (e.key !== 'Enter' && e.key !== ',') return;
+    e.preventDefault();
+    const name = narratorInput.trim().replace(/,$/, '');
+    if (name && !form.narrators.includes(name)) set('narrators', [...form.narrators, name]);
+    setNarratorInput('');
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     if (!form.title.trim()) { setActiveTab('core'); return; }
@@ -411,10 +420,13 @@ export default function BookForm() {
     setError(null);
     const pendingTag = tagInput.trim().replace(/,$/, '');
     const tags = pendingTag && !form.tags.includes(pendingTag) ? [...form.tags, pendingTag] : form.tags;
+    const pendingNarrator = narratorInput.trim().replace(/,$/, '');
+    const narrators = pendingNarrator && !form.narrators.includes(pendingNarrator) ? [...form.narrators, pendingNarrator] : form.narrators;
     try {
       const payload = {
         ...form,
         tags,
+        narrators,
         title: form.title.trim(),
         author: form.author.trim() || null,
         date_started: form.date_started || null,
@@ -770,12 +782,23 @@ export default function BookForm() {
                       </div>
                     </div>
                     <div>
-                      <label className={label}>Narrator</label>
-                      <input className={input} list="narrators-list" value={form.narrator}
-                        onChange={(e) => set('narrator', e.target.value)}
-                        placeholder="e.g. J. R. R. Tolkien" />
+                      <label className={label}>Narrators</label>
+                      {form.narrators.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                          {form.narrators.map((n) => (
+                            <span key={n} className="flex items-center gap-1 text-xs bg-neutral-800 text-neutral-300 px-2.5 py-1 rounded-full">
+                              {n}
+                              <button type="button" onClick={() => set('narrators', form.narrators.filter(x => x !== n))}
+                                className="text-neutral-500 hover:text-white leading-none ml-0.5">×</button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <input className={input} list="narrators-list" value={narratorInput}
+                        onChange={(e) => setNarratorInput(e.target.value)} onKeyDown={addNarrator}
+                        placeholder="Type a name, press Enter or comma to add" />
                       <datalist id="narrators-list">
-                        {pastNarrators.map(n => <option key={n} value={n} />)}
+                        {pastNarrators.filter(n => !form.narrators.includes(n)).map(n => <option key={n} value={n} />)}
                       </datalist>
                     </div>
                   </>
