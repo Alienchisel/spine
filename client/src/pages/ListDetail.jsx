@@ -67,7 +67,7 @@ function SortableRow({ book, onRemove, draggable }) {
         <div className="w-3.5 flex-shrink-0" />
       )}
 
-      <div className="w-9 h-[54px] flex-shrink-0 rounded overflow-hidden bg-neutral-800">
+      <div className={`w-9 ${book.format === 'audiobook' ? 'h-9' : 'h-[54px]'} flex-shrink-0 rounded overflow-hidden bg-neutral-800`}>
         {book.cover_path ? (
           <img src={book.cover_path} alt={book.title} className="w-full h-full object-cover" />
         ) : (

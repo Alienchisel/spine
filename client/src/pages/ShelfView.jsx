@@ -30,9 +30,9 @@ function SortableShelfCover({ book }) {
     >
       <div className="relative group">
         <Link to={`/books/${book.id}`} draggable={false} className="block">
-          <div className="w-[240px] h-[360px] rounded overflow-hidden bg-neutral-800 shadow-xl ring-1 ring-white/5 hover:ring-white/20 transition-all hover:scale-[1.02] duration-200">
+          <div className={`w-[240px] ${book.format === 'audiobook' ? 'h-[240px]' : 'h-[360px]'} rounded overflow-hidden bg-neutral-800 shadow-xl ring-1 ring-white/5 hover:ring-white/20 transition-all hover:scale-[1.02] duration-200`}>
             {book.cover_path
-              ? <img src={book.cover_path} alt={book.title} draggable={false} className="w-full h-full object-cover object-top" />
+              ? <img src={book.cover_path} alt={book.title} draggable={false} className="w-full h-full object-cover" />
               : <div className="w-full h-full flex items-end p-2 bg-gradient-to-br from-neutral-700 to-neutral-900">
                   <span className="text-xs text-neutral-400 leading-tight line-clamp-4">{book.title}</span>
                 </div>}

@@ -193,12 +193,12 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact 
   return (
     <div onKeyDown={handleKeyDown} className={`transition-[transform,background-color] ease-out duration-150 ${compact ? '' : 'bg-card rounded-lg p-2 pb-2.5 hover:-translate-y-0.5'}`}>
       <Link to={`/books/${book.id}`} className="group block">
-        <div className={`relative bg-neutral-800 overflow-hidden ring-1 ring-white/5 ${compact ? 'aspect-[2/3] rounded-sm' : 'aspect-[2/3] rounded mb-2.5 shadow-xl'}`}>
+        <div className={`relative bg-neutral-800 overflow-hidden ring-1 ring-white/5 ${book.format === 'audiobook' ? compact ? 'aspect-square rounded-sm' : 'aspect-square rounded mb-2.5 shadow-xl' : compact ? 'aspect-[2/3] rounded-sm' : 'aspect-[2/3] rounded mb-2.5 shadow-xl'}`}>
           {book.cover_path ? (
             <img
               src={book.cover_path}
               alt={book.title}
-              className={`${book.format === 'audiobook' ? 'absolute bottom-0 left-0 right-0 w-full' : 'w-full h-full object-cover object-top'} group-hover:scale-105 transition-transform duration-300`}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             />
           ) : (
             <div className="w-full h-full flex items-end p-3 bg-gradient-to-br from-neutral-700 to-neutral-900">
