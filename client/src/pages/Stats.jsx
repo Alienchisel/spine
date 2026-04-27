@@ -1,6 +1,38 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { api } from '../api.js';
+
+function DonutChart({ title, data }) {
+  const total = data.reduce((s, d) => s + d.value, 0);
+  if (!total) return null;
+  return (
+    <div className="bg-card rounded-lg p-4 flex flex-col items-center gap-3">
+      <p className="text-xs font-semibold text-neutral-600 uppercase tracking-wider self-start">{title}</p>
+      <PieChart width={120} height={120}>
+        <Pie data={data} cx={55} cy={55} innerRadius={36} outerRadius={54} dataKey="value" strokeWidth={0}>
+          {data.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+        </Pie>
+        <Tooltip
+          contentStyle={{ background: '#1c1c1c', border: '1px solid #333', borderRadius: 6, fontSize: 11 }}
+          labelStyle={{ display: 'none' }}
+          formatter={(value, name) => [`${value} (${Math.round((value / total) * 100)}%)`, name]}
+        />
+      </PieChart>
+      <div className="space-y-1.5 w-full">
+        {data.map((d, i) => (
+          <div key={i} className="flex items-center justify-between text-xs">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: d.color }} />
+              <span className="text-neutral-400">{d.name}</span>
+            </div>
+            <span className="text-neutral-500">{Math.round((d.value / total) * 100)}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function RecordCard({ label, book, value }) {
   if (!book) return null;
@@ -188,6 +220,34 @@ export default function Stats() {
           <StatCard label="Paused" value={totals.paused?.toLocaleString()} href="/?tab=paused" />
           <StatCard label="Unread" value={totals.unread?.toLocaleString()} href="/?tab=unread" />
           {totals.loved > 0 && <StatCard label="Loved" value={totals.loved?.toLocaleString()} href="/?tab=loved" />}
+        </div>
+      </Section>
+
+      <Section title="Breakdown">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <DonutChart
+            title="Fiction"
+            data={[
+              { name: 'Fiction',     value: fiction.fiction    ?? 0, color: '#a97954' },
+              { name: 'Non-fiction', value: fiction.nonfiction ?? 0, color: '#c29b87' },
+              { name: 'Unknown',     value: fiction.unset      ?? 0, color: '#404040' },
+            ].filter(d => d.value > 0)}
+          />
+          <DonutChart
+            title="Format"
+            data={formats.map((f, i) => ({
+              name:  f.format ? (f.format.charAt(0).toUpperCase() + f.format.slice(1)) : 'Unknown',
+              value: f.count,
+              color: ['#a97954', '#c29b87', '#532c2e', '#404040'][i % 4],
+            }))}
+          />
+          <DonutChart
+            title="Ownership"
+            data={[
+              { name: 'Owned',   value: totals.owned                             ?? 0, color: '#a97954' },
+              { name: 'Unowned', value: (totals.books - totals.owned)            ?? 0, color: '#404040' },
+            ].filter(d => d.value > 0)}
+          />
         </div>
       </Section>
 
