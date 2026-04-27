@@ -15,6 +15,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { api } from '../api.js';
+import { formatAuthors } from '../utils.js';
 
 function DragHandle() {
   return (
@@ -57,7 +58,7 @@ function SortableRow({ book, onRemove, index }) {
         <DragHandle />
       </button>
 
-      <div className="w-9 h-[54px] flex-shrink-0 rounded overflow-hidden bg-neutral-800">
+      <div className={`w-9 ${book.format === 'audiobook' ? 'h-9' : 'h-[54px]'} flex-shrink-0 rounded overflow-hidden bg-neutral-800`}>
         {book.cover_path ? (
           <img src={book.cover_path} alt={book.title} className="w-full h-full object-cover" />
         ) : (
@@ -70,7 +71,7 @@ function SortableRow({ book, onRemove, index }) {
           {book.title}
         </Link>
         <p className="text-xs text-neutral-500 truncate mt-0.5">
-          {[book.author, book.series && `${book.series}${book.series_number ? ` #${book.series_number}` : ''}`].filter(Boolean).join(' · ')}
+          {[formatAuthors(book.authors), book.series && `${book.series}${book.series_number ? ` #${book.series_number}` : ''}`].filter(Boolean).join(' · ')}
         </p>
       </div>
 

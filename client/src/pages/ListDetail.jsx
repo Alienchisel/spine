@@ -133,7 +133,7 @@ function QuickAdd({ listId, onAdded }) {
     setSaving(true);
     setError(null);
     try {
-      const book = await api.createBook({ title: title.trim(), author: author.trim() || undefined, is_stub: true });
+      const book = await api.createBook({ title: title.trim(), authors: author.trim() ? [author.trim()] : [], is_stub: true });
       await api.addToList(listId, book.id);
       onAdded(book);
       setTitle('');

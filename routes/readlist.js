@@ -20,10 +20,22 @@ router.get('/', (_req, res) => {
     if (!tagMap.has(row.book_id)) tagMap.set(row.book_id, []);
     tagMap.get(row.book_id).push({ id: row.id, name: row.name });
   }
+  const authorRows = db.prepare(`
+    SELECT ba.book_id, a.id, a.name FROM authors a
+    JOIN book_authors ba ON ba.author_id = a.id
+    WHERE ba.book_id IN (${ids.map(() => '?').join(',')})
+    ORDER BY ba.position
+  `).all(...ids);
+  const authorMap = new Map();
+  for (const row of authorRows) {
+    if (!authorMap.has(row.book_id)) authorMap.set(row.book_id, []);
+    authorMap.get(row.book_id).push({ id: row.id, name: row.name });
+  }
   res.json(books.map(b => ({
     ...b,
     cover_path: b.cover_path ? `/uploads/${b.cover_path}` : null,
     tags: tagMap.get(b.id) ?? [],
+    authors: authorMap.get(b.id) ?? [],
   })));
 });
 
