@@ -437,6 +437,7 @@ router.post('/:id/reads', (req, res) => {
   const { date_started, date_finished } = req.body;
   if (date_started && !isValidDate(date_started)) return res.status(400).json({ error: 'Invalid date_started' });
   if (date_finished && !isValidDate(date_finished)) return res.status(400).json({ error: 'Invalid date_finished' });
+  if (date_started && date_finished && date_finished < date_started) return res.status(400).json({ error: 'date_finished cannot be before date_started' });
   const result = db.prepare('INSERT INTO reads (book_id, date_started, date_finished) VALUES (?, ?, ?)').run(id, date_started || null, date_finished || null);
   res.status(201).json(db.prepare('SELECT * FROM reads WHERE id = ?').get(result.lastInsertRowid));
 });
@@ -449,6 +450,7 @@ router.put('/:id/reads/:readId', (req, res) => {
   const { date_started, date_finished } = req.body;
   if (date_started && !isValidDate(date_started)) return res.status(400).json({ error: 'Invalid date_started' });
   if (date_finished && !isValidDate(date_finished)) return res.status(400).json({ error: 'Invalid date_finished' });
+  if (date_started && date_finished && date_finished < date_started) return res.status(400).json({ error: 'date_finished cannot be before date_started' });
   db.prepare('UPDATE reads SET date_started = ?, date_finished = ? WHERE id = ?').run(date_started || null, date_finished || null, readId);
   res.json(db.prepare('SELECT * FROM reads WHERE id = ?').get(readId));
 });
