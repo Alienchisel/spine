@@ -337,6 +337,7 @@ export default function ShelfManager() {
   const [addingBuilding, setAddingBuilding] = useState(false);
   const [newBuildingName, setNewBuildingName] = useState('');
   const [newBuildingProximity, setNewBuildingProximity] = useState('home');
+  const [error, setError] = useState(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -346,94 +347,154 @@ export default function ShelfManager() {
     const newIdx = tree.findIndex(b => b.id === over.id);
     const reordered = arrayMove(tree, oldIdx, newIdx);
     setTree(reordered);
-    api.reorderBuildings(reordered.map(b => b.id));
+    api.reorderBuildings(reordered.map(b => b.id)).catch(() => reload());
   }
 
   async function reload() {
-    const t = await api.getShelfTree();
-    setTree(t);
+    try {
+      const t = await api.getShelfTree();
+      setTree(t);
+    } catch {
+      setError('Failed to load shelves.');
+    }
   }
 
   useEffect(() => { reload(); }, []);
 
   async function addBuilding() {
     if (!newBuildingName.trim()) return;
-    await api.createBuilding({ name: newBuildingName.trim(), proximity: newBuildingProximity });
-    setNewBuildingName('');
-    setNewBuildingProximity('home');
-    setAddingBuilding(false);
-    reload();
+    try {
+      await api.createBuilding({ name: newBuildingName.trim(), proximity: newBuildingProximity });
+      setNewBuildingName('');
+      setNewBuildingProximity('home');
+      setAddingBuilding(false);
+      reload();
+    } catch {
+      setError('Failed to add building.');
+    }
   }
 
   async function editBuilding(id, name, proximity) {
     const b = tree.find(x => x.id === id);
-    await api.updateBuilding(id, { name, proximity, notes: b?.notes, order_index: b?.order_index });
-    reload();
+    try {
+      await api.updateBuilding(id, { name, proximity, notes: b?.notes, order_index: b?.order_index });
+      reload();
+    } catch {
+      setError('Failed to update building.');
+    }
   }
 
   async function deleteBuilding(id) {
     if (!confirm('Delete this building and all its rooms, units, and shelves?')) return;
-    await api.deleteBuilding(id);
-    reload();
+    try {
+      await api.deleteBuilding(id);
+      reload();
+    } catch {
+      setError('Failed to delete building.');
+    }
   }
 
   async function addRoom(buildingId, name) {
-    await api.createRoom({ building_id: buildingId, name });
-    reload();
+    try {
+      await api.createRoom({ building_id: buildingId, name });
+      reload();
+    } catch {
+      setError('Failed to add room.');
+    }
   }
 
   async function reorderRooms(buildingId, ids) {
-    await api.reorderRooms(buildingId, ids);
+    try {
+      await api.reorderRooms(buildingId, ids);
+    } catch {
+      reload();
+    }
   }
 
   async function editRoom(id, name) {
     const r = tree.flatMap(b => b.rooms).find(x => x.id === id);
-    await api.updateRoom(id, { name, order_index: r?.order_index });
-    reload();
+    try {
+      await api.updateRoom(id, { name, order_index: r?.order_index });
+      reload();
+    } catch {
+      setError('Failed to update room.');
+    }
   }
 
   async function deleteRoom(id) {
     if (!confirm('Delete this room and all its units and shelves?')) return;
-    await api.deleteRoom(id);
-    reload();
+    try {
+      await api.deleteRoom(id);
+      reload();
+    } catch {
+      setError('Failed to delete room.');
+    }
   }
 
   async function reorderUnits(roomId, ids) {
-    await api.reorderUnits(roomId, ids);
+    try {
+      await api.reorderUnits(roomId, ids);
+    } catch {
+      reload();
+    }
   }
 
   async function addUnit(roomId, name) {
-    await api.createUnit({ room_id: roomId, name });
-    reload();
+    try {
+      await api.createUnit({ room_id: roomId, name });
+      reload();
+    } catch {
+      setError('Failed to add unit.');
+    }
   }
 
   async function editUnit(id, name) {
     const u = tree.flatMap(b => b.rooms).flatMap(r => r.units).find(x => x.id === id);
-    await api.updateUnit(id, { name, order_index: u?.order_index });
-    reload();
+    try {
+      await api.updateUnit(id, { name, order_index: u?.order_index });
+      reload();
+    } catch {
+      setError('Failed to update unit.');
+    }
   }
 
   async function deleteUnit(id) {
     if (!confirm('Delete this unit and all its shelves?')) return;
-    await api.deleteUnit(id);
-    reload();
+    try {
+      await api.deleteUnit(id);
+      reload();
+    } catch {
+      setError('Failed to delete unit.');
+    }
   }
 
   async function addShelf(unitId, label) {
-    await api.createShelf({ unit_id: unitId, label });
-    reload();
+    try {
+      await api.createShelf({ unit_id: unitId, label });
+      reload();
+    } catch {
+      setError('Failed to add shelf.');
+    }
   }
 
   async function editShelf(id, label) {
     const s = tree.flatMap(b => b.rooms).flatMap(r => r.units).flatMap(u => u.shelves).find(x => x.id === id);
-    await api.updateShelf(id, { label, order_index: s?.order_index });
-    reload();
+    try {
+      await api.updateShelf(id, { label, order_index: s?.order_index });
+      reload();
+    } catch {
+      setError('Failed to update shelf.');
+    }
   }
 
   async function deleteShelf(id) {
     if (!confirm('Delete this shelf? Books assigned here will lose their location.')) return;
-    await api.deleteShelf(id);
-    reload();
+    try {
+      await api.deleteShelf(id);
+      reload();
+    } catch {
+      setError('Failed to delete shelf.');
+    }
   }
 
   return (
@@ -442,6 +503,13 @@ export default function ShelfManager() {
         ← Shelf view
       </Link>
       <h1 className="font-slab text-2xl text-parchment tracking-wide uppercase mb-8">Shelves</h1>
+
+      {error && (
+        <div className="mb-4 flex items-center justify-between bg-warn/10 border border-warn/30 rounded px-3 py-2">
+          <p className="text-xs text-warn">{error}</p>
+          <button onClick={() => setError(null)} className="text-xs text-warn/60 hover:text-warn ml-4">×</button>
+        </div>
+      )}
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleBuildingDragEnd}>
       <SortableContext items={tree.map(b => b.id)} strategy={verticalListSortingStrategy}>

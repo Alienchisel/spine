@@ -61,11 +61,11 @@ router.get('/buildings', (_req, res) => {
   const buildings = db.prepare(`
     SELECT b.*,
       (SELECT COUNT(*) FROM rooms WHERE building_id = b.id) AS room_count,
-      (SELECT COUNT(*) FROM books bk
-        JOIN shelves s ON bk.shelf_id = s.id
-        JOIN units u ON s.unit_id = u.id
-        JOIN rooms r ON u.room_id = r.id
-        WHERE r.building_id = b.id AND bk.owned = 1) AS book_count
+      (SELECT COUNT(*) FROM books WHERE building_id = b.id AND owned = 1)
+      + (SELECT COUNT(*) FROM books WHERE room_id IN (SELECT id FROM rooms WHERE building_id = b.id) AND owned = 1)
+      + (SELECT COUNT(*) FROM books WHERE unit_id IN (SELECT u.id FROM units u JOIN rooms r ON u.room_id = r.id WHERE r.building_id = b.id) AND owned = 1)
+      + (SELECT COUNT(*) FROM books bk JOIN shelves s ON bk.shelf_id = s.id JOIN units u ON s.unit_id = u.id JOIN rooms r ON u.room_id = r.id WHERE r.building_id = b.id AND bk.owned = 1)
+      AS book_count
     FROM buildings b
     ORDER BY b.order_index, b.name
   `).all();
