@@ -351,8 +351,6 @@ router.get('/facets', (req, res) => {
   const narrators  = distCol('narrator', true);
   const translators = distCol('translator', true);
   const sources    = distCol('acquisition_source', true);
-  const rooms      = distCol('shelf_room', true);
-  const units      = distCol('shelf_unit', true);
   const langRows   = db.prepare(`SELECT language, original_language FROM books ${where}`).all(...params);
   const languages  = [...new Set(langRows.flatMap(r => [r.language, r.original_language]).filter(Boolean))].sort();
 
@@ -370,7 +368,7 @@ router.get('/facets', (req, res) => {
     series,     hasEmptySeries:    hasEmpty('series'),
     ratings,    hasEmptyRating:    db.prepare(`SELECT 1 FROM books ${appendWhere(where, 'rating IS NULL')} LIMIT 1`).get(...params) != null,
     tags,
-    authors, narrators, translators, sources, rooms, units, languages,
+    authors, narrators, translators, sources, languages,
   });
 });
 

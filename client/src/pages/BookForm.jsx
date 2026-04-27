@@ -128,8 +128,6 @@ export default function BookForm() {
   const [pastSeries, setPastSeries] = useState([]);
   const [pastTranslators, setPastTranslators] = useState([]);
   const [pastNarrators, setPastNarrators] = useState([]);
-  const [pastRooms, setPastRooms] = useState([]);
-  const [pastUnits, setPastUnits] = useState([]);
   const [pastLanguages, setPastLanguages] = useState([]);
   const [pastTags, setPastTags] = useState([]);
   const [shelfTree, setShelfTree] = useState([]);
@@ -155,8 +153,6 @@ export default function BookForm() {
       setPastSeries(f.series || []);
       setPastTranslators(f.translators || []);
       setPastNarrators(f.narrators || []);
-      setPastRooms(f.rooms || []);
-      setPastUnits(f.units || []);
       setPastLanguages(f.languages || []);
       setPastTags(f.tags?.filter(t => !['Antique','Vintage','Translated','Re-read','Long','Short'].includes(t)) || []);
     });
