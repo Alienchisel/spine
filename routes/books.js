@@ -202,8 +202,8 @@ function buildFilterConditions(query) {
 
   if (query.q) {
     const like = `%${query.q.toLowerCase()}%`;
-    conditions.push("(LOWER(title) LIKE ? OR LOWER(COALESCE(series,'')) LIKE ? OR id IN (SELECT bt.book_id FROM book_tags bt JOIN tags t ON t.id = bt.tag_id WHERE LOWER(t.name) LIKE ?) OR id IN (SELECT ba.book_id FROM book_authors ba JOIN authors a ON ba.author_id = a.id WHERE LOWER(a.name) LIKE ?))");
-    params.push(like, like, like, like);
+    conditions.push("(LOWER(title) LIKE ? OR LOWER(COALESCE(series,'')) LIKE ? OR id IN (SELECT bt.book_id FROM book_tags bt JOIN tags t ON t.id = bt.tag_id WHERE LOWER(t.name) LIKE ?) OR id IN (SELECT ba.book_id FROM book_authors ba JOIN authors a ON ba.author_id = a.id WHERE LOWER(a.name) LIKE ?) OR id IN (SELECT bn.book_id FROM book_narrators bn JOIN narrators n ON bn.narrator_id = n.id WHERE LOWER(n.name) LIKE ?))");
+    params.push(like, like, like, like, like);
   }
 
   const fmts = [].concat(query.formats || []).filter(Boolean);
