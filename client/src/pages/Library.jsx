@@ -204,6 +204,7 @@ export default function Library() {
   const [total,       setTotal]       = useState(0);
   const [loading,     setLoading]     = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [fetchError,  setFetchError]  = useState(false);
   const [facets,      setFacets]      = useState(null);
   const [counts,      setCounts]      = useState({});
   const [expandedSeries, setExpandedSeries] = useState(new Set());
@@ -240,6 +241,7 @@ export default function Library() {
     let stale = false;
     genRef.current += 1;
     setLoading(true);
+    setFetchError(false);
     setBooks([]);
     loadedRef.current = 0;
     api.getBooks(buildApiParams(tab, sort, filters, query, 0)).then(({ books: b, total: t }) => {
@@ -247,7 +249,7 @@ export default function Library() {
       setBooks(b);
       setTotal(t);
       loadedRef.current = b.length;
-    }).finally(() => { if (!stale) setLoading(false); });
+    }).catch(() => { if (!stale) setFetchError(true); }).finally(() => { if (!stale) setLoading(false); });
     return () => { stale = true; };
   }, [tab, sort, filters, query]);
 
@@ -376,6 +378,10 @@ export default function Library() {
 
       {loading ? (
         <div className="text-neutral-700 text-sm">Loading…</div>
+      ) : fetchError ? (
+        <div className="text-center py-32">
+          <p className="text-neutral-600">Failed to load books. Please try again.</p>
+        </div>
       ) : books.length === 0 ? (
         <div className="text-center py-32">
           {queryRaw || activeCount > 0 ? (
