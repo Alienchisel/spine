@@ -216,6 +216,7 @@ export default function ListDetail() {
       const data = await api.getList(id, { sort, limit: PAGE_SIZE, offset: loadedRef.current });
       setList(l => ({ ...l, books: [...l.books, ...data.books] }));
       loadedRef.current += data.books.length;
+    } catch {
     } finally {
       setLoadingMore(false);
     }
@@ -259,7 +260,9 @@ export default function ListDetail() {
     const newIndex = list.books.findIndex(b => b.id === over.id);
     const reordered = arrayMove(list.books, oldIndex, newIndex);
     setList(l => ({ ...l, books: reordered }));
-    api.reorderList(id, reordered.map(b => b.id));
+    api.reorderList(id, reordered.map(b => b.id)).catch(() => {
+      setList(l => ({ ...l, books: arrayMove(l.books, newIndex, oldIndex) }));
+    });
   }
 
   if (loading) return <div className="text-neutral-700 text-sm">Loading…</div>;

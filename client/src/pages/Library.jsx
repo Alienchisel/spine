@@ -311,7 +311,7 @@ export default function Library() {
           <div className="flex items-center gap-2 sm:ml-auto">
             <select
               value={sort}
-              onChange={(e) => setSort(e.target.value)}
+              onChange={(e) => { setSort(e.target.value); setExpandedSeries(new Set()); }}
               className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-300 focus:outline-none focus:border-oak/50 transition-colors duration-150"
             >
               {SORTS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
