@@ -245,29 +245,44 @@ function ReadsSection({ bookId, reads, onUpdate }) {
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({ date_started: '', date_finished: '' });
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
 
   const inputCls = 'bg-neutral-900 border border-neutral-700 text-neutral-300 text-xs rounded px-2 py-1 focus:outline-none focus:border-neutral-500 transition-colors';
 
   function startAdd() {
     setAdding(true);
     setEditId(null);
+    setError(null);
     setForm({ date_started: '', date_finished: '' });
   }
 
   function startEdit(r) {
     setEditId(r.id);
     setAdding(false);
+    setError(null);
     setForm({ date_started: r.date_started || '', date_finished: r.date_finished || '' });
+  }
+
+  function validateDates() {
+    if (form.date_started && form.date_finished && form.date_finished < form.date_started) {
+      setError('Finish date cannot be before start date');
+      return false;
+    }
+    return true;
   }
 
   async function handleAdd(e) {
     e.preventDefault();
+    if (!validateDates()) return;
     setSaving(true);
+    setError(null);
     try {
       await api.addRead(bookId, { date_started: form.date_started || null, date_finished: form.date_finished || null });
       setAdding(false);
       setForm({ date_started: '', date_finished: '' });
       onUpdate();
+    } catch {
+      setError('Failed to add read');
     } finally {
       setSaving(false);
     }
@@ -275,11 +290,15 @@ function ReadsSection({ bookId, reads, onUpdate }) {
 
   async function handleUpdate(e, readId) {
     e.preventDefault();
+    if (!validateDates()) return;
     setSaving(true);
+    setError(null);
     try {
       await api.updateRead(bookId, readId, { date_started: form.date_started || null, date_finished: form.date_finished || null });
       setEditId(null);
       onUpdate();
+    } catch {
+      setError('Failed to save');
     } finally {
       setSaving(false);
     }
@@ -287,8 +306,12 @@ function ReadsSection({ bookId, reads, onUpdate }) {
 
   async function handleDelete(readId) {
     if (!confirm('Remove this read entry?')) return;
-    await api.deleteRead(bookId, readId);
-    onUpdate();
+    try {
+      await api.deleteRead(bookId, readId);
+      onUpdate();
+    } catch {
+      setError('Failed to delete read');
+    }
   }
 
   return (
@@ -325,11 +348,12 @@ function ReadsSection({ bookId, reads, onUpdate }) {
           <span className="text-neutral-600 text-xs">→</span>
           <input type="date" value={form.date_finished} onChange={(e) => setForm(f => ({ ...f, date_finished: e.target.value }))} className={inputCls} />
           <button type="submit" disabled={saving} className="text-xs text-oak hover:text-oak/80 transition-colors disabled:opacity-40">Add</button>
-          <button type="button" onClick={() => setAdding(false)} className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors">Cancel</button>
+          <button type="button" onClick={() => { setAdding(false); setError(null); }} className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors">Cancel</button>
         </form>
       ) : (
         <button onClick={startAdd} className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors">+ Log a read</button>
       )}
+      {error && <p className="text-xs text-warn mt-2">{error}</p>}
     </div>
   );
 }
