@@ -344,6 +344,8 @@ export default function BookDetail() {
   const [reads, setReads] = useState([]);
   const [descExpanded, setDescExpanded] = useState(false);
   const [ratingPrompt, setRatingPrompt] = useState(false);
+  const [finishing, setFinishing] = useState(false);
+  const [finishError, setFinishError] = useState(null);
 
   function loadReads() {
     api.getBookReads(id).then(setReads).catch(() => {});
@@ -362,51 +364,67 @@ export default function BookDetail() {
   }, [book?.id]);
 
   async function toggleLoved() {
-    const updated = await api.patchBook(book.id, { loved: book.loved ? 0 : 1 });
-    setBook(updated);
+    try {
+      const updated = await api.patchBook(book.id, { loved: book.loved ? 0 : 1 });
+      setBook(updated);
+    } catch {}
   }
 
   async function toggleReadlist() {
-    const updated = await api.patchBook(book.id, { on_readlist: book.on_readlist ? 0 : 1 });
-    setBook(updated);
+    try {
+      const updated = await api.patchBook(book.id, { on_readlist: book.on_readlist ? 0 : 1 });
+      setBook(updated);
+    } catch {}
   }
 
   async function handleFinish() {
-    const today = new Date().toISOString().slice(0, 10);
-    const dateFinished = book.date_finished || today;
-    const updated = await api.updateBook(book.id, {
-      ...book,
-      status: 'finished',
-      date_finished: dateFinished,
-      read_count: (book.read_count || 0) + 1,
-      tags: realTagNames(book.tags),
-    });
-    setBook(updated);
+    if (finishing) return;
+    setFinishing(true);
+    setFinishError(null);
     try {
+      const today = new Date().toISOString().slice(0, 10);
+      const dateFinished = book.date_finished || today;
+      const updated = await api.updateBook(book.id, {
+        ...book,
+        status: 'finished',
+        date_finished: dateFinished,
+        read_count: (book.read_count || 0) + 1,
+        tags: realTagNames(book.tags),
+      });
+      setBook(updated);
+      if (!book.rating) setRatingPrompt(true);
       await api.addRead(book.id, {
         date_started: book.date_started || null,
         date_finished: dateFinished,
-      });
-    } finally {
+      }).catch(() => {});
       loadReads();
+    } catch {
+      setFinishError('Failed to save — please try again');
+    } finally {
+      setFinishing(false);
     }
-    if (!book.rating) setRatingPrompt(true);
   }
 
   async function handleRate(rating) {
-    const updated = await api.updateBook(book.id, {
-      ...book,
-      rating,
-      tags: realTagNames(book.tags),
-    });
-    setBook(updated);
-    setRatingPrompt(false);
+    try {
+      const updated = await api.updateBook(book.id, {
+        ...book,
+        rating,
+        tags: realTagNames(book.tags),
+      });
+      setBook(updated);
+      setRatingPrompt(false);
+    } catch {}
   }
 
   async function handleDelete() {
     if (!confirm(`Delete "${book.title}"?`)) return;
-    await api.deleteBook(id);
-    navigate('/');
+    try {
+      await api.deleteBook(id);
+      navigate('/');
+    } catch {
+      alert('Failed to delete — please try again');
+    }
   }
 
   if (loading) return <div className="text-neutral-700 text-sm">Loading…</div>;
@@ -460,10 +478,12 @@ export default function BookDetail() {
               <div className="border-t border-neutral-800 py-2.5 px-3">
                 <button
                   onClick={handleFinish}
-                  className="w-full text-xs text-neutral-500 hover:text-parchment transition-colors text-center"
+                  disabled={finishing}
+                  className="w-full text-xs text-neutral-500 hover:text-parchment disabled:opacity-40 disabled:cursor-default transition-colors text-center"
                 >
-                  Mark as finished
+                  {finishing ? 'Saving…' : 'Mark as finished'}
                 </button>
+                {finishError && <p className="text-[10px] text-warn text-center mt-1">{finishError}</p>}
               </div>
             )}
             <div className="border-t border-neutral-800 py-3 px-2">
