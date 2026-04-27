@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { formatAuthors } from '../utils.js';
 import {
   DndContext,
   closestCenter,
@@ -87,7 +88,7 @@ function SortableRow({ book, onRemove, draggable }) {
           )}
         </div>
         <p className="text-xs text-neutral-500 truncate mt-0.5">
-          {[book.author, book.series && `${book.series}${book.series_number ? ` #${book.series_number}` : ''}`].filter(Boolean).join(' · ')}
+          {[formatAuthors(book.authors), book.series && `${book.series}${book.series_number ? ` #${book.series_number}` : ''}`].filter(Boolean).join(' · ')}
         </p>
         {book.notes && (
           <p className="text-xs text-neutral-600 truncate mt-0.5">{book.notes}</p>

@@ -13,7 +13,7 @@ const PAGE_SIZE = 50;
 
 const LIST_ORDER_BY = {
   title:  "b.title COLLATE NOCASE ASC, lb.position ASC",
-  author: "b.author COLLATE NOCASE ASC, b.title COLLATE NOCASE ASC",
+  author: "(SELECT a.name FROM authors a JOIN book_authors ba ON ba.author_id = a.id WHERE ba.book_id = b.id ORDER BY ba.position LIMIT 1) COLLATE NOCASE ASC, b.title COLLATE NOCASE ASC",
   rating: "COALESCE(b.rating, 0) DESC, b.title COLLATE NOCASE ASC",
   added:  "lb.position ASC, lb.added_at DESC",
 };
@@ -34,15 +34,27 @@ function booksForList(listId, { sort = 'added', limit = null, offset = 0 } = {})
 
   const ids = rows.map(r => r.id);
   const tagsByBook = {};
+  const authorsByBook = {};
   if (ids.length > 0) {
+    const ph = ids.map(() => '?').join(',');
     const tagRows = db.prepare(`
       SELECT bt.book_id, t.id, t.name FROM tags t
       JOIN book_tags bt ON bt.tag_id = t.id
-      WHERE bt.book_id IN (${ids.map(() => '?').join(',')})
+      WHERE bt.book_id IN (${ph})
     `).all(...ids);
     for (const tr of tagRows) {
       if (!tagsByBook[tr.book_id]) tagsByBook[tr.book_id] = [];
       tagsByBook[tr.book_id].push({ id: tr.id, name: tr.name });
+    }
+    const authorRows = db.prepare(`
+      SELECT ba.book_id, a.name FROM authors a
+      JOIN book_authors ba ON ba.author_id = a.id
+      WHERE ba.book_id IN (${ph})
+      ORDER BY ba.position
+    `).all(...ids);
+    for (const ar of authorRows) {
+      if (!authorsByBook[ar.book_id]) authorsByBook[ar.book_id] = [];
+      authorsByBook[ar.book_id].push(ar.name);
     }
   }
 
@@ -50,6 +62,7 @@ function booksForList(listId, { sort = 'added', limit = null, offset = 0 } = {})
     ...b,
     cover_path: b.cover_path ? `/uploads/${b.cover_path}` : null,
     tags: tagsByBook[b.id] || [],
+    authors: authorsByBook[b.id] || [],
   }));
 
   return { books, total };

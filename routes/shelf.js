@@ -290,7 +290,7 @@ router.delete('/shelves/:id', (req, res) => {
 
 router.get('/unshelfed', (_req, res) => {
   const books = db.prepare(`
-    SELECT id, title, author, cover_path, status, rating
+    SELECT id, title, cover_path, status, rating
     FROM books
     WHERE owned = 1 AND (format = 'physical' OR format IS NULL) AND shelf_id IS NULL AND unit_id IS NULL AND room_id IS NULL AND building_id IS NULL
     ORDER BY title
@@ -304,7 +304,7 @@ router.get('/buildings/:id/books', (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid id' });
   const books = db.prepare(`
-    SELECT b.id, b.title, b.author, b.cover_path, b.status, b.rating, b.series, b.series_number, b.format
+    SELECT b.id, b.title, b.cover_path, b.status, b.rating, b.series, b.series_number, b.format
     FROM books b
     -- resolve effective room
     LEFT JOIN rooms       r_direct ON r_direct.id = b.room_id
@@ -342,7 +342,7 @@ router.get('/rooms/:id/books', (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid id' });
   const books = db.prepare(`
-    SELECT b.id, b.title, b.author, b.cover_path, b.status, b.rating, b.series, b.series_number, b.format
+    SELECT b.id, b.title, b.cover_path, b.status, b.rating, b.series, b.series_number, b.format
     FROM books b
     LEFT JOIN units   u_direct ON u_direct.id = b.unit_id
     LEFT JOIN shelves s_direct ON s_direct.id = b.shelf_id
@@ -370,7 +370,7 @@ router.get('/units/:id/books', (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid id' });
   const books = db.prepare(`
-    SELECT b.id, b.title, b.author, b.cover_path, b.status, b.rating, b.series, b.series_number, b.format
+    SELECT b.id, b.title, b.cover_path, b.status, b.rating, b.series, b.series_number, b.format
     FROM books b
     LEFT JOIN shelves s ON s.id = b.shelf_id
     WHERE b.owned = 1
@@ -390,7 +390,7 @@ router.get('/shelves/:id/books', (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid id' });
   const books = db.prepare(`
-    SELECT b.id, b.title, b.author, b.cover_path, b.status, b.rating, b.series, b.series_number, b.format
+    SELECT b.id, b.title, b.cover_path, b.status, b.rating, b.series, b.series_number, b.format
     FROM books b
     WHERE b.shelf_id = ? AND b.owned = 1
     ORDER BY CASE WHEN b.shelf_position IS NULL THEN 1 ELSE 0 END, b.shelf_position, b.series, b.series_number, b.title

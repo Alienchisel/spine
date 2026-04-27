@@ -542,11 +542,16 @@ export default function BookDetail() {
               Edit
             </Link>
           </div>
-          {book.author && (
+          {book.authors?.length > 0 && (
             <p className="text-neutral-400 text-base mb-5">
-              <Link to={`/browse/author/${encodeURIComponent(book.author)}`} className="hover:text-neutral-200 transition-colors">
-                {book.author}
-              </Link>
+              {book.authors.map((a, i) => (
+                <span key={a.id}>
+                  {i > 0 && <span className="text-neutral-600">{i === book.authors.length - 1 ? ' & ' : ', '}</span>}
+                  <Link to={`/browse/author/${encodeURIComponent(a.name)}`} className="hover:text-neutral-200 transition-colors">
+                    {a.name}
+                  </Link>
+                </span>
+              ))}
             </p>
           )}
 

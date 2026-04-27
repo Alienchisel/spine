@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
+import { formatAuthors } from '../utils.js';
 
 function formatDate(dateStr) {
   const today = new Date().toISOString().slice(0, 10);
@@ -141,7 +142,7 @@ function DiaryEntry({ entry, onDelete }) {
         <Link to={`/books/${entry.book_id}`} className="text-sm font-medium text-neutral-200 hover:text-white transition-colors truncate block" title={entry.title}>
           {entry.title}
         </Link>
-        {entry.author && <p className="text-xs text-neutral-500 truncate mt-0.5">{entry.author}</p>}
+        {entry.authors?.length > 0 && <p className="text-xs text-neutral-500 truncate mt-0.5">{formatAuthors(entry.authors)}</p>}
       </div>
       {progress && <span className="text-xs text-neutral-500 flex-shrink-0">{progress}</span>}
       <button

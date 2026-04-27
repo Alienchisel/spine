@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
-import { sortTitle } from '../utils.js';
+import { sortTitle, formatAuthors } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
 import FilterPanel from '../components/FilterPanel.jsx';
 
@@ -170,7 +170,7 @@ function SeriesCard({ seriesName, books, expanded, onToggle, compact }) {
       </div>
       {!compact && <>
         <p className="text-sm font-medium text-neutral-200 truncate leading-tight" title={seriesName}>{seriesName}</p>
-        {sorted[0]?.author && <p className="text-xs text-neutral-500 truncate mt-0.5">{sorted[0].author}</p>}
+        {sorted[0]?.authors?.length > 0 && <p className="text-xs text-neutral-500 truncate mt-0.5">{formatAuthors(sorted[0].authors)}</p>}
         {statusParts.length > 0 && <p className="text-xs text-neutral-600 truncate mt-0.5">{statusParts.join(' · ')}</p>}
       </>}
     </button>

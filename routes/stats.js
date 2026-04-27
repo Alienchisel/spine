@@ -115,9 +115,9 @@ router.get('/', (_req, res) => {
   `).all();
 
   const topAuthors = db.prepare(`
-    SELECT author, COUNT(*) AS count FROM books
-    WHERE author IS NOT NULL
-    GROUP BY author
+    SELECT a.name AS author, COUNT(DISTINCT ba.book_id) AS count
+    FROM authors a JOIN book_authors ba ON ba.author_id = a.id
+    GROUP BY a.id
     ORDER BY count DESC
     LIMIT 10
   `).all();
@@ -172,7 +172,8 @@ router.get('/', (_req, res) => {
   function bookRecord(sql) {
     const b = db.prepare(sql).get();
     if (!b) return null;
-    return { id: b.id, title: b.title, author: b.author, cover_path: b.cover_path ? `/uploads/${b.cover_path}` : null, year_published: b.year_published, page_count: b.page_count, date_finished: b.date_finished, duration_minutes: b.duration_minutes };
+    const authors = db.prepare(`SELECT a.name FROM authors a JOIN book_authors ba ON ba.author_id = a.id WHERE ba.book_id = ? ORDER BY ba.position`).all(b.id).map(r => r.name);
+    return { id: b.id, title: b.title, authors, cover_path: b.cover_path ? `/uploads/${b.cover_path}` : null, year_published: b.year_published, page_count: b.page_count, date_finished: b.date_finished, duration_minutes: b.duration_minutes };
   }
 
   const records = {

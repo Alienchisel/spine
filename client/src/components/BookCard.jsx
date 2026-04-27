@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
-import { realTagNames } from '../utils.js';
+import { realTagNames, formatAuthors } from '../utils.js';
 import ListPicker from './ListPicker.jsx';
 import StarRating from './StarRating.jsx';
 
@@ -256,8 +256,8 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact 
           <p className="text-sm font-medium text-neutral-200 truncate group-hover:text-white transition-colors leading-tight" title={book.title}>
             {book.title}
           </p>
-          {book.author && (
-            <p className="text-xs text-neutral-500 truncate mt-0.5">{book.author}</p>
+          {book.authors?.length > 0 && (
+            <p className="text-xs text-neutral-500 truncate mt-0.5" title={book.authors.map(a=>a.name).join(', ')}>{formatAuthors(book.authors)}</p>
           )}
         </>}
       </Link>

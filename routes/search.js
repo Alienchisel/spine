@@ -43,7 +43,7 @@ router.get('/', async (req, res) => {
       return {
         key: doc.key,
         title: doc.title,
-        author: doc.author_name?.[0] || null,
+        authors: doc.author_name?.slice(0, 5) || [],
         publisher: doc.publisher?.[0] || null,
         page_count: doc.number_of_pages_median || null,
         cover_url: doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg` : null,

@@ -7,7 +7,7 @@ import ShelfPicker from '../components/ShelfPicker.jsx';
 
 const EMPTY = {
   title: '',
-  author: '',
+  authors: [],
   status: 'unread',
   owned: false,
   previously_owned: false,
@@ -114,6 +114,7 @@ export default function BookForm() {
   const [activeTab, setActiveTab] = useState('core');
   const [tagInput,      setTagInput]      = useState('');
   const [narratorInput, setNarratorInput] = useState('');
+  const [authorInput,   setAuthorInput]   = useState('');
   const [coverPreview, setCoverPreview] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [coverError, setCoverError] = useState(null);
@@ -161,7 +162,7 @@ export default function BookForm() {
     api.getBook(id).then((book) => {
       setForm({
         title: book.title,
-        author: book.author || '',
+        authors: book.authors?.map(a => a.name) || [],
         status: book.status,
         owned: Boolean(book.owned),
         previously_owned: Boolean(book.previously_owned),
@@ -232,9 +233,9 @@ export default function BookForm() {
   async function applyResult(result) {
     const { description } = result.key ? await api.fetchBookDescription(result.key).catch(() => ({ description: null })) : { description: null };
     const filled = new Set();
-    if (result.title)     filled.add('title');
-    if (result.author)    filled.add('author');
-    if (result.publisher) filled.add('publisher');
+    if (result.title)          filled.add('title');
+    if (result.authors?.length) filled.add('authors');
+    if (result.publisher)      filled.add('publisher');
     if (result.page_count) filled.add('page_count');
     if (result.isbn_10)   filled.add('isbn_10');
     if (result.isbn_13)   filled.add('isbn_13');
@@ -242,8 +243,8 @@ export default function BookForm() {
     setFilledByLookup(filled);
     setForm(f => ({
       ...f,
-      title: result.title || f.title,
-      author: result.author || f.author,
+      title:     result.title || f.title,
+      authors:   result.authors?.length ? result.authors : f.authors,
       publisher: result.publisher || f.publisher,
       page_count: result.page_count || f.page_count,
       isbn_10: result.isbn_10 || f.isbn_10,
@@ -266,7 +267,7 @@ export default function BookForm() {
   }
 
   async function handleLookup() {
-    const query = [form.title, form.author].filter(Boolean).join(' ');
+    const query = [form.title, form.authors[0]].filter(Boolean).join(' ');
     if (!query.trim()) return;
     setLookupSearching(true);
     setLookupResults([]);
@@ -278,8 +279,8 @@ export default function BookForm() {
     const hasCover = Boolean(form.cover_path);
     const { description } = result.key ? await api.fetchBookDescription(result.key).catch(() => ({ description: null })) : { description: null };
     const filled = new Set();
-    if (!form.title       && result.title)      filled.add('title');
-    if (!form.author      && result.author)     filled.add('author');
+    if (!form.title         && result.title)          filled.add('title');
+    if (!form.authors.length && result.authors?.length) filled.add('authors');
     if (!form.publisher   && result.publisher)  filled.add('publisher');
     if (!form.page_count  && result.page_count) filled.add('page_count');
     if (!form.isbn_10     && result.isbn_10)    filled.add('isbn_10');
@@ -288,9 +289,9 @@ export default function BookForm() {
     setFilledByLookup(filled);
     setForm(f => ({
       ...f,
-      title:       f.title       || result.title       || '',
-      author:      f.author      || result.author      || '',
-      publisher:   f.publisher   || result.publisher   || '',
+      title:     f.title   || result.title   || '',
+      authors:   f.authors.length ? f.authors : (result.authors || []),
+      publisher: f.publisher || result.publisher || '',
       page_count:  f.page_count  || result.page_count  || '',
       isbn_10:     f.isbn_10     || result.isbn_10     || '',
       isbn_13:     f.isbn_13     || result.isbn_13     || '',
@@ -413,6 +414,14 @@ export default function BookForm() {
     setNarratorInput('');
   }
 
+  function addAuthor(e) {
+    if (e.key !== 'Enter' && e.key !== ',') return;
+    e.preventDefault();
+    const name = authorInput.trim().replace(/,$/, '');
+    if (name && !form.authors.includes(name)) set('authors', [...form.authors, name]);
+    setAuthorInput('');
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     if (!form.title.trim()) { setActiveTab('core'); return; }
@@ -422,13 +431,15 @@ export default function BookForm() {
     const tags = pendingTag && !form.tags.includes(pendingTag) ? [...form.tags, pendingTag] : form.tags;
     const pendingNarrator = narratorInput.trim().replace(/,$/, '');
     const narrators = pendingNarrator && !form.narrators.includes(pendingNarrator) ? [...form.narrators, pendingNarrator] : form.narrators;
+    const pendingAuthor = authorInput.trim().replace(/,$/, '');
+    const authors = pendingAuthor && !form.authors.includes(pendingAuthor) ? [...form.authors, pendingAuthor] : form.authors;
     try {
       const payload = {
         ...form,
         tags,
         narrators,
+        authors,
         title: form.title.trim(),
-        author: form.author.trim() || null,
         date_started: form.date_started || null,
         date_finished: form.date_finished || null,
         acquisition_source: form.acquisition_source || null,
@@ -492,7 +503,7 @@ export default function BookForm() {
                       : <div className="w-8 h-12 bg-neutral-800 rounded flex-shrink-0" />}
                     <div className="min-w-0">
                       <p className="text-sm text-white truncate" title={r.title}>{r.title}</p>
-                      {r.author && <p className="text-xs text-neutral-500 truncate">{r.author}</p>}
+                      {r.authors?.length > 0 && <p className="text-xs text-neutral-500 truncate">{r.authors.join(', ')}</p>}
                       {r.publisher && <p className="text-xs text-neutral-600 truncate">{r.publisher}</p>}
                     </div>
                   </button>
@@ -564,11 +575,23 @@ export default function BookForm() {
                 </div>
 
                 <div>
-                  <label className={label}>Author</label>
-                  <input className={ic('author')} list="authors-list" value={form.author}
-                    onChange={(e) => set('author', e.target.value)} placeholder="Author name" />
+                  <label className={label}>Authors</label>
+                  {form.authors.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {form.authors.map((a) => (
+                        <span key={a} className="flex items-center gap-1 text-xs bg-neutral-800 text-neutral-300 px-2.5 py-1 rounded-full">
+                          {a}
+                          <button type="button" onClick={() => set('authors', form.authors.filter(x => x !== a))}
+                            className="text-neutral-500 hover:text-white leading-none ml-0.5">×</button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <input className={ic('authors')} list="authors-list" value={authorInput}
+                    onChange={(e) => setAuthorInput(e.target.value)} onKeyDown={addAuthor}
+                    placeholder="Type a name, press Enter or comma to add" />
                   <datalist id="authors-list">
-                    {pastAuthors.map(a => <option key={a} value={a} />)}
+                    {pastAuthors.filter(a => !form.authors.includes(a)).map(a => <option key={a} value={a} />)}
                   </datalist>
                 </div>
 
