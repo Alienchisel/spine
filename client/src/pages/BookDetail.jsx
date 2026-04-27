@@ -370,13 +370,14 @@ export default function BookDetail() {
   const [ratingPrompt, setRatingPrompt] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [finishError, setFinishError] = useState(null);
+  const [loadError, setLoadError] = useState(false);
 
   function loadReads() {
     api.getBookReads(id).then(setReads).catch(() => {});
   }
 
   useEffect(() => {
-    api.getBook(id).then(setBook).finally(() => setLoading(false));
+    api.getBook(id).then(setBook).catch(() => setLoadError(true)).finally(() => setLoading(false));
     api.getBookLog(id).then(setLog).catch(() => {});
     loadReads();
     setDescExpanded(false);
@@ -452,7 +453,7 @@ export default function BookDetail() {
   }
 
   if (loading) return <div className="text-neutral-700 text-sm">Loading…</div>;
-  if (!book) return <div className="text-neutral-600 text-sm">Book not found.</div>;
+  if (!book) return <div className="text-neutral-600 text-sm">{loadError ? 'Failed to load book.' : 'Book not found.'}</div>;
 
   return (
     <div className="max-w-2xl">
