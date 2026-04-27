@@ -59,7 +59,10 @@ router.post('/fetch', async (req, res) => {
     if (!response.ok) return res.status(502).json({ error: 'Failed to fetch cover' });
     const contentType = response.headers.get('content-type') || '';
     if (!contentType.startsWith('image/')) return res.status(400).json({ error: 'URL does not point to an image' });
+    const contentLength = parseInt(response.headers.get('content-length') || '0');
+    if (contentLength > 10 * 1024 * 1024) return res.status(400).json({ error: 'Image too large' });
     const buffer = Buffer.from(await response.arrayBuffer());
+    if (buffer.length > 10 * 1024 * 1024) return res.status(400).json({ error: 'Image too large' });
     const filePath = await saveResized(buffer);
     res.json({ path: filePath });
   } catch {
