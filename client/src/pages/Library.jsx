@@ -254,9 +254,23 @@ export default function Library() {
   const [counts,      setCounts]      = useState({});
   const [expandedSeries, setExpandedSeries] = useState(new Set());
 
-  const loadedRef = useRef(0);
-  const genRef    = useRef(0);
+  const loadedRef  = useRef(0);
+  const genRef     = useRef(0);
   const prevTabRef = useRef(null);
+  const searchRef  = useRef(null);
+
+  // '/' focuses search
+  useEffect(() => {
+    function onKeyDown(e) {
+      if (e.key !== '/' || e.metaKey || e.ctrlKey) return;
+      const tag = document.activeElement?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || document.activeElement?.isContentEditable) return;
+      e.preventDefault();
+      searchRef.current?.focus();
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   // Debounce search query
   useEffect(() => {
@@ -370,6 +384,7 @@ export default function Library() {
               {SORTS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
             </select>
             <input
+              ref={searchRef}
               type="search"
               value={queryRaw}
               onChange={(e) => setQueryRaw(e.target.value)}
