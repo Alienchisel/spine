@@ -233,6 +233,15 @@ function buildFilterConditions(query) {
     else { conditions.push(`publisher IN (${real.map(() => '?').join(',')})`); params.push(...real); }
   }
 
+  const srcs = [].concat(query.sources || []).filter(Boolean);
+  if (srcs.length) {
+    const hasEmpty = srcs.includes('empty');
+    const real = srcs.filter(s => s !== 'empty');
+    if (hasEmpty && real.length) { conditions.push(`(acquisition_source IS NULL OR acquisition_source IN (${real.map(() => '?').join(',')}))`); params.push(...real); }
+    else if (hasEmpty) conditions.push("(acquisition_source IS NULL OR acquisition_source = '')");
+    else { conditions.push(`acquisition_source IN (${real.map(() => '?').join(',')})`); params.push(...real); }
+  }
+
   const sers = [].concat(query.series || []).filter(Boolean);
   if (sers.length) {
     const hasEmpty = sers.includes('empty');

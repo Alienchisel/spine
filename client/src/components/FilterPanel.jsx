@@ -131,6 +131,17 @@ export default function FilterPanel({ facets, filters, onChange }) {
         </FilterSection>
       )}
 
+      {(facets.sources?.length > 0) && (
+        <FilterSection label="Source">
+          {facets.sources.map(s => (
+            <button key={s} type="button" onClick={() => toggle('sources', s)}
+              className={pill((filters.sources || []).includes(s))}>
+              {s}
+            </button>
+          ))}
+        </FilterSection>
+      )}
+
       {(seriesVals.length > 0 || hasEmptySeries) && (
         <FilterSection label="Series">
           {hasEmptySeries && (
