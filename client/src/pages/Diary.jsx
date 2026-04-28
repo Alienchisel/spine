@@ -263,11 +263,11 @@ export default function Diary() {
             <div className="w-64 flex-shrink-0 sticky top-20 bg-neutral-800 rounded-xl p-4">
               <div className="grid grid-cols-2 gap-2 mb-4">
                 <div className="bg-neutral-900 rounded-lg p-3 text-center">
-                  <p className="text-xs text-neutral-500 mb-1.5">Days in a row</p>
+                  <p className="text-xs text-neutral-500 mb-1.5 h-8 flex items-center justify-center leading-tight">Days in a row</p>
                   <p className="text-2xl font-semibold text-parchment">{stats.dayStreak}</p>
                 </div>
                 <div className="bg-neutral-900 rounded-lg p-3 text-center">
-                  <p className="text-xs text-neutral-500 mb-1.5">Weeks in a row</p>
+                  <p className="text-xs text-neutral-500 mb-1.5 h-8 flex items-center justify-center leading-tight">Weeks in a row</p>
                   <p className="text-2xl font-semibold text-parchment">{stats.weekStreak}</p>
                 </div>
               </div>
