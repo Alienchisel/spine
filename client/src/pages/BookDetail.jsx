@@ -474,8 +474,11 @@ export default function BookDetail() {
             {book.cover_path ? (
               <img src={book.cover_path} alt={book.title} className="w-full h-full object-cover" />
             ) : (
-              <div className="w-full h-full flex items-end p-3 bg-gradient-to-br from-neutral-700 to-neutral-900">
-                <span className="text-xs text-neutral-400 font-medium leading-tight">{book.title}</span>
+              <div className="w-full h-full flex flex-col items-center justify-center p-3 bg-gradient-to-br from-neutral-700 to-neutral-900 gap-3">
+                <span className="text-6xl font-bold text-neutral-500 select-none leading-none">
+                  {(book.title.replace(/^(the|a|an)\s+/i, '') || book.title)[0].toUpperCase()}
+                </span>
+                <span className="text-xs text-neutral-500 font-medium leading-tight text-center">{book.title}</span>
               </div>
             )}
           </div>

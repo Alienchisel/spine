@@ -201,8 +201,11 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact 
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             />
           ) : (
-            <div className="w-full h-full flex items-end p-3 bg-gradient-to-br from-neutral-700 to-neutral-900">
-              <span className="text-xs text-neutral-400 font-medium leading-tight line-clamp-4">{book.title}</span>
+            <div className="w-full h-full flex flex-col items-center justify-center p-3 bg-gradient-to-br from-neutral-700 to-neutral-900 gap-2">
+              <span className="text-5xl font-bold text-neutral-500 select-none leading-none">
+                {(book.title.replace(/^(the|a|an)\s+/i, '') || book.title)[0].toUpperCase()}
+              </span>
+              <span className="text-xs text-neutral-500 font-medium leading-tight line-clamp-3 text-center">{book.title}</span>
             </div>
           )}
           {Boolean(book.is_custom) && (
