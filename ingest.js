@@ -55,7 +55,7 @@ async function fetchGoogleBooks(isbn) {
                    v.imageLinks?.medium || v.imageLinks?.thumbnail || null;
   return {
     title:        v.title || '',
-    author:       v.authors?.[0] || '',
+    authors:      v.authors || [],
     publisher:    v.publisher || '',
     year:         v.publishedDate ? parseInt(v.publishedDate) : null,
     description:  v.description || '',
@@ -76,7 +76,7 @@ async function fetchOpenLibrary(isbn) {
   if (!item) return null;
   return {
     title:       item.title || '',
-    author:      item.authors?.[0]?.name || '',
+    authors:     item.authors?.map(a => a.name) || [],
     publisher:   item.publishers?.[0]?.name || '',
     year:        item.publish_date ? parseInt(item.publish_date) : null,
     description: typeof item.description === 'object' ? item.description.value : (item.description || ''),
@@ -173,12 +173,12 @@ async function main() {
     console.log('Found on Google Books.\n');
   }
 
-  meta = meta || { title: '', author: '', publisher: '', year: null, description: '',
+  meta = meta || { title: '', authors: [], publisher: '', year: null, description: '',
                    page_count: null, language: '', isbn_13: '', isbn_10: '', cover_url: null };
 
   console.log('─'.repeat(50));
   console.log(`  Title:       ${meta.title}`);
-  console.log(`  Author:      ${meta.author}`);
+  console.log(`  Author:      ${meta.authors.join(', ')}`);
   console.log(`  Publisher:   ${meta.publisher}`);
   console.log(`  Year:        ${meta.year ?? ''}`);
   console.log(`  Pages:       ${meta.page_count ?? ''}`);
@@ -194,7 +194,8 @@ async function main() {
 
   // — Metadata —
   const title            = await ask(rl, 'Title',             meta.title);
-  const author           = await ask(rl, 'Author',            meta.author);
+  const authorRaw        = await ask(rl, 'Author(s) (comma-separated)', meta.authors.join(', '));
+  const authors          = authorRaw.split(',').map(s => s.trim()).filter(Boolean);
   const publisher        = await ask(rl, 'Publisher',         meta.publisher);
   const yearStr          = await ask(rl, 'Year published',    meta.year ? String(meta.year) : '');
   const yearEditionStr   = await ask(rl, 'Year of edition',   '');
@@ -226,7 +227,7 @@ async function main() {
   const statusVal = expand(STATUS_EXPAND, statusIn);
   const formatExpanded = expand(FORMAT_EXPAND, formatIn);
   const formatVal = formatExpanded === 'digital' ? 'ebook' : formatExpanded;
-  let binding = '', condition = '', narrator = '', durationStr = '', asinIn = '';
+  let binding = '', condition = '', narrators = [], durationStr = '', asinIn = '';
   if (formatVal === 'physical') {
     console.log();
     binding   = await ask(rl, 'Binding ([h]ardcover/[p]aperback)', '');
@@ -234,7 +235,8 @@ async function main() {
     condition = isPhysicallyOwned ? await ask(rl, 'Condition ([n]ew/[f]ine/[v]ery good/[g]ood/f[a]ir/[p]oor)', '') : '';
   } else if (formatVal === 'audiobook') {
     console.log();
-    narrator    = await ask(rl, 'Narrator', '');
+    const narratorRaw = await ask(rl, 'Narrator(s) (comma-separated)', '');
+    narrators = narratorRaw.split(',').map(s => s.trim()).filter(Boolean);
     durationStr = await ask(rl, 'Duration (h:mm or minutes)', '');
     asinIn      = parsed.type === 'asin' ? parsed.value : await ask(rl, 'ASIN', '');
   }
@@ -287,7 +289,7 @@ async function main() {
 
   const payload = Object.fromEntries(Object.entries({
     title,
-    author:            author || undefined,
+    authors:           authors.length ? authors : undefined,
     publisher:         publisher || undefined,
     year_published:    yearStr ? parseInt(yearStr) : undefined,
     year_edition:      yearEditionStr ? parseInt(yearEditionStr) : undefined,
@@ -310,7 +312,7 @@ async function main() {
     previously_owned:  prevOwnedIn.toLowerCase() === 'y' ? 1 : 0,
     binding:           ['hardcover', 'paperback'].includes(expand(BINDING_EXPAND, binding)) ? expand(BINDING_EXPAND, binding) : undefined,
     condition:         ['new', 'fine', 'very good', 'good', 'fair', 'poor'].includes(expand(CONDITION_EXPAND, condition)) ? expand(CONDITION_EXPAND, condition) : undefined,
-    narrator:          narrator || undefined,
+    narrators:         narrators.length ? narrators : undefined,
     duration_minutes:  parseDuration(durationStr),
     acquisition_source: acquisition_source || undefined,
     acquisition_date:  acquisition_date || undefined,
