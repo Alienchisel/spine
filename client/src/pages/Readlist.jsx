@@ -81,7 +81,7 @@ function SortableRow({ book, onRemove, index }) {
       <div className="flex-shrink-0 flex items-center gap-4">
         <Stars rating={book.rating} />
         {book.format && book.format !== 'physical' && (
-          <span className="text-xs text-neutral-600 capitalize hidden md:block">{book.format}</span>
+          <span className="text-xs text-neutral-600 hidden md:block">{book.format === 'ebook' ? 'Digital' : book.format?.charAt(0).toUpperCase() + book.format?.slice(1)}</span>
         )}
         {book.status && (
           <span className="text-xs text-neutral-600 capitalize hidden sm:block">{book.status}</span>

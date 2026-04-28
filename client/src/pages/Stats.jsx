@@ -236,16 +236,18 @@ export default function Stats() {
           <DonutChart
             title="Format"
             data={formats.map((f, i) => ({
-              name:  f.format ? (f.format.charAt(0).toUpperCase() + f.format.slice(1)) : 'Unknown',
+              name:  FORMAT_LABEL[f.format] || (f.format ? f.format.charAt(0).toUpperCase() + f.format.slice(1) : 'Unknown'),
               value: f.count,
               color: ['#a97954', '#c29b87', '#532c2e', '#404040'][i % 4],
             }))}
           />
           <DonutChart
-            title="Ownership"
+            title="Status"
             data={[
-              { name: 'Owned',   value: totals.owned                             ?? 0, color: '#a97954' },
-              { name: 'Unowned', value: (totals.books - totals.owned)            ?? 0, color: '#404040' },
+              { name: 'Finished', value: totals.finished ?? 0, color: '#a97954' },
+              { name: 'Reading',  value: totals.reading  ?? 0, color: '#c29b87' },
+              { name: 'Paused',   value: totals.paused   ?? 0, color: '#532c2e' },
+              { name: 'Unread',   value: totals.unread   ?? 0, color: '#404040' },
             ].filter(d => d.value > 0)}
           />
         </div>
