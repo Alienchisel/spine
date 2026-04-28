@@ -31,11 +31,23 @@ router.get('/', (_req, res) => {
     if (!authorMap.has(row.book_id)) authorMap.set(row.book_id, []);
     authorMap.get(row.book_id).push({ id: row.id, name: row.name });
   }
+  const narratorRows = db.prepare(`
+    SELECT bn.book_id, n.id, n.name FROM narrators n
+    JOIN book_narrators bn ON bn.narrator_id = n.id
+    WHERE bn.book_id IN (${ids.map(() => '?').join(',')})
+    ORDER BY bn.position
+  `).all(...ids);
+  const narratorMap = new Map();
+  for (const row of narratorRows) {
+    if (!narratorMap.has(row.book_id)) narratorMap.set(row.book_id, []);
+    narratorMap.get(row.book_id).push({ id: row.id, name: row.name });
+  }
   res.json(books.map(b => ({
     ...b,
     cover_path: b.cover_path ? `/uploads/${b.cover_path}` : null,
     tags: tagMap.get(b.id) ?? [],
     authors: authorMap.get(b.id) ?? [],
+    narrators: narratorMap.get(b.id) ?? [],
   })));
 });
 
