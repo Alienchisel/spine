@@ -35,6 +35,35 @@ const GRID = {
   compact:     'grid grid-cols-6 sm:grid-cols-9 md:grid-cols-12 gap-0.5 items-start',
 };
 
+const STATUS_LABEL = { reading: 'Reading', paused: 'Paused', finished: 'Finished', unread: 'Unread' };
+const STATUS_COLOR = {
+  reading:  'text-parchment bg-oak/30',
+  paused:   'text-neutral-300 bg-neutral-800',
+  finished: 'text-leather bg-binding/30',
+  unread:   'text-neutral-500 bg-neutral-800',
+};
+
+function ListRow({ book }) {
+  return (
+    <Link
+      to={`/books/${book.id}`}
+      className="flex items-center gap-3 py-1.5 px-2 hover:bg-neutral-800/50 rounded transition-colors group"
+    >
+      <div className="w-6 h-9 flex-shrink-0 rounded overflow-hidden bg-neutral-800">
+        {book.cover_path
+          ? <img src={book.cover_path} alt="" className="w-full h-full object-cover" />
+          : <div className="w-full h-full bg-gradient-to-br from-neutral-700 to-neutral-900" />}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm text-neutral-200 group-hover:text-white transition-colors truncate">{book.title}</p>
+        {book.authors?.length > 0 && <p className="text-xs text-neutral-500 truncate">{formatAuthors(book.authors)}</p>}
+      </div>
+      <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${STATUS_COLOR[book.status]}`}>{STATUS_LABEL[book.status]}</span>
+      {book.format && <span className="text-xs text-neutral-600 flex-shrink-0 capitalize w-16 text-right">{book.format}</span>}
+    </Link>
+  );
+}
+
 function getSaved() {
   try { return JSON.parse(sessionStorage.getItem(SESSION_KEY)) ?? {}; }
   catch { return {}; }
@@ -350,24 +379,26 @@ export default function Library() {
             <span className="text-xs text-neutral-600 tabular-nums whitespace-nowrap">
               {total} {total === 1 ? 'book' : 'books'}
             </span>
-            <button
-              onClick={() => setDensity(d => d === 'comfortable' ? 'compact' : 'comfortable')}
-              title={density === 'comfortable' ? 'Switch to compact view' : 'Switch to comfortable view'}
-              className="text-neutral-600 hover:text-neutral-300 transition-colors flex-shrink-0"
-            >
-              {density === 'comfortable' ? (
+            <div className="flex items-center gap-1">
+              <button onClick={() => setDensity('comfortable')} title="Comfortable grid" className={`transition-colors ${density === 'comfortable' ? 'text-neutral-300' : 'text-neutral-700 hover:text-neutral-400'}`}>
                 <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4">
                   <rect x="1" y="1" width="4" height="4" rx="0.5"/><rect x="6" y="1" width="4" height="4" rx="0.5"/><rect x="11" y="1" width="4" height="4" rx="0.5"/>
                   <rect x="1" y="6" width="4" height="4" rx="0.5"/><rect x="6" y="6" width="4" height="4" rx="0.5"/><rect x="11" y="6" width="4" height="4" rx="0.5"/>
                   <rect x="1" y="11" width="4" height="4" rx="0.5"/><rect x="6" y="11" width="4" height="4" rx="0.5"/><rect x="11" y="11" width="4" height="4" rx="0.5"/>
                 </svg>
-              ) : (
+              </button>
+              <button onClick={() => setDensity('compact')} title="Compact grid" className={`transition-colors ${density === 'compact' ? 'text-neutral-300' : 'text-neutral-700 hover:text-neutral-400'}`}>
                 <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4">
                   <rect x="1" y="1" width="6.5" height="6.5" rx="0.5"/><rect x="8.5" y="1" width="6.5" height="6.5" rx="0.5"/>
                   <rect x="1" y="8.5" width="6.5" height="6.5" rx="0.5"/><rect x="8.5" y="8.5" width="6.5" height="6.5" rx="0.5"/>
                 </svg>
-              )}
-            </button>
+              </button>
+              <button onClick={() => setDensity('list')} title="List view" className={`transition-colors ${density === 'list' ? 'text-neutral-300' : 'text-neutral-700 hover:text-neutral-400'}`}>
+                <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4">
+                  <rect x="1" y="2" width="14" height="2" rx="0.5"/><rect x="1" y="7" width="14" height="2" rx="0.5"/><rect x="1" y="12" width="14" height="2" rx="0.5"/>
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -395,27 +426,53 @@ export default function Library() {
         </div>
       ) : (
         <>
-          <div className={GRID[density]}>
-            {displayItems.map(item =>
-              item.type === 'series' ? (
-                <SeriesCard
-                  key={item.name}
-                  seriesName={item.name}
-                  books={item.books}
-                  expanded={expandedSeries.has(item.name)}
-                  onToggle={() => toggleSeries(item.name)}
-                  compact={density === 'compact'}
-                />
-              ) : (
-                <BookCard
-                  key={item.book.id}
-                  book={item.book}
-                  onProgressUpdate={handleProgressUpdate}
-                  compact={density === 'compact'}
-                />
-              )
-            )}
-          </div>
+          {density === 'list' ? (
+            <div className="divide-y divide-neutral-800/50">
+              {displayItems.map(item =>
+                item.type === 'series' ? (
+                  <div key={item.name}>
+                    <button
+                      onClick={() => toggleSeries(item.name)}
+                      className="flex items-center gap-2 py-1.5 px-2 w-full hover:bg-neutral-800/50 rounded transition-colors text-left"
+                    >
+                      <span className="text-xs text-neutral-600">{expandedSeries.has(item.name) ? '▾' : '▸'}</span>
+                      <span className="text-sm text-neutral-400 flex-1 truncate">{item.name}</span>
+                      <span className="text-xs text-neutral-600">{item.books.length} books</span>
+                    </button>
+                    {expandedSeries.has(item.name) && (
+                      <div className="pl-4">
+                        {sortVolumes(item.books).map(book => <ListRow key={book.id} book={book} />)}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <ListRow key={item.book.id} book={item.book} />
+                )
+              )}
+            </div>
+          ) : (
+            <div className={GRID[density]}>
+              {displayItems.map(item =>
+                item.type === 'series' ? (
+                  <SeriesCard
+                    key={item.name}
+                    seriesName={item.name}
+                    books={item.books}
+                    expanded={expandedSeries.has(item.name)}
+                    onToggle={() => toggleSeries(item.name)}
+                    compact={density === 'compact'}
+                  />
+                ) : (
+                  <BookCard
+                    key={item.book.id}
+                    book={item.book}
+                    onProgressUpdate={handleProgressUpdate}
+                    compact={density === 'compact'}
+                  />
+                )
+              )}
+            </div>
+          )}
           {hasMore && (
             <div className="mt-10 flex justify-center">
               <button
