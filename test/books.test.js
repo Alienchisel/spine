@@ -334,4 +334,295 @@ describe('books', () => {
       assert.equal(status, 400);
     });
   });
+
+  describe('field persistence', () => {
+    it('saves and returns authors', async () => {
+      const { status, body } = await req('POST', '/api/books', {
+        title: 'Dune', authors: ['Frank Herbert'],
+      });
+      assert.equal(status, 201);
+      assert.equal(body.authors.length, 1);
+      assert.equal(body.authors[0].name, 'Frank Herbert');
+    });
+
+    it('saves and returns narrators', async () => {
+      const { body } = await req('POST', '/api/books', {
+        title: 'Dune Audio', narrators: ['Scott Brick'],
+      });
+      assert.equal(body.narrators.length, 1);
+      assert.equal(body.narrators[0].name, 'Scott Brick');
+    });
+
+    it('saves description, notes, review, series, series_number', async () => {
+      const { body } = await req('POST', '/api/books', {
+        title: 'Fellowship',
+        description: 'A hobbit leaves home.',
+        notes: 'First edition.',
+        review: 'Loved it.',
+        series: 'The Lord of the Rings',
+        series_number: 1,
+      });
+      assert.equal(body.description, 'A hobbit leaves home.');
+      assert.equal(body.notes, 'First edition.');
+      assert.equal(body.review, 'Loved it.');
+      assert.equal(body.series, 'The Lord of the Rings');
+      assert.equal(body.series_number, 1);
+    });
+
+    it('saves translator and original_language', async () => {
+      const { body } = await req('POST', '/api/books', {
+        title: 'Crime and Punishment',
+        translator: 'Richard Pevear',
+        original_language: 'Russian',
+        language: 'English',
+      });
+      assert.equal(body.translator, 'Richard Pevear');
+      assert.equal(body.original_language, 'Russian');
+    });
+
+    it('saves acquisition_source and acquisition_date', async () => {
+      const { body } = await req('POST', '/api/books', {
+        title: 'Sourced Book',
+        acquisition_source: 'Audible',
+        acquisition_date: '2025-06',
+      });
+      assert.equal(body.acquisition_source, 'Audible');
+      assert.equal(body.acquisition_date, '2025-06');
+    });
+
+    it('saves duration_minutes and page_count', async () => {
+      const { body } = await req('POST', '/api/books', {
+        title: 'Long Book', page_count: 800, duration_minutes: 1200,
+      });
+      assert.equal(body.page_count, 800);
+      assert.equal(body.duration_minutes, 1200);
+    });
+
+    it('defaults language to English when omitted', async () => {
+      const { body } = await req('POST', '/api/books', { title: 'No Lang' });
+      assert.equal(body.language, 'English');
+    });
+
+    it('normalizes ISBN-10 by stripping hyphens', async () => {
+      const { body } = await req('POST', '/api/books', { title: 'Hyphen ISBN', isbn_10: '0-19-285397-9' });
+      assert.equal(body.isbn_10, '0192853979');
+    });
+
+    it('normalizes ISBN-13 by stripping hyphens', async () => {
+      const { body } = await req('POST', '/api/books', { title: 'Hyphen ISBN13', isbn_13: '978-0-7432-7356-5' });
+      assert.equal(body.isbn_13, '9780743273565');
+    });
+
+    it('normalizes ASIN to uppercase', async () => {
+      const { body } = await req('POST', '/api/books', { title: 'ASIN Book', asin: 'b01n4p45mo' });
+      assert.equal(body.asin, 'B01N4P45MO');
+    });
+  });
+
+  describe('author/narrator/tag sync', () => {
+    it('replaces authors on PUT', async () => {
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Changing Authors', authors: ['Old Author'],
+      });
+      const { body } = await req('PUT', `/api/books/${created.id}`, {
+        title: 'Changing Authors', authors: ['New Author A', 'New Author B'],
+      });
+      assert.equal(body.authors.length, 2);
+      assert.ok(body.authors.every(a => ['New Author A', 'New Author B'].includes(a.name)));
+      assert.ok(body.authors.every(a => a.name !== 'Old Author'));
+    });
+
+    it('preserves author position order', async () => {
+      const { body } = await req('POST', '/api/books', {
+        title: 'Co-authored', authors: ['Alice', 'Bob', 'Carol'],
+      });
+      assert.deepEqual(body.authors.map(a => a.name), ['Alice', 'Bob', 'Carol']);
+    });
+
+    it('deduplicates authors case-insensitively within one sync', async () => {
+      const { body } = await req('POST', '/api/books', {
+        title: 'Dupe Authors', authors: ['Frank Herbert', 'frank herbert'],
+      });
+      assert.equal(body.authors.length, 1);
+      assert.equal(body.authors[0].name, 'Frank Herbert');
+    });
+
+    it('reuses existing author row when name matches', async () => {
+      const { body: b1 } = await req('POST', '/api/books', {
+        title: 'Book One', authors: ['Shared Author'],
+      });
+      const { body: b2 } = await req('POST', '/api/books', {
+        title: 'Book Two', authors: ['Shared Author'],
+      });
+      assert.equal(b1.authors[0].id, b2.authors[0].id);
+    });
+
+    it('leaves authors unchanged when key omitted from PUT', async () => {
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Stable Authors', authors: ['Kept Author'],
+      });
+      const { body } = await req('PUT', `/api/books/${created.id}`, {
+        title: 'Stable Authors',
+      });
+      assert.equal(body.authors.length, 1);
+      assert.equal(body.authors[0].name, 'Kept Author');
+    });
+
+    it('replaces narrators on PUT', async () => {
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Narrator Test', narrators: ['Old Voice'],
+      });
+      const { body } = await req('PUT', `/api/books/${created.id}`, {
+        title: 'Narrator Test', narrators: ['New Voice'],
+      });
+      assert.equal(body.narrators.length, 1);
+      assert.equal(body.narrators[0].name, 'New Voice');
+    });
+
+    it('deduplicates tags case-insensitively', async () => {
+      const { body } = await req('POST', '/api/books', {
+        title: 'Tag Dedup', tags: ['sci-fi', 'Sci-Fi', 'SCI-FI'],
+      });
+      assert.equal(body.tags.length, 1);
+    });
+
+    it('reuses existing tag row when name matches', async () => {
+      const { body: b1 } = await req('POST', '/api/books', {
+        title: 'Tag Reuse A', tags: ['shared-tag'],
+      });
+      const { body: b2 } = await req('POST', '/api/books', {
+        title: 'Tag Reuse B', tags: ['shared-tag'],
+      });
+      assert.equal(b1.tags[0].id, b2.tags[0].id);
+    });
+  });
+
+  describe('read_count on finish transition', () => {
+    it('increments read_count when status transitions to finished', async () => {
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Will Finish', status: 'reading',
+      });
+      assert.equal(created.read_count, 0);
+      const { body } = await req('PUT', `/api/books/${created.id}`, {
+        title: 'Will Finish', status: 'finished',
+      });
+      assert.equal(body.read_count, 1);
+    });
+
+    it('does not increment read_count when already finished', async () => {
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Already Done', status: 'finished',
+      });
+      const { body } = await req('PUT', `/api/books/${created.id}`, {
+        title: 'Already Done', status: 'finished',
+      });
+      assert.equal(body.read_count, created.read_count);
+    });
+
+    it('accepts explicit read_count override', async () => {
+      const { body: created } = await req('POST', '/api/books', { title: 'Re-read' });
+      const { body } = await req('PUT', `/api/books/${created.id}`, {
+        title: 'Re-read', read_count: 5,
+      });
+      assert.equal(body.read_count, 5);
+    });
+  });
+
+  describe('PATCH: reading_log and extras', () => {
+    let bookId;
+
+    before(async () => {
+      const { body } = await req('POST', '/api/books', { title: 'Log Test Book' });
+      bookId = body.id;
+    });
+
+    it('logs pages_read when current_page increases', async () => {
+      await req('PATCH', `/api/books/${bookId}`, { current_page: 50 });
+      const { body: log } = await req('GET', `/api/books/${bookId}/log`);
+      assert.ok(log.length > 0);
+      const entry = log.find(e => e.pages_read >= 50);
+      assert.ok(entry, 'expected a log entry with 50 pages');
+    });
+
+    it('does not log when current_page does not increase', async () => {
+      const { body: before } = await req('GET', `/api/books/${bookId}/log`);
+      await req('PATCH', `/api/books/${bookId}`, { current_page: 10 });
+      const { body: after } = await req('GET', `/api/books/${bookId}/log`);
+      assert.equal(after.length, before.length);
+    });
+
+    it('logs minutes_read when current_minutes increases', async () => {
+      const { body: audioId } = await req('POST', '/api/books', { title: 'Audio Log' });
+      await req('PATCH', `/api/books/${audioId.id}`, { current_minutes: 60 });
+      const { body: log } = await req('GET', `/api/books/${audioId.id}/log`);
+      assert.ok(log.length > 0);
+      assert.ok(log[0].minutes_read >= 60);
+    });
+
+    it('patches loved flag', async () => {
+      const { body: b } = await req('POST', '/api/books', { title: 'Loveable' });
+      const { body } = await req('PATCH', `/api/books/${b.id}`, { loved: true });
+      assert.equal(body.loved, 1);
+      const { body: unlovedBody } = await req('PATCH', `/api/books/${b.id}`, { loved: false });
+      assert.equal(unlovedBody.loved, 0);
+    });
+
+    it('patches fiction flag', async () => {
+      const { body: b } = await req('POST', '/api/books', { title: 'Unknown Genre' });
+      assert.equal(b.fiction, null);
+      const { body } = await req('PATCH', `/api/books/${b.id}`, { fiction: true });
+      assert.equal(body.fiction, 1);
+    });
+
+    it('patches acquisition_source', async () => {
+      const { body: b } = await req('POST', '/api/books', { title: 'Source Test' });
+      const { body } = await req('PATCH', `/api/books/${b.id}`, { acquisition_source: 'Library' });
+      assert.equal(body.acquisition_source, 'Library');
+    });
+  });
+
+  describe('shelf assignment rules on books', () => {
+    let shelfId;
+    let roomId;
+    let unitId;
+    let buildingId;
+
+    before(async () => {
+      const { body: b } = await req('POST', '/api/shelf/buildings', { name: 'Rule Test Building' });
+      buildingId = b.id;
+      const { body: r } = await req('POST', '/api/shelf/rooms', { building_id: buildingId, name: 'Rule Room' });
+      roomId = r.id;
+      const { body: u } = await req('POST', '/api/shelf/units', { room_id: roomId, name: 'Rule Unit' });
+      unitId = u.id;
+      const { body: s } = await req('POST', '/api/shelf/shelves', { unit_id: unitId, label: '1' });
+      shelfId = s.id;
+    });
+
+    it('shelf_id set: building_id, room_id, unit_id stored as null', async () => {
+      const { body } = await req('POST', '/api/books', {
+        title: 'Shelved', shelf_id: shelfId, building_id: buildingId, room_id: roomId, unit_id: unitId,
+      });
+      assert.equal(body.shelf_id, shelfId);
+      assert.equal(body.building_id, null);
+      assert.equal(body.room_id, null);
+      assert.equal(body.unit_id, null);
+    });
+
+    it('room_id set (no shelf_id): unit_id stored as null', async () => {
+      const { body } = await req('POST', '/api/books', {
+        title: 'Roomed', room_id: roomId, unit_id: unitId,
+      });
+      assert.equal(body.room_id, roomId);
+      assert.equal(body.unit_id, null);
+    });
+
+    it('unit_id only (no shelf_id, no room_id): unit_id stored', async () => {
+      const { body } = await req('POST', '/api/books', {
+        title: 'Unit Only', unit_id: unitId,
+      });
+      assert.equal(body.unit_id, unitId);
+      assert.equal(body.shelf_id, null);
+      assert.equal(body.room_id, null);
+    });
+  });
 });
