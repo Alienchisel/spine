@@ -698,6 +698,20 @@ export default function BookDetail() {
                 <dd className="text-neutral-300">{book.year_approximate ? `ca. ${book.year_edition}` : book.year_edition}</dd>
               </div>
             )}
+            {book.format === 'audiobook' && book.duration_minutes > 0 && (
+              <div className="flex gap-2">
+                <dt className="text-neutral-500 w-24 flex-shrink-0">Length</dt>
+                <dd className="text-neutral-300">
+                  {(() => { const h = Math.floor(book.duration_minutes / 60), m = book.duration_minutes % 60; return h > 0 ? `${h}h ${m}m` : `${m}m`; })()}
+                </dd>
+              </div>
+            )}
+            {book.format !== 'audiobook' && book.page_count > 0 && (
+              <div className="flex gap-2">
+                <dt className="text-neutral-500 w-24 flex-shrink-0">Length</dt>
+                <dd className="text-neutral-300">{book.page_count} pages</dd>
+              </div>
+            )}
             {book.language && book.language !== 'English' && (
               <div className="flex gap-2">
                 <dt className="text-neutral-500 w-24 flex-shrink-0">Language</dt>
