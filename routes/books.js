@@ -700,7 +700,7 @@ router.patch('/:id', (req, res) => {
   const existing = db.prepare('SELECT id, current_page, current_minutes FROM books WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ error: 'Not found' });
 
-  const { current_page, current_minutes, loved, on_readlist, is_stub } = req.body;
+  const { current_page, current_minutes, loved, on_readlist, is_stub, fiction, acquisition_source, description } = req.body;
   if (current_page != null && (current_page < 0 || !Number.isInteger(Number(current_page))))
     return res.status(400).json({ error: 'Invalid page number' });
   if (current_minutes != null && (current_minutes < 0 || !Number.isInteger(Number(current_minutes))))
@@ -712,6 +712,9 @@ router.patch('/:id', (req, res) => {
   if (current_minutes !== undefined) { fields.push('current_minutes = ?'); params.push(current_minutes ?? null); }
   if (loved !== undefined) { fields.push('loved = ?'); params.push(loved ? 1 : 0); }
   if (is_stub !== undefined) { fields.push('is_stub = ?'); params.push(is_stub ? 1 : 0); }
+  if (fiction !== undefined) { fields.push('fiction = ?'); params.push(fiction == null ? null : (fiction ? 1 : 0)); }
+  if (acquisition_source !== undefined) { fields.push('acquisition_source = ?'); params.push(acquisition_source ?? null); }
+  if (description !== undefined) { fields.push('description = ?'); params.push(description ?? null); }
   if (on_readlist !== undefined) {
     fields.push('on_readlist = ?');
     params.push(on_readlist ? 1 : 0);

@@ -83,7 +83,7 @@ router.get('/', (_req, res) => {
   `).get();
 
   const formats = db.prepare(`
-    SELECT format, COUNT(*) AS count FROM books GROUP BY format ORDER BY count DESC
+    SELECT format, COUNT(*) AS count FROM books WHERE owned = 1 GROUP BY format ORDER BY count DESC
   `).all();
 
   const fiction = db.prepare(`
@@ -91,7 +91,16 @@ router.get('/', (_req, res) => {
       SUM(fiction = 1)    AS fiction,
       SUM(fiction = 0)    AS nonfiction,
       SUM(fiction IS NULL) AS unset
-    FROM books
+    FROM books WHERE owned = 1
+  `).get();
+
+  const ownedStatus = db.prepare(`
+    SELECT
+      SUM(status = 'reading')  AS reading,
+      SUM(status = 'paused')   AS paused,
+      SUM(status = 'finished') AS finished,
+      SUM(status = 'unread')   AS unread
+    FROM books WHERE owned = 1
   `).get();
 
   const ratings = db.prepare(`
@@ -195,7 +204,7 @@ router.get('/', (_req, res) => {
     mostReread:       bookRecord(`SELECT * FROM books WHERE read_count > 1 ORDER BY read_count DESC LIMIT 1`),
   };
 
-  res.json({ totals, formats, fiction, ratings, pagesRead, minutesListened, byYear, topAuthors, topNarrators, languages, streaks, todayPages, thisYearBooks, thisYearPages, topTags, topSeries, avgPagesPerDay, records });
+  res.json({ totals, formats, fiction, ownedStatus, ratings, pagesRead, minutesListened, byYear, topAuthors, topNarrators, languages, streaks, todayPages, thisYearBooks, thisYearPages, topTags, topSeries, avgPagesPerDay, records });
 });
 
 export default router;

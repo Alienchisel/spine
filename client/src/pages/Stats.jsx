@@ -170,7 +170,7 @@ export default function Stats() {
   if (error) return <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-warn text-sm">{error}</div>;
   if (!stats) return null;
 
-  const { totals, formats, fiction, ratings, pagesRead, minutesListened, byYear, topAuthors, topNarrators, languages, streaks, todayPages, thisYearBooks, thisYearPages, topTags, topSeries, avgPagesPerDay, records } = stats;
+  const { totals, formats, fiction, ownedStatus, ratings, pagesRead, minutesListened, byYear, topAuthors, topNarrators, languages, streaks, todayPages, thisYearBooks, thisYearPages, topTags, topSeries, avgPagesPerDay, records } = stats;
 
   const maxRating = Math.max(...ratings.map(r => r.count), 1);
   const maxYear   = Math.max(...byYear.map(y => y.count), 1);
@@ -244,10 +244,10 @@ export default function Stats() {
           <DonutChart
             title="Status"
             data={[
-              { name: 'Finished', value: totals.finished ?? 0, color: '#a97954' },
-              { name: 'Reading',  value: totals.reading  ?? 0, color: '#c29b87' },
-              { name: 'Paused',   value: totals.paused   ?? 0, color: '#532c2e' },
-              { name: 'Unread',   value: totals.unread   ?? 0, color: '#404040' },
+              { name: 'Finished', value: ownedStatus?.finished ?? 0, color: '#a97954' },
+              { name: 'Reading',  value: ownedStatus?.reading  ?? 0, color: '#c29b87' },
+              { name: 'Paused',   value: ownedStatus?.paused   ?? 0, color: '#532c2e' },
+              { name: 'Unread',   value: ownedStatus?.unread   ?? 0, color: '#404040' },
             ].filter(d => d.value > 0)}
           />
         </div>

@@ -107,75 +107,6 @@ function expand(map, val) {
   return map[val.toLowerCase()] || val;
 }
 
-function isImageFile(p) {
-  try { fs.accessSync(p); } catch { return false; }
-  return ['.jpg', '.jpeg', '.png', '.webp', '.gif'].includes(path.extname(p).toLowerCase());
-}
-
-async function callClaude(imagePath) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error('ANTHROPIC_API_KEY environment variable not set');
-  const ext = path.extname(imagePath).toLowerCase();
-  const mediaType = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : ext === '.gif' ? 'image/gif' : 'image/jpeg';
-  const base64 = fs.readFileSync(imagePath).toString('base64');
-  const bodyBuf = Buffer.from(JSON.stringify({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 2048,
-    messages: [{
-      role: 'user',
-      content: [
-        { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
-        { type: 'text', text: `Extract book metadata from this product page screenshot (Audible, Amazon, etc.) and return ONLY a valid JSON object with these fields:
-{
-  "title": string,
-  "authors": string[],
-  "narrators": string[],
-  "series": string | null,
-  "series_number": number | null,
-  "year_published": number | null,
-  "year_edition": number | null,
-  "description": string | null,
-  "duration_minutes": number | null,
-  "publisher": string | null,
-  "language": string | null,
-  "asin": string | null,
-  "owned": boolean,
-  "format": "audiobook" | "physical" | "ebook" | null
-}
-Rules:
-- year_published: original copyright year (look for © symbol, usually at the bottom)
-- year_edition: release/edition date year
-- duration_minutes: convert "X hrs Y mins" to total integer minutes
-- owned: true if "In your Library" or similar is visible
-- description: main blurb only, no reviews or praise quotes
-- Return only the JSON object, no other text.` },
-      ],
-    }],
-  }));
-  return new Promise((resolve, reject) => {
-    const req = https.request({
-      hostname: 'api.anthropic.com', path: '/v1/messages', method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Content-Length': bodyBuf.length,
-                 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-    }, res => {
-      const chunks = [];
-      res.on('data', c => chunks.push(c));
-      res.on('end', () => {
-        try {
-          const data = JSON.parse(Buffer.concat(chunks).toString());
-          if (data.error) throw new Error(data.error.message);
-          const text = data.content[0].text.trim();
-          const match = text.match(/\{[\s\S]*\}/);
-          if (!match) throw new Error('No JSON in Claude response');
-          resolve(JSON.parse(match[0]));
-        } catch (e) { reject(e); }
-      });
-    });
-    req.on('error', reject);
-    req.write(bodyBuf);
-    req.end();
-  });
-}
 
 function ask(rl, label, def) {
   return new Promise(resolve => {
@@ -225,84 +156,44 @@ async function postBook(payload) {
 async function main() {
   const input = process.argv[2];
   if (!input) {
-    console.error('Usage: node ingest.js <amazon-url-or-isbn-or-screenshot>');
+    console.error('Usage: node ingest.js <amazon-url-or-isbn>');
     process.exit(1);
   }
 
   let meta, parsed = null;
 
-  if (isImageFile(input)) {
-    process.stdout.write('\nExtracting metadata from screenshot... ');
-    const extracted = await callClaude(input);
-    console.log('✓\n');
-    meta = {
-      title:            extracted.title            || '',
-      authors:          extracted.authors          || [],
-      narrators:        extracted.narrators        || [],
-      publisher:        extracted.publisher        || '',
-      year:             extracted.year_published   || null,
-      year_edition:     extracted.year_edition     || null,
-      description:      extracted.description      || '',
-      page_count:       null,
-      duration_minutes: extracted.duration_minutes || null,
-      language:         extracted.language         || '',
-      series:           extracted.series           || '',
-      series_number:    extracted.series_number    || null,
-      asin:             extracted.asin             || '',
-      format:           extracted.format           || '',
-      owned:            extracted.owned            || false,
-      isbn_13: '', isbn_10: '', cover_url: null,
-    };
-    console.log('─'.repeat(50));
-    console.log(`  Title:       ${meta.title}`);
-    console.log(`  Author:      ${meta.authors.join(', ')}`);
-    if (meta.narrators.length) console.log(`  Narrators:   ${meta.narrators.join(', ')}`);
-    if (meta.series)           console.log(`  Series:      ${meta.series}${meta.series_number ? ` #${meta.series_number}` : ''}`);
-    console.log(`  Publisher:   ${meta.publisher}`);
-    console.log(`  Year pub.:   ${meta.year ?? ''}`);
-    console.log(`  Year ed.:    ${meta.year_edition ?? ''}`);
-    if (meta.duration_minutes) console.log(`  Duration:    ${Math.floor(meta.duration_minutes / 60)}h ${meta.duration_minutes % 60}m`);
-    console.log(`  Language:    ${meta.language}`);
-    if (meta.asin)             console.log(`  ASIN:        ${meta.asin}`);
-    console.log(`  Format:      ${meta.format}`);
-    console.log(`  Owned:       ${meta.owned ? 'yes' : 'no'}`);
-    console.log(`  Description: ${meta.description ? meta.description.slice(0, 80) + '…' : '—'}`);
-    console.log('─'.repeat(50));
-    console.log('\nPress Enter to accept, or type to override:\n');
+  parsed = parseInput(input);
+  const lookupId = parsed.value;
+  const typeLabel = { isbn13: 'ISBN-13', isbn10: 'ISBN-10', asin: 'ASIN' }[parsed.type];
+  console.log(`\nLooking up ${typeLabel} ${lookupId}...\n`);
+
+  meta = await fetchGoogleBooks(lookupId);
+  if (!meta) {
+    process.stdout.write('Google Books: no result — trying Open Library... ');
+    meta = await fetchOpenLibrary(lookupId);
+    console.log(meta ? 'found.\n' : 'no result.\n');
   } else {
-    parsed = parseInput(input);
-    const lookupId = parsed.value;
-    const typeLabel = { isbn13: 'ISBN-13', isbn10: 'ISBN-10', asin: 'ASIN' }[parsed.type];
-    console.log(`\nLooking up ${typeLabel} ${lookupId}...\n`);
-
-    meta = await fetchGoogleBooks(lookupId);
-    if (!meta) {
-      process.stdout.write('Google Books: no result — trying Open Library... ');
-      meta = await fetchOpenLibrary(lookupId);
-      console.log(meta ? 'found.\n' : 'no result.\n');
-    } else {
-      console.log('Found on Google Books.\n');
-    }
-
-    meta = meta || { title: '', authors: [], publisher: '', year: null, description: '',
-                     page_count: null, language: '', isbn_13: '', isbn_10: '', cover_url: null };
-    meta.narrators = []; meta.series = ''; meta.series_number = null;
-    meta.year_edition = null; meta.duration_minutes = null; meta.asin = ''; meta.format = ''; meta.owned = false;
-
-    console.log('─'.repeat(50));
-    console.log(`  Title:       ${meta.title}`);
-    console.log(`  Author:      ${meta.authors.join(', ')}`);
-    console.log(`  Publisher:   ${meta.publisher}`);
-    console.log(`  Year:        ${meta.year ?? ''}`);
-    console.log(`  Pages:       ${meta.page_count ?? ''}`);
-    console.log(`  Language:    ${meta.language}`);
-    console.log(`  ISBN-13:     ${meta.isbn_13}`);
-    console.log(`  ISBN-10:     ${meta.isbn_10}`);
-    console.log(`  Cover:       ${meta.cover_url ? '✓ available' : '—'}`);
-    console.log(`  Description: ${meta.description ? meta.description.slice(0, 80) + '…' : '—'}`);
-    console.log('─'.repeat(50));
-    console.log('\nPress Enter to accept, or type to override:\n');
+    console.log('Found on Google Books.\n');
   }
+
+  meta = meta || { title: '', authors: [], publisher: '', year: null, description: '',
+                   page_count: null, language: '', isbn_13: '', isbn_10: '', cover_url: null };
+  meta.narrators = []; meta.series = ''; meta.series_number = null;
+  meta.year_edition = null; meta.duration_minutes = null; meta.asin = ''; meta.format = ''; meta.owned = false;
+
+  console.log('─'.repeat(50));
+  console.log(`  Title:       ${meta.title}`);
+  console.log(`  Author:      ${meta.authors.join(', ')}`);
+  console.log(`  Publisher:   ${meta.publisher}`);
+  console.log(`  Year:        ${meta.year ?? ''}`);
+  console.log(`  Pages:       ${meta.page_count ?? ''}`);
+  console.log(`  Language:    ${meta.language}`);
+  console.log(`  ISBN-13:     ${meta.isbn_13}`);
+  console.log(`  ISBN-10:     ${meta.isbn_10}`);
+  console.log(`  Cover:       ${meta.cover_url ? '✓ available' : '—'}`);
+  console.log(`  Description: ${meta.description ? meta.description.slice(0, 80) + '…' : '—'}`);
+  console.log('─'.repeat(50));
+  console.log('\nPress Enter to accept, or type to override:\n');
 
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 
