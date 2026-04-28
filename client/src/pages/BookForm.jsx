@@ -568,6 +568,31 @@ export default function BookForm() {
             {activeTab === 'core' && (
               <div className="space-y-6">
                 <div>
+                  <label className={label}>Format</label>
+                  <select className={input} value={form.format}
+                    onChange={(e) => {
+                      const f = e.target.value;
+                      setForm(prev => ({
+                        ...prev, format: f,
+                        binding: f === 'physical' ? prev.binding : '',
+                        condition: f === 'physical' ? prev.condition : '',
+                        page_count: f === 'audiobook' ? '' : prev.page_count,
+                        duration_minutes: f !== 'audiobook' ? '' : prev.duration_minutes,
+                        shelf_id: f === 'physical' ? prev.shelf_id : null,
+                        building_id: f === 'physical' ? prev.building_id : null,
+                        room_id: f === 'physical' ? prev.room_id : null,
+                        unit_id: f === 'physical' ? prev.unit_id : null,
+                      }));
+                      if (f !== 'audiobook') { setDurationH(''); setDurationM(''); }
+                    }}>
+                    <option value="">—</option>
+                    <option value="physical">Physical</option>
+                    <option value="ebook">Digital</option>
+                    <option value="audiobook">Audiobook</option>
+                  </select>
+                </div>
+
+                <div>
                   <label className={label}>Title *</label>
                   <input className={ic('title')} value={form.title}
                     onChange={(e) => set('title', e.target.value)}
@@ -593,31 +618,6 @@ export default function BookForm() {
                   <datalist id="authors-list">
                     {pastAuthors.filter(a => !form.authors.includes(a)).map(a => <option key={a} value={a} />)}
                   </datalist>
-                </div>
-
-                <div>
-                  <label className={label}>Format</label>
-                  <select className={input} value={form.format}
-                    onChange={(e) => {
-                      const f = e.target.value;
-                      setForm(prev => ({
-                        ...prev, format: f,
-                        binding: f === 'physical' ? prev.binding : '',
-                        condition: f === 'physical' ? prev.condition : '',
-                        page_count: f === 'audiobook' ? '' : prev.page_count,
-                        duration_minutes: f !== 'audiobook' ? '' : prev.duration_minutes,
-                        shelf_id: f === 'physical' ? prev.shelf_id : null,
-                        building_id: f === 'physical' ? prev.building_id : null,
-                        room_id: f === 'physical' ? prev.room_id : null,
-                        unit_id: f === 'physical' ? prev.unit_id : null,
-                      }));
-                      if (f !== 'audiobook') { setDurationH(''); setDurationM(''); }
-                    }}>
-                    <option value="">—</option>
-                    <option value="physical">Physical</option>
-                    <option value="ebook">Digital</option>
-                    <option value="audiobook">Audiobook</option>
-                  </select>
                 </div>
 
                 <div>
