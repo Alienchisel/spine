@@ -330,7 +330,7 @@ export default function Library() {
   }
 
   const activeCount   = countFilters(filters);
-  const displayItems  = buildDisplayItems(books, expandedSeries);
+  const displayItems  = buildDisplayItems(books, density === 'list' ? new Set() : expandedSeries);
   const hasMore       = loadedRef.current < total;
 
   return (
