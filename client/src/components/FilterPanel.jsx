@@ -29,8 +29,9 @@ function pill(active, variant = 'default') {
     : 'border-neutral-700 text-neutral-400 hover:border-neutral-500 hover:text-neutral-200'}`;
 }
 
-function FilterSection({ label, children, defaultOpen = true }) {
+function FilterSection({ label, children, defaultOpen = true, active = false }) {
   const [open, setOpen] = useState(defaultOpen);
+  const showDot = active && !open;
   return (
     <div className="flex gap-3 items-start">
       <button
@@ -38,9 +39,12 @@ function FilterSection({ label, children, defaultOpen = true }) {
         onClick={() => setOpen(o => !o)}
         className="w-20 flex-shrink-0 pt-1.5 flex items-center gap-1 group text-left"
       >
-        <span className="text-xs font-semibold text-neutral-600 uppercase tracking-wider group-hover:text-neutral-500 transition-colors">
+        <span className={`text-xs font-semibold uppercase tracking-wider transition-colors ${
+          showDot ? 'text-oak group-hover:text-oak/80' : 'text-neutral-600 group-hover:text-neutral-500'
+        }`}>
           {label}
         </span>
+        {showDot && <span className="w-1.5 h-1.5 rounded-full bg-oak flex-shrink-0 mt-px" />}
         <span className={`text-neutral-700 text-[9px] leading-none transition-transform duration-150 ${open ? 'rotate-90' : ''}`}>▶</span>
       </button>
       {open && <div className="flex flex-wrap gap-1.5">{children}</div>}
@@ -86,7 +90,7 @@ export default function FilterPanel({ facets, filters, onChange }) {
 
   return (
     <div className="space-y-3 pt-4 pb-3 border-t border-neutral-800/60">
-      <FilterSection label="Missing">
+      <FilterSection label="Missing" active={filters.missing.length > 0}>
         {MISSING_FIELDS.map(f => (
           <button key={f.key} type="button"
             onClick={() => toggle('missing', f.key)}
@@ -97,7 +101,7 @@ export default function FilterPanel({ facets, filters, onChange }) {
       </FilterSection>
 
       {(formats.length > 0 || hasEmptyFormat) && (
-        <FilterSection label="Format">
+        <FilterSection label="Format" active={filters.formats.length > 0}>
           {hasEmptyFormat && (
             <button type="button" onClick={() => toggle('formats', 'empty')}
               className={pill(filters.formats.includes('empty'))}>—</button>
@@ -112,7 +116,7 @@ export default function FilterPanel({ facets, filters, onChange }) {
       )}
 
       {(ratings.length > 0 || hasEmptyRating) && (
-        <FilterSection label="Rating">
+        <FilterSection label="Rating" active={filters.ratings.length > 0}>
           {hasEmptyRating && (
             <button type="button" onClick={() => toggle('ratings', 'empty')}
               className={pill(filters.ratings.includes('empty'))}>—</button>
@@ -127,7 +131,7 @@ export default function FilterPanel({ facets, filters, onChange }) {
       )}
 
       {(publishers.length > 0 || hasEmptyPublisher) && (
-        <FilterSection label="Publisher" defaultOpen={false}>
+        <FilterSection label="Publisher" defaultOpen={false} active={filters.publishers.length > 0}>
           {hasEmptyPublisher && (
             <button type="button" onClick={() => toggle('publishers', 'empty')}
               className={pill(filters.publishers.includes('empty'))}>—</button>
@@ -142,7 +146,7 @@ export default function FilterPanel({ facets, filters, onChange }) {
       )}
 
       {(facets.sources?.length > 0) && (
-        <FilterSection label="Source" defaultOpen={false}>
+        <FilterSection label="Source" defaultOpen={false} active={(filters.sources || []).length > 0}>
           {facets.sources.map(s => (
             <button key={s} type="button" onClick={() => toggle('sources', s)}
               className={pill((filters.sources || []).includes(s))}>
@@ -153,7 +157,7 @@ export default function FilterPanel({ facets, filters, onChange }) {
       )}
 
       {(seriesVals.length > 0 || hasEmptySeries) && (
-        <FilterSection label="Series" defaultOpen={false}>
+        <FilterSection label="Series" defaultOpen={false} active={filters.series.length > 0}>
           {hasEmptySeries && (
             <button type="button" onClick={() => toggle('series', 'empty')}
               className={pill(filters.series.includes('empty'))}>—</button>
@@ -168,7 +172,7 @@ export default function FilterPanel({ facets, filters, onChange }) {
       )}
 
       {tags.length > 0 && (
-        <FilterSection label="Tags">
+        <FilterSection label="Tags" active={filters.tags.length > 0}>
           {tags.map(t => (
             <button key={t} type="button" onClick={() => toggle('tags', t)}
               className={pill(filters.tags.includes(t))}>
@@ -178,7 +182,7 @@ export default function FilterPanel({ facets, filters, onChange }) {
         </FilterSection>
       )}
 
-      <FilterSection label="Owned" defaultOpen={false}>
+      <FilterSection label="Owned" defaultOpen={false} active={filters.owned !== null || filters.previouslyOwned !== null}>
         <button type="button" onClick={() => toggleOwned(true)}
           className={pill(filters.owned === true)}>Owned</button>
         <button type="button" onClick={() => toggleOwned(false)}
@@ -187,14 +191,14 @@ export default function FilterPanel({ facets, filters, onChange }) {
           className={pill(filters.previouslyOwned === true)}>Previously owned</button>
       </FilterSection>
 
-      <FilterSection label="Type" defaultOpen={false}>
+      <FilterSection label="Type" defaultOpen={false} active={filters.custom !== null}>
         <button type="button" onClick={() => toggleCustom(true)}
           className={pill(filters.custom === true)}>✦ Custom</button>
         <button type="button" onClick={() => toggleCustom(false)}
           className={pill(filters.custom === false)}>Standard</button>
       </FilterSection>
 
-      <FilterSection label="Loved" defaultOpen={false}>
+      <FilterSection label="Loved" defaultOpen={false} active={filters.loved !== null}>
         <button type="button" onClick={() => toggleLoved(true)}
           className={pill(filters.loved === true)}>♥ Loved</button>
         <button type="button" onClick={() => toggleLoved(false)}

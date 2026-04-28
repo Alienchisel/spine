@@ -256,6 +256,7 @@ export default function Library() {
 
   const loadedRef = useRef(0);
   const genRef    = useRef(0);
+  const prevTabRef = useRef(tab);
 
   // Debounce search query
   useEffect(() => {
@@ -273,13 +274,20 @@ export default function Library() {
     api.getBookCounts().then(setCounts).catch(() => {});
   }, []);
 
-  // Fetch facets when tab changes; prune active filters
+  // Fetch facets on tab / filter / query change; prune only on tab change
   useEffect(() => {
-    api.getBookFacets({ tab }).then(f => {
-      setFacets(f);
-      setFilters(prev => pruneFilters(prev, f));
-    }).catch(() => {});
-  }, [tab]);
+    let stale = false;
+    const isTabChange = prevTabRef.current !== tab;
+    prevTabRef.current = tab;
+    api.getBookFacets(buildApiParams(tab, sort, filters, query, 0))
+      .then(f => {
+        if (stale) return;
+        setFacets(f);
+        if (isTabChange) setFilters(prev => pruneFilters(prev, f));
+      })
+      .catch(() => {});
+    return () => { stale = true; };
+  }, [tab, filters, query]);
 
   // Fetch books on tab / sort / filter / query change — always reset to page 1
   useEffect(() => {
