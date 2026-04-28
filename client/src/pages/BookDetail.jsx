@@ -371,6 +371,7 @@ export default function BookDetail() {
   const [finishing, setFinishing] = useState(false);
   const [finishError, setFinishError] = useState(null);
   const [loadError, setLoadError] = useState(false);
+  const [seriesSiblings, setSeriesSiblings] = useState([]);
 
   function loadReads() {
     api.getBookReads(id).then(setReads).catch(() => {});
@@ -381,11 +382,17 @@ export default function BookDetail() {
     api.getBookLog(id).then(setLog).catch(() => {});
     loadReads();
     setDescExpanded(false);
+    setSeriesSiblings([]);
   }, [id]);
 
   useEffect(() => {
     if (!book?.id) return;
     api.getShelfLocation(book.id).then(setLocation).catch(() => setLocation(null));
+    if (book.series) {
+      api.getBooks({ series: book.series, field: 'series', limit: 100 })
+        .then(r => setSeriesSiblings(r.books || []))
+        .catch(() => {});
+    }
   }, [book?.id]);
 
   async function toggleLoved() {
@@ -554,6 +561,30 @@ export default function BookDetail() {
               ))}
             </p>
           )}
+
+          {(() => {
+            if (seriesSiblings.length < 2) return null;
+            const idx = seriesSiblings.findIndex(b => b.id === book.id);
+            const prev = idx > 0 ? seriesSiblings[idx - 1] : null;
+            const next = idx >= 0 && idx < seriesSiblings.length - 1 ? seriesSiblings[idx + 1] : null;
+            if (!prev && !next) return null;
+            return (
+              <div className="flex items-center justify-between text-xs text-neutral-600 mb-5 -mt-2">
+                {prev ? (
+                  <Link to={`/books/${prev.id}`} className="hover:text-neutral-400 transition-colors flex items-center gap-1 min-w-0">
+                    <span className="flex-shrink-0">←</span>
+                    <span className="truncate">{prev.series_number != null ? `#${prev.series_number} ` : ''}{prev.title}</span>
+                  </Link>
+                ) : <span />}
+                {next && (
+                  <Link to={`/books/${next.id}`} className="hover:text-neutral-400 transition-colors flex items-center gap-1 min-w-0 ml-4">
+                    <span className="truncate text-right">{next.series_number != null ? `#${next.series_number} ` : ''}{next.title}</span>
+                    <span className="flex-shrink-0">→</span>
+                  </Link>
+                )}
+              </div>
+            );
+          })()}
 
           <div className="flex flex-wrap items-center gap-2 mb-6">
             <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_COLOR[book.status]}`}>
