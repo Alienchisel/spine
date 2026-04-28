@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 const MISSING_FIELDS = [
   { key: 'cover',     label: 'Cover' },
   { key: 'author',    label: 'Author' },
@@ -27,13 +29,21 @@ function pill(active, variant = 'default') {
     : 'border-neutral-700 text-neutral-400 hover:border-neutral-500 hover:text-neutral-200'}`;
 }
 
-function FilterSection({ label, children }) {
+function FilterSection({ label, children, defaultOpen = true }) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="flex gap-3 items-start">
-      <span className="text-xs font-semibold text-neutral-600 uppercase tracking-wider w-20 flex-shrink-0 pt-1.5">
-        {label}
-      </span>
-      <div className="flex flex-wrap gap-1.5">{children}</div>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-20 flex-shrink-0 pt-1.5 flex items-center gap-1 group text-left"
+      >
+        <span className="text-xs font-semibold text-neutral-600 uppercase tracking-wider group-hover:text-neutral-500 transition-colors">
+          {label}
+        </span>
+        <span className={`text-neutral-700 text-[9px] leading-none transition-transform duration-150 ${open ? 'rotate-90' : ''}`}>▶</span>
+      </button>
+      {open && <div className="flex flex-wrap gap-1.5">{children}</div>}
     </div>
   );
 }
@@ -117,7 +127,7 @@ export default function FilterPanel({ facets, filters, onChange }) {
       )}
 
       {(publishers.length > 0 || hasEmptyPublisher) && (
-        <FilterSection label="Publisher">
+        <FilterSection label="Publisher" defaultOpen={false}>
           {hasEmptyPublisher && (
             <button type="button" onClick={() => toggle('publishers', 'empty')}
               className={pill(filters.publishers.includes('empty'))}>—</button>
@@ -132,7 +142,7 @@ export default function FilterPanel({ facets, filters, onChange }) {
       )}
 
       {(facets.sources?.length > 0) && (
-        <FilterSection label="Source">
+        <FilterSection label="Source" defaultOpen={false}>
           {facets.sources.map(s => (
             <button key={s} type="button" onClick={() => toggle('sources', s)}
               className={pill((filters.sources || []).includes(s))}>
@@ -143,7 +153,7 @@ export default function FilterPanel({ facets, filters, onChange }) {
       )}
 
       {(seriesVals.length > 0 || hasEmptySeries) && (
-        <FilterSection label="Series">
+        <FilterSection label="Series" defaultOpen={false}>
           {hasEmptySeries && (
             <button type="button" onClick={() => toggle('series', 'empty')}
               className={pill(filters.series.includes('empty'))}>—</button>
@@ -168,7 +178,7 @@ export default function FilterPanel({ facets, filters, onChange }) {
         </FilterSection>
       )}
 
-      <FilterSection label="Owned">
+      <FilterSection label="Owned" defaultOpen={false}>
         <button type="button" onClick={() => toggleOwned(true)}
           className={pill(filters.owned === true)}>Owned</button>
         <button type="button" onClick={() => toggleOwned(false)}
@@ -177,14 +187,14 @@ export default function FilterPanel({ facets, filters, onChange }) {
           className={pill(filters.previouslyOwned === true)}>Previously owned</button>
       </FilterSection>
 
-      <FilterSection label="Type">
+      <FilterSection label="Type" defaultOpen={false}>
         <button type="button" onClick={() => toggleCustom(true)}
           className={pill(filters.custom === true)}>✦ Custom</button>
         <button type="button" onClick={() => toggleCustom(false)}
           className={pill(filters.custom === false)}>Standard</button>
       </FilterSection>
 
-      <FilterSection label="Loved">
+      <FilterSection label="Loved" defaultOpen={false}>
         <button type="button" onClick={() => toggleLoved(true)}
           className={pill(filters.loved === true)}>♥ Loved</button>
         <button type="button" onClick={() => toggleLoved(false)}
