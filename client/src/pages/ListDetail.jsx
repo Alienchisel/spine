@@ -90,6 +90,9 @@ function SortableRow({ book, onRemove, draggable }) {
         <p className="text-xs text-neutral-500 truncate mt-0.5">
           {[formatAuthors(book.authors), book.series && `${book.series}${book.series_number ? ` #${book.series_number}` : ''}`].filter(Boolean).join(' · ')}
         </p>
+        {book.format === 'audiobook' && book.narrators?.length > 0 && (
+          <p className="text-xs text-neutral-600 truncate mt-0.5">{formatAuthors(book.narrators)}</p>
+        )}
         {book.notes && (
           <p className="text-xs text-neutral-600 truncate mt-0.5">{book.notes}</p>
         )}

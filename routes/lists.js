@@ -35,6 +35,7 @@ function booksForList(listId, { sort = 'added', limit = null, offset = 0 } = {})
   const ids = rows.map(r => r.id);
   const tagsByBook = {};
   const authorsByBook = {};
+  const narratorsByBook = {};
   if (ids.length > 0) {
     const ph = ids.map(() => '?').join(',');
     const tagRows = db.prepare(`
@@ -56,6 +57,16 @@ function booksForList(listId, { sort = 'added', limit = null, offset = 0 } = {})
       if (!authorsByBook[ar.book_id]) authorsByBook[ar.book_id] = [];
       authorsByBook[ar.book_id].push(ar.name);
     }
+    const narratorRows = db.prepare(`
+      SELECT bn.book_id, n.name FROM narrators n
+      JOIN book_narrators bn ON bn.narrator_id = n.id
+      WHERE bn.book_id IN (${ph})
+      ORDER BY bn.position
+    `).all(...ids);
+    for (const nr of narratorRows) {
+      if (!narratorsByBook[nr.book_id]) narratorsByBook[nr.book_id] = [];
+      narratorsByBook[nr.book_id].push(nr.name);
+    }
   }
 
   const books = rows.map(b => ({
@@ -63,6 +74,7 @@ function booksForList(listId, { sort = 'added', limit = null, offset = 0 } = {})
     cover_path: b.cover_path ? `/uploads/${b.cover_path}` : null,
     tags: tagsByBook[b.id] || [],
     authors: authorsByBook[b.id] || [],
+    narrators: narratorsByBook[b.id] || [],
   }));
 
   return { books, total };
