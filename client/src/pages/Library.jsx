@@ -256,7 +256,7 @@ export default function Library() {
 
   const loadedRef = useRef(0);
   const genRef    = useRef(0);
-  const prevTabRef = useRef(tab);
+  const prevTabRef = useRef(null);
 
   // Debounce search query
   useEffect(() => {
