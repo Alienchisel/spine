@@ -133,7 +133,7 @@ function DiaryEntry({ entry, onDelete }) {
   const progress = formatProgress(entry);
   return (
     <div className="flex items-center gap-4 py-2.5 group">
-      <div className={`w-8 ${entry.format === 'audiobook' ? 'h-8' : 'h-[46px]'} flex-shrink-0 rounded overflow-hidden bg-neutral-800`}>
+      <div className="w-8 h-[46px] flex-shrink-0 rounded overflow-hidden bg-neutral-800">
         {entry.cover_path
           ? <img src={entry.cover_path} alt={entry.title} className="w-full h-full object-cover" />
           : <div className="w-full h-full bg-gradient-to-br from-neutral-700 to-neutral-900" />}
