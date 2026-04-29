@@ -296,6 +296,22 @@ describe('books', () => {
       const { status } = await req('PATCH', `/api/books/${created.id}`, { current_page: -1 });
       assert.equal(status, 400);
     });
+
+    it('rejects blank progress values', async () => {
+      const { body: created } = await req('POST', '/api/books', { title: 'Blank Progress' });
+      const page = await req('PATCH', `/api/books/${created.id}`, { current_page: '' });
+      assert.equal(page.status, 400);
+      const minutes = await req('PATCH', `/api/books/${created.id}`, { current_minutes: '' });
+      assert.equal(minutes.status, 400);
+    });
+
+    it('coerces numeric strings for progress values', async () => {
+      const { body: created } = await req('POST', '/api/books', { title: 'String Progress' });
+      const { status, body } = await req('PATCH', `/api/books/${created.id}`, { current_page: '12', current_minutes: '30' });
+      assert.equal(status, 200);
+      assert.equal(body.current_page, 12);
+      assert.equal(body.current_minutes, 30);
+    });
   });
 
   describe('DELETE /api/books/:id', () => {

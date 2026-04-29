@@ -97,8 +97,16 @@ router.patch('/:id', (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
   const { current_page, current_minutes } = req.body;
-  if (current_page    != null && (current_page    < 0 || !Number.isInteger(Number(current_page))))    return res.status(400).json({ error: 'Invalid page number' });
-  if (current_minutes != null && (current_minutes < 0 || !Number.isInteger(Number(current_minutes)))) return res.status(400).json({ error: 'Invalid minutes' });
+  if (current_page != null) {
+    const n = Number(current_page);
+    if (current_page === '' || !Number.isInteger(n) || n < 0) return res.status(400).json({ error: 'Invalid page number' });
+    req.body.current_page = n;
+  }
+  if (current_minutes != null) {
+    const n = Number(current_minutes);
+    if (current_minutes === '' || !Number.isInteger(n) || n < 0) return res.status(400).json({ error: 'Invalid minutes' });
+    req.body.current_minutes = n;
+  }
   const book = patchBook(id, req.body);
   if (!book) return res.status(404).json({ error: 'Not found' });
   res.json(book);
