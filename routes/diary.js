@@ -1,43 +1,8 @@
 import express from 'express';
 import db from '../db.js';
+import { calcStreaks } from '../lib/stats/streaks.js';
 
 const router = express.Router();
-
-function mondayOf(dateStr) {
-  const d = new Date(dateStr + 'T12:00:00');
-  const dow = d.getDay();
-  d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
-  return d.toISOString().slice(0, 10);
-}
-
-function computeDayStreak(sortedDates) {
-  if (!sortedDates.length) return 0;
-  const today = new Date().toISOString().slice(0, 10);
-  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-  const last = sortedDates[sortedDates.length - 1];
-  if (last !== today && last !== yesterday) return 0;
-  let n = 1;
-  for (let i = sortedDates.length - 1; i > 0; i--) {
-    if ((new Date(sortedDates[i]) - new Date(sortedDates[i - 1])) / 86400000 === 1) n++;
-    else break;
-  }
-  return n;
-}
-
-function computeWeekStreak(sortedDates) {
-  if (!sortedDates.length) return 0;
-  const weeks = [...new Set(sortedDates.map(mondayOf))].sort();
-  const today = new Date().toISOString().slice(0, 10);
-  const thisWeek = mondayOf(today);
-  const lastWeek = mondayOf(new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10));
-  if (weeks[weeks.length - 1] !== thisWeek && weeks[weeks.length - 1] !== lastWeek) return 0;
-  let n = 1;
-  for (let i = weeks.length - 1; i > 0; i--) {
-    if ((new Date(weeks[i]) - new Date(weeks[i - 1])) / 86400000 === 7) n++;
-    else break;
-  }
-  return n;
-}
 
 router.get('/', (req, res) => {
   const yearParam = parseInt(req.query.year);
@@ -86,10 +51,13 @@ router.get('/', (req, res) => {
     });
   }
 
+  // Diary surfaces only the *current* day/week streaks. The shared
+  // calcStreaks() also computes longest and month streaks; we discard those.
+  const streaks = calcStreaks(allDates);
   res.json({
     days:  Object.entries(byDate).map(([date, entries]) => ({ date, entries })),
     years,
-    stats: { dayStreak: computeDayStreak(allDates), weekStreak: computeWeekStreak(allDates) },
+    stats: { dayStreak: streaks.days.current, weekStreak: streaks.weeks.current },
   });
 });
 
