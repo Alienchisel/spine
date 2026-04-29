@@ -125,10 +125,14 @@ most specific field is stored; the rest are forced to NULL on write.
 
 | Priority | Column | Type | Stored when |
 |---|---|---|---|
-| 1 (most specific) | `shelf_id` | INTEGER → shelves.id | A shelf is assigned; clears `building_id`, `room_id`, `unit_id` |
-| 2 | `unit_id` | INTEGER → units.id | Unit assigned, no `shelf_id`; clears `room_id`, `building_id` (when no `room_id` either) |
-| 3 | `room_id` | INTEGER → rooms.id | Room assigned, no `shelf_id`; clears `unit_id` |
-| 4 (least specific) | `building_id` | INTEGER → buildings.id | Only when no `shelf_id`, `room_id`, or `unit_id` |
+| 1 (most specific) | `shelf_id` | INTEGER → shelves.id | Shelf assigned; all other location fields stored as NULL |
+| 2 | `unit_id` | INTEGER → units.id | Unit assigned, no `shelf_id`; `room_id` and `building_id` stored as NULL |
+| 3 | `room_id` | INTEGER → rooms.id | Room assigned, no `shelf_id` or `unit_id`; `building_id` stored as NULL |
+| 4 (least specific) | `building_id` | INTEGER → buildings.id | Only when `shelf_id`, `unit_id`, and `room_id` are all absent |
+
+When multiple location fields are present in a write payload, the most specific
+non-null value wins and all less-specific fields are silently cleared.
+Normalisation is applied by `normalizeBookLocation()` in `lib/books/normalization.js`.
 | — | `shelf_position` | INTEGER | Sort position within a shelf; rewritten by `PUT /api/shelf/shelves/:id/order` |
 
 ---

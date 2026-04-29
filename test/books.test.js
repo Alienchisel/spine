@@ -608,12 +608,24 @@ describe('books', () => {
       assert.equal(body.unit_id, null);
     });
 
-    it('room_id set (no shelf_id): unit_id stored as null', async () => {
+    it('unit_id wins over room_id when both present (unit is more specific)', async () => {
       const { body } = await req('POST', '/api/books', {
-        title: 'Roomed', room_id: roomId, unit_id: unitId,
+        title: 'Unit Beats Room', room_id: roomId, unit_id: unitId,
+      });
+      assert.equal(body.unit_id, unitId);
+      assert.equal(body.room_id, null);
+      assert.equal(body.shelf_id, null);
+      assert.equal(body.building_id, null);
+    });
+
+    it('room_id only: unit_id and building_id stored as null', async () => {
+      const { body } = await req('POST', '/api/books', {
+        title: 'Room Only', room_id: roomId, building_id: buildingId,
       });
       assert.equal(body.room_id, roomId);
       assert.equal(body.unit_id, null);
+      assert.equal(body.shelf_id, null);
+      assert.equal(body.building_id, null);
     });
 
     it('unit_id only (no shelf_id, no room_id): unit_id stored', async () => {
@@ -623,6 +635,7 @@ describe('books', () => {
       assert.equal(body.unit_id, unitId);
       assert.equal(body.shelf_id, null);
       assert.equal(body.room_id, null);
+      assert.equal(body.building_id, null);
     });
   });
 });
