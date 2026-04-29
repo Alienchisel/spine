@@ -1,0 +1,147 @@
+// Coverage for routes/diary.js — empty/populated GET, year filtering,
+// streak shape (locked in after the streak math was unified onto
+// lib/stats/streaks.js), entry deletion, and joined book metadata.
+//
+// Streak math beyond "1 today" is tested in stats.test.js; here we just
+// confirm diary plucks the right numbers out of calcStreaks().
+
+import { describe, it, before, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { createTestServer } from './helpers.js';
+
+describe('diary', () => {
+  let url;
+  let close;
+
+  before(async () => {
+    const server = await createTestServer();
+    url = server.url;
+    close = server.close;
+  });
+
+  after(() => close());
+
+  async function req(method, path, body) {
+    const res = await fetch(`${url}${path}`, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: body != null ? JSON.stringify(body) : undefined,
+    });
+    const data = res.status === 204 ? null : await res.json();
+    return { status: res.status, body: data };
+  }
+
+  describe('GET /api/diary (empty)', () => {
+    it('returns empty days and years with zero streaks', async () => {
+      const { status, body } = await req('GET', '/api/diary');
+      assert.equal(status, 200);
+      assert.deepEqual(body.days, []);
+      assert.deepEqual(body.years, []);
+      assert.equal(body.stats.dayStreak, 0);
+      assert.equal(body.stats.weekStreak, 0);
+    });
+  });
+
+  describe('GET /api/diary with one day of activity', () => {
+    let bookId;
+
+    before(async () => {
+      const { body: book } = await req('POST', '/api/books', {
+        title: 'Diary Test', status: 'reading', format: 'physical', page_count: 200,
+      });
+      bookId = book.id;
+      await req('PATCH', `/api/books/${bookId}`, { current_page: 30 });
+    });
+
+    it('lists today as a day with the entry', async () => {
+      const { body } = await req('GET', '/api/diary');
+      assert.equal(body.days.length, 1);
+      const day = body.days[0];
+      assert.match(day.date, /^\d{4}-\d{2}-\d{2}$/);
+      assert.equal(day.entries.length, 1);
+      const e = day.entries[0];
+      assert.equal(e.book_id, bookId);
+      assert.equal(e.title, 'Diary Test');
+      assert.equal(e.pages_read, 30);
+      assert.equal(e.format, 'physical');
+      assert.equal(e.cover_path, null);
+      assert.ok(typeof e.id === 'number');
+      assert.deepEqual(e.authors, []);
+    });
+
+    it('includes the current year in the years list', async () => {
+      const { body } = await req('GET', '/api/diary');
+      const currentYear = new Date().getFullYear();
+      assert.ok(body.years.includes(currentYear), `expected ${currentYear} in years list`);
+    });
+
+    it('reports dayStreak and weekStreak of 1 with today-only activity', async () => {
+      const { body } = await req('GET', '/api/diary');
+      assert.equal(body.stats.dayStreak, 1);
+      assert.equal(body.stats.weekStreak, 1);
+    });
+
+    it('filters by year', async () => {
+      const currentYear = new Date().getFullYear();
+      const { body: thisYear } = await req('GET', `/api/diary?year=${currentYear}`);
+      assert.ok(thisYear.days.length >= 1);
+      const distantPast = currentYear - 50;
+      const { body: empty } = await req('GET', `/api/diary?year=${distantPast}`);
+      assert.deepEqual(empty.days, []);
+    });
+
+    it('ignores out-of-range or non-numeric year params', async () => {
+      // Out-of-range falls back to "all years" — should still include today's entry.
+      const { body: all } = await req('GET', '/api/diary?year=99999');
+      assert.ok(all.days.length >= 1);
+      const { body: garbage } = await req('GET', '/api/diary?year=abc');
+      assert.ok(garbage.days.length >= 1);
+    });
+  });
+
+  describe('entry shape: joined book authors', () => {
+    it('returns authors as an array of names in position order', async () => {
+      const { body: book } = await req('POST', '/api/books', {
+        title: 'Authored Book',
+        authors: ['Primary Writer', 'Co-Writer'],
+        status: 'reading', format: 'physical', page_count: 100,
+      });
+      await req('PATCH', `/api/books/${book.id}`, { current_page: 5 });
+
+      const { body } = await req('GET', '/api/diary');
+      const entry = body.days.flatMap(d => d.entries).find(e => e.book_id === book.id);
+      assert.ok(entry, 'expected to find diary entry for the authored book');
+      assert.deepEqual(entry.authors, ['Primary Writer', 'Co-Writer']);
+    });
+  });
+
+  describe('DELETE /api/diary/:id', () => {
+    it('removes the entry', async () => {
+      const { body: book } = await req('POST', '/api/books', {
+        title: 'Delete Me', status: 'reading', format: 'physical', page_count: 100,
+      });
+      await req('PATCH', `/api/books/${book.id}`, { current_page: 10 });
+
+      const { body: before } = await req('GET', '/api/diary');
+      const entry = before.days.flatMap(d => d.entries).find(e => e.book_id === book.id);
+      assert.ok(entry, 'expected entry to exist before delete');
+
+      const del = await req('DELETE', `/api/diary/${entry.id}`);
+      assert.equal(del.status, 204);
+
+      const { body: after } = await req('GET', '/api/diary');
+      const stillThere = after.days.some(d => d.entries.some(e => e.book_id === book.id));
+      assert.equal(stillThere, false);
+    });
+
+    it('returns 400 for a non-integer id', async () => {
+      const { status } = await req('DELETE', '/api/diary/abc');
+      assert.equal(status, 400);
+    });
+
+    it('returns 404 for an unknown id', async () => {
+      const { status } = await req('DELETE', '/api/diary/99999');
+      assert.equal(status, 404);
+    });
+  });
+});
