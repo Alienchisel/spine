@@ -83,6 +83,34 @@ describe('books', () => {
       const { status } = await req('POST', '/api/books', { title: 'X', date_started: '2026-99-99' });
       assert.equal(status, 400);
     });
+
+    it('rejects calendar-rollover dates (Feb 31, Apr 31, Feb 29 non-leap)', async () => {
+      // Plain new Date('2024-02-31') silently rolls to March 2; we must catch
+      // those with component-equality, not just a NaN check.
+      for (const bad of ['2024-02-31', '2024-04-31', '2023-02-29', '2024-06-00']) {
+        const { status } = await req('POST', '/api/books', { title: 'X', date_started: bad });
+        assert.equal(status, 400, `expected 400 for ${bad}`);
+      }
+    });
+
+    it('accepts Feb 29 in a leap year', async () => {
+      const { status } = await req('POST', '/api/books', { title: 'Leap', date_started: '2024-02-29' });
+      assert.equal(status, 201);
+    });
+
+    it('rejects calendar-rollover acquisition dates', async () => {
+      for (const bad of ['2024-02-31', '2024-13-01', '2023-02-29']) {
+        const { status } = await req('POST', '/api/books', { title: 'X', acquisition_date: bad });
+        assert.equal(status, 400, `expected 400 for ${bad}`);
+      }
+    });
+
+    it('accepts year-only and year-month acquisition dates', async () => {
+      const a = await req('POST', '/api/books', { title: 'Year only', acquisition_date: '1995' });
+      assert.equal(a.status, 201);
+      const b = await req('POST', '/api/books', { title: 'Year-month', acquisition_date: '1995-06' });
+      assert.equal(b.status, 201);
+    });
   });
 
   describe('GET /api/books/:id', () => {
