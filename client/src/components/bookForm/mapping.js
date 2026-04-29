@@ -32,6 +32,7 @@ export function bookToFormState(book) {
     year_published: book.year_published ?? '',
     year_approximate: Boolean(book.year_approximate),
     year_edition: book.year_edition ?? '',
+    abridged: Boolean(book.abridged),
     description: book.description || '',
     format: book.format || '',
     binding: book.binding || '',

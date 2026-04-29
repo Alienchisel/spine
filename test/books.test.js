@@ -261,6 +261,19 @@ describe('books', () => {
       const { body: updated } = await req('PUT', `/api/books/${body.id}`, { title: 'Old Book', year_published: 1900, year_approximate: false });
       assert.equal(updated.year_approximate, 0);
     });
+
+    it('saves and returns abridged flag', async () => {
+      const { status, body } = await req('POST', '/api/books', { title: 'Short Cut', abridged: true });
+      assert.equal(status, 201);
+      assert.equal(body.abridged, 1);
+      const { body: updated } = await req('PUT', `/api/books/${body.id}`, { title: 'Short Cut', abridged: false });
+      assert.equal(updated.abridged, 0);
+    });
+
+    it('defaults abridged to 0 when omitted', async () => {
+      const { body } = await req('POST', '/api/books', { title: 'Full Length' });
+      assert.equal(body.abridged, 0);
+    });
   });
 
   describe('PATCH /api/books/:id', () => {
@@ -727,6 +740,23 @@ describe('books', () => {
         title: 'Legit', cover_path: '/uploads/1234567890-abcdef.webp',
       });
       assert.equal(body.cover_path, '/uploads/1234567890-abcdef.webp');
+    });
+
+    it('rejects bare "." and ".." filenames (stores null)', async () => {
+      // Defence in depth: even though fs.unlink('.') / fs.unlink('..') would
+      // EISDIR rather than delete anything, accepting these contradicts the
+      // intent of the validator and is easy to bar at the regex level.
+      for (const bad of ['/uploads/.', '/uploads/..', '/uploads/.webp', '/uploads/..webp']) {
+        const { body } = await req('POST', '/api/books', { title: 'Sneaky', cover_path: bad });
+        assert.equal(body.cover_path, null, `expected null for ${bad}`);
+      }
+    });
+
+    it('rejects non-webp extensions (stores null)', async () => {
+      const { body } = await req('POST', '/api/books', {
+        title: 'Wrong ext', cover_path: '/uploads/1234567890-abcdef.png',
+      });
+      assert.equal(body.cover_path, null);
     });
   });
 });

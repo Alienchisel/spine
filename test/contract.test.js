@@ -98,8 +98,9 @@ describe('book contract: full field round-trip', () => {
       year_published:    1851,
       year_approximate:  false,               // → 0
       year_edition:      2003,
+      abridged:          false,               // → 0
       shelf_id:          shelfId,             // clears building/room/unit_id
-      cover_path:        '/uploads/moby-dick.webp',
+      cover_path:        '/uploads/1700000000000-mobydick.webp',
     });
 
     assert.equal(status, 201);
@@ -124,6 +125,7 @@ describe('book contract: full field round-trip', () => {
     assert.equal(body.loved, 0);
     assert.equal(body.fiction, 1);
     assert.equal(body.year_approximate, 0);
+    assert.equal(body.abridged, 0);
 
     // Scalar fields
     assert.equal(body.source_type, 'primary');
@@ -156,7 +158,7 @@ describe('book contract: full field round-trip', () => {
     assert.equal(body.unit_id, null);
 
     // Cover path round-trip
-    assert.equal(body.cover_path, '/uploads/moby-dick.webp');
+    assert.equal(body.cover_path, '/uploads/1700000000000-mobydick.webp');
 
     // Relation arrays
     assert.deepEqual(body.authors.map(a => a.name), ['Herman Melville']);
@@ -182,7 +184,7 @@ describe('book contract: full field round-trip', () => {
     assert.equal(body.year_approximate, 0);
     assert.equal(body.shelf_id, shelfId);
     assert.equal(body.building_id, null);
-    assert.equal(body.cover_path, '/uploads/moby-dick.webp');
+    assert.equal(body.cover_path, '/uploads/1700000000000-mobydick.webp');
     assert.deepEqual(body.authors.map(a => a.name), ['Herman Melville']);
     assert.deepEqual(body.narrators.map(n => n.name), ['Frank Muller']);
     assert.ok(body.tags.some(t => t.name === 'classic'));
@@ -230,9 +232,10 @@ describe('book contract: full field round-trip', () => {
       year_published:    1924,
       year_approximate:  true,               // → 1 (was 0)
       year_edition:      1961,               // 2026-1961=65 → virtual tag 'Vintage'
+      abridged:          true,               // → 1 (was 0)
       shelf_id:          null,               // remove shelf
       unit_id:           unitId,             // unit_id stored (no shelf_id, no room_id)
-      cover_path:        '/uploads/billy-budd.webp',
+      cover_path:        '/uploads/1700000001111-billybudd.webp',
     });
 
     assert.equal(status, 200);
@@ -255,6 +258,7 @@ describe('book contract: full field round-trip', () => {
     assert.equal(body.loved, 1);
     assert.equal(body.fiction, 0);            // false → 0
     assert.equal(body.year_approximate, 1);   // true → 1
+    assert.equal(body.abridged, 1);           // true → 1
 
     // Scalar fields
     assert.equal(body.source_type, 'secondary');
@@ -287,7 +291,7 @@ describe('book contract: full field round-trip', () => {
     assert.equal(body.building_id, null);
 
     // Cover path round-trip
-    assert.equal(body.cover_path, '/uploads/billy-budd.webp');
+    assert.equal(body.cover_path, '/uploads/1700000001111-billybudd.webp');
 
     // Relations replaced
     assert.deepEqual(body.authors.map(a => a.name), ['Herman Melville', 'Raymond Weaver']);
@@ -320,6 +324,7 @@ describe('book contract: full field round-trip', () => {
     assert.equal(body.loved, 1);
     assert.equal(body.fiction, 0);
     assert.equal(body.year_approximate, 1);
+    assert.equal(body.abridged, 1);
     assert.equal(body.rating, 3.5);
     assert.equal(body.page_count, null);
     assert.equal(body.duration_minutes, 180);
@@ -327,7 +332,7 @@ describe('book contract: full field round-trip', () => {
     assert.equal(body.series_number, null);
     assert.equal(body.shelf_id, null);
     assert.equal(body.unit_id, unitId);
-    assert.equal(body.cover_path, '/uploads/billy-budd.webp');
+    assert.equal(body.cover_path, '/uploads/1700000001111-billybudd.webp');
     assert.deepEqual(body.authors.map(a => a.name), ['Herman Melville', 'Raymond Weaver']);
     assert.deepEqual(body.narrators.map(n => n.name), ['Simon Vance']);
     assert.equal(body.tags.filter(t => !t.virtual).length, 2);

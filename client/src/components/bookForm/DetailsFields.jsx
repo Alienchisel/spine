@@ -40,6 +40,13 @@ export default function DetailsFields({ form, set, ic, pastLanguages, pastTransl
         </datalist>
       </div>
 
+      <label className="flex items-center gap-1.5 cursor-pointer select-none">
+        <input type="checkbox" checked={form.abridged}
+          onChange={(e) => set('abridged', e.target.checked)}
+          className="w-3.5 h-3.5 rounded border-neutral-700 bg-neutral-900 text-oak focus:ring-0 focus:ring-offset-0" />
+        <span className="text-xs text-neutral-500">Abridged edition</span>
+      </label>
+
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className={label}>Year published</label>

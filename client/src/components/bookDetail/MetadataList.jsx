@@ -66,6 +66,9 @@ export default function MetadataList({ book, location }) {
       {book.format !== 'audiobook' && book.page_count > 0 && (
         <Row label="Length">{book.page_count} pages</Row>
       )}
+      {Boolean(book.abridged) && (
+        <Row label="Edition">Abridged</Row>
+      )}
       {book.language && book.language !== 'English' && (
         <Row label="Language">{book.language}</Row>
       )}
