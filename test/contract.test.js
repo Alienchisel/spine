@@ -64,6 +64,7 @@ describe('book contract: full field round-trip', () => {
       title:             '  Moby-Dick  ',     // whitespace → trimmed
       authors:           ['Herman Melville'],
       narrators:         ['Frank Muller'],
+      translators:       [],
       tags:              ['classic', 'American'],
       status:            'reading',
       owned:             true,
@@ -94,7 +95,6 @@ describe('book contract: full field round-trip', () => {
       asin:              'b002ri9iy6',         // lowercase → 'B002RI9IY6'
       language:          'English',
       original_language: 'English',
-      translator:        null,
       year_published:    1851,
       year_approximate:  false,               // → 0
       year_edition:      2003,
@@ -147,7 +147,7 @@ describe('book contract: full field round-trip', () => {
     assert.equal(body.series_number, 3);
     assert.equal(body.language, 'English');
     assert.equal(body.original_language, 'English');
-    assert.equal(body.translator, null);
+    assert.deepEqual(body.translators, []);
     assert.equal(body.year_published, 1851);
     assert.equal(body.year_edition, 2003);
 
@@ -198,6 +198,7 @@ describe('book contract: full field round-trip', () => {
       title:             'Billy Budd',
       authors:           ['Herman Melville', 'Raymond Weaver'],
       narrators:         ['Simon Vance'],
+      translators:       ['Constance Garnett'],
       tags:              ['classic', 'novella'],
       status:            'finished',          // triggers read_count +1
       owned:             false,
@@ -228,7 +229,6 @@ describe('book contract: full field round-trip', () => {
       asin:              null,                // cleared
       language:          'English',
       original_language: null,                // cleared
-      translator:        null,
       year_published:    1924,
       year_approximate:  true,               // → 1 (was 0)
       year_edition:      1961,               // 2026-1961=65 → virtual tag 'Vintage'
@@ -280,7 +280,7 @@ describe('book contract: full field round-trip', () => {
     assert.equal(body.series_number, null);
     assert.equal(body.language, 'English');
     assert.equal(body.original_language, null);
-    assert.equal(body.translator, null);
+    assert.deepEqual(body.translators.map(t => t.name), ['Constance Garnett']);
     assert.equal(body.year_published, 1924);
     assert.equal(body.year_edition, 1961);
 

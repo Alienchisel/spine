@@ -1,6 +1,7 @@
+import ChipInput from './ChipInput.jsx';
 import { input, label } from './styles.js';
 
-export default function DetailsFields({ form, set, ic, pastLanguages, pastTranslators, pastPublishers }) {
+export default function DetailsFields({ form, set, ic, pastLanguages, pastTranslators, pastPublishers, translatorInput, setTranslatorInput }) {
   return (
     <div className="space-y-6">
       <div>
@@ -20,15 +21,17 @@ export default function DetailsFields({ form, set, ic, pastLanguages, pastTransl
           placeholder="If translated…" />
       </div>
 
-      <div>
-        <label className={label}>Translator</label>
-        <input className={input} list="translators-list" value={form.translator}
-          onChange={(e) => set('translator', e.target.value)}
-          placeholder="e.g. James Legge" />
-        <datalist id="translators-list">
-          {pastTranslators.map(t => <option key={t} value={t} />)}
-        </datalist>
-      </div>
+      <ChipInput
+        label="Translators"
+        items={form.translators}
+        onItemsChange={(items) => set('translators', items)}
+        inputValue={translatorInput}
+        onInputChange={setTranslatorInput}
+        datalistId="translators-list"
+        datalistOptions={pastTranslators}
+        placeholder="Type a name, press Enter or comma to add"
+        inputClassName={input}
+      />
 
       <div>
         <label className={label}>Publisher</label>

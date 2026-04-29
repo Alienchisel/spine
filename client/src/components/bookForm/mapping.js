@@ -20,7 +20,7 @@ export function bookToFormState(book) {
     date_finished: book.date_finished || '',
     language: book.language || 'English',
     original_language: book.original_language || '',
-    translator: book.translator || '',
+    translators: book.translators?.map(t => t.name) || [],
     publisher: book.publisher || '',
     series: book.series || '',
     series_number: book.series_number ?? '',
@@ -60,12 +60,13 @@ function mergePending(list, pending) {
 // a real value. Listed here so adding a new nullable scalar means one edit.
 const NULLABLE_STRINGS_ON_SAVE = ['date_started', 'date_finished', 'acquisition_source', 'notes'];
 
-export function formStateToPayload(form, { tagInput, narratorInput, authorInput }) {
+export function formStateToPayload(form, { tagInput, narratorInput, authorInput, translatorInput }) {
   const out = { ...form };
 
-  out.authors   = mergePending(form.authors,   authorInput);
-  out.narrators = mergePending(form.narrators, narratorInput);
-  out.tags      = mergePending(form.tags,      tagInput);
+  out.authors     = mergePending(form.authors,     authorInput);
+  out.narrators   = mergePending(form.narrators,   narratorInput);
+  out.translators = mergePending(form.translators, translatorInput);
+  out.tags        = mergePending(form.tags,        tagInput);
 
   out.title = form.title.trim();
 

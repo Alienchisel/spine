@@ -7,7 +7,7 @@
 // and converts blanks to NULL.
 export const SCALAR_FIELDS = [
   'title', 'description', 'notes', 'review',
-  'publisher', 'series', 'translator', 'acquisition_source',
+  'publisher', 'series', 'acquisition_source',
   'language', 'original_language',
   'isbn_10', 'isbn_13', 'asin',
   'status', 'format', 'binding', 'condition', 'source_type',
@@ -46,7 +46,7 @@ export const DATE_FIELDS = ['date_started', 'date_finished', 'acquisition_date']
 export const LOCATION_FIELDS = ['shelf_id', 'building_id', 'room_id', 'unit_id'];
 
 // Joined many-to-many string arrays. Synced via separate join tables on save.
-export const JOINED_FIELDS = ['authors', 'narrators', 'tags'];
+export const JOINED_FIELDS = ['authors', 'narrators', 'translators', 'tags'];
 
 // Cover path — bare filename in the DB, '/uploads/'-prefixed in API responses.
 export const COVER_FIELDS = ['cover_path'];
@@ -56,7 +56,7 @@ export const COVER_FIELDS = ['cover_path'];
 export const FORM_DEFAULTS = Object.freeze({
   // Scalar strings — '' when blank.
   title: '', description: '', notes: '', review: '',
-  publisher: '', series: '', translator: '', acquisition_source: '',
+  publisher: '', series: '', acquisition_source: '',
   original_language: '',
   isbn_10: '', isbn_13: '', asin: '',
   // Enums — '' = unset, except status which always has a value.
@@ -89,7 +89,7 @@ export const FORM_DEFAULTS = Object.freeze({
   shelf_id: null, building_id: null, room_id: null, unit_id: null,
 
   // Joined arrays — empty by default.
-  authors: [], narrators: [], tags: [],
+  authors: [], narrators: [], translators: [], tags: [],
 
   // Cover path.
   cover_path: null,
@@ -124,7 +124,7 @@ export const BOOK_TABLE_COLUMNS = Object.freeze([
   'page_count', 'duration_minutes',
   'publisher', 'series', 'series_number',
   'isbn_10', 'isbn_13', 'asin',
-  'language', 'original_language', 'translator',
+  'language', 'original_language',
   'year_published', 'year_approximate', 'year_edition',
   'abridged',
   'shelf_id', 'building_id', 'room_id', 'unit_id',

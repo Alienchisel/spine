@@ -75,11 +75,16 @@ export default function MetadataList({ book, location }) {
       {book.original_language && (
         <Row label="Original">{book.original_language}</Row>
       )}
-      {book.translator && (
-        <Row label="Translator">
-          <Link to={`/browse/translator/${encodeURIComponent(book.translator)}`} className="hover:text-white transition-colors">
-            {book.translator}
-          </Link>
+      {book.translators?.length > 0 && (
+        <Row label={book.translators.length === 1 ? 'Translator' : 'Translators'}>
+          {book.translators.map((t, i) => (
+            <span key={t.id}>
+              {i > 0 && <span className="text-neutral-600">, </span>}
+              <Link to={`/browse/translator/${encodeURIComponent(t.name)}`} className="hover:text-white transition-colors">
+                {t.name}
+              </Link>
+            </span>
+          ))}
         </Row>
       )}
       {book.publisher && (

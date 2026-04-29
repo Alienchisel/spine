@@ -24,9 +24,10 @@ export default function BookForm() {
   const isEdit = Boolean(id);
   const [form, setForm] = useState(FORM_DEFAULTS);
   const [activeTab, setActiveTab] = useState('core');
-  const [tagInput,      setTagInput]      = useState('');
-  const [narratorInput, setNarratorInput] = useState('');
-  const [authorInput,   setAuthorInput]   = useState('');
+  const [tagInput,        setTagInput]        = useState('');
+  const [narratorInput,   setNarratorInput]   = useState('');
+  const [authorInput,     setAuthorInput]     = useState('');
+  const [translatorInput, setTranslatorInput] = useState('');
   const [coverPreview, setCoverPreview] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [coverError, setCoverError] = useState(null);
@@ -208,7 +209,7 @@ export default function BookForm() {
     setSaving(true);
     setError(null);
     try {
-      const payload = formStateToPayload(form, { tagInput, narratorInput, authorInput });
+      const payload = formStateToPayload(form, { tagInput, narratorInput, authorInput, translatorInput });
       if (isEdit) {
         await api.updateBook(id, payload);
         navigate(`/books/${id}`);
@@ -285,6 +286,7 @@ export default function BookForm() {
                 pastLanguages={pastLanguages}
                 pastTranslators={pastTranslators}
                 pastPublishers={pastPublishers}
+                translatorInput={translatorInput} setTranslatorInput={setTranslatorInput}
               />
             )}
             {activeTab === 'acquisition' && (

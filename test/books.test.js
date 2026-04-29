@@ -456,15 +456,37 @@ describe('books', () => {
       assert.equal(body.series_number, 1);
     });
 
-    it('saves translator and original_language', async () => {
+    it('saves translators and original_language', async () => {
       const { body } = await req('POST', '/api/books', {
         title: 'Crime and Punishment',
-        translator: 'Richard Pevear',
+        translators: ['Richard Pevear', 'Larissa Volokhonsky'],
         original_language: 'Russian',
         language: 'English',
       });
-      assert.equal(body.translator, 'Richard Pevear');
+      assert.deepEqual(body.translators.map(t => t.name), ['Richard Pevear', 'Larissa Volokhonsky']);
       assert.equal(body.original_language, 'Russian');
+    });
+
+    it('replaces translators on PUT and preserves order', async () => {
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Translated Book',
+        translators: ['Old Translator'],
+      });
+      const { body } = await req('PUT', `/api/books/${created.id}`, {
+        title: 'Translated Book',
+        translators: ['New Translator A', 'New Translator B'],
+      });
+      assert.deepEqual(body.translators.map(t => t.name), ['New Translator A', 'New Translator B']);
+    });
+
+    it('reuses existing translator row when name matches', async () => {
+      const { body: b1 } = await req('POST', '/api/books', {
+        title: 'Trans Reuse A', translators: ['Shared Translator'],
+      });
+      const { body: b2 } = await req('POST', '/api/books', {
+        title: 'Trans Reuse B', translators: ['Shared Translator'],
+      });
+      assert.equal(b1.translators[0].id, b2.translators[0].id);
     });
 
     it('saves acquisition_source and acquisition_date', async () => {
