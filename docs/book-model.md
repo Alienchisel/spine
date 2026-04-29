@@ -1,0 +1,295 @@
+# Book Data Model
+
+Single source of truth for the Spine book schema. Covers every field the API
+accepts, how values are normalised on write, what the response shape looks like,
+and how all related tables fit together.
+
+---
+
+## books table — scalar fields
+
+### Identity & status
+
+| Column | Type | Default | Notes |
+|---|---|---|---|
+| `id` | INTEGER PK | auto | |
+| `title` | TEXT NOT NULL | — | Trimmed on write; stored value is always stripped of leading/trailing whitespace |
+| `status` | TEXT | `'unread'` | `reading` · `paused` · `finished` · `unread` |
+| `cover_path` | TEXT | NULL | Stored as bare filename (`abc.webp`); returned in responses as `/uploads/abc.webp` |
+| `created_at` | TEXT | `datetime('now')` | ISO datetime, set once on insert |
+| `updated_at` | TEXT | `datetime('now')` | ISO datetime, updated by every PUT/PATCH |
+
+### Ownership flags
+
+| Column | Type | Default | Notes |
+|---|---|---|---|
+| `owned` | INTEGER | `0` | `1` = owned; `0` = not owned |
+| `previously_owned` | INTEGER | `0` | `1` = once owned, since sold/given away |
+| `loved` | INTEGER | `0` | `1` = marked as a favourite |
+
+`owned` and `previously_owned` are mutually exclusive. If both are truthy on
+write, `owned` wins and `previously_owned` is forced to `0`.
+
+### Content flags
+
+| Column | Type | Default | Notes |
+|---|---|---|---|
+| `fiction` | INTEGER | NULL | `1` = fiction · `0` = non-fiction · `NULL` = unset |
+| `source_type` | TEXT | NULL | `primary` · `secondary` (for non-fiction source classification) |
+| `is_custom` | INTEGER | `0` | `1` = hand-entered custom entry, not from a catalogue |
+| `is_stub` | INTEGER | `0` | `1` = incomplete placeholder; auto-cleared to `0` on PUT when `title` and at least one author are both present |
+
+### Format & physical properties
+
+| Column | Type | Notes |
+|---|---|---|
+| `format` | TEXT | `physical` · `ebook` · `audiobook` · NULL |
+| `binding` | TEXT | `paperback` · `hardcover` · NULL |
+| `condition` | TEXT | `new` · `fine` · `very good` · `good` · `fair` · `poor` · NULL |
+| `page_count` | INTEGER | Positive integer; NULL for audiobooks or unknown |
+| `duration_minutes` | INTEGER | Positive integer; meaningful for `format = 'audiobook'` |
+
+### Identifiers
+
+| Column | Type | Normalisation |
+|---|---|---|
+| `isbn_10` | TEXT | Hyphens and spaces stripped on write; validated as 9 digits + digit-or-X |
+| `isbn_13` | TEXT | Hyphens and spaces stripped on write; validated as 13 digits |
+| `asin` | TEXT | Uppercased on write; validated as 10 alphanumeric characters |
+
+### Publication
+
+| Column | Type | Notes |
+|---|---|---|
+| `year_published` | INTEGER | Original publication year |
+| `year_approximate` | INTEGER | `1` = year is approximate (e.g. ancient texts); `0` = exact |
+| `year_edition` | INTEGER | Year of this specific edition |
+| `publisher` | TEXT | Trimmed on write |
+| `series` | TEXT | Series name; trimmed on write |
+| `series_number` | REAL | Position within series; allows half-numbers (e.g. `0.5`) |
+
+### Language
+
+| Column | Type | Default | Notes |
+|---|---|---|---|
+| `language` | TEXT | `'English'` | Language of this edition; defaults to `'English'` when omitted |
+| `original_language` | TEXT | NULL | Original language if this is a translation |
+| `translator` | TEXT | NULL | Translator name(s); trimmed on write |
+
+When `original_language` is set and differs from `language`, the virtual tag
+**Translated** is applied (see [Virtual tags](#virtual-tags)).
+
+### Acquisition
+
+| Column | Type | Notes |
+|---|---|---|
+| `acquisition_source` | TEXT | Free text (e.g. `Audible`, `Amazon`, `Library`) |
+| `acquisition_date` | TEXT | Partial date: `YYYY`, `YYYY-MM`, or `YYYY-MM-DD` |
+
+### Rating & content
+
+| Column | Type | Notes |
+|---|---|---|
+| `rating` | REAL | `0.5`–`5.0` in `0.5` increments; NULL = unrated |
+| `description` | TEXT | Book blurb or summary |
+| `notes` | TEXT | Private reader notes |
+| `review` | TEXT | Reader's review |
+
+### Reading progress
+
+| Column | Type | Notes |
+|---|---|---|
+| `date_started` | TEXT | `YYYY-MM-DD`; set by PUT |
+| `date_finished` | TEXT | `YYYY-MM-DD`; set by PUT |
+| `current_page` | INTEGER | Current reading position; set by PATCH |
+| `current_minutes` | INTEGER | Current listening position (minutes); set by PATCH |
+| `read_count` | INTEGER | `0` by default. Incremented by 1 when `status` transitions from any non-`finished` value to `'finished'` via PUT. Can be set to an arbitrary value by including `read_count` explicitly in a PUT. |
+
+### Readlist
+
+| Column | Type | Notes |
+|---|---|---|
+| `on_readlist` | INTEGER | `1` = book is on the to-read list |
+| `readlist_position` | INTEGER | Sort order on the readlist; NULL when not on list |
+
+Added to readlist via `PATCH { on_readlist: true }`, which appends at the end
+(position = current max + 1). Removed via `PATCH { on_readlist: false }`, which
+clears `readlist_position` to NULL.
+
+Order is rewritten by `PUT /api/readlist/order`.
+
+### Location (shelf hierarchy)
+
+A book may be assigned to at most one level of the shelf hierarchy. Only the
+most specific field is stored; the rest are forced to NULL on write.
+
+| Priority | Column | Type | Stored when |
+|---|---|---|---|
+| 1 (most specific) | `shelf_id` | INTEGER → shelves.id | A shelf is assigned; clears `building_id`, `room_id`, `unit_id` |
+| 2 | `unit_id` | INTEGER → units.id | Unit assigned, no `shelf_id`; clears `room_id`, `building_id` (when no `room_id` either) |
+| 3 | `room_id` | INTEGER → rooms.id | Room assigned, no `shelf_id`; clears `unit_id` |
+| 4 (least specific) | `building_id` | INTEGER → buildings.id | Only when no `shelf_id`, `room_id`, or `unit_id` |
+| — | `shelf_position` | INTEGER | Sort position within a shelf; rewritten by `PUT /api/shelf/shelves/:id/order` |
+
+---
+
+## Joined fields
+
+These are not columns on `books`; they are assembled from join tables and
+returned with every book response.
+
+### authors
+
+```
+books ──< book_authors >── authors
+               │
+           position (INTEGER, 0-indexed)
+```
+
+- `authors` table: `id`, `name` (unique, case-insensitive)
+- `book_authors` table: `book_id`, `author_id`, `position`
+- Passed to API as an array of strings: `["Frank Herbert", "Brian Herbert"]`
+- Returned as an array of objects ordered by `position`: `[{ id, name }, …]`
+- On every write (POST or PUT with `authors` key present), all existing rows are
+  deleted and re-inserted from scratch. Omitting the `authors` key on PUT
+  leaves existing authors untouched.
+- Deduplication is case-insensitive within a single sync. The `authors` entity
+  row is reused across books (same `author.id` for the same name).
+
+### narrators
+
+Identical structure to authors, using `narrators` / `book_narrators` tables.
+
+```
+books ──< book_narrators >── narrators
+                │
+            position (INTEGER, 0-indexed)
+```
+
+### tags
+
+```
+books ──< book_tags >── tags
+```
+
+- `tags` table: `id`, `name` (unique, COLLATE NOCASE)
+- Passed as an array of strings; returned as `[{ id, name }, …]` ordered by
+  name, followed by any virtual tags (see below).
+- Fully replaced on every PUT that includes a `tags` key.
+- Tag entity rows are reused across books.
+
+---
+
+## Virtual tags
+
+Virtual tags are computed at read time from book fields. They are never stored
+in the database. In responses they appear appended after real tags and carry
+`"virtual": true`.
+
+| Name | Condition |
+|---|---|
+| **Antique** | `year_edition` set and `(current_year − year_edition) ≥ 100` |
+| **Vintage** | `year_edition` set and `50 ≤ (current_year − year_edition) < 100` |
+| **Translated** | `original_language` set and differs from `language` |
+| **Re-read** | `read_count > 1` |
+| **Long** | `page_count ≥ 500` |
+| **Short** | `page_count > 0` and `page_count ≤ 150` |
+
+Virtual tags also appear in `GET /api/books/facets` and support filtering via
+`?tags[]=Long` etc. The SQL fragment for each rule is evaluated server-side.
+
+---
+
+## Progress tracking
+
+Progress is updated via `PATCH /api/books/:id` and drives two side effects.
+
+### reading_log
+
+Whenever `current_page` increases or `current_minutes` increases, the delta is
+upserted into `reading_log` for today's date:
+
+```
+reading_log(book_id, date) ON CONFLICT → pages_read += delta, minutes_read += delta
+```
+
+Multiple PATCHes on the same day accumulate. The log never decrements.
+
+### reads table
+
+The `reads` table stores discrete read-through records (a book can be read many
+times). Each row has `date_started`, `date_finished`, and `book_id`. Managed
+independently via `POST/PUT/DELETE /api/books/:id/reads`.
+
+---
+
+## Related tables
+
+### reads
+
+Records of individual read-throughs.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | INTEGER PK | |
+| `book_id` | INTEGER | → books.id ON DELETE CASCADE |
+| `date_started` | TEXT | `YYYY-MM-DD` · nullable |
+| `date_finished` | TEXT | `YYYY-MM-DD` · nullable; must not be before `date_started` |
+| `created_at` | TEXT | |
+
+API: `GET/POST /api/books/:id/reads`, `PUT/DELETE /api/books/:id/reads/:readId`
+
+### reading_log
+
+Daily reading activity. One row per (book, date); upserted by PATCH.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | INTEGER PK | |
+| `book_id` | INTEGER | → books.id ON DELETE CASCADE |
+| `date` | TEXT | `YYYY-MM-DD` |
+| `pages_read` | INTEGER | Accumulated for the day |
+| `minutes_read` | INTEGER | Accumulated for the day |
+
+Unique constraint: `(book_id, date)`. Used by `GET /api/stats` to compute
+streaks, total pages read, and total minutes listened.
+
+API: `GET /api/books/:id/log`
+
+### lists / list_books
+
+Curated lists of books.
+
+| Table | Key columns |
+|---|---|
+| `lists` | `id`, `name` (unique NOCASE, max 200 chars), `created_at`, `updated_at` |
+| `list_books` | `list_id`, `book_id` (composite PK), `position`, `added_at` |
+
+Books are appended at position = max + 1. Order is rewritten by
+`PUT /api/lists/:id/order`. A book can appear in multiple lists.
+
+API: `GET/POST/PUT/DELETE /api/lists`, `POST /api/lists/:id/books`,
+`PUT /api/lists/:id/order`, `DELETE /api/lists/:id/books/:bookId`
+
+### Shelf hierarchy
+
+Four-level tree: **building → room → unit → shelf**.
+
+| Table | Key columns |
+|---|---|
+| `buildings` | `id`, `name`, `proximity` (`home`·`nearby`·`remote`), `notes`, `order_index` |
+| `rooms` | `id`, `building_id`, `name`, `order_index` |
+| `units` | `id`, `room_id`, `name`, `order_index` |
+| `shelves` | `id`, `unit_id`, `label`, `order_index` |
+
+Books reference a single level via `shelf_id` / `unit_id` / `room_id` /
+`building_id` (at most one set; see [Location](#location-shelf-hierarchy)).
+
+`GET /api/shelf/location/:bookId` returns a breadcrumb from whatever level the
+book is assigned at upward to the building. `GET /api/shelf/unshelfed` returns
+owned physical (or format-unset) books with no location assigned.
+
+API: `GET/POST/PUT/DELETE` endpoints under `/api/shelf/buildings`,
+`/api/shelf/rooms`, `/api/shelf/units`, `/api/shelf/shelves`, plus
+`/api/shelf/tree`, `/api/shelf/unshelfed`, `/api/shelf/location/:bookId`,
+and book-listing endpoints (`/api/shelf/buildings/:id/books`, etc.).
