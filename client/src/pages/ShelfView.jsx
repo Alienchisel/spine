@@ -296,16 +296,21 @@ export default function ShelfView() {
         ) : (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={books.map(b => b.id)} strategy={horizontalListSortingStrategy}>
-              <div className="-mx-4 sm:-mx-6 lg:-mx-8">
-                <div className="flex gap-4 overflow-x-auto pb-2 px-4 sm:px-6 lg:px-8 [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-track]:bg-neutral-800 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-neutral-600 [&::-webkit-scrollbar-thumb]:rounded-full">
+              <div className="relative -mx-4 sm:-mx-6 lg:-mx-8">
+                {/* z-10 puts books in front of the absolute plank below, so the
+                    cover bottoms visibly cover the plank's top edge — that's
+                    what makes them read as "standing on" the surface. */}
+                <div className="relative z-10 flex gap-4 overflow-x-auto pb-7 px-4 sm:px-6 lg:px-8 [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-track]:bg-neutral-800 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-neutral-600 [&::-webkit-scrollbar-thumb]:rounded-full">
                   {books.map(book => <SortableShelfCover key={book.id} book={book} />)}
                 </div>
-                {/* Wood plank the books rest on. Top hairline = light catching
-                    the front edge; bottom hairline = the underside of the plank
-                    in shadow. Box-shadow casts onto the page below. */}
-                <div className="wood-shelf relative h-3 mx-4 sm:mx-6 lg:mx-8 rounded-sm shadow-[0_4px_8px_-3px_rgba(0,0,0,0.55)]">
-                  <div className="absolute inset-x-0 top-0 h-px bg-leather/15" />
-                  <div className="absolute inset-x-0 bottom-0 h-px bg-black/45" />
+                {/* Wood plank — books overlap its top by ~4px so contact reads
+                    as real, but the bulk of the plank stays visible below. The
+                    contact-shadow gradient sits in the area still showing above
+                    the cover bottoms, so the meeting line has visible weight. */}
+                <div className="wood-shelf pointer-events-none absolute bottom-2 left-4 right-4 sm:left-6 sm:right-6 lg:left-8 lg:right-8 h-6 rounded-sm shadow-[0_5px_10px_-3px_rgba(0,0,0,0.6)]">
+                  <div className="absolute inset-x-0 top-0 h-2 bg-gradient-to-b from-black/55 to-transparent rounded-t-sm" />
+                  <div className="absolute inset-x-0 top-0 h-px bg-leather/20" />
+                  <div className="absolute inset-x-0 bottom-0 h-px bg-black/50" />
                 </div>
               </div>
             </SortableContext>
