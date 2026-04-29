@@ -200,6 +200,58 @@ Virtual tags also appear in `GET /api/books/facets` and support filtering via
 
 ---
 
+## Reading data rules
+
+Three separate stores track reading activity. They are intentionally decoupled
+so that retroactive or partial data entry is always possible.
+
+### Sources of truth
+
+| Field / table | Source of truth | Can drift from others? |
+|---|---|---|
+| `books.read_count` | Authoritative count of how many times the book has been read | Yes — by design |
+| `books.date_started` | Date the current or most recent reading began | Manually set; not derived |
+| `books.date_finished` | Date of the most recent finish (current edition / copy status) | Manually set; not derived |
+| `reads` rows | Optional detailed history of individual read-throughs | Row count may differ from `read_count` |
+| `reading_log` rows | Daily progress deltas; never decremented | Independent of `reads` and `read_count` |
+
+### read_count rules
+
+`read_count` has two write paths, applied in priority order:
+
+1. **Manual override** — if a PUT body includes `read_count` and the value
+   differs from the stored value, that value is used directly. This is
+   intentional: it supports correction and retroactive import ("I've actually
+   read this five times"). The frontend's BookForm exposes a "Times read" field
+   for exactly this purpose.
+
+2. **Auto-increment** — if no manual override is present and `status`
+   transitions from any non-`finished` value to `'finished'` in a PUT, the
+   stored count is incremented by 1.
+
+`read_count` is **not derived from `reads` row count**. A book can have
+`read_count = 4` with zero `reads` rows (read several times, no detailed logs),
+or three `reads` rows with `read_count = 1` (logs added manually, no finish
+transition recorded). Both states are valid.
+
+The virtual tag **Re-read** fires when `read_count > 1`, regardless of how many
+`reads` rows exist.
+
+### reads rows
+
+`reads` rows are opt-in history. Creating a `reads` row does not increment
+`read_count`. Reaching `status = 'finished'` does not automatically create a
+`reads` row. The finish flow in the UI does both — but they are independent
+operations: `PUT` to update status/read_count, then `POST /reads` to log the
+read-through — so partial failure of either leaves a consistent if incomplete
+state.
+
+### date_started / date_finished
+
+Both fields represent **current copy/edition status**, not a complete history.
+For a book read multiple times, `date_finished` is expected to hold the most
+recent finish date. Full per-read dates live in `reads` rows.
+
 ## Progress tracking
 
 Progress is updated via `PATCH /api/books/:id` and drives two side effects.
