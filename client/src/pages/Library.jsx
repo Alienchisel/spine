@@ -1,9 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
-import { sortTitle, formatAuthors } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
 import FilterPanel from '../components/FilterPanel.jsx';
+import ListRow from '../components/library/ListRow.jsx';
+import SeriesCard from '../components/library/SeriesCard.jsx';
+import { EMPTY_FILTERS, countFilters, pruneFilters, buildApiParams } from '../components/library/filters.js';
+import { buildDisplayItems, sortVolumes } from '../components/library/grouping.js';
 
 const TABS = [
   { key: 'reading',   label: 'Reading' },
@@ -16,7 +19,6 @@ const TABS = [
 ];
 
 const SESSION_KEY = 'spine-library-state';
-const PAGE_SIZE = 50;
 
 const SORTS = [
   { key: 'updated',  label: 'Recently updated' },
@@ -35,191 +37,9 @@ const GRID = {
   compact:     'grid grid-cols-6 sm:grid-cols-9 md:grid-cols-12 gap-0.5 items-start',
 };
 
-const STATUS_LABEL = { reading: 'Reading', paused: 'Paused', finished: 'Finished', unread: 'Unread' };
-const STATUS_COLOR = {
-  reading:  'text-parchment bg-oak/30',
-  paused:   'text-neutral-300 bg-neutral-800',
-  finished: 'text-leather bg-binding/30',
-  unread:   'text-neutral-500 bg-neutral-800',
-};
-
-function ListRow({ book }) {
-  const isAudiobook = book.format === 'audiobook';
-  const pct = isAudiobook
-    ? (book.duration_minutes > 0 && book.current_minutes != null ? Math.min(100, Math.round((book.current_minutes / book.duration_minutes) * 100)) : null)
-    : (book.page_count > 0 && book.current_page != null ? Math.min(100, Math.round((book.current_page / book.page_count) * 100)) : null);
-  const showProgress = (book.status === 'reading' || book.status === 'paused') && pct !== null;
-
-  return (
-    <Link
-      to={`/books/${book.id}`}
-      className="flex items-center gap-3 py-1.5 px-2 hover:bg-neutral-800/50 rounded transition-colors group"
-    >
-      <div className="w-6 h-9 flex-shrink-0 rounded overflow-hidden bg-neutral-800">
-        {book.cover_path
-          ? <img src={book.cover_path} alt="" className="w-full h-full object-cover" />
-          : <div className="w-full h-full bg-gradient-to-br from-neutral-700 to-neutral-900" />}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm text-neutral-200 group-hover:text-white transition-colors truncate">{book.title}</p>
-        {book.authors?.length > 0 && <p className="text-xs text-neutral-500 truncate">{formatAuthors(book.authors)}</p>}
-        {showProgress && (
-          <div className="mt-1 h-0.5 w-full bg-neutral-800 rounded-full overflow-hidden">
-            <div className="h-full bg-oak/60 rounded-full" style={{ width: `${pct}%` }} />
-          </div>
-        )}
-      </div>
-      <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${STATUS_COLOR[book.status]}`}>{STATUS_LABEL[book.status]}</span>
-      {showProgress && <span className="text-xs text-neutral-600 flex-shrink-0 tabular-nums w-8 text-right">{pct}%</span>}
-      {!showProgress && book.format && <span className="text-xs text-neutral-600 flex-shrink-0 capitalize w-16 text-right">{book.format}</span>}
-    </Link>
-  );
-}
-
 function getSaved() {
   try { return JSON.parse(sessionStorage.getItem(SESSION_KEY)) ?? {}; }
   catch { return {}; }
-}
-
-const EMPTY_FILTERS = {
-  missing:         [],
-  formats:         [],
-  ratings:         [],
-  publishers:      [],
-  sources:         [],
-  series:          [],
-  tags:            [],
-  owned:           null,
-  previouslyOwned: null,
-  custom:          null,
-  loved:           null,
-};
-
-function countFilters(f) {
-  return f.missing.length + f.formats.length + f.ratings.length +
-    f.publishers.length + f.sources.length + f.series.length + f.tags.length +
-    (f.owned !== null ? 1 : 0) + (f.previouslyOwned !== null ? 1 : 0) +
-    (f.custom !== null ? 1 : 0) + (f.loved !== null ? 1 : 0);
-}
-
-function pruneFilters(filters, facets) {
-  const fmtSet  = new Set(facets.formats);
-  const pubSet  = new Set(facets.publishers);
-  const srcSet  = new Set(facets.sources || []);
-  const serSet  = new Set(facets.series);
-  const rtSet   = new Set(facets.ratings.map(String));
-  const tagSet  = new Set(facets.tags);
-  return {
-    ...filters,
-    formats:    filters.formats.filter(f => f === 'empty' ? facets.hasEmptyFormat    : fmtSet.has(f)),
-    publishers: filters.publishers.filter(p => p === 'empty' ? facets.hasEmptyPublisher : pubSet.has(p)),
-    sources:    (filters.sources || []).filter(s => srcSet.has(s)),
-    series:     filters.series.filter(s => s === 'empty' ? facets.hasEmptySeries    : serSet.has(s)),
-    ratings:    filters.ratings.filter(r => r === 'empty' ? facets.hasEmptyRating    : rtSet.has(String(r))),
-    tags:       filters.tags.filter(t => tagSet.has(t)),
-  };
-}
-
-function buildApiParams(tab, sort, filters, q, offset) {
-  const p = { tab, sort, limit: PAGE_SIZE, offset };
-  if (q) p.q = q;
-  if (filters.missing.length)    p.missing        = filters.missing;
-  if (filters.formats.length)    p.formats        = filters.formats;
-  if (filters.sources?.length)   p.sources        = filters.sources;
-  if (filters.ratings.length)    p.ratings        = filters.ratings.map(String);
-  if (filters.publishers.length) p.publishers     = filters.publishers;
-  if (filters.series.length)     p.series         = filters.series;
-  if (filters.tags.length)       p.tags           = filters.tags;
-  if (filters.owned !== null)           p.owned           = String(filters.owned);
-  if (filters.previouslyOwned !== null) p.previouslyOwned = String(filters.previouslyOwned);
-  if (filters.custom !== null)          p.custom          = String(filters.custom);
-  if (filters.loved !== null)           p.loved           = String(filters.loved);
-  return p;
-}
-
-function buildDisplayItems(books, expandedSeries) {
-  const seriesGroups = new Map();
-  for (const book of books) {
-    if (book.series) {
-      if (!seriesGroups.has(book.series)) seriesGroups.set(book.series, []);
-      seriesGroups.get(book.series).push(book);
-    }
-  }
-  const seenSeries = new Set();
-  const items = [];
-  for (const book of books) {
-    if (book.series && seriesGroups.get(book.series).length > 1) {
-      if (!seenSeries.has(book.series)) {
-        seenSeries.add(book.series);
-        const groupBooks = seriesGroups.get(book.series);
-        items.push({ type: 'series', name: book.series, books: groupBooks });
-        if (expandedSeries.has(book.series)) {
-          for (const vol of sortVolumes(groupBooks)) {
-            items.push({ type: 'book', book: vol });
-          }
-        }
-      }
-    } else {
-      items.push({ type: 'book', book });
-    }
-  }
-  return items;
-}
-
-function sortVolumes(books) {
-  return [...books].sort((a, b) =>
-    (a.series_number ?? Infinity) - (b.series_number ?? Infinity) || sortTitle(a.title).localeCompare(sortTitle(b.title))
-  );
-}
-
-function SeriesCard({ seriesName, books, expanded, onToggle, compact }) {
-  const sorted = sortVolumes(books);
-  const statusCounts = books.reduce((acc, b) => {
-    acc[b.status] = (acc[b.status] || 0) + 1;
-    return acc;
-  }, {});
-  const statusParts = [
-    statusCounts.reading  && `${statusCounts.reading} reading`,
-    statusCounts.paused   && `${statusCounts.paused} paused`,
-    statusCounts.finished && `${statusCounts.finished} finished`,
-    statusCounts.unread   && `${statusCounts.unread} unread`,
-  ].filter(Boolean);
-
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className={`transition-[transform,background-color] ease-out duration-150 text-left w-full ${compact ? 'hover:opacity-80' : `bg-card rounded-lg p-2 pb-2.5 hover:-translate-y-0.5 ${expanded ? 'ring-1 ring-binding/40' : ''}`}`}
-    >
-      <div className={`relative aspect-[2/3] overflow-hidden ring-1 ring-white/5 ${compact ? 'rounded-sm' : 'mb-2.5 rounded shadow-xl'}`}>
-        {sorted.slice(0, 4).map((vol, i, arr) => {
-          const n = arr.length;
-          const leftPct = n === 1 ? 0 : (i * 45 / (n - 1));
-          const width = n === 1 ? '100%' : '55%';
-          return (
-            <div key={vol.id} className="absolute top-0 bottom-0 overflow-hidden" style={{ left: `${leftPct}%`, width }}>
-              {vol.cover_path ? (
-                <img src={vol.cover_path} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <div className="h-full w-full bg-gradient-to-br from-neutral-700 to-neutral-900 flex items-end p-2">
-                  {i === n - 1 && <span className="text-xs text-neutral-400 font-medium leading-tight line-clamp-4">{seriesName}</span>}
-                </div>
-              )}
-              {i > 0 && <div className="absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-black/50 to-transparent pointer-events-none" />}
-            </div>
-          );
-        })}
-        <div className="absolute top-1.5 right-1.5 bg-black/75 text-neutral-300 text-xs font-bold px-1.5 py-0.5 rounded backdrop-blur-sm leading-none">
-          {books.length}
-        </div>
-      </div>
-      {!compact && <>
-        <p className="text-sm font-medium text-neutral-200 truncate leading-tight" title={seriesName}>{seriesName}</p>
-        {sorted[0]?.authors?.length > 0 && <p className="text-xs text-neutral-500 truncate mt-0.5">{formatAuthors(sorted[0].authors)}</p>}
-        {statusParts.length > 0 && <p className="text-xs text-neutral-600 truncate mt-0.5">{statusParts.join(' · ')}</p>}
-      </>}
-    </button>
-  );
 }
 
 function FilterIcon() {
