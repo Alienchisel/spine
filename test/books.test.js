@@ -638,4 +638,37 @@ describe('books', () => {
       assert.equal(body.building_id, null);
     });
   });
+
+  // Path-traversal hardening for cover_path. The stored value must always be a
+  // bare safe filename, otherwise deleteLocalCover() (called on cover replace
+  // and book delete) could unlink files outside uploads/.
+  describe('cover_path path-traversal protection', () => {
+    it('rejects /uploads/.. escape attempts (stores null)', async () => {
+      const { body } = await req('POST', '/api/books', {
+        title: 'Sneaky', cover_path: '/uploads/../../etc/passwd',
+      });
+      assert.equal(body.cover_path, null);
+    });
+
+    it('rejects cover_path missing the /uploads/ prefix (stores null)', async () => {
+      const { body } = await req('POST', '/api/books', {
+        title: 'Bare path', cover_path: '../../etc/passwd',
+      });
+      assert.equal(body.cover_path, null);
+    });
+
+    it('rejects cover_path with a subdirectory under /uploads/ (stores null)', async () => {
+      const { body } = await req('POST', '/api/books', {
+        title: 'Subdir', cover_path: '/uploads/sub/dir/file.webp',
+      });
+      assert.equal(body.cover_path, null);
+    });
+
+    it('accepts a normal /uploads/<filename> and round-trips', async () => {
+      const { body } = await req('POST', '/api/books', {
+        title: 'Legit', cover_path: '/uploads/1234567890-abcdef.webp',
+      });
+      assert.equal(body.cover_path, '/uploads/1234567890-abcdef.webp');
+    });
+  });
 });
