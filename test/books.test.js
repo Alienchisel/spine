@@ -111,6 +111,36 @@ describe('books', () => {
       const b = await req('POST', '/api/books', { title: 'Year-month', acquisition_date: '1995-06' });
       assert.equal(b.status, 201);
     });
+
+    it('rejects negative, fractional, or non-numeric read_count', async () => {
+      // NaN and Infinity are out of scope: JSON.stringify drops them to null
+      // before they reach the server, so they can never be the validation target.
+      for (const bad of [-1, 1.5, 'abc']) {
+        const { status } = await req('POST', '/api/books', { title: 'X', read_count: bad });
+        assert.equal(status, 400, `expected 400 for read_count=${String(bad)}`);
+      }
+    });
+
+    it('PUT persists a valid read_count override', async () => {
+      // Creation always starts read_count at 0 (the column isn't in the POST
+      // writable set); PUT is the path that honours a manual override.
+      const { body: created } = await req('POST', '/api/books', { title: 'Counter' });
+      assert.equal(created.read_count, 0);
+      const { body: updated } = await req('PUT', `/api/books/${created.id}`, {
+        ...created, read_count: 3, tags: [],
+      });
+      assert.equal(updated.read_count, 3);
+    });
+
+    it('rejects bad read_count on PUT (does not corrupt stored value)', async () => {
+      const { body: created } = await req('POST', '/api/books', { title: 'Read counter' });
+      const { status } = await req('PUT', `/api/books/${created.id}`, {
+        ...created, read_count: -2, tags: [],
+      });
+      assert.equal(status, 400);
+      const { body: refetched } = await req('GET', `/api/books/${created.id}`);
+      assert.equal(refetched.read_count, 0);
+    });
   });
 
   describe('GET /api/books/:id', () => {
