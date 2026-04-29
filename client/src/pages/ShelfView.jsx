@@ -296,8 +296,17 @@ export default function ShelfView() {
         ) : (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={books.map(b => b.id)} strategy={horizontalListSortingStrategy}>
-              <div className="flex gap-4 overflow-x-auto pb-6 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-track]:bg-neutral-800 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-neutral-600 [&::-webkit-scrollbar-thumb]:rounded-full">
-                {books.map(book => <SortableShelfCover key={book.id} book={book} />)}
+              <div className="-mx-4 sm:-mx-6 lg:-mx-8">
+                <div className="flex gap-4 overflow-x-auto pb-2 px-4 sm:px-6 lg:px-8 [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-track]:bg-neutral-800 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-neutral-600 [&::-webkit-scrollbar-thumb]:rounded-full">
+                  {books.map(book => <SortableShelfCover key={book.id} book={book} />)}
+                </div>
+                {/* Wood plank the books rest on. Top hairline = light catching
+                    the front edge; bottom hairline = the underside of the plank
+                    in shadow. Box-shadow casts onto the page below. */}
+                <div className="wood-shelf relative h-3 mx-4 sm:mx-6 lg:mx-8 rounded-sm shadow-[0_4px_8px_-3px_rgba(0,0,0,0.55)]">
+                  <div className="absolute inset-x-0 top-0 h-px bg-leather/15" />
+                  <div className="absolute inset-x-0 bottom-0 h-px bg-black/45" />
+                </div>
               </div>
             </SortableContext>
           </DndContext>

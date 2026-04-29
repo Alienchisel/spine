@@ -90,7 +90,7 @@ export default function FilterPanel({ facets, filters, onChange }) {
 
   return (
     <div className="space-y-3 pt-4 pb-3 border-t border-neutral-800/60">
-      <FilterSection label="Missing" active={filters.missing.length > 0}>
+      <FilterSection key="missing" label="Missing" active={filters.missing.length > 0}>
         {MISSING_FIELDS.map(f => (
           <button key={f.key} type="button"
             onClick={() => toggle('missing', f.key)}
@@ -101,7 +101,7 @@ export default function FilterPanel({ facets, filters, onChange }) {
       </FilterSection>
 
       {(formats.length > 0 || hasEmptyFormat) && (
-        <FilterSection label="Format" active={filters.formats.length > 0}>
+        <FilterSection key="format" label="Format" active={filters.formats.length > 0}>
           {hasEmptyFormat && (
             <button type="button" onClick={() => toggle('formats', 'empty')}
               className={pill(filters.formats.includes('empty'))}>—</button>
@@ -116,7 +116,7 @@ export default function FilterPanel({ facets, filters, onChange }) {
       )}
 
       {(ratings.length > 0 || hasEmptyRating) && (
-        <FilterSection label="Rating" active={filters.ratings.length > 0}>
+        <FilterSection key="rating" label="Rating" active={filters.ratings.length > 0}>
           {hasEmptyRating && (
             <button type="button" onClick={() => toggle('ratings', 'empty')}
               className={pill(filters.ratings.includes('empty'))}>—</button>
@@ -131,7 +131,7 @@ export default function FilterPanel({ facets, filters, onChange }) {
       )}
 
       {(publishers.length > 0 || hasEmptyPublisher) && (
-        <FilterSection label="Publisher" defaultOpen={false} active={filters.publishers.length > 0}>
+        <FilterSection key="publisher" label="Publisher" defaultOpen={false} active={filters.publishers.length > 0}>
           {hasEmptyPublisher && (
             <button type="button" onClick={() => toggle('publishers', 'empty')}
               className={pill(filters.publishers.includes('empty'))}>—</button>
@@ -146,7 +146,7 @@ export default function FilterPanel({ facets, filters, onChange }) {
       )}
 
       {(facets.sources?.length > 0) && (
-        <FilterSection label="Source" defaultOpen={false} active={(filters.sources || []).length > 0}>
+        <FilterSection key="source" label="Source" defaultOpen={false} active={(filters.sources || []).length > 0}>
           {facets.sources.map(s => (
             <button key={s} type="button" onClick={() => toggle('sources', s)}
               className={pill((filters.sources || []).includes(s))}>
@@ -157,7 +157,7 @@ export default function FilterPanel({ facets, filters, onChange }) {
       )}
 
       {(seriesVals.length > 0 || hasEmptySeries) && (
-        <FilterSection label="Series" defaultOpen={false} active={filters.series.length > 0}>
+        <FilterSection key="series" label="Series" defaultOpen={false} active={filters.series.length > 0}>
           {hasEmptySeries && (
             <button type="button" onClick={() => toggle('series', 'empty')}
               className={pill(filters.series.includes('empty'))}>—</button>
@@ -172,7 +172,7 @@ export default function FilterPanel({ facets, filters, onChange }) {
       )}
 
       {tags.length > 0 && (
-        <FilterSection label="Tags" active={filters.tags.length > 0}>
+        <FilterSection key="tags" label="Tags" active={filters.tags.length > 0}>
           {tags.map(t => (
             <button key={t} type="button" onClick={() => toggle('tags', t)}
               className={pill(filters.tags.includes(t))}>
@@ -182,7 +182,7 @@ export default function FilterPanel({ facets, filters, onChange }) {
         </FilterSection>
       )}
 
-      <FilterSection label="Owned" defaultOpen={false} active={filters.owned !== null || filters.previouslyOwned !== null}>
+      <FilterSection key="owned" label="Owned" defaultOpen={false} active={filters.owned !== null || filters.previouslyOwned !== null}>
         <button type="button" onClick={() => toggleOwned(true)}
           className={pill(filters.owned === true)}>Owned</button>
         <button type="button" onClick={() => toggleOwned(false)}
@@ -191,14 +191,14 @@ export default function FilterPanel({ facets, filters, onChange }) {
           className={pill(filters.previouslyOwned === true)}>Previously owned</button>
       </FilterSection>
 
-      <FilterSection label="Type" defaultOpen={false} active={filters.custom !== null}>
+      <FilterSection key="type" label="Type" defaultOpen={false} active={filters.custom !== null}>
         <button type="button" onClick={() => toggleCustom(true)}
           className={pill(filters.custom === true)}>✦ Custom</button>
         <button type="button" onClick={() => toggleCustom(false)}
           className={pill(filters.custom === false)}>Standard</button>
       </FilterSection>
 
-      <FilterSection label="Loved" defaultOpen={false} active={filters.loved !== null}>
+      <FilterSection key="loved" label="Loved" defaultOpen={false} active={filters.loved !== null}>
         <button type="button" onClick={() => toggleLoved(true)}
           className={pill(filters.loved === true)}>♥ Loved</button>
         <button type="button" onClick={() => toggleLoved(false)}

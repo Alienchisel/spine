@@ -40,3 +40,29 @@
     filter: invert(0.5);
   }
 }
+
+@layer components {
+  /* Skeuomorphic wood plank used as the visible "shelf surface" beneath the
+     books on the shelf-level view. Two layered grain repeats (a fine 5px stripe
+     plus a sparser 17px stripe) over a darkened oak vertical gradient. The
+     calling component adds a top highlight + bottom darkening for plank depth
+     and a soft cast shadow underneath. */
+  .wood-shelf {
+    background:
+      repeating-linear-gradient(
+        90deg,
+        rgba(40, 20, 5, 0.12) 0px,
+        rgba(40, 20, 5, 0.12) 1px,
+        transparent 1px,
+        transparent 5px
+      ),
+      repeating-linear-gradient(
+        90deg,
+        rgba(20, 8, 0, 0.20) 0px,
+        rgba(20, 8, 0, 0.20) 1px,
+        transparent 1px,
+        transparent 17px
+      ),
+      linear-gradient(180deg, rgb(85, 60, 35) 0%, rgb(55, 40, 22) 100%);
+  }
+}
