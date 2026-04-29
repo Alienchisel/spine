@@ -130,7 +130,7 @@ export default function BookDetail() {
 
       <div className="flex gap-8 sm:gap-10">
         <div className="flex-shrink-0 sticky top-[4.5rem] self-start">
-          <div className={`w-[230px] ${book.format === 'audiobook' ? 'h-[230px]' : 'h-[345px]'} bg-neutral-800 rounded overflow-hidden shadow-2xl ring-1 ring-white/5`}>
+          <div className={`relative w-[230px] ${book.format === 'audiobook' ? 'h-[230px]' : 'h-[345px]'} bg-neutral-800 rounded overflow-hidden shadow-2xl ring-1 ring-white/5`}>
             {book.cover_path ? (
               <img src={book.cover_path} alt={book.title} className="w-full h-full object-cover" />
             ) : (
@@ -141,6 +141,9 @@ export default function BookDetail() {
                 <span className="text-xs text-neutral-500 font-medium leading-tight text-center">{book.title}</span>
               </div>
             )}
+            {/* Spine-hinge highlight: faint light catching the leftmost edge,
+                suggesting the cover curves slightly toward an unseen spine. */}
+            <div className="pointer-events-none absolute inset-y-0 left-0 w-1.5 bg-gradient-to-r from-white/15 to-transparent" />
           </div>
 
           <div className="mt-3 border border-neutral-800 rounded-lg overflow-hidden">

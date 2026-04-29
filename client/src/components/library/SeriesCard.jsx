@@ -20,7 +20,7 @@ export default function SeriesCard({ seriesName, books, expanded, onToggle, comp
       onClick={onToggle}
       className={`transition-[transform,background-color] ease-out duration-150 text-left w-full ${compact ? 'hover:opacity-80' : `bg-card rounded-lg p-2 pb-2.5 hover:-translate-y-0.5 ${expanded ? 'ring-1 ring-binding/40' : ''}`}`}
     >
-      <div className={`relative aspect-[2/3] overflow-hidden ring-1 ring-white/5 ${compact ? 'rounded-sm' : 'mb-2.5 rounded shadow-xl'}`}>
+      <div className={`relative aspect-[2/3] overflow-hidden ring-1 ring-white/5 ${compact ? 'rounded-sm' : 'mb-2.5 rounded shadow-[0_10px_20px_-5px_rgba(0,0,0,0.55),0_4px_8px_-2px_rgba(0,0,0,0.35)]'}`}>
         {sorted.slice(0, 4).map((vol, i, arr) => {
           const n = arr.length;
           const leftPct = n === 1 ? 0 : (i * 45 / (n - 1));
@@ -34,7 +34,16 @@ export default function SeriesCard({ seriesName, books, expanded, onToggle, comp
                   {i === n - 1 && <span className="text-xs text-neutral-400 font-medium leading-tight line-clamp-4">{seriesName}</span>}
                 </div>
               )}
-              {i > 0 && <div className="absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-black/50 to-transparent pointer-events-none" />}
+              {i > 0 && (
+                <>
+                  {/* Depth shadow cast by the cover in front of this one. */}
+                  <div className="absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-black/50 to-transparent pointer-events-none" />
+                  {/* Hairline spine sliver — leather-toned warmth at the very
+                      leftmost edge, suggesting the binding of the book behind
+                      is just barely visible. */}
+                  <div className="absolute inset-y-0 left-0 w-px bg-binding/80 pointer-events-none" />
+                </>
+              )}
             </div>
           );
         })}
