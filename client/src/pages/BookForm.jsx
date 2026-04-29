@@ -1,103 +1,15 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../api.js';
-import { realTagNames } from '../utils.js';
-import StarRating from '../components/StarRating.jsx';
-import ShelfPicker from '../components/ShelfPicker.jsx';
-
-const EMPTY = {
-  title: '',
-  authors: [],
-  status: 'unread',
-  owned: false,
-  previously_owned: false,
-  shelf_id: null,
-  building_id: null,
-  room_id: null,
-  unit_id: null,
-  is_custom: false,
-  fiction: null,
-  source_type: '',
-  rating: null,
-  date_started: '',
-  date_finished: '',
-  language: 'English',
-  original_language: '',
-  translator: '',
-  publisher: '',
-  series: '',
-  series_number: '',
-  acquisition_source: '',
-  acquisition_date: '',
-  year_published: '',
-  year_approximate: false,
-  year_edition: '',
-  isbn_10: '',
-  isbn_13: '',
-  asin: '',
-  format: '',
-  binding: '',
-  condition: '',
-  page_count: '',
-  current_page: '',
-  duration_minutes: '',
-  narrators: [],
-  description: '',
-  notes: '',
-  review: '',
-  read_count: 0,
-  tags: [],
-  cover_path: null,
-};
-
-const CONDITION_GRADES = [
-  { grade: 'New',       desc: 'Unread, no defects whatsoever' },
-  { grade: 'Fine',      desc: 'Like new, imperceptible wear' },
-  { grade: 'Very Good', desc: 'Minor wear, no damage' },
-  { grade: 'Good',      desc: 'Average used copy, visible wear' },
-  { grade: 'Fair',      desc: 'Heavily worn but complete and readable' },
-  { grade: 'Poor',      desc: 'Damaged; may have writing or missing pages' },
-];
-
-function ConditionGuide() {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function handleMouseDown(e) {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-    }
-    document.addEventListener('mousedown', handleMouseDown);
-    return () => document.removeEventListener('mousedown', handleMouseDown);
-  }, [open]);
-
-  return (
-    <div ref={ref} className="relative inline-flex">
-      <button
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        className={`w-4 h-4 rounded-full border text-xs leading-none flex items-center justify-center transition-colors ${
-          open
-            ? 'border-oak/60 text-oak'
-            : 'border-neutral-600 text-neutral-500 hover:border-neutral-400 hover:text-neutral-300'
-        }`}
-      >
-        ?
-      </button>
-      {open && (
-        <div className="absolute left-0 top-6 z-20 w-64 bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl p-3 space-y-2.5">
-          {CONDITION_GRADES.map(({ grade, desc }) => (
-            <div key={grade} className="flex gap-2.5">
-              <span className="text-xs font-semibold text-neutral-300 w-20 flex-shrink-0">{grade}</span>
-              <span className="text-xs text-neutral-500 leading-relaxed">{desc}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
+import { EMPTY, VIRTUAL_TAG_NAMES } from '../components/bookForm/defaults.js';
+import { bookToFormState, formStateToPayload } from '../components/bookForm/mapping.js';
+import { input, inputFilled } from '../components/bookForm/styles.js';
+import LookupPanel from '../components/bookForm/LookupPanel.jsx';
+import CoverPicker from '../components/bookForm/CoverPicker.jsx';
+import CoreFields from '../components/bookForm/CoreFields.jsx';
+import DetailsFields from '../components/bookForm/DetailsFields.jsx';
+import AcquisitionFields from '../components/bookForm/AcquisitionFields.jsx';
+import PersonalFields from '../components/bookForm/PersonalFields.jsx';
 
 const TABS = [
   { key: 'core',        label: 'Core' },
@@ -130,15 +42,9 @@ export default function BookForm() {
   const [pastLanguages, setPastLanguages] = useState([]);
   const [pastTags, setPastTags] = useState([]);
   const [shelfTree, setShelfTree] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [searching, setSearching] = useState(false);
-  const [lookupResults, setLookupResults] = useState([]);
-  const [lookupSearching, setLookupSearching] = useState(false);
   const [filledByLookup, setFilledByLookup] = useState(new Set());
   const [durationH, setDurationH] = useState('');
   const [durationM, setDurationM] = useState('');
-  const searchTimeout = useRef(null);
 
   useEffect(() => {
     api.getShelfTree().then(setShelfTree).catch(() => {});
@@ -153,57 +59,14 @@ export default function BookForm() {
       setPastTranslators(f.translators || []);
       setPastNarrators(f.narrators || []);
       setPastLanguages(f.languages || []);
-      setPastTags(f.tags?.filter(t => !['Antique','Vintage','Translated','Re-read','Long','Short'].includes(t)) || []);
+      setPastTags(f.tags?.filter(t => !VIRTUAL_TAG_NAMES.includes(t)) || []);
     });
   }, []);
 
   useEffect(() => {
     if (!isEdit) return;
     api.getBook(id).then((book) => {
-      setForm({
-        title: book.title,
-        authors: book.authors?.map(a => a.name) || [],
-        status: book.status,
-        owned: Boolean(book.owned),
-        previously_owned: Boolean(book.previously_owned),
-        shelf_id: book.shelf_id ?? null,
-        building_id: book.building_id ?? null,
-        room_id: book.room_id ?? null,
-        unit_id: book.unit_id ?? null,
-        is_custom: Boolean(book.is_custom),
-        fiction: book.fiction === null || book.fiction === undefined ? null : Boolean(book.fiction),
-        source_type: book.source_type || '',
-        rating: book.rating ?? null,
-        date_started: book.date_started || '',
-        date_finished: book.date_finished || '',
-        language: book.language || 'English',
-        original_language: book.original_language || '',
-        translator: book.translator || '',
-        publisher: book.publisher || '',
-        series: book.series || '',
-        series_number: book.series_number ?? '',
-        acquisition_source: book.acquisition_source || '',
-        acquisition_date: book.acquisition_date || '',
-        isbn_10: book.isbn_10 || '',
-        isbn_13: book.isbn_13 || '',
-        asin: book.asin || '',
-        year_published: book.year_published ?? '',
-        year_approximate: Boolean(book.year_approximate),
-        year_edition: book.year_edition ?? '',
-        description: book.description || '',
-        format: book.format || '',
-        binding: book.binding || '',
-        condition: book.condition || '',
-        page_count: book.page_count ?? '',
-        current_page: book.current_page ?? '',
-        duration_minutes: book.duration_minutes ?? '',
-        narrators: book.narrators?.map(n => n.name) || [],
-        notes: book.notes || '',
-        review: book.review || '',
-        read_count: book.read_count || 0,
-        tags: realTagNames(book.tags),
-        cover_path: book.cover_path || null,
-      });
+      setForm(bookToFormState(book));
       if (book.duration_minutes) {
         setDurationH(String(Math.floor(book.duration_minutes / 60)));
         setDurationM(String(book.duration_minutes % 60));
@@ -217,29 +80,16 @@ export default function BookForm() {
     setFilledByLookup(s => { if (!s.has(field)) return s; const n = new Set(s); n.delete(field); return n; });
   }
 
-  function handleSearchInput(e) {
-    const q = e.target.value;
-    setSearchQuery(q);
-    setSearchResults([]);
-    clearTimeout(searchTimeout.current);
-    if (!q.trim()) return;
-    searchTimeout.current = setTimeout(async () => {
-      setSearching(true);
-      try { setSearchResults(await api.searchBooks(q)); }
-      finally { setSearching(false); }
-    }, 400);
-  }
-
   async function applyResult(result) {
     const { description } = result.key ? await api.fetchBookDescription(result.key).catch(() => ({ description: null })) : { description: null };
     const filled = new Set();
-    if (result.title)          filled.add('title');
+    if (result.title)           filled.add('title');
     if (result.authors?.length) filled.add('authors');
-    if (result.publisher)      filled.add('publisher');
-    if (result.page_count) filled.add('page_count');
-    if (result.isbn_10)   filled.add('isbn_10');
-    if (result.isbn_13)   filled.add('isbn_13');
-    if (description)      filled.add('description');
+    if (result.publisher)       filled.add('publisher');
+    if (result.page_count)      filled.add('page_count');
+    if (result.isbn_10)         filled.add('isbn_10');
+    if (result.isbn_13)         filled.add('isbn_13');
+    if (description)            filled.add('description');
     setFilledByLookup(filled);
     setForm(f => ({
       ...f,
@@ -251,8 +101,6 @@ export default function BookForm() {
       isbn_13: result.isbn_13 || f.isbn_13,
       description: description || f.description,
     }));
-    setSearchQuery('');
-    setSearchResults([]);
     if (result.cover_url) {
       setCoverPreview(result.cover_url);
       try {
@@ -262,50 +110,6 @@ export default function BookForm() {
       } catch {
         // preview stays as external URL but cover_path stays empty — external URLs
         // can't be stored as filenames and would break display via toCoverUrl()
-      }
-    }
-  }
-
-  async function handleLookup() {
-    const query = [form.title, form.authors[0]].filter(Boolean).join(' ');
-    if (!query.trim()) return;
-    setLookupSearching(true);
-    setLookupResults([]);
-    try { setLookupResults(await api.searchBooks(query)); }
-    finally { setLookupSearching(false); }
-  }
-
-  async function applyLookupResult(result) {
-    const hasCover = Boolean(form.cover_path);
-    const { description } = result.key ? await api.fetchBookDescription(result.key).catch(() => ({ description: null })) : { description: null };
-    const filled = new Set();
-    if (!form.title         && result.title)          filled.add('title');
-    if (!form.authors.length && result.authors?.length) filled.add('authors');
-    if (!form.publisher   && result.publisher)  filled.add('publisher');
-    if (!form.page_count  && result.page_count) filled.add('page_count');
-    if (!form.isbn_10     && result.isbn_10)    filled.add('isbn_10');
-    if (!form.isbn_13     && result.isbn_13)    filled.add('isbn_13');
-    if (!form.description && description)       filled.add('description');
-    setFilledByLookup(filled);
-    setForm(f => ({
-      ...f,
-      title:     f.title   || result.title   || '',
-      authors:   f.authors.length ? f.authors : (result.authors || []),
-      publisher: f.publisher || result.publisher || '',
-      page_count:  f.page_count  || result.page_count  || '',
-      isbn_10:     f.isbn_10     || result.isbn_10     || '',
-      isbn_13:     f.isbn_13     || result.isbn_13     || '',
-      description: f.description || description        || '',
-    }));
-    setLookupResults([]);
-    if (result.cover_url && !hasCover) {
-      setCoverPreview(result.cover_url);
-      try {
-        const { path } = await api.fetchCover(result.cover_url);
-        setCoverPreview(path);
-        set('cover_path', path);
-      } catch {
-        // same as above — don't store an external URL that toCoverUrl() would mangle
       }
     }
   }
@@ -398,59 +202,13 @@ export default function BookForm() {
     return () => window.removeEventListener('paste', handlePaste);
   }, []);
 
-  function addTag(e) {
-    if (e.key !== 'Enter' && e.key !== ',') return;
-    e.preventDefault();
-    const tag = tagInput.trim().replace(/,$/, '');
-    if (tag && !form.tags.includes(tag)) set('tags', [...form.tags, tag]);
-    setTagInput('');
-  }
-
-  function addNarrator(e) {
-    if (e.key !== 'Enter' && e.key !== ',') return;
-    e.preventDefault();
-    const name = narratorInput.trim().replace(/,$/, '');
-    if (name && !form.narrators.includes(name)) set('narrators', [...form.narrators, name]);
-    setNarratorInput('');
-  }
-
-  function addAuthor(e) {
-    if (e.key !== 'Enter' && e.key !== ',') return;
-    e.preventDefault();
-    const name = authorInput.trim().replace(/,$/, '');
-    if (name && !form.authors.includes(name)) set('authors', [...form.authors, name]);
-    setAuthorInput('');
-  }
-
   async function handleSubmit(e) {
     e.preventDefault();
     if (!form.title.trim()) { setActiveTab('core'); return; }
     setSaving(true);
     setError(null);
-    const pendingTag = tagInput.trim().replace(/,$/, '');
-    const tags = pendingTag && !form.tags.includes(pendingTag) ? [...form.tags, pendingTag] : form.tags;
-    const pendingNarrator = narratorInput.trim().replace(/,$/, '');
-    const narrators = pendingNarrator && !form.narrators.includes(pendingNarrator) ? [...form.narrators, pendingNarrator] : form.narrators;
-    const pendingAuthor = authorInput.trim().replace(/,$/, '');
-    const authors = pendingAuthor && !form.authors.includes(pendingAuthor) ? [...form.authors, pendingAuthor] : form.authors;
     try {
-      const payload = {
-        ...form,
-        tags,
-        narrators,
-        authors,
-        title: form.title.trim(),
-        date_started: form.date_started || null,
-        date_finished: form.date_finished || null,
-        acquisition_source: form.acquisition_source || null,
-        notes: form.notes || null,
-        page_count: form.page_count ? parseInt(form.page_count) : null,
-        duration_minutes: form.duration_minutes ? parseInt(form.duration_minutes) : null,
-        year_published: form.year_published ? parseInt(form.year_published) : null,
-        year_edition: form.year_edition ? parseInt(form.year_edition) : null,
-        year_approximate: form.year_edition ? form.year_approximate : false,
-        series_number: form.series_number !== '' ? parseFloat(form.series_number) : null,
-      };
+      const payload = formStateToPayload(form, { tagInput, narratorInput, authorInput });
       if (isEdit) {
         await api.updateBook(id, payload);
         navigate(`/books/${id}`);
@@ -464,10 +222,6 @@ export default function BookForm() {
     }
   }
 
-  const input = 'w-full bg-neutral-800 border border-neutral-700 rounded-md px-3 py-2.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 transition-colors duration-150';
-  const inputFilled = 'w-full bg-neutral-800 border border-oak/40 ring-1 ring-oak/15 rounded-md px-3 py-2.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-oak/50 focus:ring-2 focus:ring-oak/20 transition-colors duration-150';
-  const inputNoWidth = 'bg-neutral-800 border border-neutral-700 rounded-md px-3 py-2.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 transition-colors duration-150';
-  const label = 'block text-xs font-semibold text-neutral-500 mb-1.5 uppercase tracking-wider';
   const ic = (field) => filledByLookup.has(field) ? inputFilled : input;
 
   return (
@@ -482,70 +236,21 @@ export default function BookForm() {
         {isEdit ? 'Edit book' : 'Add book'}
       </h1>
 
-      {!isEdit && (
-        <div className="relative mb-8">
-          <input
-            type="search"
-            value={searchQuery}
-            onChange={handleSearchInput}
-            placeholder="Search Open Library to auto-fill…"
-            className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2.5 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-oak/60 focus:ring-1 focus:ring-oak/25 transition-colors duration-150"
-          />
-          {searching && <p className="absolute right-3 top-2.5 text-xs text-neutral-600">Searching…</p>}
-          {searchResults.length > 0 && (
-            <ul className="absolute z-10 w-full mt-1 bg-neutral-900 border border-neutral-700 rounded-lg overflow-hidden shadow-xl">
-              {searchResults.map((r) => (
-                <li key={r.key}>
-                  <button type="button" onClick={() => applyResult(r)}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-neutral-800 transition-colors">
-                    {r.cover_url
-                      ? <img src={r.cover_url} alt="" className="w-8 h-12 object-cover rounded flex-shrink-0" />
-                      : <div className="w-8 h-12 bg-neutral-800 rounded flex-shrink-0" />}
-                    <div className="min-w-0">
-                      <p className="text-sm text-white truncate" title={r.title}>{r.title}</p>
-                      {r.authors?.length > 0 && <p className="text-xs text-neutral-500 truncate">{r.authors.join(', ')}</p>}
-                      {r.publisher && <p className="text-xs text-neutral-600 truncate">{r.publisher}</p>}
-                    </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
+      {!isEdit && <LookupPanel onApply={applyResult} />}
 
       <div className="flex gap-8 items-start">
-        {/* Cover sidebar */}
-        <div className="w-44 sm:w-52 flex-shrink-0 sticky top-20">
-          <p className={label}>Cover</p>
-          <div className={`${form.format === 'audiobook' ? 'aspect-square' : 'aspect-[2/3]'} bg-neutral-800 rounded overflow-hidden ring-1 ring-white/5 mb-3`}>
-            {coverPreview
-              ? <img src={coverPreview} alt="Preview" className="w-full h-full object-cover" />
-              : <div className="w-full h-full" />}
-          </div>
-          <label className="cursor-pointer block text-center text-xs text-neutral-500 hover:text-neutral-200 border border-dashed border-neutral-700 hover:border-neutral-500 rounded-md px-2 py-2 transition-colors">
-            {uploading ? 'Uploading…' : coverPreview ? 'Change' : 'Choose image'}
-            <span className="block text-neutral-600 mt-0.5">or paste</span>
-            <input type="file" accept="image/*" className="hidden" onChange={(e) => { if (e.target.files[0]) uploadFile(e.target.files[0]); }} />
-          </label>
-          {coverError && (
-            <p className="mt-2 text-xs text-warn text-center">{coverError}</p>
-          )}
-          {isEdit && (form.isbn_13 || form.isbn_10) && (
-            <button
-              type="button"
-              onClick={fetchCoverFromIsbn}
-              disabled={fetchingCover}
-              className="mt-2 w-full text-center text-xs text-neutral-600 hover:text-neutral-400 transition-colors disabled:opacity-50"
-            >
-              {fetchingCover ? 'Fetching…' : 'Fetch from ISBN'}
-            </button>
-          )}
-        </div>
+        <CoverPicker
+          format={form.format}
+          coverPreview={coverPreview}
+          uploading={uploading}
+          coverError={coverError}
+          showFetchFromIsbn={isEdit && Boolean(form.isbn_13 || form.isbn_10)}
+          fetchingCover={fetchingCover}
+          onFileSelected={uploadFile}
+          onFetchFromIsbn={fetchCoverFromIsbn}
+        />
 
-        {/* Tabs + form */}
         <div className="flex-1 min-w-0">
-          {/* Tab nav */}
           <div className="flex gap-6 border-b border-neutral-800 mb-7">
             {TABS.map(t => (
               <button
@@ -564,536 +269,37 @@ export default function BookForm() {
           </div>
 
           <form id="book-form" onSubmit={handleSubmit} className="pb-20">
-            {/* ── Core ── */}
             {activeTab === 'core' && (
-              <div className="space-y-6">
-                <div>
-                  <label className={label}>Format</label>
-                  <select className={input} value={form.format}
-                    onChange={(e) => {
-                      const f = e.target.value;
-                      setForm(prev => ({
-                        ...prev, format: f,
-                        binding: f === 'physical' ? prev.binding : '',
-                        condition: f === 'physical' ? prev.condition : '',
-                        page_count: f === 'audiobook' ? '' : prev.page_count,
-                        duration_minutes: f !== 'audiobook' ? '' : prev.duration_minutes,
-                        shelf_id: f === 'physical' ? prev.shelf_id : null,
-                        building_id: f === 'physical' ? prev.building_id : null,
-                        room_id: f === 'physical' ? prev.room_id : null,
-                        unit_id: f === 'physical' ? prev.unit_id : null,
-                      }));
-                      if (f !== 'audiobook') { setDurationH(''); setDurationM(''); }
-                    }}>
-                    <option value="">—</option>
-                    <option value="physical">Physical</option>
-                    <option value="ebook">Digital</option>
-                    <option value="audiobook">Audiobook</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className={label}>Title *</label>
-                  <input className={ic('title')} value={form.title}
-                    onChange={(e) => set('title', e.target.value)}
-                    placeholder="Book title" required autoFocus={!isEdit} />
-                </div>
-
-                <div>
-                  <label className={label}>Authors</label>
-                  {form.authors.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mb-2">
-                      {form.authors.map((a) => (
-                        <span key={a} className="flex items-center gap-1 text-xs bg-neutral-800 text-neutral-300 px-2.5 py-1 rounded-full">
-                          {a}
-                          <button type="button" onClick={() => set('authors', form.authors.filter(x => x !== a))}
-                            className="text-neutral-500 hover:text-white leading-none ml-0.5">×</button>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  <input className={ic('authors')} list="authors-list" value={authorInput}
-                    onChange={(e) => setAuthorInput(e.target.value)} onKeyDown={addAuthor}
-                    placeholder="Type a name, press Enter or comma to add" />
-                  <datalist id="authors-list">
-                    {pastAuthors.filter(a => !form.authors.includes(a)).map(a => <option key={a} value={a} />)}
-                  </datalist>
-                </div>
-
-                <div>
-                  <label className={label}>Fiction / Non-fiction</label>
-                  <select className={input} value={form.fiction === null ? '' : String(form.fiction)}
-                    onChange={e => {
-                      const val = e.target.value === '' ? null : e.target.value === 'true';
-                      setForm(f => ({ ...f, fiction: val, source_type: val === false ? f.source_type : '' }));
-                    }}>
-                    <option value="">—</option>
-                    <option value="true">Fiction</option>
-                    <option value="false">Non-fiction</option>
-                  </select>
-                </div>
-
-                {form.fiction === false && (
-                  <div>
-                    <label className={label}>Source</label>
-                    <select className={input} value={form.source_type}
-                      onChange={e => set('source_type', e.target.value)}>
-                      <option value="">—</option>
-                      <option value="primary">Primary source</option>
-                      <option value="secondary">Secondary source</option>
-                    </select>
-                  </div>
-                )}
-
-                <div>
-                  <label className={label}>Series</label>
-                  <div className="flex gap-2">
-                    <div className="flex-1">
-                      <input className={input} list="series-list" value={form.series}
-                        onChange={(e) => set('series', e.target.value)}
-                        placeholder="e.g. The Wheel of Time…" />
-                      <datalist id="series-list">
-                        {pastSeries.map(s => <option key={s} value={s} />)}
-                      </datalist>
-                    </div>
-                    {form.series && (
-                      <div className="w-24">
-                        <input
-                          type="number" min="0" step="0.5"
-                          className={`${input} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
-                          value={form.series_number}
-                          onChange={(e) => set('series_number', e.target.value)}
-                          placeholder="#" />
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Lookup button temporarily disabled — UX TBD
-                {(form.title || form.author) && (
-                  <div className="relative">
-                    ...
-                  </div>
-                )}
-                */}
-
-                <div>
-                  <label className={label}>Status</label>
-                  <select className={input} value={form.status}
-                    onChange={(e) => {
-                      const s = e.target.value;
-                      const today = new Date().toISOString().slice(0, 10);
-                      setForm(f => ({
-                        ...f,
-                        status: s,
-                        read_count: s === 'finished' && f.read_count === 0 ? 1 : f.read_count,
-                        date_started: s === 'reading' && !f.date_started ? today : f.date_started,
-                        date_finished: s === 'finished' && !f.date_finished ? today : f.date_finished,
-                      }));
-                    }}>
-                    <option value="unread">Unread</option>
-                    <option value="reading">Reading</option>
-                    <option value="paused">Paused</option>
-                    <option value="finished">Finished</option>
-                  </select>
-                </div>
-
-                {(form.status === 'reading' || form.status === 'paused' || form.status === 'finished') && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className={label}>Date started</label>
-                      <input type="date" className={input} value={form.date_started}
-                        onChange={(e) => set('date_started', e.target.value)} />
-                    </div>
-                    {form.status === 'finished' && (
-                      <div>
-                        <label className={label}>Date finished</label>
-                        <input type="date" className={input} value={form.date_finished}
-                          onChange={(e) => set('date_finished', e.target.value)} />
-                      </div>
-                    )}
-                    {(form.status === 'finished' || form.read_count > 0) && (
-                      <div>
-                        <label className={label}>Times read</label>
-                        <input type="number" min="0" className={input} value={form.read_count}
-                          onChange={(e) => set('read_count', parseInt(e.target.value) || 0)} />
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {form.format === 'physical' && (
-                  <>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className={label}>Binding</label>
-                        <select className={input} value={form.binding}
-                          onChange={(e) => set('binding', e.target.value)}>
-                          <option value="">—</option>
-                          <option value="paperback">Paperback</option>
-                          <option value="hardcover">Hardcover</option>
-                        </select>
-                      </div>
-                      {(form.owned || form.previously_owned) && (
-                        <div>
-                          <div className="flex items-center gap-1.5 mb-1.5">
-                            <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Condition</span>
-                            <ConditionGuide />
-                          </div>
-                          <select className={input} value={form.condition}
-                            onChange={(e) => set('condition', e.target.value)}>
-                            <option value="">—</option>
-                            <option value="new">New</option>
-                            <option value="fine">Fine</option>
-                            <option value="very good">Very Good</option>
-                            <option value="good">Good</option>
-                            <option value="fair">Fair</option>
-                            <option value="poor">Poor</option>
-                          </select>
-                        </div>
-                      )}
-                    </div>
-                    <div>
-                      <label className={label}>Page count</label>
-                      <input type="number" min="1" max="99999" className={ic('page_count')}
-                        value={form.page_count} onChange={(e) => set('page_count', e.target.value)}
-                        placeholder="e.g. 342" />
-                    </div>
-                  </>
-                )}
-
-                {form.format === 'ebook' && (
-                  <div>
-                    <label className={label}>Page count</label>
-                    <input type="number" min="1" max="99999" className={ic('page_count')}
-                      value={form.page_count} onChange={(e) => set('page_count', e.target.value)}
-                      placeholder="e.g. 342" />
-                  </div>
-                )}
-
-                {form.format === 'audiobook' && (
-                  <>
-                    <div>
-                      <label className={label}>Duration</label>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="number" min="0" max="999"
-                          className={`${inputNoWidth} flex-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
-                          value={durationH}
-                          onChange={(e) => {
-                            const h = e.target.value;
-                            setDurationH(h);
-                            const total = (parseInt(h) || 0) * 60 + (parseInt(durationM) || 0);
-                            set('duration_minutes', h === '' && durationM === '' ? '' : total);
-                          }}
-                          placeholder="0"
-                        />
-                        <span className="text-neutral-500 text-sm flex-shrink-0">h</span>
-                        <input
-                          type="number" min="0" max="59"
-                          className={`${inputNoWidth} w-20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
-                          value={durationM}
-                          onChange={(e) => {
-                            const m = e.target.value;
-                            setDurationM(m);
-                            const total = (parseInt(durationH) || 0) * 60 + (parseInt(m) || 0);
-                            set('duration_minutes', durationH === '' && m === '' ? '' : total);
-                          }}
-                          placeholder="0"
-                        />
-                        <span className="text-neutral-500 text-sm flex-shrink-0">m</span>
-                      </div>
-                    </div>
-                    <div>
-                      <label className={label}>Narrators</label>
-                      {form.narrators.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 mb-2">
-                          {form.narrators.map((n) => (
-                            <span key={n} className="flex items-center gap-1 text-xs bg-neutral-800 text-neutral-300 px-2.5 py-1 rounded-full">
-                              {n}
-                              <button type="button" onClick={() => set('narrators', form.narrators.filter(x => x !== n))}
-                                className="text-neutral-500 hover:text-white leading-none ml-0.5">×</button>
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      <input className={input} list="narrators-list" value={narratorInput}
-                        onChange={(e) => setNarratorInput(e.target.value)} onKeyDown={addNarrator}
-                        placeholder="Type a name, press Enter or comma to add" />
-                      <datalist id="narrators-list">
-                        {pastNarrators.filter(n => !form.narrators.includes(n)).map(n => <option key={n} value={n} />)}
-                      </datalist>
-                    </div>
-                  </>
-                )}
-              </div>
+              <CoreFields
+                form={form} setForm={setForm} set={set} ic={ic} isEdit={isEdit}
+                pastAuthors={pastAuthors} pastSeries={pastSeries} pastNarrators={pastNarrators}
+                authorInput={authorInput}     setAuthorInput={setAuthorInput}
+                narratorInput={narratorInput} setNarratorInput={setNarratorInput}
+                durationH={durationH} setDurationH={setDurationH}
+                durationM={durationM} setDurationM={setDurationM}
+              />
             )}
-
-            {/* ── Details ── */}
             {activeTab === 'details' && (
-              <div className="space-y-6">
-                <div>
-                  <label className={label}>Language</label>
-                  <input className={input} list="languages-list" value={form.language}
-                    onChange={(e) => set('language', e.target.value)}
-                    placeholder="English" />
-                  <datalist id="languages-list">
-                    {pastLanguages.map(l => <option key={l} value={l} />)}
-                  </datalist>
-                </div>
-
-                <div>
-                  <label className={label}>Original language</label>
-                  <input className={input} list="languages-list" value={form.original_language}
-                    onChange={(e) => set('original_language', e.target.value)}
-                    placeholder="If translated…" />
-                </div>
-
-                <div>
-                  <label className={label}>Translator</label>
-                  <input className={input} list="translators-list" value={form.translator}
-                    onChange={(e) => set('translator', e.target.value)}
-                    placeholder="e.g. James Legge" />
-                  <datalist id="translators-list">
-                    {pastTranslators.map(t => <option key={t} value={t} />)}
-                  </datalist>
-                </div>
-
-                <div>
-                  <label className={label}>Publisher</label>
-                  <input className={ic('publisher')} list="publishers-list" value={form.publisher}
-                    onChange={(e) => set('publisher', e.target.value)}
-                    placeholder="e.g. Penguin, Tor, Picador…" />
-                  <datalist id="publishers-list">
-                    {pastPublishers.map(p => <option key={p} value={p} />)}
-                  </datalist>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className={label}>Year published</label>
-                    <input type="number" min="1" max="9999" className={input}
-                      value={form.year_published} onChange={(e) => set('year_published', e.target.value)}
-                      placeholder="e.g. 1965" />
-                  </div>
-                  <div>
-                    <label className={label}>Edition year</label>
-                    <input type="number" min="1" max="9999" className={input}
-                      value={form.year_edition} onChange={(e) => set('year_edition', e.target.value)}
-                      placeholder="e.g. 1999" />
-                    {form.year_edition && (
-                      <label className="flex items-center gap-1.5 mt-1.5 cursor-pointer select-none">
-                        <input type="checkbox" checked={form.year_approximate}
-                          onChange={(e) => set('year_approximate', e.target.checked)}
-                          className="w-3.5 h-3.5 rounded border-neutral-700 bg-neutral-900 text-oak focus:ring-0 focus:ring-offset-0" />
-                        <span className="text-xs text-neutral-500">approximate (ca.)</span>
-                      </label>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className={label}>ISBN-10</label>
-                    <input className={ic('isbn_10')} value={form.isbn_10}
-                      onChange={(e) => set('isbn_10', e.target.value)}
-                      placeholder="0000000000" />
-                  </div>
-                  <div>
-                    <label className={label}>ISBN-13</label>
-                    <input className={ic('isbn_13')} value={form.isbn_13}
-                      onChange={(e) => set('isbn_13', e.target.value)}
-                      placeholder="0000000000000" />
-                  </div>
-                  <div>
-                    <label className={label}>ASIN</label>
-                    <input className={ic('asin')} value={form.asin}
-                      onChange={(e) => set('asin', e.target.value)}
-                      placeholder="B000000000" />
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex items-baseline justify-between mb-1.5">
-                    <label className={label} style={{marginBottom:0}}>Description</label>
-                    <span className="text-xs text-neutral-600">Markdown supported</span>
-                  </div>
-                  <textarea className={`${ic('description')} resize-none`} rows={6}
-                    value={form.description} onChange={(e) => set('description', e.target.value)}
-                    placeholder="Back-cover description…" />
-                </div>
-              </div>
+              <DetailsFields
+                form={form} set={set} ic={ic}
+                pastLanguages={pastLanguages}
+                pastTranslators={pastTranslators}
+                pastPublishers={pastPublishers}
+              />
             )}
-
-            {/* ── Acquisition ── */}
             {activeTab === 'acquisition' && (
-              <div className="space-y-6">
-                <div className="space-y-2.5">
-                  {!form.is_custom && (
-                    <label className="flex items-center gap-3 cursor-pointer select-none">
-                      <input type="checkbox" checked={form.owned}
-                        onChange={(e) => {
-                          const owned = e.target.checked;
-                          setForm(f => ({ ...f, owned, previously_owned: owned ? false : f.previously_owned, ...(!owned && { condition: '' }) }));
-                        }}
-                        className="w-4 h-4 rounded border-neutral-700 bg-neutral-900 text-oak focus:ring-0 focus:ring-offset-0" />
-                      <span className="text-sm text-neutral-300">I own this book</span>
-                    </label>
-                  )}
-                  {!form.is_custom && !form.owned && (
-                    <label className="flex items-center gap-3 cursor-pointer select-none">
-                      <input type="checkbox" checked={form.previously_owned}
-                        onChange={(e) => set('previously_owned', e.target.checked)}
-                        className="w-4 h-4 rounded border-neutral-700 bg-neutral-900 text-oak focus:ring-0 focus:ring-offset-0" />
-                      <span className="text-sm text-neutral-300">
-                        Previously owned
-                        <span className="text-neutral-600 ml-1.5">— once had it, no longer do</span>
-                      </span>
-                    </label>
-                  )}
-                  <label className="flex items-center gap-3 cursor-pointer select-none">
-                    <input type="checkbox" checked={form.is_custom}
-                      onChange={(e) => {
-                        const is_custom = e.target.checked;
-                        setForm(f => ({ ...f, is_custom, owned: is_custom ? true : f.owned, ...(is_custom && { acquisition_source: '', acquisition_date: '' }) }));
-                      }}
-                      className="w-4 h-4 rounded border-neutral-700 bg-neutral-900 text-oak focus:ring-0 focus:ring-offset-0" />
-                    <span className="text-sm text-neutral-300">
-                      Custom collection
-                      <span className="text-neutral-600 ml-1.5">— assembled by me, not commercially published</span>
-                    </span>
-                  </label>
-                </div>
-
-                {form.owned && form.format === 'physical' && (
-                  <ShelfPicker
-                    shelfId={form.shelf_id}
-                    buildingId={form.building_id}
-                    roomId={form.room_id}
-                    unitId={form.unit_id}
-                    onChange={({ buildingId, roomId, unitId, shelfId }) => setForm(f => ({ ...f, building_id: buildingId, room_id: roomId, unit_id: unitId, shelf_id: shelfId }))}
-                    tree={shelfTree}
-                  />
-                )}
-
-                {(form.owned || form.previously_owned) && !form.is_custom && (
-                  <>
-                    <div>
-                      <label className={label}>Acquisition source</label>
-                      <input className={input} list="sources-list" value={form.acquisition_source}
-                        onChange={(e) => set('acquisition_source', e.target.value)}
-                        placeholder="e.g. Chapters, Amazon, gift…" />
-                      <datalist id="sources-list">
-                        {pastSources.map(s => <option key={s} value={s} />)}
-                      </datalist>
-                    </div>
-
-                    <div>
-                      <label className={label}>Acquisition date</label>
-                      {(() => {
-                        const parts = (form.acquisition_date || '').split('-');
-                        const acqYear  = parts[0] || '';
-                        const acqMonth = parts[1] || '';
-                        const acqDay   = parts[2] || '';
-                        function setAcq(y, m, d) {
-                          let v = y;
-                          if (y && m) { v = `${y}-${m}`; if (d) v = `${y}-${m}-${d}`; }
-                          set('acquisition_date', v);
-                        }
-                        return (
-                          <div className="flex gap-2">
-                            <input
-                              type="number" min="1800" max="2099" placeholder="Year"
-                              className={`w-24 ${inputNoWidth}`}
-                              value={acqYear}
-                              onChange={e => setAcq(e.target.value, acqYear && acqMonth ? acqMonth : '', acqYear && acqDay ? acqDay : '')}
-                            />
-                            <select
-                              className={`flex-1 ${inputNoWidth}`}
-                              value={acqMonth}
-                              onChange={e => setAcq(acqYear, e.target.value, e.target.value ? acqDay : '')}
-                            >
-                              <option value="">Month</option>
-                              {['January','February','March','April','May','June','July','August','September','October','November','December'].map((m, i) => (
-                                <option key={m} value={String(i + 1).padStart(2, '0')}>{m}</option>
-                              ))}
-                            </select>
-                            {acqMonth && (
-                              <input
-                                type="number" min="1" max="31" placeholder="Day"
-                                className={`w-16 ${inputNoWidth}`}
-                                value={acqDay ? parseInt(acqDay) : ''}
-                                onChange={e => setAcq(acqYear, acqMonth, e.target.value ? String(parseInt(e.target.value)).padStart(2, '0') : '')}
-                              />
-                            )}
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  </>
-                )}
-              </div>
+              <AcquisitionFields
+                form={form} setForm={setForm} set={set}
+                pastSources={pastSources} shelfTree={shelfTree}
+              />
             )}
-
-            {/* ── Personal ── */}
             {activeTab === 'personal' && (
-              <div className="space-y-6">
-                <div>
-                  <label className={label}>Rating</label>
-                  <StarRating value={form.rating} onChange={(v) => set('rating', v)} />
-                  {form.rating && (
-                    <button type="button" onClick={() => set('rating', null)}
-                      className="text-xs text-neutral-600 hover:text-neutral-400 mt-1.5">
-                      Clear rating
-                    </button>
-                  )}
-                </div>
-
-                <div>
-                  <label className={label}>Tags</label>
-                  {form.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mb-2">
-                      {form.tags.map((t) => (
-                        <span key={t} className="flex items-center gap-1 text-xs bg-neutral-800 text-neutral-300 px-2.5 py-1 rounded-full">
-                          {t}
-                          <button type="button" onClick={() => set('tags', form.tags.filter(x => x !== t))}
-                            className="text-neutral-500 hover:text-white leading-none ml-0.5">×</button>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  <input className={input} list="tags-list" value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)} onKeyDown={addTag}
-                    placeholder="Type a tag, press Enter or comma to add" />
-                  <datalist id="tags-list">
-                    {pastTags.filter(t => !form.tags.includes(t)).map(t => <option key={t} value={t} />)}
-                  </datalist>
-                </div>
-
-                <div>
-                  <div className="flex items-baseline justify-between mb-1.5">
-                    <label className={label} style={{marginBottom:0}}>Notes</label>
-                    <span className="text-xs text-neutral-600">Markdown supported</span>
-                  </div>
-                  <textarea className={`${input} resize-none`} rows={6}
-                    value={form.notes} onChange={(e) => set('notes', e.target.value)}
-                    placeholder="Your thoughts…" />
-                </div>
-
-                {(form.status === 'finished' || form.read_count > 0) && (
-                  <div>
-                    <div className="flex items-baseline justify-between mb-1.5">
-                      <label className={label} style={{marginBottom:0}}>Review</label>
-                      <span className="text-xs text-neutral-600">Markdown supported</span>
-                    </div>
-                    <textarea className={`${input} resize-none`} rows={8}
-                      value={form.review} onChange={(e) => set('review', e.target.value)}
-                      placeholder="Your review…" />
-                  </div>
-                )}
-              </div>
+              <PersonalFields
+                form={form} set={set}
+                pastTags={pastTags}
+                tagInput={tagInput} setTagInput={setTagInput}
+              />
             )}
-
           </form>
         </div>
       </div>
