@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../api.js';
-import { EMPTY, VIRTUAL_TAG_NAMES } from '../components/bookForm/defaults.js';
+import { FORM_DEFAULTS, VIRTUAL_TAG_NAMES } from '../../../shared/bookFields.js';
 import { bookToFormState, formStateToPayload } from '../components/bookForm/mapping.js';
 import { input, inputFilled } from '../components/bookForm/styles.js';
 import LookupPanel from '../components/bookForm/LookupPanel.jsx';
@@ -22,7 +22,7 @@ export default function BookForm() {
   const { id } = useParams();
   const navigate = useNavigate();
   const isEdit = Boolean(id);
-  const [form, setForm] = useState(EMPTY);
+  const [form, setForm] = useState(FORM_DEFAULTS);
   const [activeTab, setActiveTab] = useState('core');
   const [tagInput,      setTagInput]      = useState('');
   const [narratorInput, setNarratorInput] = useState('');

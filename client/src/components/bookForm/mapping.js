@@ -1,4 +1,5 @@
 import { realTagNames } from '../../utils.js';
+import { INTEGER_FIELDS, FLOAT_FIELDS } from '../../../../shared/bookFields.js';
 
 export function bookToFormState(book) {
   return {
@@ -54,22 +55,33 @@ function mergePending(list, pending) {
   return t && !list.includes(t) ? [...list, t] : list;
 }
 
+// Form state holds these as strings ('' when blank); the API expects null or
+// a real value. Listed here so adding a new nullable scalar means one edit.
+const NULLABLE_STRINGS_ON_SAVE = ['date_started', 'date_finished', 'acquisition_source', 'notes'];
+
 export function formStateToPayload(form, { tagInput, narratorInput, authorInput }) {
-  return {
-    ...form,
-    tags:      mergePending(form.tags,      tagInput),
-    narrators: mergePending(form.narrators, narratorInput),
-    authors:   mergePending(form.authors,   authorInput),
-    title: form.title.trim(),
-    date_started:      form.date_started || null,
-    date_finished:     form.date_finished || null,
-    acquisition_source: form.acquisition_source || null,
-    notes:             form.notes || null,
-    page_count:        form.page_count       ? parseInt(form.page_count)       : null,
-    duration_minutes:  form.duration_minutes ? parseInt(form.duration_minutes) : null,
-    year_published:    form.year_published   ? parseInt(form.year_published)   : null,
-    year_edition:      form.year_edition     ? parseInt(form.year_edition)     : null,
-    year_approximate:  form.year_edition     ? form.year_approximate           : false,
-    series_number:     form.series_number !== '' ? parseFloat(form.series_number) : null,
-  };
+  const out = { ...form };
+
+  out.authors   = mergePending(form.authors,   authorInput);
+  out.narrators = mergePending(form.narrators, narratorInput);
+  out.tags      = mergePending(form.tags,      tagInput);
+
+  out.title = form.title.trim();
+
+  for (const f of NULLABLE_STRINGS_ON_SAVE) {
+    out[f] = form[f] || null;
+  }
+
+  for (const f of INTEGER_FIELDS) {
+    out[f] = form[f] === '' || form[f] == null ? null : parseInt(form[f]);
+  }
+
+  for (const f of FLOAT_FIELDS) {
+    out[f] = form[f] === '' || form[f] == null ? null : parseFloat(form[f]);
+  }
+
+  // year_approximate is only meaningful when year_edition is set.
+  out.year_approximate = form.year_edition ? form.year_approximate : false;
+
+  return out;
 }
