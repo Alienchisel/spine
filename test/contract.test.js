@@ -231,7 +231,7 @@ describe('book contract: full field round-trip', () => {
       original_language: null,                // cleared
       year_published:    1924,
       year_approximate:  true,               // → 1 (was 0)
-      year_edition:      1961,               // 2026-1961=65 → virtual tag 'Vintage'
+      year_edition:      1961,               // physical-format gate means Vintage does NOT fire here (audiobook)
       abridged:          true,               // → 1 (was 0)
       shelf_id:          null,               // remove shelf
       unit_id:           unitId,             // unit_id stored (no shelf_id, no room_id)
@@ -299,8 +299,9 @@ describe('book contract: full field round-trip', () => {
     assert.ok(!body.tags.some(t => t.name === 'American'));   // removed
     assert.ok(body.tags.some(t => t.name === 'classic'));
     assert.ok(body.tags.some(t => t.name === 'novella'));
-    // Virtual tag: year_edition 1961, age ~65 → Vintage
-    assert.ok(body.tags.some(t => t.name === 'Vintage' && t.virtual));
+    // Vintage does NOT fire: it requires format='physical' to signal a
+    // physically older copy, and this fixture is an audiobook.
+    assert.ok(!body.tags.some(t => t.name === 'Vintage'));
     // Real tags only: classic + novella
     assert.equal(body.tags.filter(t => !t.virtual).length, 2);
   });
@@ -336,7 +337,8 @@ describe('book contract: full field round-trip', () => {
     assert.deepEqual(body.authors.map(a => a.name), ['Herman Melville', 'Raymond Weaver']);
     assert.deepEqual(body.narrators.map(n => n.name), ['Simon Vance']);
     assert.equal(body.tags.filter(t => !t.virtual).length, 2);
-    assert.ok(body.tags.some(t => t.name === 'Vintage' && t.virtual));
+    // Vintage gated to format='physical'; this fixture is an audiobook, so absent.
+    assert.ok(!body.tags.some(t => t.name === 'Vintage'));
   });
 
   // ── Edge: language defaults ─────────────────────────────────────────────────
