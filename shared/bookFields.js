@@ -98,7 +98,7 @@ export const FORM_DEFAULTS = Object.freeze({
 // Virtual tags computed from book fields (never stored). The frontend uses
 // this list to filter out virtual names from past-tag suggestions.
 // Keep in sync with VIRTUAL_TAG_RULES in lib/books/filters.js.
-export const VIRTUAL_TAG_NAMES = ['Antique', 'Vintage', 'Translated', 'Re-read', 'Long', 'Short'];
+export const VIRTUAL_TAG_NAMES = ['Antique', 'Vintage', 'Translated', 'Re-read', 'Abridged', 'Long', 'Short'];
 
 // Valid values for each enum field. Single source of truth for both backend
 // validation and the form's <select> options.
