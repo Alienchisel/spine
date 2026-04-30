@@ -504,6 +504,15 @@ describe('books', () => {
       assert.equal(b1.translators[0].id, b2.translators[0].id);
     });
 
+    it('q search matches translator names', async () => {
+      const { body: book } = await req('POST', '/api/books', {
+        title: 'Anna Karenina', translators: ['Constance Garnett'],
+      });
+      const { body: results } = await req('GET', '/api/books?q=Garnett');
+      assert.ok(results.books.some(b => b.id === book.id),
+        'expected q=Garnett to match book translated by Constance Garnett');
+    });
+
     it('saves acquisition_source and acquisition_date', async () => {
       const { body } = await req('POST', '/api/books', {
         title: 'Sourced Book',
