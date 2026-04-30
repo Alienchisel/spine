@@ -29,3 +29,25 @@ export function fmtShortDate(dateStr) {
     ...(sameYear ? {} : { year: 'numeric' }),
   });
 }
+
+// Formats a YYYY-MM into "Apr 2026". Used by Stats monthly-streak ranges.
+export function fmtShortMonth(yearMonthStr) {
+  if (!yearMonthStr) return '';
+  const [y, m] = yearMonthStr.split('-').map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
+}
+
+// Converts an ISO-week identifier ("2026-W17") to the Monday-of-that-week
+// YYYY-MM-DD string, then formats it via fmtShortDate. ISO 8601 week 1 is
+// the week containing the year's first Thursday (equivalently: Jan 4).
+export function fmtIsoWeekMonday(isoWeekStr) {
+  if (!isoWeekStr) return '';
+  const [yStr, wStr] = isoWeekStr.split('-W');
+  const year = parseInt(yStr);
+  const week = parseInt(wStr);
+  const jan4 = new Date(Date.UTC(year, 0, 4));
+  const jan4Day = jan4.getUTCDay() || 7;
+  const monday = new Date(jan4);
+  monday.setUTCDate(jan4.getUTCDate() - (jan4Day - 1) + (week - 1) * 7);
+  return fmtShortDate(monday.toISOString().slice(0, 10));
+}

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { api } from '../api.js';
-import { fmtShortDate } from '../utils.js';
+import { fmtShortDate, fmtShortMonth, fmtIsoWeekMonday } from '../utils.js';
 
 function DonutChart({ title, data }) {
   const total = data.reduce((s, d) => s + d.value, 0);
@@ -310,11 +310,19 @@ export default function Stats() {
             <div className="flex justify-between items-end">
               <div>
                 <div className="text-2xl font-semibold text-parchment">{streaks.weeks.current}</div>
-                <div className="text-xs text-neutral-500 mt-0.5">current</div>
+                <div className="text-xs text-neutral-500 mt-0.5">
+                  {streaks.weeks.current > 0 && streaks.weeks.currentStart
+                    ? `since ${fmtIsoWeekMonday(streaks.weeks.currentStart)}`
+                    : 'current'}
+                </div>
               </div>
               <div className="text-right">
                 <div className="text-lg font-semibold text-neutral-400">{streaks.weeks.longest}</div>
-                <div className="text-xs text-neutral-600 mt-0.5">longest</div>
+                <div className="text-xs text-neutral-600 mt-0.5">
+                  {streaks.weeks.longest > 0 && streaks.weeks.longestStart
+                    ? `${fmtIsoWeekMonday(streaks.weeks.longestStart)} – ${fmtIsoWeekMonday(streaks.weeks.longestEnd)}`
+                    : 'longest'}
+                </div>
               </div>
             </div>
           </div>
@@ -323,11 +331,19 @@ export default function Stats() {
             <div className="flex justify-between items-end">
               <div>
                 <div className="text-2xl font-semibold text-parchment">{streaks.months.current}</div>
-                <div className="text-xs text-neutral-500 mt-0.5">current</div>
+                <div className="text-xs text-neutral-500 mt-0.5">
+                  {streaks.months.current > 0 && streaks.months.currentStart
+                    ? `since ${fmtShortMonth(streaks.months.currentStart)}`
+                    : 'current'}
+                </div>
               </div>
               <div className="text-right">
                 <div className="text-lg font-semibold text-neutral-400">{streaks.months.longest}</div>
-                <div className="text-xs text-neutral-600 mt-0.5">longest</div>
+                <div className="text-xs text-neutral-600 mt-0.5">
+                  {streaks.months.longest > 0 && streaks.months.longestStart
+                    ? `${fmtShortMonth(streaks.months.longestStart)} – ${fmtShortMonth(streaks.months.longestEnd)}`
+                    : 'longest'}
+                </div>
               </div>
             </div>
           </div>
