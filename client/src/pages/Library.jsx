@@ -127,6 +127,29 @@ export default function Library() {
     return () => { stale = true; };
   }, [tab, filters, query]);
 
+  // Loads pages until displayItems lands on a full grid row, or the dataset
+  // is exhausted. Series-card collapsing means raw books-per-page (48) does
+  // not always map to a row-aligned displayItems count, so a single
+  // server page can leave the trailing row visually short.
+  async function fetchUntilRowFull(startBooks, startOffset) {
+    const gen = genRef.current;
+    let curBooks  = startBooks;
+    let curOffset = startOffset;
+    let curTotal  = total;
+    for (let i = 0; i < 10; i++) {
+      const { books: b, total: t } = await api.getBooks(buildApiParams(tab, sort, filters, query, curOffset));
+      if (gen !== genRef.current) return null;
+      curBooks  = [...curBooks, ...b];
+      curOffset += b.length;
+      curTotal  = t;
+      if (b.length === 0 || curOffset >= curTotal) break;
+      if (density === 'list') break;
+      const di = buildDisplayItems(curBooks, expandedSeries);
+      if (di.length % gridCols === 0) break;
+    }
+    return { books: curBooks, total: curTotal, offset: curOffset };
+  }
+
   // Fetch books on tab / sort / filter / query change — always reset to page 1
   useEffect(() => {
     let stale = false;
@@ -135,40 +158,27 @@ export default function Library() {
     setFetchError(false);
     setBooks([]);
     loadedRef.current = 0;
-    api.getBooks(buildApiParams(tab, sort, filters, query, 0)).then(({ books: b, total: t }) => {
-      if (stale) return;
-      setBooks(b);
-      setTotal(t);
-      loadedRef.current = b.length;
+    fetchUntilRowFull([], 0).then(result => {
+      if (stale || !result) return;
+      setBooks(result.books);
+      setTotal(result.total);
+      loadedRef.current = result.offset;
     }).catch(() => { if (!stale) setFetchError(true); }).finally(() => { if (!stale) setLoading(false); });
     return () => { stale = true; };
+    // gridCols / density / expandedSeries intentionally omitted: we don't want
+    // to re-fetch on viewport resize or series toggle, only on filter changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, sort, filters, query]);
 
-  // Loads pages until displayItems lands on a full grid row, or the dataset
-  // is exhausted. Series-card collapsing means raw books-per-page (48) does
-  // not always map to a row-aligned displayItems count, so a single
-  // server page can leave the trailing row visually short.
   async function handleLoadMore() {
     const gen = genRef.current;
     setLoadingMore(true);
-    let curBooks  = books;
-    let curOffset = loadedRef.current;
-    let curTotal  = total;
     try {
-      for (let i = 0; i < 3; i++) {
-        const { books: b, total: t } = await api.getBooks(buildApiParams(tab, sort, filters, query, curOffset));
-        if (gen !== genRef.current) return;
-        curBooks  = [...curBooks, ...b];
-        curOffset += b.length;
-        curTotal  = t;
-        if (b.length === 0 || curOffset >= curTotal) break;
-        if (density === 'list') break;
-        const di = buildDisplayItems(curBooks, expandedSeries);
-        if (di.length % gridCols === 0) break;
-      }
-      setBooks(curBooks);
-      setTotal(curTotal);
-      loadedRef.current = curOffset;
+      const result = await fetchUntilRowFull(books, loadedRef.current);
+      if (!result || gen !== genRef.current) return;
+      setBooks(result.books);
+      setTotal(result.total);
+      loadedRef.current = result.offset;
     } finally {
       if (gen === genRef.current) setLoadingMore(false);
     }

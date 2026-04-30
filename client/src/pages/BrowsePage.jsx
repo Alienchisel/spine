@@ -42,36 +42,42 @@ export default function BrowsePage() {
   const loadedRef = useRef(0);
   const gridCols  = useGridCols(BROWSE_BPS);
 
+  // Keeps fetching until the trailing row is full of real books, or the
+  // dataset is exhausted. Used both on initial load and on Load more.
+  async function fetchUntilRowFull(startBooks, startOffset) {
+    let curBooks  = startBooks;
+    let curOffset = startOffset;
+    let curTotal  = 0;
+    for (let i = 0; i < 10; i++) {
+      const { books: b, total: t } = await api.getBooks({ field, value: decoded, sort: browseSort(field), limit: PAGE_SIZE, offset: curOffset });
+      curBooks  = [...curBooks, ...b];
+      curOffset += b.length;
+      curTotal  = t;
+      if (b.length === 0 || curOffset >= curTotal) break;
+      if (gridCols && curBooks.length % gridCols === 0) break;
+    }
+    return { books: curBooks, total: curTotal, offset: curOffset };
+  }
+
   useEffect(() => {
     setLoading(true);
     setBooks([]);
     loadedRef.current = 0;
-    api.getBooks({ field, value: decoded, sort: browseSort(field), limit: PAGE_SIZE, offset: 0 })
-      .then(({ books: b, total: t }) => {
-        setBooks(b);
-        setTotal(t);
-        loadedRef.current = b.length;
-      }).finally(() => setLoading(false));
+    fetchUntilRowFull([], 0).then(result => {
+      setBooks(result.books);
+      setTotal(result.total);
+      loadedRef.current = result.offset;
+    }).finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [field, decoded]);
 
   async function handleLoadMore() {
     setLoadingMore(true);
-    let curBooks  = books;
-    let curOffset = loadedRef.current;
-    let curTotal  = total;
-    const cols = gridCols;
     try {
-      for (let i = 0; i < 3; i++) {
-        const { books: b, total: t } = await api.getBooks({ field, value: decoded, sort: browseSort(field), limit: PAGE_SIZE, offset: curOffset });
-        curBooks  = [...curBooks, ...b];
-        curOffset += b.length;
-        curTotal  = t;
-        if (b.length === 0 || curOffset >= curTotal) break;
-        if (cols && curBooks.length % cols === 0) break;
-      }
-      setBooks(curBooks);
-      setTotal(curTotal);
-      loadedRef.current = curOffset;
+      const result = await fetchUntilRowFull(books, loadedRef.current);
+      setBooks(result.books);
+      setTotal(result.total);
+      loadedRef.current = result.offset;
     } finally {
       setLoadingMore(false);
     }
