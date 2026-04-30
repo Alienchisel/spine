@@ -51,13 +51,18 @@ router.get('/', (req, res) => {
     });
   }
 
-  // Diary surfaces only the *current* day/week streaks. The shared
-  // calcStreaks() also computes longest and month streaks; we discard those.
+  // Diary surfaces day/week streaks (current + longest) in its sidebar.
+  // The shared calcStreaks() also computes month streaks; we discard those.
   const streaks = calcStreaks(allDates);
   res.json({
     days:  Object.entries(byDate).map(([date, entries]) => ({ date, entries })),
     years,
-    stats: { dayStreak: streaks.days.current, weekStreak: streaks.weeks.current },
+    stats: {
+      dayStreak:      streaks.days.current,
+      dayStreakBest:  streaks.days.longest,
+      weekStreak:     streaks.weeks.current,
+      weekStreakBest: streaks.weeks.longest,
+    },
   });
 });
 

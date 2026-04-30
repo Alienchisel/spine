@@ -227,7 +227,7 @@ export default function Diary() {
   const [year,    setYear]    = useState(CURRENT_YEAR);
   const [days,    setDays]    = useState([]);
   const [years,   setYears]   = useState([]);
-  const [stats,   setStats]   = useState({ dayStreak: 0, weekStreak: 0 });
+  const [stats,   setStats]   = useState({ dayStreak: 0, dayStreakBest: 0, weekStreak: 0, weekStreakBest: 0 });
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState(null);
   const [deleteError, setDeleteError] = useState(null);
@@ -332,11 +332,21 @@ export default function Diary() {
               <div className="space-y-1 mb-1 text-xs">
                 <div className="flex items-baseline justify-between">
                   <span className="text-[10px] uppercase tracking-wider text-neutral-600">Day streak</span>
-                  <span className="tabular-nums text-neutral-300">{stats.dayStreak}</span>
+                  <span className="tabular-nums text-neutral-300">
+                    {stats.dayStreak}
+                    {stats.dayStreakBest > stats.dayStreak && (
+                      <span className="text-neutral-600 ml-1.5">(best {stats.dayStreakBest})</span>
+                    )}
+                  </span>
                 </div>
                 <div className="flex items-baseline justify-between">
                   <span className="text-[10px] uppercase tracking-wider text-neutral-600">Week streak</span>
-                  <span className="tabular-nums text-neutral-300">{stats.weekStreak}</span>
+                  <span className="tabular-nums text-neutral-300">
+                    {stats.weekStreak}
+                    {stats.weekStreakBest > stats.weekStreak && (
+                      <span className="text-neutral-600 ml-1.5">(best {stats.weekStreakBest})</span>
+                    )}
+                  </span>
                 </div>
               </div>
               <ReadingCalendar
