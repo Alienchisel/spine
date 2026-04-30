@@ -17,7 +17,7 @@
  *   - cover_path /uploads/{file} round-trips correctly
  *   - read_count incremented by status → 'finished' transition
  *   - tags/authors/narrators fully replaced on PUT
- *   - virtual tags (Long, Vintage) appear in tag list based on fields
+ *   - virtual tags are field-derived and respect format-specific gates
  */
 
 import { describe, it, before, after } from 'node:test';
