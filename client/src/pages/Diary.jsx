@@ -150,7 +150,7 @@ function ReadingCalendar({ days, selectedYear, onDayClick }) {
         {DAY_HEADERS.map((h, i) => <div key={i} className="text-center text-xs text-neutral-700 py-0.5">{h}</div>)}
       </div>
 
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid grid-cols-7 gap-y-1">
         {Array.from({ length: totalCells }, (_, i) => {
           const dateStr = cellDateStr(i);
           if (!dateStr) return <div key={i} />;
@@ -160,14 +160,25 @@ function ReadingCalendar({ days, selectedYear, onDayClick }) {
           const isFuture = dateStr > todayStr;
           const isToday  = dateStr === todayStr;
           const tipParts = [pages > 0 && `${pages}p`, minutes > 0 && `${minutes}m`].filter(Boolean);
+          // Merge consecutive read days within the same row by squaring inner edges.
+          // col 0 = Monday, col 6 = Sunday — bands can't span across rows.
+          const col = i % 7;
+          const prevIsRead = hasEntry && col > 0 && readingDates.has(cellDateStr(i - 1));
+          const nextIsRead = hasEntry && col < 6 && readingDates.has(cellDateStr(i + 1));
+          const radiusClass = !hasEntry        ? 'rounded'
+                            : prevIsRead && nextIsRead ? ''
+                            : prevIsRead       ? 'rounded-r'
+                            : nextIsRead       ? 'rounded-l'
+                            :                    'rounded';
           return (
             <div
               key={dateStr}
               onClick={() => hasEntry && onDayClick(dateStr)}
               title={hasEntry ? tipParts.join(' · ') : undefined}
               className={[
-                'flex items-center justify-center rounded text-xs h-7 select-none',
-                isFuture ? 'text-neutral-800' : hasEntry ? `${READ_DAY_CLASS} cursor-pointer hover:ring-1 hover:ring-oak/50` : 'text-neutral-700 bg-neutral-800/40',
+                'flex items-center justify-center text-xs h-7 select-none',
+                radiusClass,
+                isFuture ? 'text-neutral-800' : hasEntry ? `${READ_DAY_CLASS} cursor-pointer hover:ring-1 hover:ring-oak/50` : 'text-neutral-700',
               ].join(' ')}
             >
               <span className={isToday ? 'underline underline-offset-2' : ''}>
