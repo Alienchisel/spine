@@ -172,10 +172,11 @@ export default function Stats() {
   if (error) return <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-warn text-sm">{error}</div>;
   if (!stats) return null;
 
-  const { totals, formats, fiction, ownedStatus, ratings, pagesRead, minutesListened, byYear, topAuthors, topNarrators, languages, streaks, todayPages, thisYearBooks, thisYearPages, topTags, topSeries, avgPagesPerDay, records } = stats;
+  const { totals, formats, fiction, ownedStatus, ratings, pagesRead, minutesListened, byYear, byMonth = [], topAuthors, topNarrators, languages, streaks, todayPages, thisYearBooks, thisYearPages, topTags, topSeries, avgPagesPerDay, records } = stats;
 
   const maxRating = Math.max(...ratings.map(r => r.count), 1);
   const maxYear   = Math.max(...byYear.map(y => y.count), 1);
+  const maxMonth  = Math.max(...byMonth.map(m => m.days), 1);
   const maxAuthor   = Math.max(...topAuthors.map(a => a.count), 1);
   const maxNarrator = Math.max(...(topNarrators?.map(n => n.count) || []), 1);
   const maxFormat = Math.max(...formats.map(f => f.count), 1);
@@ -419,6 +420,27 @@ export default function Stats() {
           </Section>
         )}
       </div>
+
+      {byMonth.length > 0 && (
+        <Section title="Days read per month">
+          <div className="space-y-2.5">
+            {byMonth.map(m => {
+              const [y, mo] = m.month.split('-').map(Number);
+              const label = new Date(y, mo - 1, 1).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
+              return (
+                <Bar
+                  key={m.month}
+                  label={label}
+                  count={m.days}
+                  max={maxMonth}
+                  color="bg-oak"
+                  caption={`${m.days} ${m.days === 1 ? 'day' : 'days'}`}
+                />
+              );
+            })}
+          </div>
+        </Section>
+      )}
 
       {byYear.length > 0 && (
         <Section title="Finished by year">
