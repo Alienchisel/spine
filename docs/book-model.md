@@ -74,10 +74,11 @@ write, `owned` wins and `previously_owned` is forced to `0`.
 |---|---|---|---|
 | `language` | TEXT | `'English'` | Language of this edition; defaults to `'English'` when omitted |
 | `original_language` | TEXT | NULL | Original language if this is a translation |
-| `translator` | TEXT | NULL | Translator name(s); trimmed on write |
 
-When `original_language` is set and differs from `language`, the virtual tag
-**Translated** is applied (see [Virtual tags](#virtual-tags)).
+Translators live in the `translators` / `book_translators` join tables — see
+[Joined fields](#joined-fields). When `original_language` is set and differs
+from `language`, the virtual tag **Translated** is applied (see
+[Virtual tags](#virtual-tags)).
 
 ### Acquisition
 
@@ -170,6 +171,19 @@ books ──< book_narrators >── narrators
             position (INTEGER, 0-indexed)
 ```
 
+### translators
+
+Identical structure to authors, using `translators` / `book_translators` tables.
+
+```
+books ──< book_translators >── translators
+                │
+            position (INTEGER, 0-indexed)
+```
+
+Returned as `translators: [{ id, name }, …]`. Replaced wholesale on every PUT
+that includes a `translators` key.
+
 ### tags
 
 ```
@@ -192,12 +206,17 @@ in the database. In responses they appear appended after real tags and carry
 
 | Name | Condition |
 |---|---|
-| **Antique** | `year_edition` set and `(current_year − year_edition) ≥ 100` |
-| **Vintage** | `year_edition` set and `50 ≤ (current_year − year_edition) < 100` |
+| **Antique** | `format = 'physical'` and `year_edition` set and `(current_year − year_edition) ≥ 100` |
+| **Vintage** | `format = 'physical'` and `year_edition` set and `50 ≤ (current_year − year_edition) < 100` |
 | **Translated** | `original_language` set and differs from `language` |
 | **Re-read** | `read_count > 1` |
+| **Abridged** | `abridged = 1` |
 | **Long** | `page_count ≥ 500` |
 | **Short** | `page_count > 0` and `page_count ≤ 150` |
+
+Antique and Vintage are gated to physical-format books because they signal a
+physically older copy (a 1900 hardcover), not the age of the underlying text
+(an 1841 treatise reissued as a 2021 audiobook should not qualify).
 
 Virtual tags also appear in `GET /api/books/facets` and support filtering via
 `?tags[]=Long` etc. The SQL fragment for each rule is evaluated server-side.
