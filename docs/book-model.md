@@ -48,6 +48,7 @@ write, `owned` wins and `previously_owned` is forced to `0`.
 | `condition` | TEXT | `new` · `fine` · `very good` · `good` · `fair` · `poor` · NULL |
 | `page_count` | INTEGER | Positive integer; NULL for audiobooks or unknown |
 | `duration_minutes` | INTEGER | Positive integer; meaningful for `format = 'audiobook'` |
+| `abridged` | INTEGER | `1` if this edition is abridged; `0` for complete or unset. Surfaces as the **Abridged** virtual tag |
 
 ### Identifiers
 
