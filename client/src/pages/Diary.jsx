@@ -5,7 +5,9 @@ import { formatAuthors } from '../utils.js';
 
 function formatDate(dateStr) {
   const today = new Date().toLocaleDateString('en-CA');
-  const yesterday = new Date(Date.now() - 86400000).toLocaleDateString('en-CA');
+  const y = new Date();
+  y.setDate(y.getDate() - 1);
+  const yesterday = y.toLocaleDateString('en-CA');
   if (dateStr === today) return 'Today';
   if (dateStr === yesterday) return 'Yesterday';
   return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-GB', {
