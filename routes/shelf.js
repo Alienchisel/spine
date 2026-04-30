@@ -324,11 +324,11 @@ router.get('/buildings/:id/books', (req, res) => {
         OR r_via_s.building_id  = ?
       )
     ORDER BY
-      COALESCE(r_direct.order_index, r_via_u.order_index, r_via_s.order_index, 0),
+      COALESCE(r_direct.order_index, r_via_u.order_index, r_via_s.order_index, 999999),
       COALESCE(r_direct.name,        r_via_u.name,        r_via_s.name),
-      COALESCE(u_direct.order_index, u_via_sh.order_index, 0),
+      COALESCE(u_direct.order_index, u_via_sh.order_index, 999999),
       COALESCE(u_direct.name,        u_via_sh.name),
-      COALESCE(s_direct.order_index, 0),
+      COALESCE(s_direct.order_index, 999999),
       CASE WHEN b.shelf_position IS NULL THEN 1 ELSE 0 END,
       b.shelf_position,
       COALESCE(b.series, b.title), b.series_number, b.title
@@ -354,9 +354,9 @@ router.get('/rooms/:id/books', (req, res) => {
         OR u_via_s.room_id  = ?
       )
     ORDER BY
-      COALESCE(u_direct.order_index, u_via_s.order_index, 0),
+      COALESCE(u_direct.order_index, u_via_s.order_index, 999999),
       COALESCE(u_direct.name,        u_via_s.name),
-      COALESCE(s_direct.order_index, 0),
+      COALESCE(s_direct.order_index, 999999),
       CASE WHEN b.shelf_position IS NULL THEN 1 ELSE 0 END,
       b.shelf_position,
       COALESCE(b.series, b.title), b.series_number, b.title
