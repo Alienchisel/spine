@@ -27,11 +27,20 @@ function formatProgress(entry) {
 
 const DAY_HEADERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
-function intensityClass(pages, minutes) {
-  if (pages >= 100 || minutes >= 120) return 'bg-oak/80 text-parchment';
-  if (pages >= 50  || minutes >= 60)  return 'bg-oak/55 text-parchment';
-  if (pages >= 20  || minutes >= 30)  return 'bg-oak/35 text-neutral-200';
-  return 'bg-oak/20 text-neutral-300';
+const READ_DAY_CLASS = 'bg-oak/40 text-parchment';
+
+function formatMinutes(min) {
+  if (!min) return '';
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m}m`;
+}
+
+function formatTotal({ pages, minutes }) {
+  const parts = [];
+  if (pages > 0)   parts.push(`${pages.toLocaleString()}p`);
+  if (minutes > 0) parts.push(formatMinutes(minutes));
+  return parts.join(' · ') || '—';
 }
 
 function ReadingCalendar({ days, selectedYear, onDayClick }) {
@@ -63,6 +72,33 @@ function ReadingCalendar({ days, selectedYear, onDayClick }) {
 
   const readingDates = useMemo(() => new Set(days.map(d => d.date)), [days]);
 
+  const totals = useMemo(() => {
+    const todayDate = new Date();
+    const dow = todayDate.getDay() || 7;
+    const monday = new Date(todayDate);
+    monday.setDate(todayDate.getDate() - (dow - 1));
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    const mondayStr = monday.toLocaleDateString('en-CA');
+    const sundayStr = sunday.toLocaleDateString('en-CA');
+    const monthPrefix = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}`;
+    const yearPrefix  = String(selectedYear);
+
+    const acc = {
+      week:  { pages: 0, minutes: 0 },
+      month: { pages: 0, minutes: 0 },
+      year:  { pages: 0, minutes: 0 },
+    };
+    for (const d of days) {
+      let p = 0, m = 0;
+      for (const e of d.entries) { p += e.pages_read || 0; m += e.minutes_read || 0; }
+      if (d.date >= mondayStr && d.date <= sundayStr) { acc.week.pages  += p; acc.week.minutes  += m; }
+      if (d.date.startsWith(monthPrefix))             { acc.month.pages += p; acc.month.minutes += m; }
+      if (d.date.startsWith(yearPrefix))              { acc.year.pages  += p; acc.year.minutes  += m; }
+    }
+    return acc;
+  }, [days, viewYear, viewMonth, selectedYear]);
+
   const firstDow   = new Date(viewYear, viewMonth, 1).getDay();
   const startOffset = (firstDow + 6) % 7;
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
@@ -91,6 +127,19 @@ function ReadingCalendar({ days, selectedYear, onDayClick }) {
 
   return (
     <div>
+      <div className="space-y-1 mb-3 text-xs">
+        {[
+          { label: 'Week',  total: totals.week  },
+          { label: 'Month', total: totals.month },
+          { label: 'Year',  total: totals.year  },
+        ].map(({ label, total }) => (
+          <div key={label} className="flex items-baseline justify-between">
+            <span className="text-[10px] uppercase tracking-wider text-neutral-600">{label}</span>
+            <span className="tabular-nums text-neutral-300">{formatTotal(total)}</span>
+          </div>
+        ))}
+      </div>
+
       <div className="flex items-center justify-between mb-3">
         <button onClick={prevMonth} disabled={atStart} className="text-neutral-600 hover:text-neutral-300 transition-colors w-6 text-center disabled:opacity-20">‹</button>
         <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">{monthLabel}</span>
@@ -118,7 +167,7 @@ function ReadingCalendar({ days, selectedYear, onDayClick }) {
               title={hasEntry ? tipParts.join(' · ') : undefined}
               className={[
                 'flex items-center justify-center rounded text-xs h-7 select-none',
-                isFuture ? 'text-neutral-800' : hasEntry ? `${intensityClass(pages, minutes)} cursor-pointer hover:ring-1 hover:ring-oak/50` : 'text-neutral-700 bg-neutral-800/40',
+                isFuture ? 'text-neutral-800' : hasEntry ? `${READ_DAY_CLASS} cursor-pointer hover:ring-1 hover:ring-oak/50` : 'text-neutral-700 bg-neutral-800/40',
                 isToday ? 'ring-1 ring-neutral-600' : '',
               ].join(' ')}
             >
