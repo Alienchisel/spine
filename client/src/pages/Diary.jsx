@@ -131,7 +131,7 @@ function ReadingCalendar({ days, selectedYear, onDayClick }) {
 
   return (
     <div>
-      <div className="space-y-1 mb-3 text-xs">
+      <div className="space-y-1 mb-5 text-xs">
         {[
           { label: 'This week',  total: totals.week  },
           { label: 'This month', total: totals.month },
@@ -151,7 +151,7 @@ function ReadingCalendar({ days, selectedYear, onDayClick }) {
       </div>
 
       <div className="grid grid-cols-7 mb-1">
-        {DAY_HEADERS.map((h, i) => <div key={i} className="text-center text-xs text-neutral-700 py-0.5">{h}</div>)}
+        {DAY_HEADERS.map((h, i) => <div key={i} className="text-center text-xs text-neutral-500 py-0.5">{h}</div>)}
       </div>
 
       <div className="grid grid-cols-7 gap-y-1">
@@ -329,7 +329,7 @@ export default function Diary() {
 
             <div className="w-64 flex-shrink-0 sticky top-20 bg-neutral-800 rounded-xl p-4">
               <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-3 pb-2 border-b border-neutral-700/60">Overview</p>
-              <div className="space-y-1 mb-4 text-xs">
+              <div className="space-y-1 mb-1 text-xs">
                 <div className="flex items-baseline justify-between">
                   <span className="text-[10px] uppercase tracking-wider text-neutral-600">Day streak</span>
                   <span className="tabular-nums text-neutral-300">{stats.dayStreak}</span>
