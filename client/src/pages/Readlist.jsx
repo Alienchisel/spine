@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   DndContext,
@@ -16,6 +16,12 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { api } from '../api.js';
 import { formatAuthors } from '../utils.js';
+
+const TABS = [
+  { key: 'physical',  label: 'Physical', formats: ['physical'] },
+  { key: 'digital',   label: 'Digital',  formats: ['ebook'] },
+  { key: 'audiobook', label: 'Audio',    formats: ['audiobook'] },
+];
 
 function DragHandle() {
   return (
@@ -80,9 +86,6 @@ function SortableRow({ book, onRemove, index }) {
 
       <div className="flex-shrink-0 flex items-center gap-4">
         <Stars rating={book.rating} />
-        {book.format && book.format !== 'physical' && (
-          <span className="text-xs text-neutral-600 hidden md:block">{book.format === 'ebook' ? 'Digital' : book.format?.charAt(0).toUpperCase() + book.format?.slice(1)}</span>
-        )}
         {book.status && (
           <span className="text-xs text-neutral-600 capitalize hidden sm:block">{book.status}</span>
         )}
@@ -102,6 +105,7 @@ export default function Readlist() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [tab, setTab] = useState('physical');
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -109,14 +113,34 @@ export default function Readlist() {
     api.getReadlist().then(setBooks).catch(() => setError('Failed to load readlist.')).finally(() => setLoading(false));
   }, []);
 
+  const counts = useMemo(() => {
+    const c = { physical: 0, digital: 0, audiobook: 0 };
+    for (const b of books) {
+      if (b.format === 'physical')  c.physical++;
+      else if (b.format === 'ebook') c.digital++;
+      else if (b.format === 'audiobook') c.audiobook++;
+    }
+    return c;
+  }, [books]);
+
+  const activeFormats = TABS.find(t => t.key === tab).formats;
+  const visibleBooks  = useMemo(
+    () => books.filter(b => activeFormats.includes(b.format)),
+    [books, tab],
+  );
+
   function handleDragEnd(event) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const oldIndex = books.findIndex(b => b.id === active.id);
-    const newIndex = books.findIndex(b => b.id === over.id);
-    const reordered = arrayMove(books, oldIndex, newIndex);
-    setBooks(reordered);
-    api.reorderReadlist(reordered.map(b => b.id));
+    const oldIdx = visibleBooks.findIndex(b => b.id === active.id);
+    const newIdx = visibleBooks.findIndex(b => b.id === over.id);
+    const reorderedVisible = arrayMove(visibleBooks, oldIdx, newIdx);
+    // Splice the reordered tab items back into their original global slots,
+    // leaving books from other tabs in place.
+    const queue = [...reorderedVisible];
+    const reorderedAll = books.map(b => activeFormats.includes(b.format) ? queue.shift() : b);
+    setBooks(reorderedAll);
+    api.reorderReadlist(reorderedAll.map(b => b.id));
   }
 
   async function handleRemove(id) {
@@ -126,24 +150,41 @@ export default function Readlist() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-white mb-6">Readlist</h1>
+      <div className="flex items-baseline justify-between mb-6">
+        <h1 className="text-xl font-bold text-white">Readlist</h1>
+        <div className="flex items-center gap-1">
+          {TABS.map(t => {
+            const n = counts[t.key];
+            const active = tab === t.key;
+            return (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className={`text-sm px-3 py-1 rounded transition-colors ${active ? 'text-parchment bg-neutral-800/70' : 'text-neutral-500 hover:text-neutral-300'}`}
+              >
+                {t.label} <span className="text-xs text-neutral-600 tabular-nums">{n}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {loading ? (
         <div className="text-neutral-700 text-sm">Loading…</div>
       ) : error ? (
         <div className="text-red-500 text-sm">{error}</div>
-      ) : books.length === 0 ? (
+      ) : visibleBooks.length === 0 ? (
         <div className="text-center py-32">
-          <p className="text-neutral-600 mb-3">Your readlist is empty.</p>
+          <p className="text-neutral-600 mb-3">No {TABS.find(t => t.key === tab).label.toLowerCase()} books on your readlist.</p>
           <Link to="/" className="text-sm text-oak hover:text-leather">
             Browse your library →
           </Link>
         </div>
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={books.map(b => b.id)} strategy={verticalListSortingStrategy}>
+          <SortableContext items={visibleBooks.map(b => b.id)} strategy={verticalListSortingStrategy}>
             <div className="space-y-1.5">
-              {books.map((book, i) => (
+              {visibleBooks.map((book, i) => (
                 <SortableRow key={book.id} book={book} onRemove={handleRemove} index={i} />
               ))}
             </div>
