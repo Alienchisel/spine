@@ -274,6 +274,21 @@ describe('books', () => {
       const { body } = await req('POST', '/api/books', { title: 'Full Length' });
       assert.equal(body.abridged, 0);
     });
+
+    it('surfaces Abridged as a virtual tag and filters by it', async () => {
+      const { body: abridgedBook } = await req('POST', '/api/books', { title: 'Cliffs Edition', abridged: true });
+      const { body: fullBook }     = await req('POST', '/api/books', { title: 'Full Edition',   abridged: false });
+      // Virtual tag appears on the abridged book and not on the full one.
+      assert.ok(abridgedBook.tags.some(t => t.name === 'Abridged' && t.virtual === true),
+        'expected Abridged virtual tag on abridged book');
+      assert.ok(!fullBook.tags.some(t => t.name === 'Abridged'),
+        'expected no Abridged tag on full-length book');
+      // Filter by virtual tag: returns the abridged book, excludes the full one.
+      const { body: filtered } = await req('GET', '/api/books?tags[]=Abridged');
+      const ids = filtered.books.map(b => b.id);
+      assert.ok(ids.includes(abridgedBook.id), 'expected abridged book in filtered result');
+      assert.ok(!ids.includes(fullBook.id),    'expected full book excluded from filtered result');
+    });
   });
 
   describe('PATCH /api/books/:id', () => {
