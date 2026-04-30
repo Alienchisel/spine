@@ -144,15 +144,34 @@ export default function Library() {
     return () => { stale = true; };
   }, [tab, sort, filters, query]);
 
-  function handleLoadMore() {
+  // Loads pages until displayItems lands on a full grid row, or the dataset
+  // is exhausted. Series-card collapsing means raw books-per-page (48) does
+  // not always map to a row-aligned displayItems count, so a single
+  // server page can leave the trailing row visually short.
+  async function handleLoadMore() {
     const gen = genRef.current;
     setLoadingMore(true);
-    api.getBooks(buildApiParams(tab, sort, filters, query, loadedRef.current)).then(({ books: b, total: t }) => {
-      if (gen !== genRef.current) return;
-      setBooks(prev => [...prev, ...b]);
-      setTotal(t);
-      loadedRef.current += b.length;
-    }).finally(() => { if (gen === genRef.current) setLoadingMore(false); });
+    let curBooks  = books;
+    let curOffset = loadedRef.current;
+    let curTotal  = total;
+    try {
+      for (let i = 0; i < 3; i++) {
+        const { books: b, total: t } = await api.getBooks(buildApiParams(tab, sort, filters, query, curOffset));
+        if (gen !== genRef.current) return;
+        curBooks  = [...curBooks, ...b];
+        curOffset += b.length;
+        curTotal  = t;
+        if (b.length === 0 || curOffset >= curTotal) break;
+        if (density === 'list') break;
+        const di = buildDisplayItems(curBooks, expandedSeries);
+        if (di.length % gridCols === 0) break;
+      }
+      setBooks(curBooks);
+      setTotal(curTotal);
+      loadedRef.current = curOffset;
+    } finally {
+      if (gen === genRef.current) setLoadingMore(false);
+    }
   }
 
   function handleProgressUpdate(updated) {

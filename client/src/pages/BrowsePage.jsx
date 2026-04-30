@@ -40,6 +40,7 @@ export default function BrowsePage() {
   const [loading,     setLoading]     = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const loadedRef = useRef(0);
+  const gridCols  = useGridCols(BROWSE_BPS);
 
   useEffect(() => {
     setLoading(true);
@@ -53,14 +54,27 @@ export default function BrowsePage() {
       }).finally(() => setLoading(false));
   }, [field, decoded]);
 
-  function handleLoadMore() {
+  async function handleLoadMore() {
     setLoadingMore(true);
-    api.getBooks({ field, value: decoded, sort: browseSort(field), limit: PAGE_SIZE, offset: loadedRef.current })
-      .then(({ books: b, total: t }) => {
-        setBooks(prev => [...prev, ...b]);
-        setTotal(t);
-        loadedRef.current += b.length;
-      }).finally(() => setLoadingMore(false));
+    let curBooks  = books;
+    let curOffset = loadedRef.current;
+    let curTotal  = total;
+    const cols = gridCols;
+    try {
+      for (let i = 0; i < 3; i++) {
+        const { books: b, total: t } = await api.getBooks({ field, value: decoded, sort: browseSort(field), limit: PAGE_SIZE, offset: curOffset });
+        curBooks  = [...curBooks, ...b];
+        curOffset += b.length;
+        curTotal  = t;
+        if (b.length === 0 || curOffset >= curTotal) break;
+        if (cols && curBooks.length % cols === 0) break;
+      }
+      setBooks(curBooks);
+      setTotal(curTotal);
+      loadedRef.current = curOffset;
+    } finally {
+      setLoadingMore(false);
+    }
   }
 
   const label = FIELD_LABEL[field] ?? field;
@@ -89,9 +103,16 @@ export default function BrowsePage() {
       ) : books.length === 0 ? (
         <div className="text-neutral-600 text-sm">No books found.</div>
       ) : (
-        <>
-          <BookGrid books={books} />
-        </>
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 gap-y-7">
+          {books.map(book => <BookCard key={book.id} book={book} />)}
+          {Array.from({ length: (gridCols - books.length % gridCols) % gridCols }).map((_, i) => (
+            <div
+              key={`pad-${i}`}
+              aria-hidden="true"
+              className="aspect-[2/3] rounded bg-neutral-900/70 ring-1 ring-neutral-800/60"
+            />
+          ))}
+        </div>
       )}
       {hasMore && (
         <div className="mt-10 flex justify-center">
@@ -108,19 +129,3 @@ export default function BrowsePage() {
   );
 }
 
-function BookGrid({ books }) {
-  const cols = useGridCols(BROWSE_BPS);
-  const padCount = (cols - books.length % cols) % cols;
-  return (
-    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 gap-y-7">
-      {books.map(book => <BookCard key={book.id} book={book} />)}
-      {Array.from({ length: padCount }).map((_, i) => (
-        <div
-          key={`pad-${i}`}
-          aria-hidden="true"
-          className="aspect-[2/3] rounded bg-neutral-900/70 ring-1 ring-neutral-800/60"
-        />
-      ))}
-    </div>
-  );
-}
