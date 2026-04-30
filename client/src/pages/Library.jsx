@@ -127,29 +127,6 @@ export default function Library() {
     return () => { stale = true; };
   }, [tab, filters, query]);
 
-  // Loads pages until displayItems lands on a full grid row, or the dataset
-  // is exhausted. Series-card collapsing means raw books-per-page (48) does
-  // not always map to a row-aligned displayItems count, so a single
-  // server page can leave the trailing row visually short.
-  async function fetchUntilRowFull(startBooks, startOffset) {
-    const gen = genRef.current;
-    let curBooks  = startBooks;
-    let curOffset = startOffset;
-    let curTotal  = total;
-    for (let i = 0; i < 10; i++) {
-      const { books: b, total: t } = await api.getBooks(buildApiParams(tab, sort, filters, query, curOffset));
-      if (gen !== genRef.current) return null;
-      curBooks  = [...curBooks, ...b];
-      curOffset += b.length;
-      curTotal  = t;
-      if (b.length === 0 || curOffset >= curTotal) break;
-      if (density === 'list') break;
-      const di = buildDisplayItems(curBooks, expandedSeries);
-      if (di.length % gridCols === 0) break;
-    }
-    return { books: curBooks, total: curTotal, offset: curOffset };
-  }
-
   // Fetch books on tab / sort / filter / query change — always reset to page 1
   useEffect(() => {
     let stale = false;
@@ -158,30 +135,24 @@ export default function Library() {
     setFetchError(false);
     setBooks([]);
     loadedRef.current = 0;
-    fetchUntilRowFull([], 0).then(result => {
-      if (stale || !result) return;
-      setBooks(result.books);
-      setTotal(result.total);
-      loadedRef.current = result.offset;
+    api.getBooks(buildApiParams(tab, sort, filters, query, 0)).then(({ books: b, total: t }) => {
+      if (stale) return;
+      setBooks(b);
+      setTotal(t);
+      loadedRef.current = b.length;
     }).catch(() => { if (!stale) setFetchError(true); }).finally(() => { if (!stale) setLoading(false); });
     return () => { stale = true; };
-    // gridCols / density / expandedSeries intentionally omitted: we don't want
-    // to re-fetch on viewport resize or series toggle, only on filter changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, sort, filters, query]);
 
-  async function handleLoadMore() {
+  function handleLoadMore() {
     const gen = genRef.current;
     setLoadingMore(true);
-    try {
-      const result = await fetchUntilRowFull(books, loadedRef.current);
-      if (!result || gen !== genRef.current) return;
-      setBooks(result.books);
-      setTotal(result.total);
-      loadedRef.current = result.offset;
-    } finally {
-      if (gen === genRef.current) setLoadingMore(false);
-    }
+    api.getBooks(buildApiParams(tab, sort, filters, query, loadedRef.current)).then(({ books: b, total: t }) => {
+      if (gen !== genRef.current) return;
+      setBooks(prev => [...prev, ...b]);
+      setTotal(t);
+      loadedRef.current += b.length;
+    }).finally(() => { if (gen === genRef.current) setLoadingMore(false); });
   }
 
   function handleProgressUpdate(updated) {
@@ -205,10 +176,18 @@ export default function Library() {
   }
 
   const activeCount   = countFilters(filters);
-  const displayItems  = buildDisplayItems(books, density === 'list' ? new Set() : expandedSeries);
-  const gridCols      = useGridCols(density === 'compact' ? COMPACT_BPS : COMFORTABLE_BPS);
-  const padCount      = density === 'list' ? 0 : (gridCols - displayItems.length % gridCols) % gridCols;
-  const hasMore       = loadedRef.current < total;
+  const allDisplayItems = buildDisplayItems(books, density === 'list' ? new Set() : expandedSeries);
+  const gridCols        = useGridCols(density === 'compact' ? COMPACT_BPS : COMFORTABLE_BPS);
+  const hasMore         = loadedRef.current < total;
+  // Mid-pagination, hide a trailing partial row so the visible grid always
+  // ends on a full row of real books. The hidden stragglers re-emerge on the
+  // next Load more when their row is filled in by fresh books. At end of
+  // dataset, show everything and pad with placeholders if needed.
+  const trimTrailing  = hasMore && density !== 'list' && gridCols > 0
+    ? allDisplayItems.length % gridCols
+    : 0;
+  const displayItems  = trimTrailing > 0 ? allDisplayItems.slice(0, -trimTrailing) : allDisplayItems;
+  const padCount      = density === 'list' || hasMore ? 0 : (gridCols - displayItems.length % gridCols) % gridCols;
 
   return (
     <div>

@@ -42,45 +42,26 @@ export default function BrowsePage() {
   const loadedRef = useRef(0);
   const gridCols  = useGridCols(BROWSE_BPS);
 
-  // Keeps fetching until the trailing row is full of real books, or the
-  // dataset is exhausted. Used both on initial load and on Load more.
-  async function fetchUntilRowFull(startBooks, startOffset) {
-    let curBooks  = startBooks;
-    let curOffset = startOffset;
-    let curTotal  = 0;
-    for (let i = 0; i < 10; i++) {
-      const { books: b, total: t } = await api.getBooks({ field, value: decoded, sort: browseSort(field), limit: PAGE_SIZE, offset: curOffset });
-      curBooks  = [...curBooks, ...b];
-      curOffset += b.length;
-      curTotal  = t;
-      if (b.length === 0 || curOffset >= curTotal) break;
-      if (gridCols && curBooks.length % gridCols === 0) break;
-    }
-    return { books: curBooks, total: curTotal, offset: curOffset };
-  }
-
   useEffect(() => {
     setLoading(true);
     setBooks([]);
     loadedRef.current = 0;
-    fetchUntilRowFull([], 0).then(result => {
-      setBooks(result.books);
-      setTotal(result.total);
-      loadedRef.current = result.offset;
-    }).finally(() => setLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    api.getBooks({ field, value: decoded, sort: browseSort(field), limit: PAGE_SIZE, offset: 0 })
+      .then(({ books: b, total: t }) => {
+        setBooks(b);
+        setTotal(t);
+        loadedRef.current = b.length;
+      }).finally(() => setLoading(false));
   }, [field, decoded]);
 
-  async function handleLoadMore() {
+  function handleLoadMore() {
     setLoadingMore(true);
-    try {
-      const result = await fetchUntilRowFull(books, loadedRef.current);
-      setBooks(result.books);
-      setTotal(result.total);
-      loadedRef.current = result.offset;
-    } finally {
-      setLoadingMore(false);
-    }
+    api.getBooks({ field, value: decoded, sort: browseSort(field), limit: PAGE_SIZE, offset: loadedRef.current })
+      .then(({ books: b, total: t }) => {
+        setBooks(prev => [...prev, ...b]);
+        setTotal(t);
+        loadedRef.current += b.length;
+      }).finally(() => setLoadingMore(false));
   }
 
   const label = FIELD_LABEL[field] ?? field;
@@ -108,18 +89,24 @@ export default function BrowsePage() {
         <div className="text-neutral-700 text-sm">Loading…</div>
       ) : books.length === 0 ? (
         <div className="text-neutral-600 text-sm">No books found.</div>
-      ) : (
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 gap-y-7">
-          {books.map(book => <BookCard key={book.id} book={book} />)}
-          {Array.from({ length: (gridCols - books.length % gridCols) % gridCols }).map((_, i) => (
-            <div
-              key={`pad-${i}`}
-              aria-hidden="true"
-              className="aspect-[2/3] rounded bg-neutral-900/70 ring-1 ring-neutral-800/60"
-            />
-          ))}
-        </div>
-      )}
+      ) : (() => {
+        // Mid-pagination, hide trailing partial-row books; reveal on next load.
+        const trim = hasMore && gridCols > 0 ? books.length % gridCols : 0;
+        const visible = trim > 0 ? books.slice(0, -trim) : books;
+        const padCount = !hasMore && gridCols > 0 ? (gridCols - visible.length % gridCols) % gridCols : 0;
+        return (
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 gap-y-7">
+            {visible.map(book => <BookCard key={book.id} book={book} />)}
+            {Array.from({ length: padCount }).map((_, i) => (
+              <div
+                key={`pad-${i}`}
+                aria-hidden="true"
+                className="aspect-[2/3] rounded bg-neutral-900/70 ring-1 ring-neutral-800/60"
+              />
+            ))}
+          </div>
+        );
+      })()}
       {hasMore && (
         <div className="mt-10 flex justify-center">
           <button
