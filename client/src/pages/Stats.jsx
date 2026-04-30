@@ -76,7 +76,7 @@ function Section({ title, children }) {
 
 const FROM_STATS = { from: 'Stats', fromPath: '/stats' };
 
-function Bar({ label, count, max, color = 'bg-oak', href }) {
+function Bar({ label, count, max, color = 'bg-oak', href, caption }) {
   const pct = max > 0 ? Math.round((count / max) * 100) : 0;
   const labelEl = href
     ? <Link to={href} state={FROM_STATS} className="text-xs text-neutral-400 w-28 flex-shrink-0 truncate hover:text-parchment transition-colors" title={label}>{label}</Link>
@@ -87,7 +87,9 @@ function Bar({ label, count, max, color = 'bg-oak', href }) {
       <div className="flex-1 h-1.5 bg-neutral-800 rounded-full overflow-hidden">
         <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
       </div>
-      <span className="text-xs text-neutral-500 w-8 text-right">{count}</span>
+      <span className={`text-xs text-neutral-500 text-right tabular-nums whitespace-nowrap ${caption ? '' : 'w-8'}`}>
+        {caption ?? count}
+      </span>
     </div>
   );
 }
@@ -421,9 +423,21 @@ export default function Stats() {
       {byYear.length > 0 && (
         <Section title="Finished by year">
           <div className="space-y-2.5">
-            {byYear.map(y => (
-              <Bar key={y.year} label={y.year} count={y.count} max={maxYear} color="bg-leather" href={`/browse/year_finished/${y.year}`} />
-            ))}
+            {byYear.map(y => {
+              const parts = [`${y.count} ${y.count === 1 ? 'book' : 'books'}`];
+              if (y.pages > 0) parts.push(`${y.pages.toLocaleString()} pages`);
+              return (
+                <Bar
+                  key={y.year}
+                  label={y.year}
+                  count={y.count}
+                  max={maxYear}
+                  color="bg-leather"
+                  href={`/browse/year_finished/${y.year}`}
+                  caption={parts.join(' · ')}
+                />
+              );
+            })}
           </div>
         </Section>
       )}
