@@ -152,7 +152,9 @@ books ──< book_authors >── authors
 ```
 
 - `authors` table: `id`, `name` (unique, case-insensitive)
-- `book_authors` table: `book_id`, `author_id`, `position`
+- `book_authors` table: `book_id`, `author_id`, `position`. Composite primary
+  key on `(book_id, author_id)` — a book cannot hold the same author twice in
+  this role. The same applies to `book_narrators` and `book_translators`.
 - Passed to API as an array of strings: `["Frank Herbert", "Brian Herbert"]`
 - Returned as an array of objects ordered by `position`: `[{ id, name }, …]`
 - On every write (POST or PUT with `authors` key present), all existing rows are
