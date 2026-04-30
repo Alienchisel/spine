@@ -370,7 +370,7 @@ router.get('/units/:id/books', (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid id' });
   const books = db.prepare(`
-    SELECT b.id, b.title, b.cover_path, b.status, b.rating, b.series, b.series_number, b.format
+    SELECT b.id, b.title, b.cover_path, b.status, b.rating, b.series, b.series_number, b.format, b.shelf_id
     FROM books b
     LEFT JOIN shelves s ON s.id = b.shelf_id
     WHERE b.owned = 1

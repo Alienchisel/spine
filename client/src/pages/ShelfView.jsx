@@ -70,6 +70,43 @@ function plural(n, word, plural) {
   return `${n} ${n === 1 ? word : (plural ?? word + 's')}`;
 }
 
+function ShelfRow({ shelf, books, onReorder, onLabelClick }) {
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  function handleDragEnd(event) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIdx = books.findIndex(b => b.id === active.id);
+    const newIdx = books.findIndex(b => b.id === over.id);
+    onReorder(shelf.id, arrayMove(books, oldIdx, newIdx));
+  }
+
+  return (
+    <div className="mb-8 last:mb-0">
+      <div className="flex items-baseline gap-3 mb-2 px-4 sm:px-6 lg:px-8">
+        <button
+          onClick={onLabelClick}
+          className="text-xs font-semibold text-neutral-500 uppercase tracking-widest hover:text-neutral-300 transition-colors"
+        >
+          {shelf.label}
+        </button>
+        <span className="text-xs text-neutral-700 tabular-nums">{books.length}</span>
+      </div>
+      {books.length === 0 ? (
+        <p className="text-neutral-700 text-xs italic px-4 sm:px-6 lg:px-8">empty</p>
+      ) : (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={books.map(b => b.id)} strategy={horizontalListSortingStrategy}>
+            <div className="flex gap-4 overflow-x-auto pb-4 px-4 sm:px-6 lg:px-8 [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-track]:bg-neutral-800 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-neutral-600 [&::-webkit-scrollbar-thumb]:rounded-full">
+              {books.map(book => <SortableShelfCover key={book.id} book={book} />)}
+            </div>
+          </SortableContext>
+        </DndContext>
+      )}
+    </div>
+  );
+}
+
 export default function ShelfView() {
   const [params, setParams] = useSearchParams();
   const [tree, setTree] = useState([]);
@@ -261,30 +298,49 @@ export default function ShelfView() {
         )}
       </>)}
 
-      {/* Shelves + unit-level books */}
+      {/* Shelves rendered as stacked horizontal rows + unit-level (shelfless) books */}
       {unitId && !shelfId && (<>
-        {shelves.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {shelves.map(s => (
-              <LevelCard
-                key={s.id}
-                primary={s.label}
-                secondary={plural(s.book_count, 'book')}
-                onClick={() => nav({ b: buildingId, r: roomId, u: unitId, s: s.id })}
-              />
-            ))}
-          </div>
-        )}
         {booksLoading ? (
-          <div className="text-neutral-700 text-sm mt-6">Loading…</div>
-        ) : books.length > 0 && (
-          <div className={`grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 gap-y-7 ${shelves.length > 0 ? 'mt-8' : ''}`}>
-            {books.map(book => <BookCard key={book.id} book={book} />)}
-          </div>
-        )}
-        {!booksLoading && shelves.length === 0 && books.length === 0 && (
-          <p className="text-neutral-600 text-sm">No books in this unit yet.</p>
-        )}
+          <div className="text-neutral-700 text-sm">Loading…</div>
+        ) : (<>
+          {shelves.length > 0 && (
+            <div className="-mx-4 sm:-mx-6 lg:-mx-8">
+              {shelves.map(s => (
+                <ShelfRow
+                  key={s.id}
+                  shelf={s}
+                  books={books.filter(b => b.shelf_id === s.id)}
+                  onLabelClick={() => nav({ b: buildingId, r: roomId, u: unitId, s: s.id })}
+                  onReorder={(shelfId, reordered) => {
+                    setBooks(prev => {
+                      const others = prev.filter(b => b.shelf_id !== shelfId);
+                      return [...others, ...reordered];
+                    });
+                    api.reorderShelf(shelfId, reordered.map(b => b.id))
+                      .catch(() => api.getUnitBooks(unitId).then(setBooks).catch(() => {}));
+                  }}
+                />
+              ))}
+            </div>
+          )}
+          {(() => {
+            const unitOnly = books.filter(b => !b.shelf_id);
+            if (unitOnly.length === 0) return null;
+            return (
+              <div className={shelves.length > 0 ? 'mt-6 pt-6 border-t border-neutral-800/50' : ''}>
+                {shelves.length > 0 && (
+                  <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-4">Not on a shelf</h2>
+                )}
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 gap-y-7">
+                  {unitOnly.map(book => <BookCard key={book.id} book={book} />)}
+                </div>
+              </div>
+            );
+          })()}
+          {shelves.length === 0 && books.length === 0 && (
+            <p className="text-neutral-600 text-sm">No books in this unit yet.</p>
+          )}
+        </>)}
       </>)}
 
       {/* Shelf-level books */}
