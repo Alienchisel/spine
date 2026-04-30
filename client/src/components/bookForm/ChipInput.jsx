@@ -1,8 +1,9 @@
 import { label as labelClass } from './styles.js';
 
-// Reusable chip+input pattern. Used for authors, narrators, and tags — all
-// share the same UX: existing items shown as removable pills, an input that
-// accepts new entries on Enter or comma, and a datalist of past values.
+// Reusable chip+input pattern. Used for authors, narrators, translators, and
+// tags — all share the same UX: existing items shown as removable pills, an
+// input that accepts new entries on Enter or comma, and a datalist of past
+// values.
 export default function ChipInput({
   label,
   items,

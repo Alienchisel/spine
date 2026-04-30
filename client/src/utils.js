@@ -1,4 +1,7 @@
-// authors: [{id, name}] or [string]
+// Generic person-list formatter — used for authors, narrators, and
+// translators (all share the [{id, name}] | [string] shape). Returns null
+// for empty input, the bare name for one, "A & B" for two, "A, B & C" for
+// three, and "A et al." for four or more.
 export function formatAuthors(authors) {
   if (!authors?.length) return null;
   const names = authors.map(a => (typeof a === 'string' ? a : a.name));
