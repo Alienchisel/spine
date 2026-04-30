@@ -99,7 +99,7 @@ router.post('/', (req, res) => {
   if (name.length > 200) return res.status(400).json({ error: 'Name too long' });
   const existing = db.prepare('SELECT id FROM lists WHERE name = ? COLLATE NOCASE').get(name);
   if (existing) return res.status(409).json({ error: 'A list with that name already exists' });
-  const result = db.prepare('INSERT INTO lists (name) VALUES (?)').run(name);
+  const result = db.prepare("INSERT INTO lists (name, created_at, updated_at) VALUES (?, datetime('now', 'localtime'), datetime('now', 'localtime'))").run(name);
   res.status(201).json(db.prepare('SELECT * FROM lists WHERE id = ?').get(result.lastInsertRowid));
 });
 
@@ -127,7 +127,7 @@ router.put('/:id', (req, res) => {
   if (name.length > 200) return res.status(400).json({ error: 'Name too long' });
   const conflict = db.prepare('SELECT id FROM lists WHERE name = ? COLLATE NOCASE AND id != ?').get(name, id);
   if (conflict) return res.status(409).json({ error: 'A list with that name already exists' });
-  db.prepare('UPDATE lists SET name = ?, updated_at = datetime(\'now\') WHERE id = ?').run(name, id);
+  db.prepare('UPDATE lists SET name = ?, updated_at = datetime(\'now\', \'localtime\') WHERE id = ?').run(name, id);
   res.json(db.prepare('SELECT * FROM lists WHERE id = ?').get(id));
 });
 
@@ -152,7 +152,7 @@ router.post('/:id/books', (req, res) => {
   const book = db.prepare('SELECT id FROM books WHERE id = ?').get(bookId);
   if (!book) return res.status(404).json({ error: 'Book not found' });
   const maxPos = db.prepare('SELECT COALESCE(MAX(position), -1) AS m FROM list_books WHERE list_id = ?').get(id).m;
-  db.prepare('INSERT OR IGNORE INTO list_books (list_id, book_id, position) VALUES (?, ?, ?)').run(id, bookId, maxPos + 1);
+  db.prepare("INSERT OR IGNORE INTO list_books (list_id, book_id, position, added_at) VALUES (?, ?, ?, datetime('now', 'localtime'))").run(id, bookId, maxPos + 1);
   res.status(201).json({ ok: true });
 });
 
