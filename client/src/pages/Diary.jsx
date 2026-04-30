@@ -81,7 +81,11 @@ function ReadingCalendar({ days, selectedYear, onDayClick }) {
     sunday.setDate(monday.getDate() + 6);
     const mondayStr = monday.toLocaleDateString('en-CA');
     const sundayStr = sunday.toLocaleDateString('en-CA');
-    const monthPrefix = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}`;
+    // All three totals are "now"-relative — they don't follow calendar nav.
+    // Calendar prev/next is purely a visual browser; week/month/year reflect
+    // the current real date. (Year still follows the selectedYear dropdown
+    // because that's the explicit data-loading control.)
+    const monthPrefix = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}`;
     const yearPrefix  = String(selectedYear);
 
     const acc = {
@@ -97,7 +101,7 @@ function ReadingCalendar({ days, selectedYear, onDayClick }) {
       if (d.date.startsWith(yearPrefix))              { acc.year.pages  += p; acc.year.minutes  += m; }
     }
     return acc;
-  }, [days, viewYear, viewMonth, selectedYear]);
+  }, [days, selectedYear]);
 
   const firstDow   = new Date(viewYear, viewMonth, 1).getDay();
   const startOffset = (firstDow + 6) % 7;
@@ -129,9 +133,9 @@ function ReadingCalendar({ days, selectedYear, onDayClick }) {
     <div>
       <div className="space-y-1 mb-3 text-xs">
         {[
-          { label: 'Week',  total: totals.week  },
-          { label: 'Month', total: totals.month },
-          { label: 'Year',  total: totals.year  },
+          { label: 'This week',  total: totals.week  },
+          { label: 'This month', total: totals.month },
+          { label: 'This year',  total: totals.year  },
         ].map(({ label, total }) => (
           <div key={label} className="flex items-baseline justify-between">
             <span className="text-[10px] uppercase tracking-wider text-neutral-600">{label}</span>
