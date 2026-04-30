@@ -222,7 +222,7 @@ export default function Library() {
               type="search"
               value={queryRaw}
               onChange={(e) => setQueryRaw(e.target.value)}
-              placeholder="Search by title or author…"
+              placeholder="Search title, people, series, or tags…"
               className="bg-neutral-800 border border-leather/30 rounded-lg px-4 py-2 text-sm text-parchment placeholder-neutral-500 focus:outline-none focus:border-leather/70 focus:ring-1 focus:ring-oak/25 transition-colors duration-150 w-full sm:w-56"
             />
             <button
