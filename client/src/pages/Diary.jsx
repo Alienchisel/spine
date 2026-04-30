@@ -38,7 +38,7 @@ function formatMinutes(min) {
 
 function formatTotal({ pages, minutes }) {
   const parts = [];
-  if (pages > 0)   parts.push(`${pages.toLocaleString()}p`);
+  if (pages > 0)   parts.push(`${pages.toLocaleString()} ${pages === 1 ? 'page' : 'pages'}`);
   if (minutes > 0) parts.push(formatMinutes(minutes));
   return parts.join(' · ') || '—';
 }
