@@ -23,7 +23,7 @@ function browseSort(field) {
   return 'title';
 }
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 48;
 
 export default function BrowsePage() {
   const { field, value } = useParams();

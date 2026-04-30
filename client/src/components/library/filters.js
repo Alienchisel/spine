@@ -1,4 +1,4 @@
-export const PAGE_SIZE = 50;
+export const PAGE_SIZE = 48;
 
 export const EMPTY_FILTERS = {
   missing:         [],

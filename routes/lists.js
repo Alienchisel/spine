@@ -9,7 +9,7 @@ function getListOrFail(res, id) {
   return list;
 }
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 48;
 
 const LIST_ORDER_BY = {
   title:  "b.title COLLATE NOCASE ASC, lb.position ASC",

@@ -17,7 +17,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { api } from '../api.js';
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 48;
 
 const SORTS = [
   { key: 'added',  label: 'Custom order' },
