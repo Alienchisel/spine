@@ -552,7 +552,7 @@ describe('books', () => {
     });
   });
 
-  describe('author/narrator/tag sync', () => {
+  describe('joined field sync', () => {
     it('replaces authors on PUT', async () => {
       const { body: created } = await req('POST', '/api/books', {
         title: 'Changing Authors', authors: ['Old Author'],
