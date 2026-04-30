@@ -118,7 +118,7 @@ function BookGrid({ books }) {
         <div
           key={`pad-${i}`}
           aria-hidden="true"
-          className="aspect-[2/3] rounded bg-neutral-900/30"
+          className="aspect-[2/3] rounded bg-neutral-900/70 ring-1 ring-neutral-800/60"
         />
       ))}
     </div>
