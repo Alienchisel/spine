@@ -16,7 +16,7 @@
  *   - unit_id only (no shelf_id, no room_id) → unit_id stored
  *   - cover_path /uploads/{file} round-trips correctly
  *   - read_count incremented by status → 'finished' transition
- *   - tags/authors/narrators fully replaced on PUT
+ *   - tags/authors/narrators/translators fully replaced on PUT
  *   - virtual tags are field-derived and respect format-specific gates
  */
 
