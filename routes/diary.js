@@ -58,10 +58,13 @@ router.get('/', (req, res) => {
     days:  Object.entries(byDate).map(([date, entries]) => ({ date, entries })),
     years,
     stats: {
-      dayStreak:      streaks.days.current,
-      dayStreakBest:  streaks.days.longest,
-      weekStreak:     streaks.weeks.current,
-      weekStreakBest: streaks.weeks.longest,
+      dayStreak:           streaks.days.current,
+      dayStreakBest:       streaks.days.longest,
+      dayStreakSince:      streaks.days.currentStart,
+      dayStreakBestStart:  streaks.days.longestStart,
+      dayStreakBestEnd:    streaks.days.longestEnd,
+      weekStreak:          streaks.weeks.current,
+      weekStreakBest:      streaks.weeks.longest,
     },
   });
 });

@@ -94,6 +94,13 @@ function Bar({ label, count, max, color = 'bg-oak', href, caption }) {
   );
 }
 
+function fmtShortDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(`${dateStr}T12:00:00`);
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', ...(sameYear ? {} : { year: 'numeric' }) });
+}
+
 function formatHours(minutes) {
   if (!minutes) return '0h';
   const h = Math.floor(minutes / 60);
@@ -288,11 +295,19 @@ export default function Stats() {
             <div className="flex justify-between items-end">
               <div>
                 <div className="text-2xl font-semibold text-parchment">{streaks.days.current}</div>
-                <div className="text-xs text-neutral-500 mt-0.5">current</div>
+                <div className="text-xs text-neutral-500 mt-0.5">
+                  {streaks.days.current > 0 && streaks.days.currentStart
+                    ? `since ${fmtShortDate(streaks.days.currentStart)}`
+                    : 'current'}
+                </div>
               </div>
               <div className="text-right">
                 <div className="text-lg font-semibold text-neutral-400">{streaks.days.longest}</div>
-                <div className="text-xs text-neutral-600 mt-0.5">longest</div>
+                <div className="text-xs text-neutral-600 mt-0.5">
+                  {streaks.days.longest > 0 && streaks.days.longestStart
+                    ? `${fmtShortDate(streaks.days.longestStart)} – ${fmtShortDate(streaks.days.longestEnd)}`
+                    : 'longest'}
+                </div>
               </div>
             </div>
           </div>

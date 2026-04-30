@@ -36,6 +36,13 @@ function formatMinutes(min) {
   return h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m}m`;
 }
 
+function formatDayShort(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(`${dateStr}T12:00:00`);
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', ...(sameYear ? {} : { year: 'numeric' }) });
+}
+
 function formatTotal({ pages, minutes }) {
   const parts = [];
   if (pages > 0)   parts.push(`${pages.toLocaleString()} ${pages === 1 ? 'page' : 'pages'}`);
@@ -227,7 +234,7 @@ export default function Diary() {
   const [year,    setYear]    = useState(CURRENT_YEAR);
   const [days,    setDays]    = useState([]);
   const [years,   setYears]   = useState([]);
-  const [stats,   setStats]   = useState({ dayStreak: 0, dayStreakBest: 0, weekStreak: 0, weekStreakBest: 0 });
+  const [stats,   setStats]   = useState({ dayStreak: 0, dayStreakBest: 0, dayStreakSince: null, dayStreakBestStart: null, dayStreakBestEnd: null, weekStreak: 0, weekStreakBest: 0 });
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState(null);
   const [deleteError, setDeleteError] = useState(null);
@@ -330,7 +337,13 @@ export default function Diary() {
             <div className="w-64 flex-shrink-0 sticky top-20 bg-neutral-800 rounded-xl p-4">
               <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-3 pb-2 border-b border-neutral-700/60">Overview</p>
               <div className="space-y-1 mb-1 text-xs">
-                <div className="flex items-baseline justify-between">
+                <div
+                  className="flex items-baseline justify-between"
+                  title={[
+                    stats.dayStreak > 0 && stats.dayStreakSince  && `Current: since ${formatDayShort(stats.dayStreakSince)}`,
+                    stats.dayStreakBest > 0 && stats.dayStreakBestStart && `Best: ${formatDayShort(stats.dayStreakBestStart)} – ${formatDayShort(stats.dayStreakBestEnd)}`,
+                  ].filter(Boolean).join('\n') || undefined}
+                >
                   <span className="text-[10px] uppercase tracking-wider text-neutral-600">Day streak</span>
                   <span className="tabular-nums text-neutral-300">
                     {stats.dayStreak}
