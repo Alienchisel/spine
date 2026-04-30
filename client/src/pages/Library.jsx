@@ -7,6 +7,10 @@ import ListRow from '../components/library/ListRow.jsx';
 import SeriesCard from '../components/library/SeriesCard.jsx';
 import { EMPTY_FILTERS, countFilters, pruneFilters, buildApiParams } from '../components/library/filters.js';
 import { buildDisplayItems, sortVolumes } from '../components/library/grouping.js';
+import { useGridCols } from '../hooks/useGridCols.js';
+
+const COMFORTABLE_BPS = [{ minWidth: 0, cols: 3 }, { minWidth: 640, cols: 4 }, { minWidth: 768, cols: 6 }];
+const COMPACT_BPS     = [{ minWidth: 0, cols: 6 }, { minWidth: 640, cols: 9 }, { minWidth: 768, cols: 12 }];
 
 const TABS = [
   { key: 'reading',   label: 'Reading' },
@@ -173,6 +177,8 @@ export default function Library() {
 
   const activeCount   = countFilters(filters);
   const displayItems  = buildDisplayItems(books, density === 'list' ? new Set() : expandedSeries);
+  const gridCols      = useGridCols(density === 'compact' ? COMPACT_BPS : COMFORTABLE_BPS);
+  const padCount      = density === 'list' ? 0 : (gridCols - displayItems.length % gridCols) % gridCols;
   const hasMore       = loadedRef.current < total;
 
   return (
@@ -330,6 +336,13 @@ export default function Library() {
                   />
                 )
               )}
+              {Array.from({ length: padCount }).map((_, i) => (
+                <div
+                  key={`pad-${i}`}
+                  aria-hidden="true"
+                  className="aspect-[2/3] rounded bg-neutral-900/30"
+                />
+              ))}
             </div>
           )}
           {hasMore && (

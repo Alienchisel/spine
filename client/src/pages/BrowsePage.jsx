@@ -2,6 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
 import BookCard from '../components/BookCard.jsx';
+import { useGridCols } from '../hooks/useGridCols.js';
+
+const BROWSE_BPS = [{ minWidth: 0, cols: 3 }, { minWidth: 640, cols: 4 }, { minWidth: 768, cols: 5 }];
 
 const FIELD_LABEL = {
   author: 'Author', translator: 'Translator', publisher: 'Publisher',
@@ -87,22 +90,37 @@ export default function BrowsePage() {
         <div className="text-neutral-600 text-sm">No books found.</div>
       ) : (
         <>
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 gap-y-7">
-            {books.map(book => <BookCard key={book.id} book={book} />)}
-          </div>
-          {hasMore && (
-            <div className="mt-10 flex justify-center">
-              <button
-                onClick={handleLoadMore}
-                disabled={loadingMore}
-                className="text-sm text-neutral-500 hover:text-neutral-200 disabled:opacity-40 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
-              >
-                {loadingMore ? 'Loading…' : `Load more · ${total - loadedRef.current} remaining`}
-              </button>
-            </div>
-          )}
+          <BookGrid books={books} />
         </>
       )}
+      {hasMore && (
+        <div className="mt-10 flex justify-center">
+          <button
+            onClick={handleLoadMore}
+            disabled={loadingMore}
+            className="text-sm text-neutral-500 hover:text-neutral-200 disabled:opacity-40 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
+          >
+            {loadingMore ? 'Loading…' : `Load more · ${total - loadedRef.current} remaining`}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BookGrid({ books }) {
+  const cols = useGridCols(BROWSE_BPS);
+  const padCount = (cols - books.length % cols) % cols;
+  return (
+    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 gap-y-7">
+      {books.map(book => <BookCard key={book.id} book={book} />)}
+      {Array.from({ length: padCount }).map((_, i) => (
+        <div
+          key={`pad-${i}`}
+          aria-hidden="true"
+          className="aspect-[2/3] rounded bg-neutral-900/30"
+        />
+      ))}
     </div>
   );
 }
