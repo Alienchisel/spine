@@ -7,10 +7,7 @@ import ListRow from '../components/library/ListRow.jsx';
 import SeriesCard from '../components/library/SeriesCard.jsx';
 import { EMPTY_FILTERS, countFilters, pruneFilters, buildApiParams } from '../components/library/filters.js';
 import { buildDisplayItems, sortVolumes } from '../components/library/grouping.js';
-import { useGridCols } from '../hooks/useGridCols.js';
-
-const COMFORTABLE_BPS = [{ minWidth: 0, cols: 3 }, { minWidth: 640, cols: 4 }, { minWidth: 768, cols: 6 }];
-const COMPACT_BPS     = [{ minWidth: 0, cols: 6 }, { minWidth: 640, cols: 9 }, { minWidth: 768, cols: 12 }];
+import { useGridCols, COMFORTABLE_BPS, COMPACT_BPS } from '../hooks/useGridCols.js';
 
 const TABS = [
   { key: 'reading',   label: 'Reading' },
@@ -183,7 +180,10 @@ export default function Library() {
   // ends on a full row of real books. The hidden stragglers re-emerge on the
   // next Load more when their row is filled in by fresh books. At end of
   // dataset, show everything and pad with placeholders if needed.
-  const trimTrailing  = hasMore && density !== 'list' && gridCols > 0
+  // Guard: only trim when there's at least one full row to keep — otherwise
+  // pathologically small loads (e.g. heavy series collapse → 5 items) would
+  // hide everything and the user would see an empty grid.
+  const trimTrailing  = hasMore && density !== 'list' && gridCols > 0 && allDisplayItems.length > gridCols
     ? allDisplayItems.length % gridCols
     : 0;
   const displayItems  = trimTrailing > 0 ? allDisplayItems.slice(0, -trimTrailing) : allDisplayItems;

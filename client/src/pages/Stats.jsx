@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { api } from '../api.js';
+import { fmtShortDate } from '../utils.js';
 
 function DonutChart({ title, data }) {
   const total = data.reduce((s, d) => s + d.value, 0);
@@ -92,13 +93,6 @@ function Bar({ label, count, max, color = 'bg-oak', href, caption }) {
       </span>
     </div>
   );
-}
-
-function fmtShortDate(dateStr) {
-  if (!dateStr) return '';
-  const d = new Date(`${dateStr}T12:00:00`);
-  const sameYear = d.getFullYear() === new Date().getFullYear();
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', ...(sameYear ? {} : { year: 'numeric' }) });
 }
 
 function formatHours(minutes) {

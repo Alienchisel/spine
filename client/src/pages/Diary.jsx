@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
-import { formatAuthors } from '../utils.js';
+import { formatAuthors, fmtShortDate } from '../utils.js';
 
 function formatDate(dateStr) {
   const today = new Date().toLocaleDateString('en-CA');
@@ -34,13 +34,6 @@ function formatMinutes(min) {
   const h = Math.floor(min / 60);
   const m = min % 60;
   return h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m}m`;
-}
-
-function formatDayShort(dateStr) {
-  if (!dateStr) return '';
-  const d = new Date(`${dateStr}T12:00:00`);
-  const sameYear = d.getFullYear() === new Date().getFullYear();
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', ...(sameYear ? {} : { year: 'numeric' }) });
 }
 
 function formatTotal({ pages, minutes }) {
@@ -340,8 +333,8 @@ export default function Diary() {
                 <div
                   className="flex items-baseline justify-between"
                   title={[
-                    stats.dayStreak > 0 && stats.dayStreakSince  && `Current: since ${formatDayShort(stats.dayStreakSince)}`,
-                    stats.dayStreakBest > 0 && stats.dayStreakBestStart && `Best: ${formatDayShort(stats.dayStreakBestStart)} – ${formatDayShort(stats.dayStreakBestEnd)}`,
+                    stats.dayStreak > 0 && stats.dayStreakSince  && `Current: since ${fmtShortDate(stats.dayStreakSince)}`,
+                    stats.dayStreakBest > 0 && stats.dayStreakBestStart && `Best: ${fmtShortDate(stats.dayStreakBestStart)} – ${fmtShortDate(stats.dayStreakBestEnd)}`,
                   ].filter(Boolean).join('\n') || undefined}
                 >
                   <span className="text-[10px] uppercase tracking-wider text-neutral-600">Day streak</span>

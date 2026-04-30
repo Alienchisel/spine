@@ -2,9 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
 import BookCard from '../components/BookCard.jsx';
-import { useGridCols } from '../hooks/useGridCols.js';
-
-const BROWSE_BPS = [{ minWidth: 0, cols: 3 }, { minWidth: 640, cols: 4 }, { minWidth: 768, cols: 5 }];
+import { useGridCols, BROWSE_BPS } from '../hooks/useGridCols.js';
 
 const FIELD_LABEL = {
   author: 'Author', translator: 'Translator', publisher: 'Publisher',
@@ -91,7 +89,8 @@ export default function BrowsePage() {
         <div className="text-neutral-600 text-sm">No books found.</div>
       ) : (() => {
         // Mid-pagination, hide trailing partial-row books; reveal on next load.
-        const trim = hasMore && gridCols > 0 ? books.length % gridCols : 0;
+        // Guard: keep at least one full row so a small load doesn't render empty.
+        const trim = hasMore && gridCols > 0 && books.length > gridCols ? books.length % gridCols : 0;
         const visible = trim > 0 ? books.slice(0, -trim) : books;
         const padCount = !hasMore && gridCols > 0 ? (gridCols - visible.length % gridCols) % gridCols : 0;
         return (

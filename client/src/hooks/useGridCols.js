@@ -1,5 +1,12 @@
 import { useState, useEffect } from 'react';
 
+// Breakpoint tables for the grid pages. Tailwind's sm/md correspond to
+// 640px / 768px; matching those keeps grid math in sync with the className
+// breakpoints applied to the actual <div className="grid grid-cols-...">.
+export const COMFORTABLE_BPS = [{ minWidth: 0, cols: 3 }, { minWidth: 640, cols: 4 }, { minWidth: 768, cols: 6 }];
+export const COMPACT_BPS     = [{ minWidth: 0, cols: 6 }, { minWidth: 640, cols: 9 }, { minWidth: 768, cols: 12 }];
+export const BROWSE_BPS      = [{ minWidth: 0, cols: 3 }, { minWidth: 640, cols: 4 }, { minWidth: 768, cols: 5 }];
+
 // Returns the number of grid columns at the current viewport width given a
 // breakpoint table. Each entry is { minWidth, cols }; the active row is the
 // last entry whose minWidth is <= window.innerWidth. Re-runs on resize.
