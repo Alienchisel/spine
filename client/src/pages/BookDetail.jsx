@@ -74,7 +74,7 @@ export default function BookDetail() {
     setFinishing(true);
     setFinishError(null);
     try {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = new Date().toLocaleDateString('en-CA');
       const dateFinished = book.date_finished || today;
       const updated = await api.updateBook(book.id, {
         ...book,

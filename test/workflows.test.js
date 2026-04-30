@@ -147,7 +147,7 @@ describe('workflows', () => {
       // Finish transition: status → 'finished', read_count auto-bumps to 1.
       // We deliberately leave read_count alone in the payload so the manual-
       // override path is not taken (see lib/books/repository.js comment).
-      const today = new Date().toISOString().slice(0, 10);
+      const today = new Date().toLocaleDateString('en-CA');
       const { body: finished } = await req('PUT', `/api/books/${book.id}`, {
         ...p2,
         status: 'finished',

@@ -4,8 +4,8 @@ import { api } from '../api.js';
 import { formatAuthors } from '../utils.js';
 
 function formatDate(dateStr) {
-  const today = new Date().toISOString().slice(0, 10);
-  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const today = new Date().toLocaleDateString('en-CA');
+  const yesterday = new Date(Date.now() - 86400000).toLocaleDateString('en-CA');
   if (dateStr === today) return 'Today';
   if (dateStr === yesterday) return 'Yesterday';
   return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-GB', {
@@ -35,7 +35,7 @@ function intensityClass(pages, minutes) {
 function ReadingCalendar({ days, selectedYear, onDayClick }) {
   const today = new Date();
   const currentYear = today.getFullYear();
-  const todayStr = today.toISOString().slice(0, 10);
+  const todayStr = today.toLocaleDateString('en-CA');
 
   const [viewYear,  setViewYear]  = useState(selectedYear);
   const [viewMonth, setViewMonth] = useState(

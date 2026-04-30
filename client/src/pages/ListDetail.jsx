@@ -227,7 +227,7 @@ export default function ListDetail() {
   }, [id, sort]);
 
   function handleAdded(book) {
-    setList(l => ({ ...l, books: [{ ...book, added_at: new Date().toISOString() }, ...l.books] }));
+    setList(l => ({ ...l, books: [{ ...book, added_at: new Date().toLocaleString('sv-SE') }, ...l.books] }));
     setTotal(t => t + 1);
     loadedRef.current += 1;
   }

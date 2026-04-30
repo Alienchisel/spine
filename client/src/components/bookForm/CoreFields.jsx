@@ -110,7 +110,7 @@ export default function CoreFields({
         <select className={input} value={form.status}
           onChange={(e) => {
             const s = e.target.value;
-            const today = new Date().toISOString().slice(0, 10);
+            const today = new Date().toLocaleDateString('en-CA');
             setForm(f => ({
               ...f,
               status: s,
