@@ -642,6 +642,31 @@ describe('books', () => {
       }
     });
 
+    it('field=fiction routes value=fiction/nonfiction/unset to the right sub-branch', async () => {
+      // lib/books/filters.js has three sub-branches under f === 'fiction':
+      // value='fiction' → fiction=1, value='nonfiction' → fiction=0, anything
+      // else (incl. 'unset' from Stats.jsx) → fiction IS NULL.
+      const { body: novel    } = await req('POST', '/api/books', { title: 'fiction-branch novel',     fiction: true  });
+      const { body: nonfic   } = await req('POST', '/api/books', { title: 'fiction-branch nonfic',    fiction: false });
+      const { body: unset    } = await req('POST', '/api/books', { title: 'fiction-branch unset' });
+
+      const cases = [
+        { value: 'fiction',    matched: novel,  excluded: [nonfic, unset] },
+        { value: 'nonfiction', matched: nonfic, excluded: [novel,  unset] },
+        { value: 'unset',      matched: unset,  excluded: [novel,  nonfic] },
+      ];
+      for (const c of cases) {
+        const { body: results } = await req('GET', `/api/books?field=fiction&value=${c.value}&limit=200`);
+        const ids = results.books.map(b => b.id);
+        assert.ok(ids.includes(c.matched.id),
+          `expected field=fiction&value=${c.value} to include the matched fixture`);
+        for (const ex of c.excluded) {
+          assert.ok(!ids.includes(ex.id),
+            `expected field=fiction&value=${c.value} to exclude fixture #${ex.id}`);
+        }
+      }
+    });
+
     it('field=publisher/series/language/format filter by scalar value', async () => {
       // BROWSE_FIELDS in lib/books/filters.js use a catch-all `${col} = ?` branch
       // distinct from the people-field subqueries. This guards that branch.
