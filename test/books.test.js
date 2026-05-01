@@ -714,6 +714,46 @@ describe('books', () => {
       }
     });
 
+    it('boolean filters owned/custom/loved include and exclude correctly on true and false', async () => {
+      // Each of these has both true and false SQL branches in lib/books/filters.js.
+      // The =false branches use COALESCE(col,0)=0 so NULL is treated as off.
+      const cases = [
+        { filter: 'owned',  onPayload: { owned:     true  }, offPayload: { owned:     false } },
+        { filter: 'custom', onPayload: { is_custom: true  }, offPayload: { is_custom: false } },
+        { filter: 'loved',  onPayload: { loved:     true  }, offPayload: { loved:     false } },
+      ];
+      for (const c of cases) {
+        const { body: bookOn  } = await req('POST', '/api/books', { title: `${c.filter} on`,  ...c.onPayload  });
+        const { body: bookOff } = await req('POST', '/api/books', { title: `${c.filter} off`, ...c.offPayload });
+
+        const { body: trueRes } = await req('GET', `/api/books?${c.filter}=true&limit=200`);
+        const trueIds = trueRes.books.map(b => b.id);
+        assert.ok( trueIds.includes(bookOn.id),  `${c.filter}=true should include the on book`);
+        assert.ok(!trueIds.includes(bookOff.id), `${c.filter}=true should exclude the off book`);
+
+        const { body: falseRes } = await req('GET', `/api/books?${c.filter}=false&limit=200`);
+        const falseIds = falseRes.books.map(b => b.id);
+        assert.ok(!falseIds.includes(bookOn.id),  `${c.filter}=false should exclude the on book`);
+        assert.ok( falseIds.includes(bookOff.id), `${c.filter}=false should include the off book`);
+      }
+    });
+
+    it('previouslyOwned=true returns only books marked previously owned', async () => {
+      // The backend has only a true branch for previouslyOwned (lib/books/filters.js:190).
+      // previously_owned is forced to 0 when owned=true (repository.js:141), so the
+      // matched fixture must explicitly set owned=false.
+      const { body: prev } = await req('POST', '/api/books', {
+        title: 'Previously Owned Book', owned: false, previously_owned: true,
+      });
+      const { body: never } = await req('POST', '/api/books', {
+        title: 'Never Owned Book', owned: false,
+      });
+      const { body: results } = await req('GET', '/api/books?previouslyOwned=true&limit=200');
+      const ids = results.books.map(b => b.id);
+      assert.ok( ids.includes(prev.id),  'expected previously-owned book to match');
+      assert.ok(!ids.includes(never.id), 'expected never-previously-owned book to be excluded');
+    });
+
     it('combined []=empty + real value returns books matching either branch', async () => {
       // Covers the third SQL branch in lib/books/filters.js where hasEmpty && real.length:
       // (col IS NULL OR col IN (...)). The empty-only and real-only branches are
