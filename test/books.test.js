@@ -571,6 +571,20 @@ describe('books', () => {
       assert.deepEqual(body.authors.map(a => a.name), ['Alice', 'Bob', 'Carol']);
     });
 
+    it('preserves narrator position order', async () => {
+      const { body } = await req('POST', '/api/books', {
+        title: 'Multi-narrator', narrators: ['Alpha Voice', 'Bravo Voice', 'Charlie Voice'],
+      });
+      assert.deepEqual(body.narrators.map(n => n.name), ['Alpha Voice', 'Bravo Voice', 'Charlie Voice']);
+    });
+
+    it('preserves translator position order', async () => {
+      const { body } = await req('POST', '/api/books', {
+        title: 'Multi-translator', translators: ['Trans Alpha', 'Trans Bravo', 'Trans Charlie'],
+      });
+      assert.deepEqual(body.translators.map(t => t.name), ['Trans Alpha', 'Trans Bravo', 'Trans Charlie']);
+    });
+
     it('deduplicates authors case-insensitively within one sync', async () => {
       const { body } = await req('POST', '/api/books', {
         title: 'Dupe Authors', authors: ['Frank Herbert', 'frank herbert'],
