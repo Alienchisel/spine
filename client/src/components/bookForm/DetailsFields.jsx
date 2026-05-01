@@ -53,13 +53,13 @@ export default function DetailsFields({ form, set, ic, pastLanguages, pastTransl
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className={label}>Year published</label>
-          <input type="number" min="1" max="9999" className={input}
+          <input type="number" min="-9999" max="9999" className={input}
             value={form.year_published} onChange={(e) => set('year_published', e.target.value)}
-            placeholder="e.g. 1965" />
+            placeholder="e.g. 1965 (BCE: -800)" />
         </div>
         <div>
           <label className={label}>Edition year</label>
-          <input type="number" min="1" max="9999" className={input}
+          <input type="number" min="-9999" max="9999" className={input}
             value={form.year_edition} onChange={(e) => set('year_edition', e.target.value)}
             placeholder="e.g. 1999" />
           {form.year_edition && (

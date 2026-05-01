@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { formatDate, formatPartialDate } from './dates.js';
+import { formatYear } from '../../utils.js';
 
 function Row({ label, children }) {
   return (
@@ -47,16 +48,16 @@ export default function MetadataList({ book, location }) {
           ))}
         </Row>
       )}
-      {book.year_published && (
+      {book.year_published != null && (
         <Row label="Published">
-          {book.year_published}
+          {formatYear(book.year_published)}
           {book.year_edition && book.year_edition !== book.year_published
-            ? ` (this edition ${book.year_approximate ? 'ca. ' : ''}${book.year_edition})`
+            ? ` (this edition ${book.year_approximate ? 'ca. ' : ''}${formatYear(book.year_edition)})`
             : ''}
         </Row>
       )}
-      {!book.year_published && book.year_edition && (
-        <Row label="Edition">{book.year_approximate ? `ca. ${book.year_edition}` : book.year_edition}</Row>
+      {book.year_published == null && book.year_edition != null && (
+        <Row label="Edition">{book.year_approximate ? `ca. ${formatYear(book.year_edition)}` : formatYear(book.year_edition)}</Row>
       )}
       {book.format === 'audiobook' && book.duration_minutes > 0 && (
         <Row label="Length">

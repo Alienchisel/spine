@@ -62,9 +62,9 @@ write, `owned` wins and `previously_owned` is forced to `0`.
 
 | Column | Type | Notes |
 |---|---|---|
-| `year_published` | INTEGER | Original publication year |
+| `year_published` | INTEGER | Original publication year. Negative = BCE (e.g. `-800` = 8th c. BCE Homer); year `0` is rejected |
 | `year_approximate` | INTEGER | `1` = year is approximate (e.g. ancient texts); `0` = exact |
-| `year_edition` | INTEGER | Year of this specific edition |
+| `year_edition` | INTEGER | Year of this specific edition. Negative = BCE; year `0` is rejected |
 | `publisher` | TEXT | Trimmed on write |
 | `series` | TEXT | Series name; trimmed on write |
 | `series_number` | REAL | Position within series; allows half-numbers (e.g. `0.5`) |

@@ -11,6 +11,13 @@ export function formatAuthors(authors) {
   return `${names[0]} et al.`;
 }
 
+// Renders a year integer as "1965" or "800 BCE". Returns '' for null/undefined.
+// year 0 is invalid (rejected at validation), so we don't handle it specially.
+export function formatYear(y) {
+  if (y == null) return '';
+  return y > 0 ? String(y) : `${-y} BCE`;
+}
+
 export function sortTitle(title) {
   return (title || '').replace(/^(the|a|an)\s+/i, '');
 }

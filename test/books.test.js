@@ -298,6 +298,20 @@ describe('books', () => {
       assert.equal(updated.year_approximate, 0);
     });
 
+    it('accepts negative year_published for BCE works', async () => {
+      const { status, body } = await req('POST', '/api/books', {
+        title: 'Iliad', year_published: -800, year_approximate: true,
+      });
+      assert.equal(status, 201);
+      assert.equal(body.year_published, -800);
+      assert.equal(body.year_approximate, 1);
+    });
+
+    it('rejects year_published of 0 (no year zero on the proleptic calendar)', async () => {
+      const { status } = await req('POST', '/api/books', { title: 'Year Zero', year_published: 0 });
+      assert.equal(status, 400);
+    });
+
     it('saves and returns abridged flag', async () => {
       const { status, body } = await req('POST', '/api/books', { title: 'Short Cut', abridged: true });
       assert.equal(status, 201);
