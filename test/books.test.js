@@ -106,6 +106,26 @@ describe('books', () => {
         `expected status=reading tags facet to exclude tag whose only book is unread, got ${JSON.stringify(body.tags)}`);
     });
 
+    it('narrows the languages facet by an active cross-axis filter (status)', async () => {
+      // languages facet flattens both `language` and `original_language` into one
+      // set, so a single translated reading book is expected to contribute two
+      // language entries. An unread book's language stays out of the facet.
+      await req('POST', '/api/books', {
+        title: 'Reading Translated', language: 'English', original_language: 'German', status: 'reading',
+      });
+      await req('POST', '/api/books', {
+        title: 'Unread Translated',  language: 'English', original_language: 'Russian',
+      });
+      const { status, body } = await req('GET', '/api/books/facets?status=reading');
+      assert.equal(status, 200);
+      assert.ok(body.languages.includes('English'),
+        `expected status=reading languages facet to include the reading book's language, got ${JSON.stringify(body.languages)}`);
+      assert.ok(body.languages.includes('German'),
+        `expected status=reading languages facet to include the reading book's original_language, got ${JSON.stringify(body.languages)}`);
+      assert.ok(!body.languages.includes('Russian'),
+        `expected status=reading languages facet to exclude original_language whose only book is unread, got ${JSON.stringify(body.languages)}`);
+    });
+
     it('narrows the tags facet by an active cross-axis filter (status, virtual tags)', async () => {
       // Abridged: a reading book with abridged=1 should surface the virtual tag.
       await req('POST', '/api/books', {
