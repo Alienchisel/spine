@@ -642,6 +642,39 @@ describe('books', () => {
       }
     });
 
+    it('field=rating filters by exact rating value (incl. half-stars)', async () => {
+      // Branch: rating = parseFloat(v). Use a half-star to confirm parseFloat
+      // is preserved end-to-end and the SQL = comparison handles 4.5.
+      // rating isn't in the POST writable set; PUT to apply.
+      const { body: createdMatched } = await req('POST', '/api/books', { title: 'rating filter — match' });
+      const { body: matched } = await req('PUT', `/api/books/${createdMatched.id}`, {
+        ...createdMatched, rating: 4.5, tags: [],
+      });
+      const { body: createdOther } = await req('POST', '/api/books', { title: 'rating filter — other' });
+      const { body: other } = await req('PUT', `/api/books/${createdOther.id}`, {
+        ...createdOther, rating: 3, tags: [],
+      });
+      const { body: results } = await req('GET', '/api/books?field=rating&value=4.5&limit=200');
+      const ids = results.books.map(b => b.id);
+      assert.ok( ids.includes(matched.id), 'expected field=rating&value=4.5 to include the 4.5-rated book');
+      assert.ok(!ids.includes(other.id),   'expected field=rating&value=4.5 to exclude the 3-rated book');
+    });
+
+    it('field=year_finished filters by date_finished year prefix', async () => {
+      // Branch: date_finished LIKE 'YYYY%'. Different dates within the year
+      // should match; dates in other years should not.
+      const { body: matched } = await req('POST', '/api/books', {
+        title: 'year_finished — 2023 read', date_finished: '2023-06-15',
+      });
+      const { body: other } = await req('POST', '/api/books', {
+        title: 'year_finished — 2024 read', date_finished: '2024-03-10',
+      });
+      const { body: results } = await req('GET', '/api/books?field=year_finished&value=2023&limit=200');
+      const ids = results.books.map(b => b.id);
+      assert.ok( ids.includes(matched.id), 'expected field=year_finished&value=2023 to include the 2023-finished book');
+      assert.ok(!ids.includes(other.id),   'expected field=year_finished&value=2023 to exclude the 2024-finished book');
+    });
+
     it('field=fiction routes value=fiction/nonfiction/unset to the right sub-branch', async () => {
       // lib/books/filters.js has three sub-branches under f === 'fiction':
       // value='fiction' → fiction=1, value='nonfiction' → fiction=0, anything
