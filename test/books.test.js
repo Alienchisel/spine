@@ -532,13 +532,21 @@ describe('books', () => {
       assert.equal(body.original_language, 'Russian');
     });
 
-    it('q search matches translator names', async () => {
-      const { body: book } = await req('POST', '/api/books', {
-        title: 'Anna Karenina', translators: ['Constance Garnett'],
-      });
-      const { body: results } = await req('GET', '/api/books?q=Garnett');
-      assert.ok(results.books.some(b => b.id === book.id),
-        'expected q=Garnett to match book translated by Constance Garnett');
+    it('q search matches names across all people roles', async () => {
+      const cases = [
+        { role: 'author',     key: 'authors',     surname: 'Quincombe',  name: 'Inigo Quincombe' },
+        { role: 'narrator',   key: 'narrators',   surname: 'Trellisway', name: 'Mira Trellisway' },
+        { role: 'translator', key: 'translators', surname: 'Garnett',    name: 'Constance Garnett' },
+      ];
+
+      for (const c of cases) {
+        const { body: book } = await req('POST', '/api/books', {
+          title: `q search ${c.role} fixture`, [c.key]: [c.name],
+        });
+        const { body: results } = await req('GET', `/api/books?q=${c.surname}`);
+        assert.ok(results.books.some(b => b.id === book.id),
+          `expected q=${c.surname} to match book with ${c.role} '${c.name}'`);
+      }
     });
 
     it('field=author/narrator/translator filter by people name', async () => {
