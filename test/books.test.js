@@ -616,6 +616,32 @@ describe('books', () => {
         'expected non-translated book to be excluded');
     });
 
+    it('missing[]=source/acquired find owned books with no acquisition source/date', async () => {
+      const cases = [
+        { key: 'source',   col: 'acquisition_source', filledValue: 'Audible' },
+        { key: 'acquired', col: 'acquisition_date',   filledValue: '2025-06' },
+      ];
+      for (const c of cases) {
+        const { body: needs } = await req('POST', '/api/books', {
+          title: `Owned, no ${c.key}`, owned: true,
+        });
+        const { body: filled } = await req('POST', '/api/books', {
+          title: `Owned, has ${c.key}`, owned: true, [c.col]: c.filledValue,
+        });
+        const { body: unowned } = await req('POST', '/api/books', {
+          title: `Unowned, no ${c.key}`, // owned defaults to false
+        });
+        const { body: results } = await req('GET', `/api/books?missing[]=${c.key}`);
+        const ids = results.books.map(b => b.id);
+        assert.ok(ids.includes(needs.id),
+          `expected owned book missing ${c.key} to match`);
+        assert.ok(!ids.includes(filled.id),
+          `expected owned book with ${c.key} already entered to be excluded`);
+        assert.ok(!ids.includes(unowned.id),
+          `expected unowned book to be excluded from missing[]=${c.key}`);
+      }
+    });
+
     it('saves acquisition_source and acquisition_date', async () => {
       const { body } = await req('POST', '/api/books', {
         title: 'Sourced Book',
