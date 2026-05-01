@@ -40,6 +40,13 @@ describe('diary', () => {
       assert.equal(body.stats.dayStreak, 0);
       assert.equal(body.stats.weekStreak, 0);
     });
+
+    it('returns zero now-relative totals when there is no activity', async () => {
+      const { body } = await req('GET', '/api/diary');
+      assert.deepEqual(body.stats.thisWeek,  { pages: 0, minutes: 0 });
+      assert.deepEqual(body.stats.thisMonth, { pages: 0, minutes: 0 });
+      assert.deepEqual(body.stats.thisYear,  { pages: 0, minutes: 0 });
+    });
   });
 
   describe('GET /api/diary with one day of activity', () => {
@@ -96,6 +103,17 @@ describe('diary', () => {
       assert.ok(all.days.length >= 1);
       const { body: garbage } = await req('GET', '/api/diary?year=abc');
       assert.ok(garbage.days.length >= 1);
+    });
+
+    it('reports now-relative totals regardless of the selected year', async () => {
+      // The Diary Test fixture has 30 pages logged today via PATCH.
+      // Selecting a past year filters the days array but must NOT zero out
+      // thisWeek/thisMonth/thisYear — those track real-time activity.
+      const { body } = await req('GET', '/api/diary?year=2000');
+      assert.deepEqual(body.days, [], 'expected no entries when filtering by 2000');
+      assert.ok(body.stats.thisWeek.pages  >= 30, `expected thisWeek.pages ≥ 30, got ${body.stats.thisWeek.pages}`);
+      assert.ok(body.stats.thisMonth.pages >= 30, `expected thisMonth.pages ≥ 30, got ${body.stats.thisMonth.pages}`);
+      assert.ok(body.stats.thisYear.pages  >= 30, `expected thisYear.pages ≥ 30, got ${body.stats.thisYear.pages}`);
     });
   });
 

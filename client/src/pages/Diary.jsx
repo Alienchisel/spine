@@ -43,7 +43,7 @@ function formatTotal({ pages, minutes }) {
   return parts.join(' · ') || '—';
 }
 
-function ReadingCalendar({ days, selectedYear, onDayClick }) {
+function ReadingCalendar({ days, selectedYear, totals, onDayClick }) {
   const today = new Date();
   const currentYear = today.getFullYear();
   const todayStr = today.toLocaleDateString('en-CA');
@@ -71,37 +71,6 @@ function ReadingCalendar({ days, selectedYear, onDayClick }) {
   }, [days]);
 
   const readingDates = useMemo(() => new Set(days.map(d => d.date)), [days]);
-
-  const totals = useMemo(() => {
-    const todayDate = new Date();
-    const dow = todayDate.getDay() || 7;
-    const monday = new Date(todayDate);
-    monday.setDate(todayDate.getDate() - (dow - 1));
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-    const mondayStr = monday.toLocaleDateString('en-CA');
-    const sundayStr = sunday.toLocaleDateString('en-CA');
-    // All three totals are "now"-relative — they don't follow calendar nav.
-    // Calendar prev/next is purely a visual browser; week/month/year reflect
-    // the current real date. (Year still follows the selectedYear dropdown
-    // because that's the explicit data-loading control.)
-    const monthPrefix = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}`;
-    const yearPrefix  = String(selectedYear);
-
-    const acc = {
-      week:  { pages: 0, minutes: 0 },
-      month: { pages: 0, minutes: 0 },
-      year:  { pages: 0, minutes: 0 },
-    };
-    for (const d of days) {
-      let p = 0, m = 0;
-      for (const e of d.entries) { p += e.pages_read || 0; m += e.minutes_read || 0; }
-      if (d.date >= mondayStr && d.date <= sundayStr) { acc.week.pages  += p; acc.week.minutes  += m; }
-      if (d.date.startsWith(monthPrefix))             { acc.month.pages += p; acc.month.minutes += m; }
-      if (d.date.startsWith(yearPrefix))              { acc.year.pages  += p; acc.year.minutes  += m; }
-    }
-    return acc;
-  }, [days, selectedYear]);
 
   const firstDow   = new Date(viewYear, viewMonth, 1).getDay();
   const startOffset = (firstDow + 6) % 7;
@@ -227,7 +196,13 @@ export default function Diary() {
   const [year,    setYear]    = useState(CURRENT_YEAR);
   const [days,    setDays]    = useState([]);
   const [years,   setYears]   = useState([]);
-  const [stats,   setStats]   = useState({ dayStreak: 0, dayStreakBest: 0, dayStreakSince: null, dayStreakBestStart: null, dayStreakBestEnd: null, weekStreak: 0, weekStreakBest: 0 });
+  const [stats,   setStats]   = useState({
+    dayStreak: 0, dayStreakBest: 0, dayStreakSince: null, dayStreakBestStart: null, dayStreakBestEnd: null,
+    weekStreak: 0, weekStreakBest: 0,
+    thisWeek:  { pages: 0, minutes: 0 },
+    thisMonth: { pages: 0, minutes: 0 },
+    thisYear:  { pages: 0, minutes: 0 },
+  });
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState(null);
   const [deleteError, setDeleteError] = useState(null);
@@ -358,6 +333,7 @@ export default function Diary() {
               <ReadingCalendar
                 days={days}
                 selectedYear={year}
+                totals={{ week: stats.thisWeek, month: stats.thisMonth, year: stats.thisYear }}
                 onDayClick={dateStr => {
                   const el = dayRefs.current[dateStr];
                   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });

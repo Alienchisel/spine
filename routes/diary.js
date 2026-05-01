@@ -54,6 +54,22 @@ router.get('/', (req, res) => {
   // Diary surfaces day/week streaks (current + longest) in its sidebar.
   // The shared calcStreaks() also computes month streaks; we discard those.
   const streaks = calcStreaks(allDates);
+
+  // Now-relative totals — computed against today's real date across the full
+  // reading_log, NOT filtered by the selected year. Mirrors how streaks work:
+  // the dropdown only affects the displayed entries, not the always-now stats.
+  // SQLite's strftime '%w' returns 0=Sunday..6=Saturday; we anchor weeks Mon–Sun.
+  const totalsRow = db.prepare(`
+    SELECT
+      COALESCE(SUM(CASE WHEN date >= date('now','localtime','weekday 0','-6 days') AND date <= date('now','localtime','weekday 0') THEN pages_read   END), 0) AS week_pages,
+      COALESCE(SUM(CASE WHEN date >= date('now','localtime','weekday 0','-6 days') AND date <= date('now','localtime','weekday 0') THEN minutes_read END), 0) AS week_minutes,
+      COALESCE(SUM(CASE WHEN strftime('%Y-%m', date) = strftime('%Y-%m', 'now', 'localtime') THEN pages_read   END), 0) AS month_pages,
+      COALESCE(SUM(CASE WHEN strftime('%Y-%m', date) = strftime('%Y-%m', 'now', 'localtime') THEN minutes_read END), 0) AS month_minutes,
+      COALESCE(SUM(CASE WHEN strftime('%Y',    date) = strftime('%Y',    'now', 'localtime') THEN pages_read   END), 0) AS year_pages,
+      COALESCE(SUM(CASE WHEN strftime('%Y',    date) = strftime('%Y',    'now', 'localtime') THEN minutes_read END), 0) AS year_minutes
+    FROM reading_log
+  `).get();
+
   res.json({
     days:  Object.entries(byDate).map(([date, entries]) => ({ date, entries })),
     years,
@@ -65,6 +81,9 @@ router.get('/', (req, res) => {
       dayStreakBestEnd:    streaks.days.longestEnd,
       weekStreak:          streaks.weeks.current,
       weekStreakBest:      streaks.weeks.longest,
+      thisWeek:            { pages: totalsRow.week_pages,  minutes: totalsRow.week_minutes  },
+      thisMonth:           { pages: totalsRow.month_pages, minutes: totalsRow.month_minutes },
+      thisYear:            { pages: totalsRow.year_pages,  minutes: totalsRow.year_minutes  },
     },
   });
 });
