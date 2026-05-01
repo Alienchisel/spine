@@ -72,6 +72,22 @@ function ReadingCalendar({ days, selectedYear, totals, onDayClick }) {
 
   const readingDates = useMemo(() => new Set(days.map(d => d.date)), [days]);
 
+  // Tooltip ranges for the now-relative totals. Anchor weeks Mon–Sun, matching
+  // the SQL in routes/diary.js. Re-computed only on mount; the diary doesn't
+  // span midnight, so re-rendering across day boundaries isn't a real concern.
+  const tooltipRanges = useMemo(() => {
+    const dow    = today.getDay() || 7;
+    const monday = new Date(today); monday.setDate(today.getDate() - (dow - 1));
+    const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+    const dayMo  = { day: 'numeric', month: 'short' };
+    const dayMoY = { day: 'numeric', month: 'short', year: 'numeric' };
+    return {
+      week:  `${monday.toLocaleDateString('en-GB', dayMo)} – ${sunday.toLocaleDateString('en-GB', dayMoY)}`,
+      month: today.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
+      year:  String(today.getFullYear()),
+    };
+  }, []);
+
   const firstDow   = new Date(viewYear, viewMonth, 1).getDay();
   const startOffset = (firstDow + 6) % 7;
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
@@ -102,11 +118,11 @@ function ReadingCalendar({ days, selectedYear, totals, onDayClick }) {
     <div>
       <div className="space-y-1 mb-5 text-xs">
         {[
-          { label: 'This week',  total: totals.week  },
-          { label: 'This month', total: totals.month },
-          { label: 'This year',  total: totals.year  },
-        ].map(({ label, total }) => (
-          <div key={label} className="flex items-baseline justify-between">
+          { label: 'This week',  total: totals.week,  range: tooltipRanges.week  },
+          { label: 'This month', total: totals.month, range: tooltipRanges.month },
+          { label: 'This year',  total: totals.year,  range: tooltipRanges.year  },
+        ].map(({ label, total, range }) => (
+          <div key={label} className="flex items-baseline justify-between" title={range}>
             <span className="text-[10px] uppercase tracking-wider text-neutral-600">{label}</span>
             <span className="tabular-nums text-neutral-300">{formatTotal(total)}</span>
           </div>
