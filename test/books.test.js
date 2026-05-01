@@ -714,6 +714,53 @@ describe('books', () => {
       }
     });
 
+    it('combined []=empty + real value returns books matching either branch', async () => {
+      // Covers the third SQL branch in lib/books/filters.js where hasEmpty && real.length:
+      // (col IS NULL OR col IN (...)). The empty-only and real-only branches are
+      // covered separately; this guards against a refactor breaking the OR.
+      const cases = [
+        { filter: 'publishers', col: 'publisher',          realMatched: 'Combined-Filter Press',     other: 'Combined-Filter Other Press' },
+        { filter: 'series',     col: 'series',             realMatched: 'Combined-Filter Series A',  other: 'Combined-Filter Series B' },
+        { filter: 'sources',    col: 'acquisition_source', realMatched: 'Combined-Filter Mart',      other: 'Combined-Filter Other Mart' },
+        { filter: 'formats',    col: 'format',             realMatched: 'physical',                  other: 'audiobook' },
+        { filter: 'ratings',    col: 'rating',             realMatched: 4,                           other: 5 },
+      ];
+      for (const c of cases) {
+        const isRating = c.col === 'rating';
+
+        async function makeBook(title, value) {
+          if (isRating) {
+            const { body: created } = await req('POST', '/api/books', { title });
+            if (value == null) return created;
+            const { body: updated } = await req('PUT', `/api/books/${created.id}`, {
+              ...created, rating: value, tags: [],
+            });
+            return updated;
+          }
+          const payload = { title };
+          if (value != null) payload[c.col] = value;
+          const { body } = await req('POST', '/api/books', payload);
+          return body;
+        }
+
+        const matchedReal  = await makeBook(`${c.filter} combined — real`,  c.realMatched);
+        const matchedEmpty = await makeBook(`${c.filter} combined — empty`, null);
+        const otherBook    = await makeBook(`${c.filter} combined — other`, c.other);
+
+        const realParam = encodeURIComponent(String(c.realMatched));
+        const { body: results } = await req('GET',
+          `/api/books?${c.filter}[]=empty&${c.filter}[]=${realParam}&limit=200`);
+        const ids = results.books.map(b => b.id);
+
+        assert.ok(ids.includes(matchedReal.id),
+          `expected ${c.filter}[]=empty&${c.filter}[]=${c.realMatched} to include book with ${c.col}='${c.realMatched}'`);
+        assert.ok(ids.includes(matchedEmpty.id),
+          `expected combined filter to include book with no ${c.col}`);
+        assert.ok(!ids.includes(otherBook.id),
+          `expected combined filter to exclude book with ${c.col}='${c.other}'`);
+      }
+    });
+
     it('[]=empty filters across publishers/series/sources/formats/ratings return only books missing that field', async () => {
       // Each filter has its own SQL branch in lib/books/filters.js; this confirms
       // the IS NULL (or = '') branch works uniformly across all filters that
