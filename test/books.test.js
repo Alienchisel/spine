@@ -482,18 +482,6 @@ describe('books', () => {
       assert.equal(body.original_language, 'Russian');
     });
 
-    it('replaces translators on PUT and preserves order', async () => {
-      const { body: created } = await req('POST', '/api/books', {
-        title: 'Translated Book',
-        translators: ['Old Translator'],
-      });
-      const { body } = await req('PUT', `/api/books/${created.id}`, {
-        title: 'Translated Book',
-        translators: ['New Translator A', 'New Translator B'],
-      });
-      assert.deepEqual(body.translators.map(t => t.name), ['New Translator A', 'New Translator B']);
-    });
-
     it('q search matches translator names', async () => {
       const { body: book } = await req('POST', '/api/books', {
         title: 'Anna Karenina', translators: ['Constance Garnett'],
@@ -671,6 +659,18 @@ describe('books', () => {
       });
       assert.equal(body.narrators.length, 1);
       assert.equal(body.narrators[0].name, 'New Voice');
+    });
+
+    it('replaces translators on PUT and preserves order', async () => {
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Translated Book',
+        translators: ['Old Translator'],
+      });
+      const { body } = await req('PUT', `/api/books/${created.id}`, {
+        title: 'Translated Book',
+        translators: ['New Translator A', 'New Translator B'],
+      });
+      assert.deepEqual(body.translators.map(t => t.name), ['New Translator A', 'New Translator B']);
     });
 
     it('leaves narrators unchanged when key omitted from PUT', async () => {
