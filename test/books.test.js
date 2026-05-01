@@ -34,6 +34,28 @@ describe('books', () => {
   });
 
   describe('GET /api/books/facets', () => {
+    it('surfaces author names in the authors facet', async () => {
+      await req('POST', '/api/books', {
+        title: 'Dune', authors: ['Frank Herbert'],
+      });
+      const { status, body } = await req('GET', '/api/books/facets');
+      assert.equal(status, 200);
+      assert.ok(Array.isArray(body.authors));
+      assert.ok(body.authors.includes('Frank Herbert'),
+        `expected authors facet to include "Frank Herbert", got ${JSON.stringify(body.authors)}`);
+    });
+
+    it('surfaces narrator names in the narrators facet', async () => {
+      await req('POST', '/api/books', {
+        title: 'Audio Book', narrators: ['Stephen Fry'],
+      });
+      const { status, body } = await req('GET', '/api/books/facets');
+      assert.equal(status, 200);
+      assert.ok(Array.isArray(body.narrators));
+      assert.ok(body.narrators.includes('Stephen Fry'),
+        `expected narrators facet to include "Stephen Fry", got ${JSON.stringify(body.narrators)}`);
+    });
+
     it('surfaces translator names in the translators facet', async () => {
       await req('POST', '/api/books', {
         title: 'Crime and Punishment',
