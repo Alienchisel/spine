@@ -513,6 +513,27 @@ describe('books', () => {
         'expected q=Garnett to match book translated by Constance Garnett');
     });
 
+    it('missing[]=translator finds translated books with no translator entered', async () => {
+      const { body: needs } = await req('POST', '/api/books', {
+        title: 'Translated, no translator', original_language: 'German',
+      });
+      const { body: complete } = await req('POST', '/api/books', {
+        title: 'Translated, has translator', original_language: 'Russian',
+        translators: ['Constance Garnett'],
+      });
+      const { body: monolingual } = await req('POST', '/api/books', {
+        title: 'Original English work', // no original_language
+      });
+      const { body: results } = await req('GET', '/api/books?missing[]=translator');
+      const ids = results.books.map(b => b.id);
+      assert.ok(ids.includes(needs.id),
+        'expected book with original_language but no translator to match');
+      assert.ok(!ids.includes(complete.id),
+        'expected book with translator already entered to be excluded');
+      assert.ok(!ids.includes(monolingual.id),
+        'expected non-translated book to be excluded');
+    });
+
     it('saves acquisition_source and acquisition_date', async () => {
       const { body } = await req('POST', '/api/books', {
         title: 'Sourced Book',
