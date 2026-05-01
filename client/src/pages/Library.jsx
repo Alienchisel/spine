@@ -179,7 +179,8 @@ export default function Library() {
   // Mid-pagination, hide a trailing partial row so the visible grid always
   // ends on a full row of real books. The hidden stragglers re-emerge on the
   // next Load more when their row is filled in by fresh books. At end of
-  // dataset, show everything and pad with placeholders if needed.
+  // dataset, show everything — a partial last row is fine since there's
+  // nothing more to load.
   // Guard: only trim when there's at least one full row to keep — otherwise
   // pathologically small loads (e.g. heavy series collapse → 5 items) would
   // hide everything and the user would see an empty grid.
@@ -187,7 +188,6 @@ export default function Library() {
     ? allDisplayItems.length % gridCols
     : 0;
   const displayItems  = trimTrailing > 0 ? allDisplayItems.slice(0, -trimTrailing) : allDisplayItems;
-  const padCount      = density === 'list' || hasMore ? 0 : (gridCols - displayItems.length % gridCols) % gridCols;
 
   return (
     <div>
@@ -344,13 +344,6 @@ export default function Library() {
                   />
                 )
               )}
-              {Array.from({ length: padCount }).map((_, i) => (
-                <div
-                  key={`pad-${i}`}
-                  aria-hidden="true"
-                  className="aspect-[2/3] rounded bg-neutral-900/70 ring-1 ring-neutral-800/60"
-                />
-              ))}
             </div>
           )}
           {hasMore && (
