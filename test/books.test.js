@@ -719,6 +719,24 @@ describe('books', () => {
       }
     });
 
+    it('sort=title strips leading The/An/A articles before sorting', async () => {
+      // buildOrderBy()'s titleSort uses CASE/SUBSTR to strip leading "The ",
+      // "An ", and "A " before sorting. Use unique-stem titles so we can find
+      // our fixtures unambiguously among the test-DB's other books.
+      const stem = 'titlesort' + Math.random().toString(36).slice(2, 8);
+      const { body: zebra } = await req('POST', '/api/books', { title: `The ${stem}-zebra` });
+      const { body: apple } = await req('POST', '/api/books', { title: `${stem}-apple` });
+      const { body: moon  } = await req('POST', '/api/books', { title: `A ${stem}-moon` });
+
+      const { body: results } = await req('GET', '/api/books?sort=title&limit=500');
+      const ids = results.books.map(b => b.id);
+      const [iApple, iMoon, iZebra] = [apple.id, moon.id, zebra.id].map(id => ids.indexOf(id));
+      assert.ok(iApple >= 0 && iMoon >= 0 && iZebra >= 0, 'all three fixtures should appear in result');
+      // Normalized order: -apple, -moon, -zebra (articles stripped).
+      assert.ok(iApple < iMoon  && iMoon < iZebra,
+        `expected normalized order [-apple, -moon, -zebra]; got positions ${iApple}, ${iMoon}, ${iZebra}`);
+    });
+
     it('field=series orders results by series_number with null last', async () => {
       // buildOrderBy() in lib/books/filters.js uses COALESCE(series_number,9999)
       // when field === 'series', so unnumbered entries (e.g. companion volumes)
