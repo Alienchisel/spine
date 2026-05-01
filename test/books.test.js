@@ -534,18 +534,24 @@ describe('books', () => {
 
     it('q search matches names across all people roles', async () => {
       const cases = [
-        { role: 'author',     key: 'authors',     surname: 'Quincombe',  name: 'Inigo Quincombe' },
-        { role: 'narrator',   key: 'narrators',   surname: 'Trellisway', name: 'Mira Trellisway' },
-        { role: 'translator', key: 'translators', surname: 'Garnett',    name: 'Constance Garnett' },
+        { role: 'author',     key: 'authors',     surname: 'Quincombe',  match: 'Inigo Quincombe',    other: 'Hendrik Vossberg' },
+        { role: 'narrator',   key: 'narrators',   surname: 'Trellisway', match: 'Mira Trellisway',    other: 'Lukas Brimsden' },
+        { role: 'translator', key: 'translators', surname: 'Garnett',    match: 'Constance Garnett',  other: 'Padma Calderwood' },
       ];
 
       for (const c of cases) {
-        const { body: book } = await req('POST', '/api/books', {
-          title: `q search ${c.role} fixture`, [c.key]: [c.name],
+        const { body: matched } = await req('POST', '/api/books', {
+          title: `q search ${c.role} matched`, [c.key]: [c.match],
+        });
+        const { body: other } = await req('POST', '/api/books', {
+          title: `q search ${c.role} other`, [c.key]: [c.other],
         });
         const { body: results } = await req('GET', `/api/books?q=${c.surname}`);
-        assert.ok(results.books.some(b => b.id === book.id),
-          `expected q=${c.surname} to match book with ${c.role} '${c.name}'`);
+        const ids = results.books.map(b => b.id);
+        assert.ok(ids.includes(matched.id),
+          `expected q=${c.surname} to match book with ${c.role} '${c.match}'`);
+        assert.ok(!ids.includes(other.id),
+          `expected q=${c.surname} to exclude book whose only ${c.role} is '${c.other}'`);
       }
     });
 
