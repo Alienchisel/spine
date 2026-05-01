@@ -700,6 +700,29 @@ describe('books', () => {
       }
     });
 
+    it('field=series orders results by series_number with null last', async () => {
+      // buildOrderBy() in lib/books/filters.js uses COALESCE(series_number,9999)
+      // when field === 'series', so unnumbered entries (e.g. companion volumes)
+      // sort to the end of the series view rather than collapsing to position 0.
+      const seriesName = 'Order-Branch Series ' + Math.random().toString(36).slice(2, 8);
+      // Insert out of order to confirm SQL sorts, not insertion order.
+      const { body: two } = await req('POST', '/api/books', {
+        title: `${seriesName} two`, series: seriesName, series_number: 2,
+      });
+      const { body: nullbook } = await req('POST', '/api/books', {
+        title: `${seriesName} companion`, series: seriesName, // no series_number
+      });
+      const { body: one } = await req('POST', '/api/books', {
+        title: `${seriesName} one`, series: seriesName, series_number: 1,
+      });
+
+      const { body: results } = await req('GET',
+        `/api/books?field=series&value=${encodeURIComponent(seriesName)}&limit=200`);
+      const ids = results.books.map(b => b.id);
+      assert.deepEqual(ids, [one.id, two.id, nullbook.id],
+        `expected [#1 first, #2 next, unnumbered last]; got ${JSON.stringify(ids)}`);
+    });
+
     it('field=publisher/series/language/format filter by scalar value', async () => {
       // BROWSE_FIELDS in lib/books/filters.js use a catch-all `${col} = ?` branch
       // distinct from the people-field subqueries. This guards that branch.
