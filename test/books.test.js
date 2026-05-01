@@ -719,6 +719,31 @@ describe('books', () => {
       }
     });
 
+    it('sort=author orders by the first joined author (position 0)', async () => {
+      // buildOrderBy()'s author-sort SELECTs ORDER BY ba.position LIMIT 1, so a
+      // multi-author book sorts on its first author only. Pick names so that the
+      // first-author and last-author rules would produce different orderings:
+      //   single  → "Mendel ..."
+      //   multi   → ["Aalbrecht ...", "Zylphinax ..."]
+      // First-author rule: multi (Aalbrecht) before single (Mendel).
+      // Last-author rule:  single (Mendel) before multi (Zylphinax).
+      const stem = 'authsort' + Math.random().toString(36).slice(2, 6);
+      const single = await req('POST', '/api/books', {
+        title: `${stem}-A`, authors: [`Mendel ${stem}`],
+      });
+      const multi = await req('POST', '/api/books', {
+        title: `${stem}-B`, authors: [`Aalbrecht ${stem}`, `Zylphinax ${stem}`],
+      });
+
+      const { body: results } = await req('GET', '/api/books?sort=author&limit=500');
+      const ids = results.books.map(b => b.id);
+      const iSingle = ids.indexOf(single.body.id);
+      const iMulti  = ids.indexOf(multi.body.id);
+      assert.ok(iSingle >= 0 && iMulti >= 0, 'both fixtures should appear in result');
+      assert.ok(iMulti < iSingle,
+        `expected multi-author (first=Aalbrecht) before single-author (Mendel); got positions multi=${iMulti}, single=${iSingle}`);
+    });
+
     it('sort=title strips leading The/An/A articles before sorting', async () => {
       // buildOrderBy()'s titleSort uses CASE/SUBSTR to strip leading "The ",
       // "An ", and "A " before sorting. Use unique-stem titles so we can find
