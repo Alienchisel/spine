@@ -68,19 +68,27 @@ describe('books', () => {
         `expected translators facet to include "Constance Garnett", got ${JSON.stringify(body.translators)}`);
     });
 
-    it('narrows the translators facet by an active cross-axis filter (status)', async () => {
-      await req('POST', '/api/books', {
-        title: 'Reading Now', translators: ['Wilhelmina Karsdale'], status: 'reading',
-      });
-      await req('POST', '/api/books', {
-        title: 'On The Pile',  translators: ['Aurelio Branscombe'],
-      });
-      const { status, body } = await req('GET', '/api/books/facets?status=reading');
-      assert.equal(status, 200);
-      assert.ok(body.translators.includes('Wilhelmina Karsdale'),
-        `expected status=reading facets to include translator of a reading book, got ${JSON.stringify(body.translators)}`);
-      assert.ok(!body.translators.includes('Aurelio Branscombe'),
-        `expected status=reading facets to exclude translator whose only book is unread, got ${JSON.stringify(body.translators)}`);
+    it('narrows people facets by an active cross-axis filter (status)', async () => {
+      const cases = [
+        { role: 'author',     key: 'authors',     reading: 'Mathilde Vendrasco',  other: 'Cassian Wrenly' },
+        { role: 'narrator',   key: 'narrators',   reading: 'Esperanza Yulgren',   other: 'Tobin Marclay' },
+        { role: 'translator', key: 'translators', reading: 'Wilhelmina Karsdale', other: 'Aurelio Branscombe' },
+      ];
+
+      for (const c of cases) {
+        await req('POST', '/api/books', {
+          title: `Reading ${c.role}`, [c.key]: [c.reading], status: 'reading',
+        });
+        await req('POST', '/api/books', {
+          title: `Unread ${c.role}`, [c.key]: [c.other],
+        });
+        const { status, body } = await req('GET', '/api/books/facets?status=reading');
+        assert.equal(status, 200);
+        assert.ok(body[c.key].includes(c.reading),
+          `expected status=reading ${c.key} facet to include ${c.role} of a reading book, got ${JSON.stringify(body[c.key])}`);
+        assert.ok(!body[c.key].includes(c.other),
+          `expected status=reading ${c.key} facet to exclude ${c.role} whose only book is unread, got ${JSON.stringify(body[c.key])}`);
+      }
     });
   });
 
