@@ -527,21 +527,29 @@ describe('books', () => {
         'expected q=Garnett to match book translated by Constance Garnett');
     });
 
-    it('field=translator filters by translator name', async () => {
-      const { body: match } = await req('POST', '/api/books', {
-        title: 'Translator Browse Match', translators: ['Browse Translator'],
-      });
-      const { body: other } = await req('POST', '/api/books', {
-        title: 'Translator Browse Other', translators: ['Other Translator'],
-      });
+    it('field=author/narrator/translator filter by people name', async () => {
+      const cases = [
+        { field: 'author',     key: 'authors',     match: 'Browse Author',     other: 'Other Author' },
+        { field: 'narrator',   key: 'narrators',   match: 'Browse Narrator',   other: 'Other Narrator' },
+        { field: 'translator', key: 'translators', match: 'Browse Translator', other: 'Other Translator' },
+      ];
 
-      const { body: results } = await req('GET', `/api/books?field=translator&value=${encodeURIComponent('Browse Translator')}`);
-      const ids = results.books.map(b => b.id);
+      for (const c of cases) {
+        const { body: matched } = await req('POST', '/api/books', {
+          title: `${c.field} Browse Match`, [c.key]: [c.match],
+        });
+        const { body: other } = await req('POST', '/api/books', {
+          title: `${c.field} Browse Other`, [c.key]: [c.other],
+        });
 
-      assert.ok(ids.includes(match.id),
-        'expected field=translator to include books with the selected translator');
-      assert.ok(!ids.includes(other.id),
-        'expected field=translator to exclude books with a different translator');
+        const { body: results } = await req('GET', `/api/books?field=${c.field}&value=${encodeURIComponent(c.match)}`);
+        const ids = results.books.map(b => b.id);
+
+        assert.ok(ids.includes(matched.id),
+          `expected field=${c.field} to include books with the selected ${c.field}`);
+        assert.ok(!ids.includes(other.id),
+          `expected field=${c.field} to exclude books with a different ${c.field}`);
+      }
     });
 
     it('missing[]=translator finds translated books with no translator entered', async () => {
