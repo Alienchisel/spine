@@ -714,21 +714,35 @@ describe('books', () => {
       }
     });
 
-    it('publishers/series/sources []=empty filters return only books missing that field', async () => {
+    it('[]=empty filters across publishers/series/sources/formats/ratings return only books missing that field', async () => {
       // Each filter has its own SQL branch in lib/books/filters.js; this confirms
-      // the IS NULL OR = '' branch works for all three.
+      // the IS NULL (or = '') branch works uniformly across all filters that
+      // expose a — pill in the UI.
       const cases = [
         { filter: 'publishers', col: 'publisher',          filledValue: 'Empty-Filter Publisher Press' },
         { filter: 'series',     col: 'series',             filledValue: 'Empty-Filter Series Set' },
         { filter: 'sources',    col: 'acquisition_source', filledValue: 'Empty-Filter Mart' },
+        { filter: 'formats',    col: 'format',             filledValue: 'physical' },
+        { filter: 'ratings',    col: 'rating',             filledValue: 4 },
       ];
       for (const c of cases) {
         const { body: matched } = await req('POST', '/api/books', {
           title: `${c.filter} empty filter — no value`,
         });
-        const { body: filled } = await req('POST', '/api/books', {
-          title: `${c.filter} empty filter — has value`, [c.col]: c.filledValue,
-        });
+        // ratings can't be set on POST creation; PUT after if the column needs it.
+        let filled;
+        if (c.col === 'rating') {
+          const { body: created } = await req('POST', '/api/books', {
+            title: `${c.filter} empty filter — has value`,
+          });
+          ({ body: filled } = await req('PUT', `/api/books/${created.id}`, {
+            ...created, rating: c.filledValue, tags: [],
+          }));
+        } else {
+          ({ body: filled } = await req('POST', '/api/books', {
+            title: `${c.filter} empty filter — has value`, [c.col]: c.filledValue,
+          }));
+        }
         // limit=200 since the in-memory DB accumulates books across tests in
         // this describe and the default 50-page would clip our fixture.
         const { body: results } = await req('GET', `/api/books?${c.filter}[]=empty&limit=200`);
