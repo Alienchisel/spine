@@ -627,6 +627,16 @@ describe('books', () => {
       assert.equal(b1.authors[0].id, b2.authors[0].id);
     });
 
+    it('reuses existing narrator row when name matches', async () => {
+      const { body: b1 } = await req('POST', '/api/books', {
+        title: 'Narr Reuse A', narrators: ['Shared Narrator'],
+      });
+      const { body: b2 } = await req('POST', '/api/books', {
+        title: 'Narr Reuse B', narrators: ['Shared Narrator'],
+      });
+      assert.equal(b1.narrators[0].id, b2.narrators[0].id);
+    });
+
     it('leaves authors unchanged when key omitted from PUT', async () => {
       const { body: created } = await req('POST', '/api/books', {
         title: 'Stable Authors', authors: ['Kept Author'],
