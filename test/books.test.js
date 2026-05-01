@@ -630,6 +630,20 @@ describe('books', () => {
       assert.equal(body.authors[0].name, 'Kept Author');
     });
 
+    it('leaves translators unchanged when key omitted from PUT', async () => {
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Stable Translators',
+        authors: ['Some Author'],
+        translators: ['Kept Translator'],
+      });
+      const { body } = await req('PUT', `/api/books/${created.id}`, {
+        title: 'Stable Translators',
+        authors: ['Some Author'],
+      });
+      assert.equal(body.translators.length, 1);
+      assert.equal(body.translators[0].name, 'Kept Translator');
+    });
+
     it('replaces narrators on PUT', async () => {
       const { body: created } = await req('POST', '/api/books', {
         title: 'Narrator Test', narrators: ['Old Voice'],
