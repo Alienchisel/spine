@@ -34,7 +34,7 @@ export function pruneFilters(filters, facets) {
     ...filters,
     formats:    filters.formats.filter(f => f === 'empty' ? facets.hasEmptyFormat    : fmtSet.has(f)),
     publishers: filters.publishers.filter(p => p === 'empty' ? facets.hasEmptyPublisher : pubSet.has(p)),
-    sources:    (filters.sources || []).filter(s => srcSet.has(s)),
+    sources:    (filters.sources || []).filter(s => s === 'empty' ? facets.hasEmptySource : srcSet.has(s)),
     series:     filters.series.filter(s => s === 'empty' ? facets.hasEmptySeries    : serSet.has(s)),
     ratings:    filters.ratings.filter(r => r === 'empty' ? facets.hasEmptyRating    : rtSet.has(String(r))),
     tags:       filters.tags.filter(t => tagSet.has(t)),

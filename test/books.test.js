@@ -106,6 +106,15 @@ describe('books', () => {
         `expected status=reading tags facet to exclude tag whose only book is unread, got ${JSON.stringify(body.tags)}`);
     });
 
+    it('exposes hasEmptySource when at least one book has no acquisition_source', async () => {
+      // A book with a source set, plus one without, should produce hasEmptySource=true.
+      await req('POST', '/api/books', { title: 'Has Source', acquisition_source: 'Audible' });
+      await req('POST', '/api/books', { title: 'No Source' });
+      const { body } = await req('GET', '/api/books/facets');
+      assert.equal(body.hasEmptySource, true,
+        `expected hasEmptySource=true when at least one book has no source, got ${JSON.stringify({sources: body.sources, hasEmptySource: body.hasEmptySource})}`);
+    });
+
     it('narrows the languages facet by an active cross-axis filter (status)', async () => {
       // languages facet flattens both `language` and `original_language` into one
       // set, so a single translated reading book is expected to contribute two
