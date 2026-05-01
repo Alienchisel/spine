@@ -105,6 +105,26 @@ describe('books', () => {
       assert.ok(!body.tags.includes('xaxis-unread-tag'),
         `expected status=reading tags facet to exclude tag whose only book is unread, got ${JSON.stringify(body.tags)}`);
     });
+
+    it('narrows the tags facet by an active cross-axis filter (status, virtual tags)', async () => {
+      // Abridged: a reading book with abridged=1 should surface the virtual tag.
+      await req('POST', '/api/books', {
+        title: 'Reading Abridged Book', abridged: true, status: 'reading',
+      });
+      // Re-read: read_count isn't in the POST writable set, so create then PUT.
+      const { body: rereadBook } = await req('POST', '/api/books', {
+        title: 'Unread Re-read Book',
+      });
+      await req('PUT', `/api/books/${rereadBook.id}`, {
+        ...rereadBook, read_count: 2, tags: [],
+      });
+      const { status, body } = await req('GET', '/api/books/facets?status=reading');
+      assert.equal(status, 200);
+      assert.ok(body.tags.includes('Abridged'),
+        `expected status=reading tags facet to include Abridged virtual tag of a reading book, got ${JSON.stringify(body.tags)}`);
+      assert.ok(!body.tags.includes('Re-read'),
+        `expected status=reading tags facet to exclude Re-read virtual tag whose only book is unread, got ${JSON.stringify(body.tags)}`);
+    });
   });
 
   describe('POST /api/books', () => {
