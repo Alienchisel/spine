@@ -187,6 +187,11 @@ books ──< book_translators >── translators
 Returned as `translators: [{ id, name }, …]`. Replaced wholesale on every PUT
 that includes a `translators` key.
 
+The Library `Missing → Translator` filter (`?missing[]=translator`) applies
+only to translated books: `original_language` must be set *and* no
+`book_translators` row exists. Untranslated books are not flagged as
+"missing translator", since the field is genuinely not applicable.
+
 ### tags
 
 ```
