@@ -609,6 +609,14 @@ describe('books', () => {
       assert.equal(body.translators[0].name, 'Constance Garnett');
     });
 
+    it('deduplicates narrators case-insensitively within one sync', async () => {
+      const { body } = await req('POST', '/api/books', {
+        title: 'Dupe Narrators', narrators: ['Toby Longworth', 'toby longworth'],
+      });
+      assert.equal(body.narrators.length, 1);
+      assert.equal(body.narrators[0].name, 'Toby Longworth');
+    });
+
     it('reuses existing author row when name matches', async () => {
       const { body: b1 } = await req('POST', '/api/books', {
         title: 'Book One', authors: ['Shared Author'],
