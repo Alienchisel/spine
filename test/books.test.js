@@ -642,6 +642,32 @@ describe('books', () => {
       }
     });
 
+    it('field=publisher/series/language/format filter by scalar value', async () => {
+      // BROWSE_FIELDS in lib/books/filters.js use a catch-all `${col} = ?` branch
+      // distinct from the people-field subqueries. This guards that branch.
+      const cases = [
+        { field: 'publisher', col: 'publisher', match: 'Scalar Browse Press Co',  other: 'Scalar Browse Other Press' },
+        { field: 'series',    col: 'series',    match: 'Scalar Browse Series A',  other: 'Scalar Browse Series B' },
+        { field: 'language',  col: 'language',  match: 'Klingon',                 other: 'Esperanto' },
+        { field: 'format',    col: 'format',    match: 'physical',                other: 'audiobook' },
+      ];
+      for (const c of cases) {
+        const { body: matched } = await req('POST', '/api/books', {
+          title: `field=${c.field} match`, [c.col]: c.match,
+        });
+        const { body: other } = await req('POST', '/api/books', {
+          title: `field=${c.field} other`, [c.col]: c.other,
+        });
+        const { body: results } = await req('GET',
+          `/api/books?field=${c.field}&value=${encodeURIComponent(c.match)}&limit=200`);
+        const ids = results.books.map(b => b.id);
+        assert.ok(ids.includes(matched.id),
+          `expected field=${c.field}&value=${c.match} to include the matching book`);
+        assert.ok(!ids.includes(other.id),
+          `expected field=${c.field}&value=${c.match} to exclude books with ${c.col}='${c.other}'`);
+      }
+    });
+
     it('field=author/narrator/translator filter by people name', async () => {
       const cases = [
         { field: 'author',     key: 'authors',     match: 'Browse Author',     other: 'Other Author' },
