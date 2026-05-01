@@ -90,6 +90,21 @@ describe('books', () => {
           `expected status=reading ${c.key} facet to exclude ${c.role} whose only book is unread, got ${JSON.stringify(body[c.key])}`);
       }
     });
+
+    it('narrows the tags facet by an active cross-axis filter (status, real tags)', async () => {
+      await req('POST', '/api/books', {
+        title: 'Reading Tagged', tags: ['xaxis-reading-tag'], status: 'reading',
+      });
+      await req('POST', '/api/books', {
+        title: 'Unread Tagged',  tags: ['xaxis-unread-tag'],
+      });
+      const { status, body } = await req('GET', '/api/books/facets?status=reading');
+      assert.equal(status, 200);
+      assert.ok(body.tags.includes('xaxis-reading-tag'),
+        `expected status=reading tags facet to include reading book's tag, got ${JSON.stringify(body.tags)}`);
+      assert.ok(!body.tags.includes('xaxis-unread-tag'),
+        `expected status=reading tags facet to exclude tag whose only book is unread, got ${JSON.stringify(body.tags)}`);
+    });
   });
 
   describe('POST /api/books', () => {
