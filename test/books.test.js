@@ -494,16 +494,6 @@ describe('books', () => {
       assert.deepEqual(body.translators.map(t => t.name), ['New Translator A', 'New Translator B']);
     });
 
-    it('reuses existing translator row when name matches', async () => {
-      const { body: b1 } = await req('POST', '/api/books', {
-        title: 'Trans Reuse A', translators: ['Shared Translator'],
-      });
-      const { body: b2 } = await req('POST', '/api/books', {
-        title: 'Trans Reuse B', translators: ['Shared Translator'],
-      });
-      assert.equal(b1.translators[0].id, b2.translators[0].id);
-    });
-
     it('q search matches translator names', async () => {
       const { body: book } = await req('POST', '/api/books', {
         title: 'Anna Karenina', translators: ['Constance Garnett'],
@@ -635,6 +625,16 @@ describe('books', () => {
         title: 'Narr Reuse B', narrators: ['Shared Narrator'],
       });
       assert.equal(b1.narrators[0].id, b2.narrators[0].id);
+    });
+
+    it('reuses existing translator row when name matches', async () => {
+      const { body: b1 } = await req('POST', '/api/books', {
+        title: 'Trans Reuse A', translators: ['Shared Translator'],
+      });
+      const { body: b2 } = await req('POST', '/api/books', {
+        title: 'Trans Reuse B', translators: ['Shared Translator'],
+      });
+      assert.equal(b1.translators[0].id, b2.translators[0].id);
     });
 
     it('leaves authors unchanged when key omitted from PUT', async () => {
