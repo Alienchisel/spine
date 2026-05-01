@@ -655,6 +655,20 @@ describe('books', () => {
       assert.equal(body.narrators[0].name, 'New Voice');
     });
 
+    it('leaves narrators unchanged when key omitted from PUT', async () => {
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Stable Narrators',
+        authors: ['Some Author'],
+        narrators: ['Kept Voice'],
+      });
+      const { body } = await req('PUT', `/api/books/${created.id}`, {
+        title: 'Stable Narrators',
+        authors: ['Some Author'],
+      });
+      assert.equal(body.narrators.length, 1);
+      assert.equal(body.narrators[0].name, 'Kept Voice');
+    });
+
     it('deduplicates tags case-insensitively', async () => {
       const { body } = await req('POST', '/api/books', {
         title: 'Tag Dedup', tags: ['sci-fi', 'Sci-Fi', 'SCI-FI'],
