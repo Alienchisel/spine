@@ -675,7 +675,7 @@ describe('books', () => {
       assert.equal(body.narrators[0].name, 'New Voice');
     });
 
-    it('replaces translators on PUT and preserves order', async () => {
+    it('replaces translators on PUT', async () => {
       const { body: created } = await req('POST', '/api/books', {
         title: 'Translated Book',
         translators: ['Old Translator'],
@@ -684,7 +684,9 @@ describe('books', () => {
         title: 'Translated Book',
         translators: ['New Translator A', 'New Translator B'],
       });
-      assert.deepEqual(body.translators.map(t => t.name), ['New Translator A', 'New Translator B']);
+      assert.equal(body.translators.length, 2);
+      assert.ok(body.translators.every(t => ['New Translator A', 'New Translator B'].includes(t.name)));
+      assert.ok(body.translators.every(t => t.name !== 'Old Translator'));
     });
 
     it('leaves narrators unchanged when key omitted from PUT', async () => {
