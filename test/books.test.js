@@ -67,6 +67,21 @@ describe('books', () => {
       assert.ok(body.translators.includes('Constance Garnett'),
         `expected translators facet to include "Constance Garnett", got ${JSON.stringify(body.translators)}`);
     });
+
+    it('narrows the translators facet by an active cross-axis filter (status)', async () => {
+      await req('POST', '/api/books', {
+        title: 'Reading Now', translators: ['Wilhelmina Karsdale'], status: 'reading',
+      });
+      await req('POST', '/api/books', {
+        title: 'On The Pile',  translators: ['Aurelio Branscombe'],
+      });
+      const { status, body } = await req('GET', '/api/books/facets?status=reading');
+      assert.equal(status, 200);
+      assert.ok(body.translators.includes('Wilhelmina Karsdale'),
+        `expected status=reading facets to include translator of a reading book, got ${JSON.stringify(body.translators)}`);
+      assert.ok(!body.translators.includes('Aurelio Branscombe'),
+        `expected status=reading facets to exclude translator whose only book is unread, got ${JSON.stringify(body.translators)}`);
+    });
   });
 
   describe('POST /api/books', () => {
