@@ -660,6 +660,25 @@ describe('books', () => {
       assert.ok(!ids.includes(other.id),   'expected field=rating&value=4.5 to exclude the 3-rated book');
     });
 
+    it('field=year_finished orders by date_finished ASC within the year', async () => {
+      // buildOrderBy() returns "date_finished ASC" specifically for field=year_finished,
+      // giving end-of-year retrospectives a chronological view. Insert in reverse
+      // chronological order to confirm the SQL sort, not insertion order.
+      const { body: later } = await req('POST', '/api/books', {
+        title: 'year_finished order — Sep 2027', date_finished: '2027-09-15',
+      });
+      const { body: earlier } = await req('POST', '/api/books', {
+        title: 'year_finished order — Mar 2027', date_finished: '2027-03-22',
+      });
+      const { body: results } = await req('GET', '/api/books?field=year_finished&value=2027&limit=200');
+      const ids = results.books.map(b => b.id);
+      const earlierIdx = ids.indexOf(earlier.id);
+      const laterIdx   = ids.indexOf(later.id);
+      assert.ok(earlierIdx >= 0 && laterIdx >= 0, 'both fixtures should be in result');
+      assert.ok(earlierIdx < laterIdx,
+        `expected earlier (#${earlier.id} Mar) before later (#${later.id} Sep); got positions ${earlierIdx}, ${laterIdx}`);
+    });
+
     it('field=year_finished filters by date_finished year prefix', async () => {
       // Branch: date_finished LIKE 'YYYY%'. Different dates within the year
       // should match; dates in other years should not.
