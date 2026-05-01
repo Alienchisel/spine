@@ -33,6 +33,20 @@ describe('books', () => {
     });
   });
 
+  describe('GET /api/books/facets', () => {
+    it('surfaces translator names in the translators facet', async () => {
+      await req('POST', '/api/books', {
+        title: 'Crime and Punishment',
+        translators: ['Constance Garnett'],
+      });
+      const { status, body } = await req('GET', '/api/books/facets');
+      assert.equal(status, 200);
+      assert.ok(Array.isArray(body.translators));
+      assert.ok(body.translators.includes('Constance Garnett'),
+        `expected translators facet to include "Constance Garnett", got ${JSON.stringify(body.translators)}`);
+    });
+  });
+
   describe('POST /api/books', () => {
     it('creates a book and returns it', async () => {
       const { status, body } = await req('POST', '/api/books', { title: 'Dune' });
@@ -489,6 +503,23 @@ describe('books', () => {
       const { body: results } = await req('GET', '/api/books?q=Garnett');
       assert.ok(results.books.some(b => b.id === book.id),
         'expected q=Garnett to match book translated by Constance Garnett');
+    });
+
+    it('field=translator filters by translator name', async () => {
+      const { body: match } = await req('POST', '/api/books', {
+        title: 'Translator Browse Match', translators: ['Browse Translator'],
+      });
+      const { body: other } = await req('POST', '/api/books', {
+        title: 'Translator Browse Other', translators: ['Other Translator'],
+      });
+
+      const { body: results } = await req('GET', `/api/books?field=translator&value=${encodeURIComponent('Browse Translator')}`);
+      const ids = results.books.map(b => b.id);
+
+      assert.ok(ids.includes(match.id),
+        'expected field=translator to include books with the selected translator');
+      assert.ok(!ids.includes(other.id),
+        'expected field=translator to exclude books with a different translator');
     });
 
     it('missing[]=translator finds translated books with no translator entered', async () => {
