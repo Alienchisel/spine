@@ -714,6 +714,32 @@ describe('books', () => {
       }
     });
 
+    it('publishers/series/sources []=empty filters return only books missing that field', async () => {
+      // Each filter has its own SQL branch in lib/books/filters.js; this confirms
+      // the IS NULL OR = '' branch works for all three.
+      const cases = [
+        { filter: 'publishers', col: 'publisher',          filledValue: 'Empty-Filter Publisher Press' },
+        { filter: 'series',     col: 'series',             filledValue: 'Empty-Filter Series Set' },
+        { filter: 'sources',    col: 'acquisition_source', filledValue: 'Empty-Filter Mart' },
+      ];
+      for (const c of cases) {
+        const { body: matched } = await req('POST', '/api/books', {
+          title: `${c.filter} empty filter — no value`,
+        });
+        const { body: filled } = await req('POST', '/api/books', {
+          title: `${c.filter} empty filter — has value`, [c.col]: c.filledValue,
+        });
+        // limit=200 since the in-memory DB accumulates books across tests in
+        // this describe and the default 50-page would clip our fixture.
+        const { body: results } = await req('GET', `/api/books?${c.filter}[]=empty&limit=200`);
+        const ids = results.books.map(b => b.id);
+        assert.ok(ids.includes(matched.id),
+          `expected ${c.filter}[]=empty to include the book with no ${c.col}`);
+        assert.ok(!ids.includes(filled.id),
+          `expected ${c.filter}[]=empty to exclude the book with ${c.col}='${c.filledValue}'`);
+      }
+    });
+
     it('saves acquisition_source and acquisition_date', async () => {
       const { body } = await req('POST', '/api/books', {
         title: 'Sourced Book',
