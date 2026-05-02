@@ -1,7 +1,7 @@
 import { describe, it, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'fs';
-import { fetchCoverBuffer, deleteLocalCover, saveCoverFromBuffer } from '../lib/books/covers.js';
+import { fetchCoverBuffer, deleteLocalCover, saveCoverFromBuffer, detectImageExt } from '../lib/books/covers.js';
 
 describe('fetchCoverBuffer', () => {
   it('returns null when Google Books has no items and Open Library has no cover', async () => {
@@ -190,5 +190,37 @@ describe('saveCoverFromBuffer', () => {
     } finally {
       writeMock.mock.restore();
     }
+  });
+});
+
+describe('detectImageExt', () => {
+  // Table-driven over the four signature branches plus a couple of explicit
+  // misses. Each fixture is the magic-byte prefix padded to 12 bytes so the
+  // length guard in detectImageExt() is satisfied.
+  function withPrefix(prefix) {
+    const buf = Buffer.alloc(12, 0);
+    Buffer.from(prefix).copy(buf);
+    return buf;
+  }
+
+  const cases = [
+    { name: 'JPEG',  buf: withPrefix([0xFF, 0xD8, 0xFF, 0xE0]),                                  expected: 'jpg' },
+    { name: 'PNG',   buf: withPrefix([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]),          expected: 'png' },
+    { name: 'GIF87', buf: withPrefix([0x47, 0x49, 0x46, 0x38, 0x37, 0x61]),                      expected: 'gif' },
+    { name: 'GIF89', buf: withPrefix([0x47, 0x49, 0x46, 0x38, 0x39, 0x61]),                      expected: 'gif' },
+    { name: 'WEBP',  buf: Buffer.concat([Buffer.from('RIFF'), Buffer.alloc(4, 0), Buffer.from('WEBP')]), expected: 'webp' },
+    { name: 'all-zero garbage', buf: Buffer.alloc(12, 0),                                        expected: null },
+  ];
+
+  for (const { name, buf, expected } of cases) {
+    it(`recognizes ${name} as ${expected ?? 'null'}`, () => {
+      assert.equal(detectImageExt(buf), expected);
+    });
+  }
+
+  it('returns null for buffers shorter than the minimum 12 bytes', () => {
+    assert.equal(detectImageExt(Buffer.from([0xFF, 0xD8, 0xFF])), null);
+    assert.equal(detectImageExt(null), null);
+    assert.equal(detectImageExt(undefined), null);
   });
 });
