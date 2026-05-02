@@ -734,6 +734,27 @@ describe('books', () => {
       assert.equal(after.all,    after.total,       'all should always equal total');
     });
 
+    it('GET /api/books/counts increments reading, paused, finished counters', async () => {
+      // Mirrors the unread-default test above for the remaining statuses, which
+      // back the tab badges on Library and would silently break if their SUM
+      // expression in repository.js were typo'd.
+      const cases = [
+        { status: 'reading' },
+        { status: 'paused' },
+        { status: 'finished', date_finished: '2024-01-01' },
+      ];
+      for (const { status, ...rest } of cases) {
+        const { body: before } = await req('GET', '/api/books/counts');
+        await req('POST', '/api/books', {
+          title: `counts-${status} ` + Math.random().toString(36).slice(2, 8),
+          status, ...rest,
+        });
+        const { body: after } = await req('GET', '/api/books/counts');
+        assert.equal(after[status], before[status] + 1, `${status} should increment by 1`);
+        assert.equal(after.total, before.total + 1, `total should increment by 1 for ${status}`);
+      }
+    });
+
     it('GET /api/books/counts increments owned and prev_owned counters', async () => {
       // The counts row also exposes ownership totals (repository.js:46-47).
       // previously_owned is forced to 0 when owned=true (repository.js:141),
