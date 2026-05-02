@@ -719,6 +719,33 @@ describe('books', () => {
       }
     });
 
+    it('hydrates tags/authors/narrators/translators on list responses', async () => {
+      // listBooks() runs four separate IN-clause queries to attach joined
+      // collections to each row. Existing coverage exercises filter logic and
+      // individual GETs but doesn't assert the LIST path's hydration directly.
+      const stem = 'hydrate' + Math.random().toString(36).slice(2, 6);
+      const { body: created } = await req('POST', '/api/books', {
+        title: `${stem} fully joined`,
+        authors:     [`${stem}-Author A`, `${stem}-Author B`],
+        narrators:   [`${stem}-Narrator`],
+        translators: [`${stem}-Translator`],
+        tags:        [`${stem}-tagX`, `${stem}-tagY`],
+      });
+
+      const { body } = await req('GET', `/api/books?q=${stem}&limit=200`);
+      const item = body.books.find(b => b.id === created.id);
+      assert.ok(item, 'expected the fixture to appear in list response');
+      assert.deepEqual(item.authors.map(a => a.name),
+        [`${stem}-Author A`, `${stem}-Author B`], 'list authors hydrated in position order');
+      assert.deepEqual(item.narrators.map(n => n.name),
+        [`${stem}-Narrator`], 'list narrators hydrated');
+      assert.deepEqual(item.translators.map(t => t.name),
+        [`${stem}-Translator`], 'list translators hydrated');
+      const tagNames = item.tags.map(t => t.name).sort();
+      assert.deepEqual(tagNames, [`${stem}-tagX`, `${stem}-tagY`],
+        'list tags hydrated');
+    });
+
     it('falls back to updated_at DESC for unknown sort values', async () => {
       // buildOrderBy()'s default branch sorts by updated_at DESC. SQLite stores
       // datetime('now','localtime') at second precision, so we sleep briefly
