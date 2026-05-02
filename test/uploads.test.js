@@ -42,6 +42,33 @@ describe('POST /api/upload/fetch', () => {
     assert.equal(body.error, 'Invalid URL');
   });
 
+  it('returns 400 when the remote content-length exceeds the 10 MiB cap', async () => {
+    const oversize = String(10 * 1024 * 1024 + 1);
+    const originalFetch = globalThis.fetch;
+    const fetchMock = mock.method(globalThis, 'fetch', async (target, init) => {
+      const targetStr = typeof target === 'string' ? target : String(target);
+      if (targetStr.startsWith(url)) return originalFetch(target, init);
+      return {
+        ok: true,
+        headers: {
+          get: (h) => {
+            const k = h.toLowerCase();
+            if (k === 'content-type') return 'image/jpeg';
+            if (k === 'content-length') return oversize;
+            return null;
+          },
+        },
+      };
+    });
+    try {
+      const { status, body } = await req({ url: 'https://example.test/huge.jpg' });
+      assert.equal(status, 400);
+      assert.equal(body.error, 'Image too large');
+    } finally {
+      fetchMock.mock.restore();
+    }
+  });
+
   it('returns 502 when the remote fetch responds with !ok', async () => {
     const originalFetch = globalThis.fetch;
     const fetchMock = mock.method(globalThis, 'fetch', async (target, init) => {
