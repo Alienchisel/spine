@@ -37,6 +37,22 @@ describe('search', () => {
     assert.deepEqual(body, []);
   });
 
+  it('GET /api/search returns 502 when Open Library responds with !ok', async () => {
+    const originalFetch = globalThis.fetch;
+    const fetchMock = mock.method(globalThis, 'fetch', async (target, init) => {
+      const targetStr = typeof target === 'string' ? target : String(target);
+      if (targetStr.startsWith(url)) return originalFetch(target, init);
+      return { ok: false, status: 503 };
+    });
+    try {
+      const { status, body } = await req('/api/search?q=anything');
+      assert.equal(status, 502);
+      assert.equal(body.error, 'Open Library unavailable');
+    } finally {
+      fetchMock.mock.restore();
+    }
+  });
+
   it('GET /api/search rewrites hyphenated ISBN-13 queries to q=isbn:<digits>', async () => {
     // Hyphens and spaces are stripped, /^\d{10}(\d{3})?$/ matches, and the
     // outbound query becomes q=isbn:<13 digits>.
