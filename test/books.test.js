@@ -316,6 +316,30 @@ describe('books', () => {
       assert.equal(status, 404);
     });
 
+    it('unlinks the old cover file when PUT clears cover_path to null', async () => {
+      // Explicit-clear path through repository.js:254 — sending cover_path:null
+      // should unlink the existing file and persist a null cover_path.
+      const oldFilename = '3333333333-cccccc.jpg';
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'cover-clear ' + Math.random().toString(36).slice(2, 6),
+        cover_path: `/uploads/${oldFilename}`,
+      });
+      const unlinkMock = mock.method(fs, 'unlink', (_p, cb) => cb(null));
+      try {
+        const { status, body } = await req('PUT', `/api/books/${created.id}`, {
+          ...created, cover_path: null, tags: [],
+        });
+        assert.equal(status, 200);
+        assert.equal(body.cover_path, null);
+        assert.equal(unlinkMock.mock.callCount(), 1, 'old cover should be unlinked exactly once');
+        const unlinkPath = unlinkMock.mock.calls[0].arguments[0];
+        assert.ok(unlinkPath.endsWith(oldFilename),
+          `expected unlink path to end in ${oldFilename}, got: ${unlinkPath}`);
+      } finally {
+        unlinkMock.mock.restore();
+      }
+    });
+
     it('unlinks the old cover file when PUT swaps cover_path to a different valid filename', async () => {
       // repository.js:254 — when an existing book's cover_path changes from
       // one safe filename to another, the old file is unlinked. fs.unlink is
