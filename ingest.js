@@ -4,12 +4,8 @@
 import readline from 'readline';
 import https from 'https';
 import http from 'http';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { saveCoverFromBuffer } from './lib/books/covers.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const UPLOADS_DIR = path.join(__dirname, 'uploads');
 const API_BASE = process.env.SPINE_URL || 'http://localhost:3001';
 
 const LANG_MAP = {
@@ -89,13 +85,16 @@ async function fetchOpenLibrary(isbn) {
 }
 
 async function downloadCover(url) {
-  const { status, body, headers } = await get(url);
+  const { status, body } = await get(url);
   if (status !== 200 || body.length < 1000) return null;
-  const ct = headers['content-type'] || '';
-  const ext = ct.includes('png') ? 'png' : ct.includes('webp') ? 'webp' : 'jpg';
-  const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-  fs.writeFileSync(path.join(UPLOADS_DIR, filename), body);
-  return `/uploads/${filename}`;
+  // Defer to the app's shared writer: magic-byte format detection,
+  // automatic WebP→JPG conversion, safe-shape filename.
+  try {
+    const filename = await saveCoverFromBuffer(body);
+    return `/uploads/${filename}`;
+  } catch {
+    return null;
+  }
 }
 
 const STATUS_EXPAND   = { u: 'unread', r: 'reading', f: 'finished', p: 'paused' };
@@ -224,7 +223,11 @@ async function main() {
 
   // — Library —
   const statusIn         = await ask(rl, 'Status ([u]nread/[r]eading/[f]inished/[p]aused)', 'unread');
-  const formatDefault    = meta.format === 'audiobook' ? 'a' : meta.format === 'ebook' ? 'd' : 'p';
+  // ASIN input is almost always an Audible audiobook; ISBN ingest defaults to physical.
+  const formatDefault    = meta.format === 'audiobook' ? 'a'
+                         : meta.format === 'ebook'     ? 'd'
+                         : parsed?.type === 'asin'     ? 'a'
+                         :                                'p';
   const formatIn         = await ask(rl, 'Format ([p]hysical/[d]igital/[a]udiobook)', formatDefault);
   const ownedIn          = await ask(rl, 'Owned? (y/n)', meta.owned ? 'y' : 'n');
   const prevOwnedIn      = ownedIn.toLowerCase() !== 'y' ? await ask(rl, 'Previously owned? (y/n)', 'n') : 'n';
@@ -251,7 +254,13 @@ async function main() {
   let acquisition_source = '', acquisition_date = '';
   if (ownedIn.toLowerCase() === 'y' || prevOwnedIn.toLowerCase() === 'y') {
     console.log();
-    acquisition_source = await ask(rl, 'Acquisition source', '');
+    // Format-aware defaults per memory: audiobook → Audible, ebook → Internet
+    // (free downloads are the user's standard ebook source). Physical ingest
+    // doesn't have an obvious default, so leave blank for explicit input.
+    const sourceDefault = formatVal === 'audiobook' ? 'Audible'
+                        : formatVal === 'ebook'     ? 'Internet'
+                        :                              '';
+    acquisition_source = await ask(rl, 'Acquisition source', sourceDefault);
     acquisition_date   = await ask(rl, 'Acquisition date (YYYY, YYYY-MM, or YYYY-MM-DD)', '');
   }
 
