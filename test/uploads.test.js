@@ -1,4 +1,4 @@
-import { describe, it, before, after } from 'node:test';
+import { describe, it, before, after, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { createTestServer } from './helpers.js';
 
@@ -40,5 +40,27 @@ describe('POST /api/upload/fetch', () => {
     const { status, body } = await req({ url: 'not a url' });
     assert.equal(status, 400);
     assert.equal(body.error, 'Invalid URL');
+  });
+
+  it('returns 400 when the fetched URL has a non-image content-type', async () => {
+    // Mock fetch so the outbound request gets a text/plain response. Localhost
+    // calls (this test's own request to the in-process server) must still hit
+    // the real fetch, so the mock branches on URL.
+    const originalFetch = globalThis.fetch;
+    const fetchMock = mock.method(globalThis, 'fetch', async (target, init) => {
+      const targetStr = typeof target === 'string' ? target : String(target);
+      if (targetStr.startsWith(url)) return originalFetch(target, init);
+      return {
+        ok: true,
+        headers: { get: (h) => h.toLowerCase() === 'content-type' ? 'text/plain' : null },
+      };
+    });
+    try {
+      const { status, body } = await req({ url: 'https://example.test/cover.txt' });
+      assert.equal(status, 400);
+      assert.equal(body.error, 'URL does not point to an image');
+    } finally {
+      fetchMock.mock.restore();
+    }
   });
 });
