@@ -17,13 +17,13 @@ router.get('/', (req, res) => {
                b.title, b.cover_path, b.format
         FROM reading_log rl JOIN books b ON b.id = rl.book_id
         WHERE rl.date LIKE ?
-        ORDER BY rl.date DESC, b.title ASC
+        ORDER BY rl.date DESC, rl.id DESC
       `).all(`${year}-%`)
     : db.prepare(`
         SELECT rl.id, rl.book_id, rl.date, rl.pages_read, rl.minutes_read,
                b.title, b.cover_path, b.format
         FROM reading_log rl JOIN books b ON b.id = rl.book_id
-        ORDER BY rl.date DESC, b.title ASC
+        ORDER BY rl.date DESC, rl.id DESC
       `).all();
 
   const bookIds = [...new Set(rows.map(r => r.book_id))];
