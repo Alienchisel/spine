@@ -574,6 +574,14 @@ describe('books', () => {
     });
   });
 
+  describe('GET /api/books/:id/log', () => {
+    it('returns 400 for invalid book id', async () => {
+      const { status, body } = await req('GET', '/api/books/nope/log');
+      assert.equal(status, 400);
+      assert.equal(body.error, 'Invalid book id');
+    });
+  });
+
   describe('reads', () => {
     let bookId;
 
