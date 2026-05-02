@@ -316,6 +316,31 @@ describe('books', () => {
       assert.equal(status, 404);
     });
 
+    it('unlinks the old cover file when PUT swaps cover_path to a different valid filename', async () => {
+      // repository.js:254 — when an existing book's cover_path changes from
+      // one safe filename to another, the old file is unlinked. fs.unlink is
+      // the boundary.
+      const oldFilename = '1111111111-aaaaaa.jpg';
+      const newFilename = '2222222222-bbbbbb.jpg';
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'cover-swap ' + Math.random().toString(36).slice(2, 6),
+        cover_path: `/uploads/${oldFilename}`,
+      });
+      const unlinkMock = mock.method(fs, 'unlink', (_p, cb) => cb(null));
+      try {
+        const { status } = await req('PUT', `/api/books/${created.id}`, {
+          ...created, cover_path: `/uploads/${newFilename}`, tags: [],
+        });
+        assert.equal(status, 200);
+        assert.equal(unlinkMock.mock.callCount(), 1, 'old cover should be unlinked exactly once');
+        const unlinkPath = unlinkMock.mock.calls[0].arguments[0];
+        assert.ok(unlinkPath.endsWith(oldFilename),
+          `expected unlink path to end in ${oldFilename}, got: ${unlinkPath}`);
+      } finally {
+        unlinkMock.mock.restore();
+      }
+    });
+
     it('rejects invalid source_type', async () => {
       const { status } = await req('POST', '/api/books', { title: 'X', source_type: 'tertiary' });
       assert.equal(status, 400);
