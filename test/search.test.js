@@ -37,6 +37,39 @@ describe('search', () => {
     assert.deepEqual(body, []);
   });
 
+  it('GET /api/search maps an Open Library doc into the Spine result shape', async () => {
+    const fakeDoc = {
+      key: '/works/OL456W',
+      title: 'A Sample Book',
+      author_name: ['Jane Doe', 'John Roe'],
+      publisher: ['Acme Press', 'Other Press'],
+      number_of_pages_median: 320,
+      cover_i: 9876,
+      isbn: ['1234567890', '9781234567897', 'BADISBN'],
+    };
+    const originalFetch = globalThis.fetch;
+    const fetchMock = mock.method(globalThis, 'fetch', async (target, init) => {
+      const targetStr = typeof target === 'string' ? target : String(target);
+      if (targetStr.startsWith(url)) return originalFetch(target, init);
+      return { ok: true, json: async () => ({ docs: [fakeDoc] }) };
+    });
+    try {
+      const { status, body } = await req('/api/search?q=sample');
+      assert.equal(status, 200);
+      assert.equal(body.length, 1);
+      const r = body[0];
+      assert.equal(r.title, 'A Sample Book');
+      assert.deepEqual(r.authors, ['Jane Doe', 'John Roe']);
+      assert.equal(r.publisher, 'Acme Press');
+      assert.equal(r.page_count, 320);
+      assert.equal(r.cover_url, 'https://covers.openlibrary.org/b/id/9876-M.jpg');
+      assert.equal(r.isbn_10, '1234567890');
+      assert.equal(r.isbn_13, '9781234567897');
+    } finally {
+      fetchMock.mock.restore();
+    }
+  });
+
   it('GET /api/search/description normalizes object-form description.value to a string', async () => {
     // Open Library returns description as either a string or { type, value }.
     // The route flattens the object form to its `.value`. Localhost requests
