@@ -791,6 +791,13 @@ describe('books', () => {
       assert.equal(body.error, 'Not found');
     });
 
+    it('POST /api/books/:id/fetch-cover returns 400 for invalid book id', async () => {
+      // The id parser rejects non-integer / <1 ids before any repository work.
+      const { status, body } = await req('POST', '/api/books/nope/fetch-cover', {});
+      assert.equal(status, 400);
+      assert.equal(body.error, 'Invalid book id');
+    });
+
     it('normalizes cover_path on list responses through toCoverUrl', async () => {
       // The list path passes each row's stored filename through toCoverUrl,
       // which prepends /uploads/. POST accepts the full URL and toFilename
