@@ -42,6 +42,22 @@ describe('POST /api/upload/fetch', () => {
     assert.equal(body.error, 'Invalid URL');
   });
 
+  it('returns 502 when the remote fetch responds with !ok', async () => {
+    const originalFetch = globalThis.fetch;
+    const fetchMock = mock.method(globalThis, 'fetch', async (target, init) => {
+      const targetStr = typeof target === 'string' ? target : String(target);
+      if (targetStr.startsWith(url)) return originalFetch(target, init);
+      return { ok: false, status: 500, headers: { get: () => null } };
+    });
+    try {
+      const { status, body } = await req({ url: 'https://example.test/missing.jpg' });
+      assert.equal(status, 502);
+      assert.equal(body.error, 'Failed to fetch cover');
+    } finally {
+      fetchMock.mock.restore();
+    }
+  });
+
   it('returns 400 when the fetched URL has a non-image content-type', async () => {
     // Mock fetch so the outbound request gets a text/plain response. Localhost
     // calls (this test's own request to the in-process server) must still hit
