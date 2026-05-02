@@ -677,6 +677,14 @@ describe('books', () => {
       assert.equal(status, 404);
     });
 
+    it('PUT returns 404 for unknown read id', async () => {
+      const { status, body } = await req('PUT', `/api/books/${bookId}/reads/99999`, {
+        date_started: '2024-06-01',
+      });
+      assert.equal(status, 404);
+      assert.equal(body.error, 'Not found');
+    });
+
     it('returns 400 for non-integer book id on reads', async () => {
       const { status } = await req('GET', '/api/books/abc/reads');
       assert.equal(status, 400);
