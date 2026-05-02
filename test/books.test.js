@@ -784,6 +784,13 @@ describe('books', () => {
       assert.equal(body.error, 'No ISBN on this book');
     });
 
+    it('POST /api/books/:id/fetch-cover returns 404 for unknown book id', async () => {
+      // notFound is resolved before any cover lookup, so this stays hermetic.
+      const { status, body } = await req('POST', '/api/books/999999/fetch-cover', {});
+      assert.equal(status, 404);
+      assert.equal(body.error, 'Not found');
+    });
+
     it('normalizes cover_path on list responses through toCoverUrl', async () => {
       // The list path passes each row's stored filename through toCoverUrl,
       // which prepends /uploads/. POST accepts the full URL and toFilename
