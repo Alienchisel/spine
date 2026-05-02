@@ -125,6 +125,24 @@ describe('search', () => {
     }
   });
 
+  it('GET /api/search/description returns 200 with null when the upstream request throws', async () => {
+    // Same soft-failure contract as the !ok branch: a thrown fetch (DNS,
+    // abort, JSON parse) must not interrupt the add-book flow.
+    const originalFetch = globalThis.fetch;
+    const fetchMock = mock.method(globalThis, 'fetch', async (target, init) => {
+      const targetStr = typeof target === 'string' ? target : String(target);
+      if (targetStr.startsWith(url)) return originalFetch(target, init);
+      throw new Error('boom — network down');
+    });
+    try {
+      const { status, body } = await req('/api/search/description?key=/works/OL12345W');
+      assert.equal(status, 200);
+      assert.equal(body.description, null);
+    } finally {
+      fetchMock.mock.restore();
+    }
+  });
+
   it('GET /api/search/description returns 200 with null when Open Library !ok', async () => {
     // Soft-failure contract: a missing description must not break the add-book
     // flow. The route returns 200 with { description: null } rather than 502.
