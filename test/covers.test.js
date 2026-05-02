@@ -1,6 +1,7 @@
 import { describe, it, mock } from 'node:test';
 import assert from 'node:assert/strict';
-import { fetchCoverBuffer } from '../lib/books/covers.js';
+import fs from 'fs';
+import { fetchCoverBuffer, deleteLocalCover } from '../lib/books/covers.js';
 
 describe('fetchCoverBuffer', () => {
   it('returns null when Google Books has no items and Open Library has no cover', async () => {
@@ -114,6 +115,43 @@ describe('fetchCoverBuffer', () => {
         'image URL should have edge=curl stripped and zoom forced to 0');
     } finally {
       fetchMock.mock.restore();
+    }
+  });
+});
+
+describe('deleteLocalCover', () => {
+  it('refuses to unlink a path-traversal filename', () => {
+    // Defense in depth: a malformed cover_path slipping past toFilename must
+    // not let a cover replacement turn into arbitrary file deletion.
+    const unlinkMock = mock.method(fs, 'unlink', (_path, cb) => cb(null));
+    try {
+      deleteLocalCover('../x.webp');
+      assert.equal(unlinkMock.mock.callCount(), 0,
+        'fs.unlink must not be called for filenames containing path separators');
+    } finally {
+      unlinkMock.mock.restore();
+    }
+  });
+
+  it('refuses to unlink an absolute path', () => {
+    const unlinkMock = mock.method(fs, 'unlink', (_path, cb) => cb(null));
+    try {
+      deleteLocalCover('/etc/passwd');
+      assert.equal(unlinkMock.mock.callCount(), 0);
+    } finally {
+      unlinkMock.mock.restore();
+    }
+  });
+
+  it('returns early without unlink when filename is empty/null', () => {
+    const unlinkMock = mock.method(fs, 'unlink', (_path, cb) => cb(null));
+    try {
+      deleteLocalCover('');
+      deleteLocalCover(null);
+      deleteLocalCover(undefined);
+      assert.equal(unlinkMock.mock.callCount(), 0);
+    } finally {
+      unlinkMock.mock.restore();
     }
   });
 });
