@@ -719,6 +719,27 @@ describe('books', () => {
       }
     });
 
+    it('sort=rating orders DESC with unrated books last', async () => {
+      // buildOrderBy()'s rating branch is COALESCE(rating,0) DESC, so unrated
+      // (NULL) coalesces to 0 and sinks below any rated book.
+      // rating isn't in the POST writable set; use PUT for the rated fixtures.
+      const stem = 'ratesort' + Math.random().toString(36).slice(2, 6);
+      const { body: c5 } = await req('POST', '/api/books', { title: `${stem}-five` });
+      const { body: r5 } = await req('PUT',  `/api/books/${c5.id}`, { ...c5, rating: 5, tags: [] });
+      const { body: c3 } = await req('POST', '/api/books', { title: `${stem}-three` });
+      const { body: r3 } = await req('PUT',  `/api/books/${c3.id}`, { ...c3, rating: 3, tags: [] });
+      const { body: unrated } = await req('POST', '/api/books', { title: `${stem}-unrated` });
+
+      const { body: results } = await req('GET', '/api/books?sort=rating&limit=500');
+      const ids = results.books.map(b => b.id);
+      const i5 = ids.indexOf(r5.id);
+      const i3 = ids.indexOf(r3.id);
+      const iU = ids.indexOf(unrated.id);
+      assert.ok(i5 >= 0 && i3 >= 0 && iU >= 0, 'all three fixtures should appear');
+      assert.ok(i5 < i3 && i3 < iU,
+        `expected order [5, 3, unrated]; got positions 5=${i5}, 3=${i3}, unrated=${iU}`);
+    });
+
     it('sort=author orders by the first joined author (position 0)', async () => {
       // buildOrderBy()'s author-sort SELECTs ORDER BY ba.position LIMIT 1, so a
       // multi-author book sorts on its first author only. Pick names so that the
