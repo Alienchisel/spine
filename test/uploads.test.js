@@ -1,5 +1,6 @@
 import { describe, it, before, after, mock } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'fs';
 import { createTestServer } from './helpers.js';
 
 describe('POST /api/upload', () => {
@@ -13,6 +14,32 @@ describe('POST /api/upload', () => {
   });
 
   after(() => close());
+
+  it('returns 200 with /uploads/<filename>.jpg on a valid JPEG upload', async () => {
+    // Mock the disk write so the test is hermetic. The route still runs the
+    // full pipeline: multer accepts the image, saveCoverFromBuffer detects
+    // JPEG, writes (mocked), and returns the generated filename.
+    let writtenPath = null;
+    let writtenBytes = null;
+    const writeMock = mock.method(fs.promises, 'writeFile', async (p, b) => {
+      writtenPath = p;
+      writtenBytes = b;
+    });
+    try {
+      const jpeg = new Uint8Array(64);
+      jpeg[0] = 0xFF; jpeg[1] = 0xD8; jpeg[2] = 0xFF; jpeg[3] = 0xE0;
+      const fd = new FormData();
+      fd.append('cover', new Blob([jpeg], { type: 'image/jpeg' }), 'cover.jpg');
+      const res = await fetch(`${url}/api/upload`, { method: 'POST', body: fd });
+      const body = await res.json();
+      assert.equal(res.status, 200);
+      assert.match(body.path, /^\/uploads\/\d+-[a-z0-9]+\.jpg$/i);
+      assert.ok(writtenPath?.endsWith(body.path.replace('/uploads/', '')));
+      assert.equal(writtenBytes?.length, 64);
+    } finally {
+      writeMock.mock.restore();
+    }
+  });
 
   it('returns 400 when no file is attached', async () => {
     // Multer accepts the multipart body but leaves req.file undefined when no
