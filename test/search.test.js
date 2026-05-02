@@ -37,6 +37,22 @@ describe('search', () => {
     assert.deepEqual(body, []);
   });
 
+  it('GET /api/search returns 502 when the Open Library request throws', async () => {
+    const originalFetch = globalThis.fetch;
+    const fetchMock = mock.method(globalThis, 'fetch', async (target, init) => {
+      const targetStr = typeof target === 'string' ? target : String(target);
+      if (targetStr.startsWith(url)) return originalFetch(target, init);
+      throw new Error('boom — DNS, abort, etc.');
+    });
+    try {
+      const { status, body } = await req('/api/search?q=anything');
+      assert.equal(status, 502);
+      assert.equal(body.error, 'Failed to reach Open Library');
+    } finally {
+      fetchMock.mock.restore();
+    }
+  });
+
   it('GET /api/search returns 502 when Open Library responds with !ok', async () => {
     const originalFetch = globalThis.fetch;
     const fetchMock = mock.method(globalThis, 'fetch', async (target, init) => {
