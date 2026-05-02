@@ -37,6 +37,29 @@ describe('search', () => {
     assert.deepEqual(body, []);
   });
 
+  it('GET /api/search rewrites hyphenated ISBN-13 queries to q=isbn:<digits>', async () => {
+    // Hyphens and spaces are stripped, /^\d{10}(\d{3})?$/ matches, and the
+    // outbound query becomes q=isbn:<13 digits>.
+    let outboundUrl = null;
+    const originalFetch = globalThis.fetch;
+    const fetchMock = mock.method(globalThis, 'fetch', async (target, init) => {
+      const targetStr = typeof target === 'string' ? target : String(target);
+      if (targetStr.startsWith(url)) return originalFetch(target, init);
+      outboundUrl = targetStr;
+      return { ok: true, json: async () => ({ docs: [] }) };
+    });
+    try {
+      const { status, body } = await req('/api/search?q=978-1-234-56789-7');
+      assert.equal(status, 200);
+      assert.deepEqual(body, []);
+      assert.ok(outboundUrl, 'outbound Open Library call should have been made');
+      assert.ok(outboundUrl.includes('q=isbn%3A9781234567897'),
+        `expected q=isbn%3A9781234567897 in outbound URL, got: ${outboundUrl}`);
+    } finally {
+      fetchMock.mock.restore();
+    }
+  });
+
   it('GET /api/search maps an Open Library doc into the Spine result shape', async () => {
     const fakeDoc = {
       key: '/works/OL456W',
