@@ -773,6 +773,17 @@ describe('books', () => {
       assert.equal(after.prev_owned, before.prev_owned + 1, 'prev_owned should increment by 1');
     });
 
+    it('POST /api/books/:id/fetch-cover returns 400 when book has no ISBN', async () => {
+      // The route short-circuits with "No ISBN on this book" before any network
+      // lookup, so this stays hermetic.
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'no-isbn cover ' + Math.random().toString(36).slice(2, 6),
+      });
+      const { status, body } = await req('POST', `/api/books/${created.id}/fetch-cover`, {});
+      assert.equal(status, 400);
+      assert.equal(body.error, 'No ISBN on this book');
+    });
+
     it('normalizes cover_path on list responses through toCoverUrl', async () => {
       // The list path passes each row's stored filename through toCoverUrl,
       // which prepends /uploads/. POST accepts the full URL and toFilename
