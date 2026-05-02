@@ -1,4 +1,5 @@
 import express from 'express';
+import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import booksRouter from './routes/books.js';
@@ -40,7 +41,17 @@ if (process.env.NODE_ENV === 'production') {
 
 app.use((err, _req, res, _next) => {
   console.error(err);
-  res.status(err.status || 500).json({ error: 'Internal server error' });
+  // Multer's built-in errors (file size limits, etc.) carry a code and a
+  // useful message. Surface them as 400 instead of swallowing into a 500.
+  if (err instanceof multer.MulterError) {
+    return res.status(400).json({ error: err.message });
+  }
+  // Errors that explicitly tag themselves with a status get their message
+  // surfaced too — used by the multipart fileFilter for "Only images allowed".
+  if (err && err.status && err.message) {
+    return res.status(err.status).json({ error: err.message });
+  }
+  res.status(500).json({ error: 'Internal server error' });
 });
 
 export default app;

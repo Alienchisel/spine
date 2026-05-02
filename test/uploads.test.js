@@ -25,16 +25,26 @@ describe('POST /api/upload', () => {
   });
 
   it('rejects non-image multipart files via the multer fileFilter', async () => {
-    // Multer's fileFilter throws "Only images allowed" before the route
-    // handler runs; the global error handler in app.js swallows that into a
-    // generic 500. The safety property — non-image files are not accepted —
-    // is still enforced even though the message is generic.
+    // The fileFilter tags the rejection with status=400; the global error
+    // handler surfaces the message rather than swallowing it.
     const fd = new FormData();
     fd.append('cover', new Blob(['hello'], { type: 'text/plain' }), 'note.txt');
     const res = await fetch(`${url}/api/upload`, { method: 'POST', body: fd });
     const body = await res.json();
-    assert.equal(res.status, 500);
-    assert.equal(body.error, 'Internal server error');
+    assert.equal(res.status, 400);
+    assert.equal(body.error, 'Only images allowed');
+  });
+
+  it('rejects oversized files via the multer size limit (MulterError → 400)', async () => {
+    // Multer's LIMIT_FILE_SIZE produces a MulterError; the error handler
+    // maps any MulterError to 400 with its own message rather than 500.
+    const big = new Uint8Array(10 * 1024 * 1024 + 1024);
+    const fd = new FormData();
+    fd.append('cover', new Blob([big], { type: 'image/jpeg' }), 'big.jpg');
+    const res = await fetch(`${url}/api/upload`, { method: 'POST', body: fd });
+    const body = await res.json();
+    assert.equal(res.status, 400);
+    assert.match(body.error, /File too large|file size/i);
   });
 });
 
