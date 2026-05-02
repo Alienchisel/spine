@@ -744,6 +744,31 @@ describe('books', () => {
       }
     });
 
+    it('sort=progress branches by format and sorts highest ratio first', async () => {
+      // The progress sort uses CASE WHEN format='audiobook' THEN current_minutes/duration_minutes
+      // ELSE current_page/page_count, so the ratio is computed in the right unit per book.
+      // current_page/current_minutes are PATCH-only, so each fixture needs a POST+PATCH.
+      const stem = 'progsort' + Math.random().toString(36).slice(2, 6);
+      const { body: pbook } = await req('POST', '/api/books', {
+        title: `${stem}-physical`, format: 'physical', page_count: 100,
+      });
+      await req('PATCH', `/api/books/${pbook.id}`, { current_page: 50 });   // 50%
+      const { body: abook } = await req('POST', '/api/books', {
+        title: `${stem}-audio`, format: 'audiobook', duration_minutes: 100,
+      });
+      await req('PATCH', `/api/books/${abook.id}`, { current_minutes: 25 }); // 25%
+      const { body: empty } = await req('POST', '/api/books', { title: `${stem}-empty` });
+
+      const { body: results } = await req('GET', '/api/books?sort=progress&limit=500');
+      const ids = results.books.map(b => b.id);
+      const iP = ids.indexOf(pbook.id);
+      const iA = ids.indexOf(abook.id);
+      const iE = ids.indexOf(empty.id);
+      assert.ok(iP >= 0 && iA >= 0 && iE >= 0, 'all three fixtures should appear');
+      assert.ok(iP < iA && iA < iE,
+        `expected order [physical 50%, audio 25%, empty]; got positions p=${iP}, a=${iA}, e=${iE}`);
+    });
+
     it('sort=length uses COALESCE(page_count, duration_minutes, 0) DESC', async () => {
       // The production branch deliberately mixes pages and minutes through a
       // single COALESCE — a long audiobook (duration only) sorts above a
