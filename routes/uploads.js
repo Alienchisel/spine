@@ -3,7 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
-import sharp from 'sharp';
+import { saveCoverFromBuffer } from '../lib/books/covers.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadsDir = path.join(__dirname, '../uploads');
@@ -21,27 +21,13 @@ const upload = multer({
   },
 });
 
-function randomFilename() {
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}.webp`;
-}
-
-async function saveResized(buffer) {
-  const filename = randomFilename();
-  const dest = path.join(uploadsDir, filename);
-  await sharp(buffer)
-    .resize({ width: 400, withoutEnlargement: true })
-    .webp({ quality: 85 })
-    .toFile(dest);
-  return `/uploads/${filename}`;
-}
-
 const router = express.Router();
 
 router.post('/', upload.single('cover'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   try {
-    const filePath = await saveResized(req.file.buffer);
-    res.json({ path: filePath });
+    const filename = await saveCoverFromBuffer(req.file.buffer);
+    res.json({ path: `/uploads/${filename}` });
   } catch {
     res.status(500).json({ error: 'Failed to process image' });
   }
@@ -63,8 +49,8 @@ router.post('/fetch', async (req, res) => {
     if (contentLength > 10 * 1024 * 1024) return res.status(400).json({ error: 'Image too large' });
     const buffer = Buffer.from(await response.arrayBuffer());
     if (buffer.length > 10 * 1024 * 1024) return res.status(400).json({ error: 'Image too large' });
-    const filePath = await saveResized(buffer);
-    res.json({ path: filePath });
+    const filename = await saveCoverFromBuffer(buffer);
+    res.json({ path: `/uploads/${filename}` });
   } catch {
     res.status(500).json({ error: 'Failed to process cover' });
   }

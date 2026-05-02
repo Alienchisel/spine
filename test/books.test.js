@@ -1637,9 +1637,21 @@ describe('books', () => {
       }
     });
 
-    it('rejects non-webp extensions (stores null)', async () => {
+    it('accepts the supported image extensions (webp, jpg, jpeg, png, gif)', async () => {
+      // After dropping the sharp/webp pipeline, legacy and modern formats
+      // round-trip through the API as long as the filename shape matches.
+      for (const ext of ['webp', 'jpg', 'jpeg', 'png', 'gif']) {
+        const url = `/uploads/1234567890-abcdef.${ext}`;
+        const { body } = await req('POST', '/api/books', {
+          title: `ext ${ext}`, cover_path: url,
+        });
+        assert.equal(body.cover_path, url, `${ext} should round-trip`);
+      }
+    });
+
+    it('rejects unsupported image extensions (stores null)', async () => {
       const { body } = await req('POST', '/api/books', {
-        title: 'Wrong ext', cover_path: '/uploads/1234567890-abcdef.png',
+        title: 'Wrong ext', cover_path: '/uploads/1234567890-abcdef.bmp',
       });
       assert.equal(body.cover_path, null);
     });
