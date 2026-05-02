@@ -719,6 +719,31 @@ describe('books', () => {
       }
     });
 
+    it('sort=length uses COALESCE(page_count, duration_minutes, 0) DESC', async () => {
+      // The production branch deliberately mixes pages and minutes through a
+      // single COALESCE — a long audiobook (duration only) sorts above a
+      // shorter page-count book; a length-less book sinks to the bottom.
+      const stem = 'lensort' + Math.random().toString(36).slice(2, 6);
+      const { body: pageBook } = await req('POST', '/api/books', {
+        title: `${stem}-pages`, format: 'physical', page_count: 500,
+      });
+      const { body: audio } = await req('POST', '/api/books', {
+        title: `${stem}-audio`, format: 'audiobook', duration_minutes: 600,
+      });
+      const { body: noneBook } = await req('POST', '/api/books', {
+        title: `${stem}-empty`,
+      });
+
+      const { body: results } = await req('GET', '/api/books?sort=length&limit=500');
+      const ids = results.books.map(b => b.id);
+      const iAudio = ids.indexOf(audio.id);
+      const iPages = ids.indexOf(pageBook.id);
+      const iNone  = ids.indexOf(noneBook.id);
+      assert.ok(iAudio >= 0 && iPages >= 0 && iNone >= 0, 'all three fixtures should appear');
+      assert.ok(iAudio < iPages && iPages < iNone,
+        `expected order [audio(600m), pages(500p), none]; got positions audio=${iAudio}, pages=${iPages}, none=${iNone}`);
+    });
+
     it('sort=rating orders DESC with unrated books last', async () => {
       // buildOrderBy()'s rating branch is COALESCE(rating,0) DESC, so unrated
       // (NULL) coalesces to 0 and sinks below any rated book.
