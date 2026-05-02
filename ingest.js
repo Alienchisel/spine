@@ -133,6 +133,26 @@ function askMultiline(rl, label, def) {
   });
 }
 
+// Computed virtual tags must not be hand-applied — the server computes them
+// from a book's other fields. Mirrors VIRTUAL_TAG_RULES in lib/books/filters.js.
+const VIRTUAL_TAGS = new Set(['Antique', 'Vintage', 'Translated', 'Re-read', 'Abridged', 'Long', 'Short']);
+
+async function fetchExistingTags() {
+  try {
+    const u = new URL('/api/books/facets', API_BASE);
+    const mod = u.protocol === 'https:' ? https : http;
+    const body = await new Promise((resolve, reject) => {
+      mod.get(u, res => {
+        const chunks = [];
+        res.on('data', c => chunks.push(c));
+        res.on('end', () => resolve(Buffer.concat(chunks).toString()));
+      }).on('error', reject);
+    });
+    const facets = JSON.parse(body);
+    return (facets.tags || []).filter(t => !VIRTUAL_TAGS.has(t));
+  } catch { return []; }
+}
+
 async function postBook(payload) {
   const body = Buffer.from(JSON.stringify(payload));
   const u = new URL('/api/books', API_BASE);
@@ -215,9 +235,16 @@ async function main() {
   console.log();
   const fictionIn        = await ask(rl, 'Fiction? (y/n/blank)', '');
   const isFiction        = fictionIn.toLowerCase() === 'y';
-  const sourceTypeIn     = isFiction ? '' : await ask(rl, 'Source type ([p]rimary/[s]econdary/blank)', '');
+  // Brief reminder of the rule: primary = original framework / first-hand
+  // source; secondary = scholarship, journalism, applied analysis. Skip blank.
+  const sourceTypeIn     = isFiction ? '' : await ask(rl,
+    'Source type ([p]rimary = original framework/firsthand, [s]econdary = scholarship/journalism, blank)', '');
   const series           = await ask(rl, 'Series',            meta.series || '');
   const series_numberStr = series ? await ask(rl, 'Series number', meta.series_number ? String(meta.series_number) : '') : '';
+  const existingTags = await fetchExistingTags();
+  if (existingTags.length) {
+    console.log(`  (existing tags: ${existingTags.join(', ')})`);
+  }
   const tagsIn           = await ask(rl, 'Tags (comma-separated)', '');
   console.log();
 
@@ -229,7 +256,8 @@ async function main() {
                          : parsed?.type === 'asin'     ? 'a'
                          :                                'p';
   const formatIn         = await ask(rl, 'Format ([p]hysical/[d]igital/[a]udiobook)', formatDefault);
-  const ownedIn          = await ask(rl, 'Owned? (y/n)', meta.owned ? 'y' : 'n');
+  // Default to 'y' — most ingest sessions are for books the user owns.
+  const ownedIn          = await ask(rl, 'Owned? (y/n)', 'y');
   const prevOwnedIn      = ownedIn.toLowerCase() !== 'y' ? await ask(rl, 'Previously owned? (y/n)', 'n') : 'n';
 
   // — Format-specific —
