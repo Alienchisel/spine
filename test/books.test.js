@@ -551,6 +551,22 @@ describe('books', () => {
       assert.equal(status, 404);
     });
 
+    it('PUT/PATCH/DELETE return 400 for malformed book id', async () => {
+      // Compact guard test for the main write-route id parsers
+      // (routes/books.js:87, :97, :130). Each rejects non-integer / <1 ids
+      // before any repository work.
+      const cases = [
+        { method: 'PUT',    body: { title: 'X' } },
+        { method: 'PATCH',  body: { current_page: 1 } },
+        { method: 'DELETE', body: undefined },
+      ];
+      for (const { method, body } of cases) {
+        const { status, body: resBody } = await req(method, '/api/books/nope', body);
+        assert.equal(status, 400, `${method} should be 400`);
+        assert.equal(resBody.error, 'Invalid book id', `${method} should have 'Invalid book id'`);
+      }
+    });
+
     it('unlinks the local cover file when deleting a book with a cover', async () => {
       // repository.js:311 calls deleteLocalCover(book.cover_path) after the
       // row is removed. fs.unlink is the boundary — pin that it's called once
