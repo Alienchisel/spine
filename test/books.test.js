@@ -1,4 +1,4 @@
-import { describe, it, before, after } from 'node:test';
+import { describe, it, before, after, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { createTestServer } from './helpers.js';
 
@@ -796,6 +796,32 @@ describe('books', () => {
       const { status, body } = await req('POST', '/api/books/nope/fetch-cover', {});
       assert.equal(status, 400);
       assert.equal(body.error, 'Invalid book id');
+    });
+
+    it('POST /api/books/:id/fetch-cover returns 404 when no remote cover is found', async () => {
+      // Book has an ISBN so the no-ISBN guard doesn't fire; both Google Books
+      // and Open Library are mocked to return no usable cover, so
+      // updateBookCover() resolves with coverNotFound → 404.
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'no-cover ' + Math.random().toString(36).slice(2, 6),
+        isbn_13: '9999999999999',
+      });
+      const originalFetch = globalThis.fetch;
+      const fetchMock = mock.method(globalThis, 'fetch', async (target, init) => {
+        const targetStr = typeof target === 'string' ? target : String(target);
+        if (targetStr.startsWith(url)) return originalFetch(target, init);
+        if (targetStr.includes('googleapis.com')) {
+          return { ok: true, json: async () => ({ items: [] }) };
+        }
+        return { ok: false }; // Open Library fallback
+      });
+      try {
+        const { status, body } = await req('POST', `/api/books/${created.id}/fetch-cover`, {});
+        assert.equal(status, 404);
+        assert.equal(body.error, 'Cover image not found');
+      } finally {
+        fetchMock.mock.restore();
+      }
     });
 
     it('normalizes cover_path on list responses through toCoverUrl', async () => {
