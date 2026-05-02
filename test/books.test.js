@@ -719,6 +719,23 @@ describe('books', () => {
       }
     });
 
+    it('appends virtual tags to list responses', async () => {
+      // listBooks() spreads computeVirtualTags(b) into each item's tags array.
+      // Abridged is the cheapest trigger — a single boolean — and the virtual
+      // entry has shape { id: null, name, virtual: true }.
+      const stem = 'vtaglist' + Math.random().toString(36).slice(2, 6);
+      const { body: created } = await req('POST', '/api/books', {
+        title: `${stem} abridged`, abridged: true,
+      });
+      const { body } = await req('GET', `/api/books?q=${stem}&limit=200`);
+      const item = body.books.find(b => b.id === created.id);
+      assert.ok(item, 'expected the fixture to appear in list response');
+      const abridgedTag = item.tags.find(t => t.name === 'Abridged');
+      assert.ok(abridgedTag, `expected list item tags to include Abridged virtual tag; got ${JSON.stringify(item.tags)}`);
+      assert.equal(abridgedTag.virtual, true,  'virtual tag should carry virtual: true');
+      assert.equal(abridgedTag.id,      null,  'virtual tag should have id: null');
+    });
+
     it('hydrates tags/authors/narrators/translators on list responses', async () => {
       // listBooks() runs four separate IN-clause queries to attach joined
       // collections to each row. Existing coverage exercises filter logic and
