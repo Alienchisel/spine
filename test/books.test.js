@@ -590,6 +590,14 @@ describe('books', () => {
       bookId = body.id;
     });
 
+    it('POST returns 400 for malformed book id', async () => {
+      const { status, body } = await req('POST', '/api/books/abc/reads', {
+        date_started: '2024-01-01',
+      });
+      assert.equal(status, 400);
+      assert.equal(body.error, 'Invalid book id');
+    });
+
     it('POST returns 404 for an unknown book id', async () => {
       const { status, body } = await req('POST', '/api/books/999999/reads', {
         date_started: '2024-01-01',
