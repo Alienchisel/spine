@@ -23,6 +23,33 @@ describe('fetchCoverBuffer', () => {
     }
   });
 
+  it('swallows Google Books errors and still returns Open Library buffer', async () => {
+    // The Google-side try/catch must not surface — a thrown fetch (DNS, JSON
+    // parse, etc.) should fall through to Open Library, not propagate.
+    const olBuf = new ArrayBuffer(2500);
+    new Uint8Array(olBuf).fill(0xCD);
+    const calls = [];
+    const fetchMock = mock.method(globalThis, 'fetch', async (url) => {
+      calls.push(typeof url === 'string' ? url : String(url));
+      if (typeof url === 'string' && url.includes('googleapis.com')) {
+        throw new Error('boom — Google unreachable');
+      }
+      if (typeof url === 'string' && url.includes('covers.openlibrary.org')) {
+        return { ok: true, arrayBuffer: async () => olBuf };
+      }
+      return { ok: false };
+    });
+    try {
+      const result = await fetchCoverBuffer('9999999999999');
+      assert.ok(Buffer.isBuffer(result), 'expected a Buffer from the Open Library fallback');
+      assert.equal(result.length, 2500);
+      assert.equal(calls.length, 2, 'expected one Google attempt and one Open Library fetch');
+      assert.ok(calls[1].includes('covers.openlibrary.org'));
+    } finally {
+      fetchMock.mock.restore();
+    }
+  });
+
   it('falls through to Open Library when the Google image is under 2000 bytes', async () => {
     // The size guard rejects placeholder/1×1 images Google sometimes returns.
     // After it triggers, the function must try Open Library before giving up.
