@@ -734,6 +734,24 @@ describe('books', () => {
       assert.equal(after.all,    after.total,       'all should always equal total');
     });
 
+    it('GET /api/books/counts increments owned and prev_owned counters', async () => {
+      // The counts row also exposes ownership totals (repository.js:46-47).
+      // previously_owned is forced to 0 when owned=true (repository.js:141),
+      // so the prev_owned fixture must explicitly send owned: false.
+      const { body: before } = await req('GET', '/api/books/counts');
+      await req('POST', '/api/books', {
+        title: 'counts-owned ' + Math.random().toString(36).slice(2, 8), owned: true,
+      });
+      await req('POST', '/api/books', {
+        title: 'counts-prev '  + Math.random().toString(36).slice(2, 8),
+        owned: false, previously_owned: true,
+      });
+      const { body: after } = await req('GET', '/api/books/counts');
+
+      assert.equal(after.owned,      before.owned      + 1, 'owned should increment by 1');
+      assert.equal(after.prev_owned, before.prev_owned + 1, 'prev_owned should increment by 1');
+    });
+
     it('normalizes cover_path on list responses through toCoverUrl', async () => {
       // The list path passes each row's stored filename through toCoverUrl,
       // which prepends /uploads/. POST accepts the full URL and toFilename
