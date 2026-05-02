@@ -719,6 +719,22 @@ describe('books', () => {
       }
     });
 
+    it('normalizes cover_path on list responses through toCoverUrl', async () => {
+      // The list path passes each row's stored filename through toCoverUrl,
+      // which prepends /uploads/. POST accepts the full URL and toFilename
+      // strips the prefix on storage; the list path must restore it.
+      const stem = 'coverlist' + Math.random().toString(36).slice(2, 6);
+      const coverUrl = '/uploads/1234567890-abcdef.webp';
+      const { body: created } = await req('POST', '/api/books', {
+        title: `${stem} cover roundtrip`, cover_path: coverUrl,
+      });
+      const { body } = await req('GET', `/api/books?q=${stem}&limit=200`);
+      const item = body.books.find(b => b.id === created.id);
+      assert.ok(item, 'expected the fixture to appear in list response');
+      assert.equal(item.cover_path, coverUrl,
+        `expected list response to preserve /uploads/ URL through round-trip; got ${item.cover_path}`);
+    });
+
     it('appends virtual tags to list responses', async () => {
       // listBooks() spreads computeVirtualTags(b) into each item's tags array.
       // Abridged is the cheapest trigger — a single boolean — and the virtual
