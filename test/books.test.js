@@ -719,6 +719,21 @@ describe('books', () => {
       }
     });
 
+    it('GET /api/books/counts returns status totals with all aliased to total', async () => {
+      const { body: before } = await req('GET', '/api/books/counts');
+      const { status: postStatus } = await req('POST', '/api/books', {
+        title: 'counts-fixture ' + Math.random().toString(36).slice(2, 8),
+        // status defaults to 'unread' on creation.
+      });
+      assert.equal(postStatus, 201);
+      const { body: after } = await req('GET', '/api/books/counts');
+
+      assert.equal(after.total,  before.total  + 1, 'total should increment by 1');
+      assert.equal(after.all,    before.all    + 1, 'all should increment by 1');
+      assert.equal(after.unread, before.unread + 1, 'unread should increment by 1');
+      assert.equal(after.all,    after.total,       'all should always equal total');
+    });
+
     it('normalizes cover_path on list responses through toCoverUrl', async () => {
       // The list path passes each row's stored filename through toCoverUrl,
       // which prepends /uploads/. POST accepts the full URL and toFilename
