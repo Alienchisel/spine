@@ -719,6 +719,14 @@ describe('books', () => {
       }
     });
 
+    it('clamps out-of-range limit and offset', async () => {
+      // listBooks() clamps limit to [1,200] and offset to >=0. Verify the
+      // response echoes the clamped values rather than the raw query params.
+      const { body } = await req('GET', '/api/books?limit=999&offset=-5');
+      assert.equal(body.limit,  200, `expected limit clamped to 200, got ${body.limit}`);
+      assert.equal(body.offset, 0,   `expected offset clamped to 0, got ${body.offset}`);
+    });
+
     it('paginates with limit/offset and returns matching response shape', async () => {
       // listBooks() clamps limit to [1,200] and offset to ≥0, then echoes both
       // back in the response alongside total. Insert in order so sort=added
