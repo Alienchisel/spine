@@ -188,17 +188,20 @@ export default function ListDetail() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadingAll, setLoadingAll] = useState(false);
   const [error, setError] = useState(null);
   const [sort, setSort] = useState('added');
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
   const [renameError, setRenameError] = useState(null);
   const loadedRef = useRef(0);
+  const genRef = useRef(0);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   useEffect(() => {
     let stale = false;
+    genRef.current += 1;
     setLoading(true);
     loadedRef.current = 0;
     const params = sort === 'added' ? { sort } : { sort, limit: PAGE_SIZE, offset: 0 };
@@ -215,16 +218,34 @@ export default function ListDetail() {
   }, [id, sort]);
 
   const loadMore = useCallback(async () => {
+    const gen = genRef.current;
     setLoadingMore(true);
     try {
       const data = await api.getList(id, { sort, limit: PAGE_SIZE, offset: loadedRef.current });
+      if (gen !== genRef.current) return;
       setList(l => ({ ...l, books: [...l.books, ...data.books] }));
       loadedRef.current += data.books.length;
     } catch {
     } finally {
-      setLoadingMore(false);
+      if (gen === genRef.current) setLoadingMore(false);
     }
   }, [id, sort]);
+
+  const loadAll = useCallback(async () => {
+    const gen = genRef.current;
+    setLoadingAll(true);
+    try {
+      while (gen === genRef.current && loadedRef.current < total) {
+        const data = await api.getList(id, { sort, limit: PAGE_SIZE, offset: loadedRef.current });
+        if (gen !== genRef.current) break;
+        setList(l => ({ ...l, books: [...l.books, ...data.books] }));
+        loadedRef.current += data.books.length;
+        if (data.books.length === 0) break;
+      }
+    } finally {
+      if (gen === genRef.current) setLoadingAll(false);
+    }
+  }, [id, sort, total]);
 
   function handleAdded(book) {
     setList(l => ({ ...l, books: [{ ...book, added_at: new Date().toLocaleString('sv-SE') }, ...l.books] }));
@@ -332,13 +353,20 @@ export default function ListDetail() {
             </SortableContext>
           </DndContext>
           {sort !== 'added' && list.books.length < total && (
-            <div className="mt-6 text-center">
+            <div className="mt-6 flex justify-center gap-3">
               <button
                 onClick={loadMore}
-                disabled={loadingMore}
-                className="text-sm text-neutral-500 hover:text-neutral-300 disabled:opacity-40 transition-colors"
+                disabled={loadingMore || loadingAll}
+                className="text-sm text-neutral-500 hover:text-neutral-300 disabled:opacity-40 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
               >
                 {loadingMore ? 'Loading…' : `Load more · ${total - list.books.length} remaining`}
+              </button>
+              <button
+                onClick={loadAll}
+                disabled={loadingMore || loadingAll}
+                className="text-sm text-neutral-500 hover:text-neutral-300 disabled:opacity-40 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
+              >
+                {loadingAll ? `Loading all · ${list.books.length}/${total}` : 'Load all'}
               </button>
             </div>
           )}

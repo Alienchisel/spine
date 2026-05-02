@@ -70,6 +70,7 @@ export default function Library() {
   const [total,       setTotal]       = useState(0);
   const [loading,     setLoading]     = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadingAll,  setLoadingAll]  = useState(false);
   const [fetchError,  setFetchError]  = useState(false);
   const [facets,      setFacets]      = useState(null);
   const [counts,      setCounts]      = useState({});
@@ -150,6 +151,25 @@ export default function Library() {
       setTotal(t);
       loadedRef.current += b.length;
     }).finally(() => { if (gen === genRef.current) setLoadingMore(false); });
+  }
+
+  async function handleLoadAll() {
+    const gen = genRef.current;
+    setLoadingAll(true);
+    try {
+      let serverTotal = total;
+      while (gen === genRef.current && loadedRef.current < serverTotal) {
+        const { books: b, total: t } = await api.getBooks(buildApiParams(tab, sort, filters, query, loadedRef.current));
+        if (gen !== genRef.current) break;
+        setBooks(prev => [...prev, ...b]);
+        setTotal(t);
+        loadedRef.current += b.length;
+        serverTotal = t;
+        if (b.length === 0) break; // guard against unexpected 0-length response
+      }
+    } finally {
+      if (gen === genRef.current) setLoadingAll(false);
+    }
   }
 
   function handleProgressUpdate(updated) {
@@ -347,13 +367,20 @@ export default function Library() {
             </div>
           )}
           {hasMore && (
-            <div className="mt-10 flex justify-center">
+            <div className="mt-10 flex justify-center gap-3">
               <button
                 onClick={handleLoadMore}
-                disabled={loadingMore}
+                disabled={loadingMore || loadingAll}
                 className="text-sm text-neutral-500 hover:text-neutral-200 disabled:opacity-40 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
               >
                 {loadingMore ? 'Loading…' : `Load more · ${total - loadedRef.current} remaining`}
+              </button>
+              <button
+                onClick={handleLoadAll}
+                disabled={loadingMore || loadingAll}
+                className="text-sm text-neutral-500 hover:text-neutral-200 disabled:opacity-40 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
+              >
+                {loadingAll ? `Loading all · ${loadedRef.current}/${total}` : 'Load all'}
               </button>
             </div>
           )}

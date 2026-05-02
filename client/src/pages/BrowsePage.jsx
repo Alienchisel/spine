@@ -37,10 +37,13 @@ export default function BrowsePage() {
   const [total,       setTotal]       = useState(0);
   const [loading,     setLoading]     = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadingAll,  setLoadingAll]  = useState(false);
   const loadedRef = useRef(0);
+  const genRef    = useRef(0);
   const gridCols  = useGridCols(BROWSE_BPS);
 
   useEffect(() => {
+    genRef.current += 1;
     setLoading(true);
     setBooks([]);
     loadedRef.current = 0;
@@ -53,13 +56,34 @@ export default function BrowsePage() {
   }, [field, decoded]);
 
   function handleLoadMore() {
+    const gen = genRef.current;
     setLoadingMore(true);
     api.getBooks({ field, value: decoded, sort: browseSort(field), limit: PAGE_SIZE, offset: loadedRef.current })
       .then(({ books: b, total: t }) => {
+        if (gen !== genRef.current) return;
         setBooks(prev => [...prev, ...b]);
         setTotal(t);
         loadedRef.current += b.length;
-      }).finally(() => setLoadingMore(false));
+      }).finally(() => { if (gen === genRef.current) setLoadingMore(false); });
+  }
+
+  async function handleLoadAll() {
+    const gen = genRef.current;
+    setLoadingAll(true);
+    try {
+      let serverTotal = total;
+      while (gen === genRef.current && loadedRef.current < serverTotal) {
+        const { books: b, total: t } = await api.getBooks({ field, value: decoded, sort: browseSort(field), limit: PAGE_SIZE, offset: loadedRef.current });
+        if (gen !== genRef.current) break;
+        setBooks(prev => [...prev, ...b]);
+        setTotal(t);
+        loadedRef.current += b.length;
+        serverTotal = t;
+        if (b.length === 0) break;
+      }
+    } finally {
+      if (gen === genRef.current) setLoadingAll(false);
+    }
   }
 
   const label = FIELD_LABEL[field] ?? field;
@@ -107,13 +131,20 @@ export default function BrowsePage() {
         );
       })()}
       {hasMore && (
-        <div className="mt-10 flex justify-center">
+        <div className="mt-10 flex justify-center gap-3">
           <button
             onClick={handleLoadMore}
-            disabled={loadingMore}
+            disabled={loadingMore || loadingAll}
             className="text-sm text-neutral-500 hover:text-neutral-200 disabled:opacity-40 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
           >
             {loadingMore ? 'Loading…' : `Load more · ${total - loadedRef.current} remaining`}
+          </button>
+          <button
+            onClick={handleLoadAll}
+            disabled={loadingMore || loadingAll}
+            className="text-sm text-neutral-500 hover:text-neutral-200 disabled:opacity-40 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
+          >
+            {loadingAll ? `Loading all · ${loadedRef.current}/${total}` : 'Load all'}
           </button>
         </div>
       )}
