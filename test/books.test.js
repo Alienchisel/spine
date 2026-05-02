@@ -480,6 +480,28 @@ describe('books', () => {
       const { status } = await req('DELETE', '/api/books/99999');
       assert.equal(status, 404);
     });
+
+    it('unlinks the local cover file when deleting a book with a cover', async () => {
+      // repository.js:311 calls deleteLocalCover(book.cover_path) after the
+      // row is removed. fs.unlink is the boundary — pin that it's called once
+      // with the stored bare filename.
+      const filename = '1234567890-abcdef.jpg';
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'cover-delete ' + Math.random().toString(36).slice(2, 6),
+        cover_path: `/uploads/${filename}`,
+      });
+      const unlinkMock = mock.method(fs, 'unlink', (_p, cb) => cb(null));
+      try {
+        const { status } = await req('DELETE', `/api/books/${created.id}`);
+        assert.equal(status, 204);
+        assert.equal(unlinkMock.mock.callCount(), 1, 'cover should be unlinked exactly once');
+        const unlinkPath = unlinkMock.mock.calls[0].arguments[0];
+        assert.ok(unlinkPath.endsWith(filename),
+          `expected unlink path to end in ${filename}, got: ${unlinkPath}`);
+      } finally {
+        unlinkMock.mock.restore();
+      }
+    });
   });
 
   describe('reads', () => {
