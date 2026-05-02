@@ -18,18 +18,33 @@ export default function ProgressSection({ book, onChange, log }) {
         : null);
   const hasPct = isAudiobook ? Boolean(book.duration_minutes) : Boolean(book.page_count);
 
+  // For the 'remaining' mode, the h/m inputs represent time-remaining; we
+  // convert to/from current_minutes at the input/submit boundary.
+  function audioMinutesForMode(m, b) {
+    if (b.current_minutes == null) return null;
+    if (m === 'remaining') {
+      if (!b.duration_minutes) return null;
+      return Math.max(0, b.duration_minutes - b.current_minutes);
+    }
+    return b.current_minutes;
+  }
+
   const rawVal = () => {
     if (mode === 'pct') return pct !== null ? String(pct) : '';
     if (isAudiobook) return '';
     return book.current_page != null ? String(book.current_page) : '';
   };
   const [inputVal, setInputVal] = useState(rawVal);
-  const [inputH, setInputH] = useState(() =>
-    isAudiobook && mode !== 'pct' && book.current_minutes != null
-      ? String(Math.floor(book.current_minutes / 60)) : '');
-  const [inputM, setInputM] = useState(() =>
-    isAudiobook && mode !== 'pct' && book.current_minutes != null
-      ? String(book.current_minutes % 60) : '');
+  const [inputH, setInputH] = useState(() => {
+    if (!isAudiobook || mode === 'pct') return '';
+    const mins = audioMinutesForMode(mode, book);
+    return mins != null ? String(Math.floor(mins / 60)) : '';
+  });
+  const [inputM, setInputM] = useState(() => {
+    if (!isAudiobook || mode === 'pct') return '';
+    const mins = audioMinutesForMode(mode, book);
+    return mins != null ? String(mins % 60) : '';
+  });
 
   function changeMode(m) {
     setMode(m);
@@ -37,8 +52,9 @@ export default function ProgressSection({ book, onChange, log }) {
     if (m === 'pct') {
       setInputVal(pct !== null ? String(pct) : '');
     } else if (isAudiobook) {
-      setInputH(book.current_minutes != null ? String(Math.floor(book.current_minutes / 60)) : '');
-      setInputM(book.current_minutes != null ? String(book.current_minutes % 60) : '');
+      const mins = audioMinutesForMode(m, book);
+      setInputH(mins != null ? String(Math.floor(mins / 60)) : '');
+      setInputM(mins != null ? String(mins % 60) : '');
     } else {
       setInputVal(book.current_page != null ? String(book.current_page) : '');
     }
@@ -61,9 +77,16 @@ export default function ProgressSection({ book, onChange, log }) {
     try {
       let patchData;
       if (isAudiobook) {
-        const current_minutes = mode === 'pct'
-          ? Math.round((Math.min(100, Math.max(0, parseFloat(inputVal))) / 100) * book.duration_minutes)
-          : (parseInt(inputH) || 0) * 60 + (parseInt(inputM) || 0);
+        const enteredMinutes = (parseInt(inputH) || 0) * 60 + (parseInt(inputM) || 0);
+        let current_minutes;
+        if (mode === 'pct') {
+          current_minutes = Math.round((Math.min(100, Math.max(0, parseFloat(inputVal))) / 100) * book.duration_minutes);
+        } else if (mode === 'remaining') {
+          if (!book.duration_minutes) { setError('Duration unknown'); return; }
+          current_minutes = Math.max(0, Math.min(book.duration_minutes, book.duration_minutes - enteredMinutes));
+        } else {
+          current_minutes = enteredMinutes;
+        }
         if (isNaN(current_minutes)) { setError('Invalid value'); return; }
         patchData = { current_minutes };
       } else {
@@ -83,8 +106,9 @@ export default function ProgressSection({ book, onChange, log }) {
       if (mode === 'pct') {
         setInputVal(newPct !== null ? String(newPct) : '');
       } else if (isAudiobook) {
-        setInputH(updated.current_minutes != null ? String(Math.floor(updated.current_minutes / 60)) : '');
-        setInputM(updated.current_minutes != null ? String(updated.current_minutes % 60) : '');
+        const mins = audioMinutesForMode(mode, updated);
+        setInputH(mins != null ? String(Math.floor(mins / 60)) : '');
+        setInputM(mins != null ? String(mins % 60) : '');
       } else {
         setInputVal(updated.current_page != null ? String(updated.current_page) : '');
       }
@@ -135,9 +159,14 @@ export default function ProgressSection({ book, onChange, log }) {
       <form onSubmit={handleSubmit} className="flex flex-wrap items-center gap-2">
         <select value={mode} onChange={(e) => changeMode(e.target.value)}
           className="bg-neutral-900 border border-neutral-700 text-neutral-300 text-sm rounded px-2 py-1.5 focus:outline-none">
-          {isAudiobook
-            ? <option value="min">Time</option>
-            : <option value="page">Page</option>}
+          {isAudiobook ? (
+            <>
+              <option value="min">Time elapsed</option>
+              {hasPct && <option value="remaining">Time remaining</option>}
+            </>
+          ) : (
+            <option value="page">Page</option>
+          )}
           {hasPct && <option value="pct">Percent</option>}
         </select>
         {isHMMode ? (

@@ -51,12 +51,23 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact 
         : null);
   const hasPct = isAudiobook ? Boolean(book.duration_minutes) : Boolean(book.page_count);
 
+  // For 'remaining' mode the h/m inputs represent time-remaining; we
+  // convert to/from current_minutes at the input/submit boundary.
+  function audioMinutesForMode(m, b) {
+    if (b.current_minutes == null) return null;
+    if (m === 'remaining') {
+      if (!b.duration_minutes) return null;
+      return Math.max(0, b.duration_minutes - b.current_minutes);
+    }
+    return b.current_minutes;
+  }
+
   function openEditor(e) {
     e.preventDefault();
     if (mode === 'pct') {
       setInputVal(pct !== null ? String(pct) : '');
     } else if (isAudiobook) {
-      const mins = book.current_minutes;
+      const mins = audioMinutesForMode(mode, book);
       setInputH(mins != null ? String(Math.floor(mins / 60)) : '');
       setInputM(mins != null ? String(mins % 60) : '');
     } else {
@@ -72,7 +83,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact 
     if (m === 'pct') {
       setInputVal(pct !== null ? String(pct) : '');
     } else if (isAudiobook) {
-      const mins = book.current_minutes;
+      const mins = audioMinutesForMode(m, book);
       setInputH(mins != null ? String(Math.floor(mins / 60)) : '');
       setInputM(mins != null ? String(mins % 60) : '');
     } else {
@@ -80,7 +91,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact 
     }
   }
 
-  const isHMMode = isAudiobook && mode === 'min';
+  const isHMMode = isAudiobook && (mode === 'min' || mode === 'remaining');
   const isEmpty = isHMMode ? (inputH === '' && inputM === '') : inputVal === '';
 
   function clampMinutes(val) {
@@ -97,9 +108,16 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact 
     try {
       let patchData;
       if (isAudiobook) {
-        const current_minutes = mode === 'pct'
-          ? Math.round((Math.min(100, Math.max(0, parseFloat(inputVal))) / 100) * book.duration_minutes)
-          : (parseInt(inputH) || 0) * 60 + (parseInt(inputM) || 0);
+        const enteredMinutes = (parseInt(inputH) || 0) * 60 + (parseInt(inputM) || 0);
+        let current_minutes;
+        if (mode === 'pct') {
+          current_minutes = Math.round((Math.min(100, Math.max(0, parseFloat(inputVal))) / 100) * book.duration_minutes);
+        } else if (mode === 'remaining') {
+          if (!book.duration_minutes) { setError('Duration unknown'); return; }
+          current_minutes = Math.max(0, Math.min(book.duration_minutes, book.duration_minutes - enteredMinutes));
+        } else {
+          current_minutes = enteredMinutes;
+        }
         if (isNaN(current_minutes)) { setError('Invalid value'); return; }
         patchData = { current_minutes };
       } else {
@@ -300,7 +318,14 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact 
                 onChange={(e) => changeMode(e.target.value)}
                 className="bg-neutral-800 border border-neutral-700 text-neutral-300 text-xs rounded px-1.5 py-1 focus:outline-none"
               >
-                {isAudiobook ? <option value="min">h/m</option> : <option value="page">pg</option>}
+                {isAudiobook ? (
+                  <>
+                    <option value="min">h/m elapsed</option>
+                    {hasPct && <option value="remaining">h/m remaining</option>}
+                  </>
+                ) : (
+                  <option value="page">pg</option>
+                )}
                 {hasPct && <option value="pct">%</option>}
               </select>
               {isHMMode ? (
