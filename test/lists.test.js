@@ -178,4 +178,36 @@ describe('lists', () => {
       assert.equal(status, 400);
     });
   });
+
+  describe('GET /api/books/:id/lists', () => {
+    it('returns the list ids a book belongs to', async () => {
+      const { body: book } = await req('POST', '/api/books', {
+        title: 'membership ' + Math.random().toString(36).slice(2, 6),
+      });
+      const a = await createList('membership-A-' + Math.random().toString(36).slice(2, 6));
+      const b = await createList('membership-B-' + Math.random().toString(36).slice(2, 6));
+      await req('POST', `/api/lists/${a.id}/books`, { book_id: book.id });
+      await req('POST', `/api/lists/${b.id}/books`, { book_id: book.id });
+
+      const { status, body } = await req('GET', `/api/books/${book.id}/lists`);
+      assert.equal(status, 200);
+      assert.ok(Array.isArray(body));
+      assert.deepEqual([...body].sort((x, y) => x - y), [a.id, b.id].sort((x, y) => x - y));
+    });
+
+    it('returns [] for a book that is not in any list', async () => {
+      const { body: book } = await req('POST', '/api/books', {
+        title: 'no-lists ' + Math.random().toString(36).slice(2, 6),
+      });
+      const { status, body } = await req('GET', `/api/books/${book.id}/lists`);
+      assert.equal(status, 200);
+      assert.deepEqual(body, []);
+    });
+
+    it('returns 400 for invalid book id', async () => {
+      const { status, body } = await req('GET', '/api/books/nope/lists');
+      assert.equal(status, 400);
+      assert.equal(body.error, 'Invalid book id');
+    });
+  });
 });
