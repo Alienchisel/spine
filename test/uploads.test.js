@@ -23,6 +23,19 @@ describe('POST /api/upload', () => {
     assert.equal(res.status, 400);
     assert.equal(body.error, 'No file uploaded');
   });
+
+  it('rejects non-image multipart files via the multer fileFilter', async () => {
+    // Multer's fileFilter throws "Only images allowed" before the route
+    // handler runs; the global error handler in app.js swallows that into a
+    // generic 500. The safety property — non-image files are not accepted —
+    // is still enforced even though the message is generic.
+    const fd = new FormData();
+    fd.append('cover', new Blob(['hello'], { type: 'text/plain' }), 'note.txt');
+    const res = await fetch(`${url}/api/upload`, { method: 'POST', body: fd });
+    const body = await res.json();
+    assert.equal(res.status, 500);
+    assert.equal(body.error, 'Internal server error');
+  });
 });
 
 describe('POST /api/upload/fetch', () => {
