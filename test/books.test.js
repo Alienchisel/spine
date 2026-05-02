@@ -681,6 +681,22 @@ describe('books', () => {
       const { status } = await req('GET', '/api/books/abc/reads');
       assert.equal(status, 400);
     });
+
+    it('PUT/DELETE reads return 400 when either id is malformed', async () => {
+      // The compound id guard at routes/books.js:61 and :74 short-circuits
+      // before any DB lookup; both ids must be positive integers.
+      const cases = [
+        { method: 'PUT',    path: '/api/books/abc/reads/1' },
+        { method: 'PUT',    path: '/api/books/1/reads/nope' },
+        { method: 'DELETE', path: '/api/books/abc/reads/1' },
+        { method: 'DELETE', path: '/api/books/1/reads/nope' },
+      ];
+      for (const { method, path } of cases) {
+        const { status, body } = await req(method, path, method === 'PUT' ? {} : undefined);
+        assert.equal(status, 400, `${method} ${path} should be 400`);
+        assert.equal(body.error, 'Invalid id', `${method} ${path} should have 'Invalid id' error`);
+      }
+    });
   });
 
   describe('field persistence', () => {
