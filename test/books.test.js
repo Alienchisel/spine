@@ -316,6 +316,27 @@ describe('books', () => {
       assert.equal(status, 404);
     });
 
+    it('does not unlink when PUT keeps cover_path identical', async () => {
+      // No-op edit through repository.js:237 — the normalized filename hasn't
+      // changed, so shouldDeleteOldFile is false and fs.unlink must not fire.
+      const filename = '4444444444-dddddd.jpg';
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'cover-noop ' + Math.random().toString(36).slice(2, 6),
+        cover_path: `/uploads/${filename}`,
+      });
+      const unlinkMock = mock.method(fs, 'unlink', (_p, cb) => cb(null));
+      try {
+        const { status, body } = await req('PUT', `/api/books/${created.id}`, {
+          ...created, tags: [],
+        });
+        assert.equal(status, 200);
+        assert.ok(body.cover_path?.endsWith(filename), 'cover_path should round-trip unchanged');
+        assert.equal(unlinkMock.mock.callCount(), 0, 'fs.unlink must not fire on identical cover_path');
+      } finally {
+        unlinkMock.mock.restore();
+      }
+    });
+
     it('unlinks the old cover file when PUT clears cover_path to null', async () => {
       // Explicit-clear path through repository.js:254 — sending cover_path:null
       // should unlink the existing file and persist a null cover_path.
