@@ -719,6 +719,31 @@ describe('books', () => {
       }
     });
 
+    it('sort=started/finished orders DESC with undated books last', async () => {
+      // Both branches use COALESCE(date_*,''), so the empty string sinks to the
+      // bottom under DESC. Same shape across the two columns.
+      const cases = [
+        { sort: 'started',  col: 'date_started'  },
+        { sort: 'finished', col: 'date_finished' },
+      ];
+      for (const c of cases) {
+        const stem = `${c.sort}sort` + Math.random().toString(36).slice(2, 6);
+        const { body: recent }  = await req('POST', '/api/books', { title: `${stem}-recent`, [c.col]: '2026-04-01' });
+        const { body: older }   = await req('POST', '/api/books', { title: `${stem}-older`,  [c.col]: '2024-01-01' });
+        const { body: undated } = await req('POST', '/api/books', { title: `${stem}-undated` });
+
+        const { body: results } = await req('GET', `/api/books?sort=${c.sort}&limit=500`);
+        const ids = results.books.map(b => b.id);
+        const iRecent  = ids.indexOf(recent.id);
+        const iOlder   = ids.indexOf(older.id);
+        const iUndated = ids.indexOf(undated.id);
+        assert.ok(iRecent >= 0 && iOlder >= 0 && iUndated >= 0,
+          `all three ${c.sort} fixtures should appear`);
+        assert.ok(iRecent < iOlder && iOlder < iUndated,
+          `expected sort=${c.sort} order [recent, older, undated]; got positions ${iRecent}, ${iOlder}, ${iUndated}`);
+      }
+    });
+
     it('sort=length uses COALESCE(page_count, duration_minutes, 0) DESC', async () => {
       // The production branch deliberately mixes pages and minutes through a
       // single COALESCE — a long audiobook (duration only) sorts above a
