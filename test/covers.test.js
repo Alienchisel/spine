@@ -1,7 +1,7 @@
 import { describe, it, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'fs';
-import { fetchCoverBuffer, deleteLocalCover } from '../lib/books/covers.js';
+import { fetchCoverBuffer, deleteLocalCover, saveCoverFromBuffer } from '../lib/books/covers.js';
 
 describe('fetchCoverBuffer', () => {
   it('returns null when Google Books has no items and Open Library has no cover', async () => {
@@ -152,6 +152,43 @@ describe('deleteLocalCover', () => {
       assert.equal(unlinkMock.mock.callCount(), 0);
     } finally {
       unlinkMock.mock.restore();
+    }
+  });
+});
+
+describe('saveCoverFromBuffer', () => {
+  it('passes a JPEG buffer through unchanged and returns a .jpg filename', async () => {
+    // The function should detect 0xFF 0xD8 0xFF as JPEG, skip the WebP→JPG
+    // conversion path, and write the original bytes verbatim.
+    const jpegBuf = Buffer.alloc(64, 0);
+    jpegBuf[0] = 0xFF; jpegBuf[1] = 0xD8; jpegBuf[2] = 0xFF; jpegBuf[3] = 0xE0;
+    let writtenPath = null;
+    let writtenBuf = null;
+    const writeMock = mock.method(fs.promises, 'writeFile', async (p, b) => {
+      writtenPath = p;
+      writtenBuf = b;
+    });
+    try {
+      const filename = await saveCoverFromBuffer(jpegBuf);
+      assert.match(filename, /^\d+-[a-z0-9]+\.jpg$/i, 'filename should end in .jpg');
+      assert.ok(writtenPath?.endsWith(filename), 'should write to uploads/<filename>');
+      assert.equal(writtenBuf, jpegBuf, 'buffer should pass through unchanged (no re-encoding)');
+    } finally {
+      writeMock.mock.restore();
+    }
+  });
+
+  it('throws on unrecognized image format', async () => {
+    const garbage = Buffer.alloc(64, 0x00);
+    const writeMock = mock.method(fs.promises, 'writeFile', async () => {});
+    try {
+      await assert.rejects(
+        () => saveCoverFromBuffer(garbage),
+        /Unrecognized image format/,
+      );
+      assert.equal(writeMock.mock.callCount(), 0, 'must not write when format detection fails');
+    } finally {
+      writeMock.mock.restore();
     }
   });
 });
