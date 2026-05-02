@@ -719,6 +719,27 @@ describe('books', () => {
       }
     });
 
+    it('paginates with limit/offset and returns matching response shape', async () => {
+      // listBooks() clamps limit to [1,200] and offset to ≥0, then echoes both
+      // back in the response alongside total. Insert in order so sort=added
+      // produces [C, B, A] DESC; offset=1+limit=1 isolates the middle book.
+      const stem = 'paginate' + Math.random().toString(36).slice(2, 6);
+      const { body: bookA } = await req('POST', '/api/books', { title: `${stem}-A` });
+      const { body: bookB } = await req('POST', '/api/books', { title: `${stem}-B` });
+      const { body: bookC } = await req('POST', '/api/books', { title: `${stem}-C` });
+
+      const { body } = await req('GET', `/api/books?q=${stem}&sort=added&limit=1&offset=1`);
+      assert.equal(body.total,  3, `expected total=3 books matching '${stem}'`);
+      assert.equal(body.limit,  1, 'expected limit echoed back');
+      assert.equal(body.offset, 1, 'expected offset echoed back');
+      assert.equal(body.books.length, 1, 'expected exactly one book on the page');
+      assert.equal(body.books[0].id, bookB.id,
+        `expected the middle book (#${bookB.id}) at offset=1; got #${body.books[0].id}`);
+      // Touch other ids to avoid unused-var lint and document intent.
+      assert.notEqual(body.books[0].id, bookA.id);
+      assert.notEqual(body.books[0].id, bookC.id);
+    });
+
     it('sort=added orders by id DESC (newest first)', async () => {
       const stem = 'addsort' + Math.random().toString(36).slice(2, 6);
       const { body: first  } = await req('POST', '/api/books', { title: `${stem}-first`  });
