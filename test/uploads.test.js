@@ -2,6 +2,29 @@ import { describe, it, before, after, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { createTestServer } from './helpers.js';
 
+describe('POST /api/upload', () => {
+  let url;
+  let close;
+
+  before(async () => {
+    const server = await createTestServer();
+    url = server.url;
+    close = server.close;
+  });
+
+  after(() => close());
+
+  it('returns 400 when no file is attached', async () => {
+    // Multer accepts the multipart body but leaves req.file undefined when no
+    // 'cover' field is present, so the route's own guard fires.
+    const fd = new FormData();
+    const res = await fetch(`${url}/api/upload`, { method: 'POST', body: fd });
+    const body = await res.json();
+    assert.equal(res.status, 400);
+    assert.equal(body.error, 'No file uploaded');
+  });
+});
+
 describe('POST /api/upload/fetch', () => {
   let url;
   let close;
