@@ -125,6 +125,24 @@ describe('search', () => {
     }
   });
 
+  it('GET /api/search/description returns 200 with null when Open Library !ok', async () => {
+    // Soft-failure contract: a missing description must not break the add-book
+    // flow. The route returns 200 with { description: null } rather than 502.
+    const originalFetch = globalThis.fetch;
+    const fetchMock = mock.method(globalThis, 'fetch', async (target, init) => {
+      const targetStr = typeof target === 'string' ? target : String(target);
+      if (targetStr.startsWith(url)) return originalFetch(target, init);
+      return { ok: false, status: 503 };
+    });
+    try {
+      const { status, body } = await req('/api/search/description?key=/works/OL12345W');
+      assert.equal(status, 200);
+      assert.equal(body.description, null);
+    } finally {
+      fetchMock.mock.restore();
+    }
+  });
+
   it('GET /api/search/description normalizes object-form description.value to a string', async () => {
     // Open Library returns description as either a string or { type, value }.
     // The route flattens the object form to its `.value`. Localhost requests
