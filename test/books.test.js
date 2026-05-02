@@ -837,6 +837,49 @@ describe('books', () => {
       }
     });
 
+    it('POST /api/books/:id/fetch-cover deletes the old local cover after replacement', async () => {
+      // Book starts with a stored safe cover filename. After fetch-cover
+      // succeeds, repository.js:323 should call deleteLocalCover with the old
+      // filename so we don't leak the file. fs.unlink is the boundary.
+      const oldFilename = '1234567890-abcdefg.jpg';
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'cover-replace ' + Math.random().toString(36).slice(2, 6),
+        isbn_13: '9780000000002',
+        cover_path: `/uploads/${oldFilename}`,
+      });
+      const jpeg = new Uint8Array(3000);
+      jpeg[0] = 0xFF; jpeg[1] = 0xD8; jpeg[2] = 0xFF; jpeg[3] = 0xE0;
+      const arrBuf = jpeg.buffer.slice(0);
+      const writeMock = mock.method(fs.promises, 'writeFile', async () => {});
+      const unlinkMock = mock.method(fs, 'unlink', (_p, cb) => cb(null));
+      const originalFetch = globalThis.fetch;
+      const fetchMock = mock.method(globalThis, 'fetch', async (target, init) => {
+        const targetStr = typeof target === 'string' ? target : String(target);
+        if (targetStr.startsWith(url)) return originalFetch(target, init);
+        if (targetStr.includes('googleapis.com')) {
+          return { ok: true, json: async () => ({
+            items: [{ volumeInfo: { imageLinks: { thumbnail: 'http://example.test/cover.jpg' } } }],
+          }) };
+        }
+        if (targetStr.includes('example.test')) {
+          return { ok: true, arrayBuffer: async () => arrBuf };
+        }
+        return { ok: false };
+      });
+      try {
+        const { status } = await req('POST', `/api/books/${created.id}/fetch-cover`, {});
+        assert.equal(status, 200);
+        assert.equal(unlinkMock.mock.callCount(), 1, 'old cover should be unlinked exactly once');
+        const unlinkPath = unlinkMock.mock.calls[0].arguments[0];
+        assert.ok(unlinkPath.endsWith(oldFilename),
+          `expected unlink path to end in ${oldFilename}, got: ${unlinkPath}`);
+      } finally {
+        writeMock.mock.restore();
+        unlinkMock.mock.restore();
+        fetchMock.mock.restore();
+      }
+    });
+
     it('POST /api/books/:id/fetch-cover returns 404 when no remote cover is found', async () => {
       // Book has an ISBN so the no-ISBN guard doesn't fire; both Google Books
       // and Open Library are mocked to return no usable cover, so
