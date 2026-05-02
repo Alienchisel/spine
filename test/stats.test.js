@@ -31,7 +31,8 @@ describe('stats', () => {
       for (const key of ['totals', 'formats', 'fiction', 'ownedStatus', 'ratings',
         'pagesRead', 'minutesListened', 'byYear', 'topAuthors', 'topNarrators',
         'languages', 'streaks', 'todayPages', 'thisYearBooks', 'thisYearPages',
-        'topTags', 'topSeries', 'avgPagesPerDay', 'records']) {
+        'topTags', 'topSeries', 'avgPagesPerDay', 'avgMinutesPerDay',
+        'avgDaysToFinish', 'inProgressPace', 'decadesPublished', 'records']) {
         assert.ok(key in body, `missing key: ${key}`);
       }
     });
@@ -114,6 +115,42 @@ describe('stats', () => {
       const { body } = await req('GET', '/api/stats');
       assert.notEqual(body.records.firstFinished, null);
       assert.notEqual(body.records.longestRead, null);
+    });
+
+    it('avgDaysToFinish reflects date_started → date_finished spans', async () => {
+      await req('POST', '/api/books', {
+        title: 'Span Book',
+        status: 'finished',
+        date_started: '2024-01-01',
+        date_finished: '2024-01-21',
+      });
+      const { body } = await req('GET', '/api/stats');
+      assert.ok(body.avgDaysToFinish != null && body.avgDaysToFinish > 0,
+        `expected positive avgDaysToFinish, got ${body.avgDaysToFinish}`);
+    });
+
+    it('decadesPublished buckets by year_published, including BCE', async () => {
+      await req('POST', '/api/books', { title: 'Modern', year_published: 1995 });
+      await req('POST', '/api/books', { title: 'Iliad', year_published: -800, year_approximate: true });
+      const { body } = await req('GET', '/api/stats');
+      const modern = body.decadesPublished.find(d => d.decade === 1990);
+      assert.ok(modern && modern.count >= 1, 'expected 1990s bucket with at least 1');
+      const ancient = body.decadesPublished.find(d => d.decade === -800);
+      assert.ok(ancient && ancient.count >= 1, 'expected -800 bucket with at least 1');
+    });
+
+    it('inProgressPace lists currently-reading books with progress fields', async () => {
+      const { body: b } = await req('POST', '/api/books', {
+        title: 'Pace Reader',
+        status: 'reading',
+        page_count: 400,
+      });
+      await req('PATCH', `/api/books/${b.id}`, { current_page: 100 });
+      const { body } = await req('GET', '/api/stats');
+      const entry = body.inProgressPace.find(p => p.id === b.id);
+      assert.ok(entry, 'expected reading book in inProgressPace');
+      assert.equal(entry.pct, 25);
+      assert.ok('projected_days_left' in entry);
     });
   });
 });

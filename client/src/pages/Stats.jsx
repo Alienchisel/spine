@@ -173,7 +173,7 @@ export default function Stats() {
   if (error) return <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-warn text-sm">{error}</div>;
   if (!stats) return null;
 
-  const { totals, formats, fiction, ownedStatus, ratings, pagesRead, minutesListened, byYear, byMonth = [], topAuthors, topNarrators, languages, streaks, todayPages, thisYearBooks, thisYearPages, topTags, topSeries, avgPagesPerDay, records } = stats;
+  const { totals, formats, fiction, ownedStatus, ratings, pagesRead, minutesListened, byYear, byMonth = [], topAuthors, topNarrators, languages, streaks, todayPages, thisYearBooks, thisYearPages, topTags, topSeries, avgPagesPerDay, avgDaysToFinish, inProgressPace = [], decadesPublished = [], records } = stats;
 
   const maxRating = Math.max(...ratings.map(r => r.count), 1);
   const maxYear   = Math.max(...byYear.map(y => y.count), 1);
@@ -264,8 +264,39 @@ export default function Stats() {
           {avgPagesPerDay != null && (
             <StatCard label="Avg pages / reading day" value={avgPagesPerDay?.toLocaleString()} />
           )}
+          {avgDaysToFinish != null && (
+            <StatCard label="Avg days to finish" value={avgDaysToFinish?.toLocaleString()} />
+          )}
         </div>
       </Section>
+
+      {inProgressPace.length > 0 && (
+        <Section title="Currently reading">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {inProgressPace.map(b => (
+              <Link key={b.id} to={`/books/${b.id}`} className="bg-card rounded-lg p-3 flex items-center gap-3 hover:ring-1 hover:ring-neutral-600 transition-shadow">
+                <div className="w-8 h-12 flex-shrink-0 rounded overflow-hidden bg-neutral-800">
+                  {b.cover_path
+                    ? <img src={b.cover_path} alt={b.title} className="w-full h-full object-cover object-top" />
+                    : <div className="w-full h-full bg-gradient-to-br from-neutral-700 to-neutral-900" />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-medium text-neutral-200 truncate">{b.title}</p>
+                  <div className="mt-1 h-1 bg-neutral-800 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full bg-oak" style={{ width: `${b.pct ?? 0}%` }} />
+                  </div>
+                  <p className="text-xs text-neutral-600 mt-1 tabular-nums">
+                    {b.pct != null ? `${b.pct}%` : '—'}
+                    {b.projected_days_left != null
+                      ? ` · ~${b.projected_days_left} ${b.projected_days_left === 1 ? 'day' : 'days'} left`
+                      : ''}
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </Section>
+      )}
 
       {Object.values(records).some(Boolean) && (
         <Section title="Records">
@@ -466,6 +497,27 @@ export default function Stats() {
           </div>
         </Section>
       )}
+
+      {decadesPublished.length > 0 && (() => {
+        const maxDecade = Math.max(...decadesPublished.map(d => d.count), 1);
+        const decadeLabel = (d) => d > 0 ? `${d}s` : `${-d - 9}–${-d} BCE`;
+        return (
+          <Section title="Editions by decade published">
+            <div className="space-y-2.5">
+              {decadesPublished.map(d => (
+                <Bar
+                  key={d.decade}
+                  label={decadeLabel(d.decade)}
+                  count={d.count}
+                  max={maxDecade}
+                  color="bg-binding"
+                  caption={`${d.count} ${d.count === 1 ? 'book' : 'books'}`}
+                />
+              ))}
+            </div>
+          </Section>
+        );
+      })()}
 
       {byYear.length > 0 && (
         <Section title="Finished by year">
