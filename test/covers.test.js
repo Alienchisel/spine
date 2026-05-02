@@ -23,6 +23,40 @@ describe('fetchCoverBuffer', () => {
     }
   });
 
+  it('falls through to Open Library when the Google image is under 2000 bytes', async () => {
+    // The size guard rejects placeholder/1×1 images Google sometimes returns.
+    // After it triggers, the function must try Open Library before giving up.
+    const tinyBuf = new ArrayBuffer(500);
+    const calls = [];
+    const fetchMock = mock.method(globalThis, 'fetch', async (url) => {
+      calls.push(typeof url === 'string' ? url : String(url));
+      if (typeof url === 'string' && url.includes('googleapis.com')) {
+        return {
+          ok: true,
+          json: async () => ({
+            items: [{ volumeInfo: { imageLinks: {
+              thumbnail: 'http://example.test/tiny.jpg',
+            } } }],
+          }),
+        };
+      }
+      if (typeof url === 'string' && url.includes('example.test')) {
+        return { ok: true, arrayBuffer: async () => tinyBuf };
+      }
+      return { ok: false };
+    });
+    try {
+      const result = await fetchCoverBuffer('9999999999999');
+      assert.equal(result, null);
+      assert.equal(calls.length, 3,
+        'expected Google Books, the (rejected) tiny image, and Open Library fallback');
+      assert.ok(calls[2].includes('covers.openlibrary.org'),
+        'third call should be Open Library fallback');
+    } finally {
+      fetchMock.mock.restore();
+    }
+  });
+
   it('returns a Buffer and normalizes Google Books image URL (strip edge=curl, force zoom=0)', async () => {
     const arrBuf = new ArrayBuffer(3000);
     new Uint8Array(arrBuf).fill(0xAB);
