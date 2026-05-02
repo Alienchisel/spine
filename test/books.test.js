@@ -719,6 +719,26 @@ describe('books', () => {
       }
     });
 
+    it('falls back to updated_at DESC for unknown sort values', async () => {
+      // buildOrderBy()'s default branch sorts by updated_at DESC. SQLite stores
+      // datetime('now','localtime') at second precision, so we sleep briefly
+      // before the PUT to guarantee distinct timestamps between the two books.
+      const stem = 'defsort' + Math.random().toString(36).slice(2, 6);
+      const { body: bookA } = await req('POST', '/api/books', { title: `${stem}-A` });
+      const { body: bookB } = await req('POST', '/api/books', { title: `${stem}-B` });
+      await new Promise(r => setTimeout(r, 1100));
+      // PUT touches updated_at unconditionally; just resend the existing payload.
+      await req('PUT', `/api/books/${bookA.id}`, { ...bookA, tags: [] });
+
+      const { body } = await req('GET', '/api/books?sort=not-a-real-sort&limit=500');
+      const ids = body.books.map(b => b.id);
+      const iA = ids.indexOf(bookA.id);
+      const iB = ids.indexOf(bookB.id);
+      assert.ok(iA >= 0 && iB >= 0, 'both fixtures should appear');
+      assert.ok(iA < iB,
+        `expected updated bookA before untouched bookB; got positions A=${iA}, B=${iB}`);
+    });
+
     it('clamps out-of-range limit and offset', async () => {
       // listBooks() clamps limit to [1,200] and offset to >=0. Verify the
       // response echoes the clamped values rather than the raw query params.
