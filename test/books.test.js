@@ -1,5 +1,6 @@
 import { describe, it, before, after, mock } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'fs';
 import { createTestServer } from './helpers.js';
 
 describe('books', () => {
@@ -796,6 +797,44 @@ describe('books', () => {
       const { status, body } = await req('POST', '/api/books/nope/fetch-cover', {});
       assert.equal(status, 400);
       assert.equal(body.error, 'Invalid book id');
+    });
+
+    it('POST /api/books/:id/fetch-cover saves a fetched cover and returns the updated book', async () => {
+      // Mock Google Books → returns a usable image URL; mock the image fetch
+      // → returns a tiny JPEG buffer; mock fs.promises.writeFile so nothing
+      // touches disk. The route should run end-to-end and surface a
+      // cover_path like /uploads/<filename>.jpg.
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'cover-happy ' + Math.random().toString(36).slice(2, 6),
+        isbn_13: '9780000000001',
+      });
+      const jpeg = new Uint8Array(3000);
+      jpeg[0] = 0xFF; jpeg[1] = 0xD8; jpeg[2] = 0xFF; jpeg[3] = 0xE0;
+      const arrBuf = jpeg.buffer.slice(0);
+      const writeMock = mock.method(fs.promises, 'writeFile', async () => {});
+      const originalFetch = globalThis.fetch;
+      const fetchMock = mock.method(globalThis, 'fetch', async (target, init) => {
+        const targetStr = typeof target === 'string' ? target : String(target);
+        if (targetStr.startsWith(url)) return originalFetch(target, init);
+        if (targetStr.includes('googleapis.com')) {
+          return { ok: true, json: async () => ({
+            items: [{ volumeInfo: { imageLinks: { thumbnail: 'http://example.test/cover.jpg' } } }],
+          }) };
+        }
+        if (targetStr.includes('example.test')) {
+          return { ok: true, arrayBuffer: async () => arrBuf };
+        }
+        return { ok: false };
+      });
+      try {
+        const { status, body } = await req('POST', `/api/books/${created.id}/fetch-cover`, {});
+        assert.equal(status, 200);
+        assert.match(body.cover_path, /^\/uploads\/\d+-[a-z0-9]+\.jpg$/i);
+        assert.equal(writeMock.mock.callCount(), 1, 'image should be written exactly once');
+      } finally {
+        writeMock.mock.restore();
+        fetchMock.mock.restore();
+      }
     });
 
     it('POST /api/books/:id/fetch-cover returns 404 when no remote cover is found', async () => {
