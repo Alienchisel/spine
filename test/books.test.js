@@ -590,6 +590,14 @@ describe('books', () => {
       bookId = body.id;
     });
 
+    it('POST returns 404 for an unknown book id', async () => {
+      const { status, body } = await req('POST', '/api/books/999999/reads', {
+        date_started: '2024-01-01',
+      });
+      assert.equal(status, 404);
+      assert.equal(body.error, 'Not found');
+    });
+
     it('returns empty reads list initially', async () => {
       const { status, body } = await req('GET', `/api/books/${bookId}/reads`);
       assert.equal(status, 200);
