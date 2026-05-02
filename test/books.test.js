@@ -1655,5 +1655,30 @@ describe('books', () => {
       });
       assert.equal(body.cover_path, null);
     });
+
+    it('PUT preserves existing cover when payload sends a malformed cover_path', async () => {
+      // Defensive guard: if the user sends a non-empty cover_path that fails
+      // toFilename (e.g. legacy format outside the regex, or just typo'd),
+      // PUT must NOT silently destroy the existing cover. Distinguishes
+      // "explicit clear" (null/empty) from "malformed input".
+      const validCover = '/uploads/1234567890-abcdef.jpg';
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Defensive cover test', cover_path: validCover,
+      });
+      assert.equal(created.cover_path, validCover, 'fixture should have a valid cover');
+
+      // Malformed PUT (bmp not in accepted list)
+      const { body: malformed } = await req('PUT', `/api/books/${created.id}`, {
+        ...created, cover_path: '/uploads/totally-bad.bmp', tags: [],
+      });
+      assert.equal(malformed.cover_path, validCover,
+        'malformed cover_path on PUT must preserve existing, not destroy it');
+
+      // Explicit clear (null) should still actually clear
+      const { body: cleared } = await req('PUT', `/api/books/${created.id}`, {
+        ...created, cover_path: null, tags: [],
+      });
+      assert.equal(cleared.cover_path, null, 'null cover_path on PUT should clear');
+    });
   });
 });
