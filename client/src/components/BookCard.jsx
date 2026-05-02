@@ -329,14 +329,14 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact 
                 {hasPct && <option value="pct">%</option>}
               </select>
               {isHMMode ? (
-                <>
+                <div className="flex items-center gap-1 w-full">
                   <input
                     ref={inputRef}
                     type="number" min="0" max="999"
                     value={inputH}
                     onChange={(e) => { setError(null); setInputH(e.target.value); }}
                     placeholder="h"
-                    className={`w-10 ${numCls}`}
+                    className={`w-12 ${numCls}`}
                   />
                   <span className="text-neutral-500 text-xs">h</span>
                   <input
@@ -345,10 +345,10 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact 
                     onChange={(e) => { setError(null); setInputM(e.target.value); }}
                     onBlur={(e) => setInputM(clampMinutes(e.target.value))}
                     placeholder="m"
-                    className={`w-10 ${numCls}`}
+                    className={`w-12 ${numCls}`}
                   />
                   <span className="text-neutral-500 text-xs">m</span>
-                </>
+                </div>
               ) : (
                 <input
                   ref={inputRef}
