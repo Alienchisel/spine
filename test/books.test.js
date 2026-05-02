@@ -719,6 +719,20 @@ describe('books', () => {
       }
     });
 
+    it('sort=added orders by id DESC (newest first)', async () => {
+      const stem = 'addsort' + Math.random().toString(36).slice(2, 6);
+      const { body: first  } = await req('POST', '/api/books', { title: `${stem}-first`  });
+      const { body: second } = await req('POST', '/api/books', { title: `${stem}-second` });
+
+      const { body: results } = await req('GET', '/api/books?sort=added&limit=500');
+      const ids = results.books.map(b => b.id);
+      const iFirst  = ids.indexOf(first.id);
+      const iSecond = ids.indexOf(second.id);
+      assert.ok(iFirst >= 0 && iSecond >= 0, 'both fixtures should appear');
+      assert.ok(iSecond < iFirst,
+        `expected newer book first; got positions first=${iFirst}, second=${iSecond}`);
+    });
+
     it('sort=started/finished orders DESC with undated books last', async () => {
       // Both branches use COALESCE(date_*,''), so the empty string sinks to the
       // bottom under DESC. Same shape across the two columns.
