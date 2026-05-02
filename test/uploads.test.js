@@ -115,6 +115,37 @@ describe('POST /api/upload/fetch', () => {
     assert.equal(body.error, 'Invalid URL');
   });
 
+  it('returns 200 with /uploads/<filename>.jpg on a valid HTTPS image fetch', async () => {
+    // Mocks both the outbound HTTPS fetch (returning a tiny JPEG) and the
+    // disk write. The route should run end-to-end and surface a /uploads/<n>.jpg path.
+    const jpeg = new Uint8Array(64);
+    jpeg[0] = 0xFF; jpeg[1] = 0xD8; jpeg[2] = 0xFF; jpeg[3] = 0xE0;
+    const arrBuf = jpeg.buffer.slice(0);
+    let writtenBytes = null;
+    const writeMock = mock.method(fs.promises, 'writeFile', async (_p, b) => {
+      writtenBytes = b;
+    });
+    const originalFetch = globalThis.fetch;
+    const fetchMock = mock.method(globalThis, 'fetch', async (target, init) => {
+      const targetStr = typeof target === 'string' ? target : String(target);
+      if (targetStr.startsWith(url)) return originalFetch(target, init);
+      return {
+        ok: true,
+        headers: { get: (h) => h.toLowerCase() === 'content-type' ? 'image/jpeg' : null },
+        arrayBuffer: async () => arrBuf,
+      };
+    });
+    try {
+      const { status, body } = await req({ url: 'https://example.test/cover.jpg' });
+      assert.equal(status, 200);
+      assert.match(body.path, /^\/uploads\/\d+-[a-z0-9]+\.jpg$/i);
+      assert.equal(writtenBytes?.length, 64);
+    } finally {
+      writeMock.mock.restore();
+      fetchMock.mock.restore();
+    }
+  });
+
   it('returns 400 when the downloaded body exceeds 10 MiB even with no content-length', async () => {
     // Safety net for missing/lying content-length headers: the post-download
     // buffer.length check at routes/uploads.js:51 must still reject oversized
