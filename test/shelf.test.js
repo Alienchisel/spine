@@ -147,6 +147,13 @@ describe('shelf', () => {
       assert.equal(status, 400);
     });
 
+    it('PUT /api/shelf/shelves/:id/order returns 400 for malformed shelf id', async () => {
+      // Distinct from the ids-not-array branch — :id parser short-circuits first.
+      const { status, body } = await req('PUT', '/api/shelf/shelves/abc/order', { ids: [] });
+      assert.equal(status, 400);
+      assert.equal(body.error, 'Invalid id');
+    });
+
     it('POST /api/shelf/units returns 400 when room_id is missing', async () => {
       const { status, body } = await req('POST', '/api/shelf/units', { name: 'Bookcase' });
       assert.equal(status, 400);
