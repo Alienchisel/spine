@@ -209,5 +209,13 @@ describe('lists', () => {
       assert.equal(status, 400);
       assert.equal(body.error, 'Invalid book id');
     });
+
+    it('returns 200 with [] for an unknown book id (no existence check)', async () => {
+      // The route doesn't probe books table — the list_books SELECT just
+      // matches zero rows. Mirrors the GET /log behavior.
+      const { status, body } = await req('GET', '/api/books/999999/lists');
+      assert.equal(status, 200);
+      assert.deepEqual(body, []);
+    });
   });
 });
