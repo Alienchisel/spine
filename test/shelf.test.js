@@ -495,6 +495,59 @@ describe('shelf', () => {
       }
     });
 
+    it('children-list endpoints order by order_index', async () => {
+      // Each "children of X" route ORDER BY order_index, name. New siblings
+      // get monotonically increasing order_index (max+1), so the existing
+      // fixtures should come back before any newly-created sibling.
+      const stem = 'children-order-' + Math.random().toString(36).slice(2, 6);
+      const { body: room2 }  = await req('POST', '/api/shelf/rooms',  { building_id: buildingId, name: `${stem} R` });
+      const { body: unit2 }  = await req('POST', '/api/shelf/units',  { room_id: roomId,         name: `${stem} U` });
+      const { body: shelf2 } = await req('POST', '/api/shelf/shelves',{ unit_id: unitId,         label: `${stem} S` });
+
+      const cases = [
+        { path: `/api/shelf/buildings/${buildingId}/rooms`,  first: roomId, second: room2.id },
+        { path: `/api/shelf/rooms/${roomId}/units`,          first: unitId, second: unit2.id },
+        { path: `/api/shelf/units/${unitId}/shelves`,        first: shelfId, second: shelf2.id },
+      ];
+      for (const { path, first, second } of cases) {
+        const { body } = await req('GET', path);
+        const ids = body.map(x => x.id);
+        const fi = ids.indexOf(first);
+        const si = ids.indexOf(second);
+        assert.ok(fi !== -1 && si !== -1, `both children should appear in ${path}`);
+        assert.ok(fi < si,
+          `existing child (${first}) should come before newly created (${second}) in ${path}; got ${ids.join(',')}`);
+      }
+    });
+
+    it('GET /api/shelf/buildings/:id/books orders shelf < unit < room < building', async () => {
+      // The COALESCE(...order_index, 999999) trick puts books at higher
+      // location tiers last. shelfedBookId reaches unit via shelf, unitBookId
+      // is on the unit directly, roomBookId and buildingBookId fall back to
+      // 999999. Pinning the hierarchy is more durable than asserting an
+      // exact full order, since the last two tie and depend on title.
+      const { body } = await req('GET', `/api/shelf/buildings/${buildingId}/books`);
+      const ids = body.map(b => b.id);
+      const idx = (id) => ids.indexOf(id);
+      assert.ok(idx(shelfedBookId) >= 0, 'shelfed book should appear');
+      assert.ok(idx(shelfedBookId) < idx(unitBookId),
+        `shelfed should come before unit-level; got ${ids.join(',')}`);
+      assert.ok(idx(unitBookId) < idx(roomBookId),
+        `unit-level should come before room-level; got ${ids.join(',')}`);
+      assert.ok(idx(unitBookId) < idx(buildingBookId),
+        `unit-level should come before building-level; got ${ids.join(',')}`);
+    });
+
+    it('GET /api/shelf/rooms/:id/books orders shelf < unit < room', async () => {
+      const { body } = await req('GET', `/api/shelf/rooms/${roomId}/books`);
+      const ids = body.map(b => b.id);
+      const idx = (id) => ids.indexOf(id);
+      assert.ok(idx(shelfedBookId) < idx(unitBookId),
+        `shelfed should come before unit-level; got ${ids.join(',')}`);
+      assert.ok(idx(unitBookId) < idx(roomBookId),
+        `unit-level should come before room-level; got ${ids.join(',')}`);
+    });
+
     it('GET /api/shelf/units/:id/books orders books by shelf order_index', async () => {
       // The unit drilldown's ORDER BY puts a book on a lower-indexed shelf
       // before a book on a higher-indexed one. Newly created shelves get
