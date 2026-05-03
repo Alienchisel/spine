@@ -591,6 +591,29 @@ describe('books', () => {
       assert.equal(status, 404);
     });
 
+    it('PUT round-trips object-shape tags and silently drops virtual tags', async () => {
+      // syncTags must accept the GET shape (`[{id, name, virtual}, ...]`) and
+      // never persist virtual tags even if a client forgets to filter them.
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'tagroundtrip ' + Math.random().toString(36).slice(2, 6),
+        format: 'physical',
+        year_edition: 1900, // triggers Antique virtual tag
+        tags: ['Sci-Fi'],
+      });
+      const fetched = await req('GET', `/api/books/${created.id}`);
+      // Tag name comparison is case-insensitive — earlier tests in this file
+      // may have registered the same tag at any casing (DB lookup is COLLATE
+      // NOCASE).
+      assert.ok(fetched.body.tags.some(t => t.name.toLowerCase() === 'sci-fi'));
+      assert.ok(fetched.body.tags.some(t => t.name === 'Antique' && t.virtual));
+      const { status, body } = await req('PUT', `/api/books/${created.id}`, fetched.body);
+      assert.equal(status, 200, 'PUT with object-shape tags should not 500');
+      // Real tags persist; Antique still appears (virtual computed on read)
+      // but was not persisted as a real tag — that would have been the bug.
+      const persisted = body.tags.filter(t => !t.virtual).map(t => t.name.toLowerCase());
+      assert.deepEqual(persisted, ['sci-fi']);
+    });
+
     it('PUT accepts authors/narrators as either name strings or {name} objects', async () => {
       // Regression: BookCard's auto-finish PUT round-trips a fetched book —
       // including authors/narrators as {name, ...} objects — without flattening.
