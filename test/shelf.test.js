@@ -177,18 +177,55 @@ describe('shelf', () => {
       assert.equal(body.error, 'Label is required');
     });
 
-    it('PUT for unknown rooms/units/shelves returns 404 Not found', async () => {
+    it('PUT for unknown buildings/rooms/units/shelves returns 404 Not found', async () => {
       // Validation runs before the existence check, so each body carries a
       // valid name/label to reach the 404 branch.
       const cases = [
-        { path: '/api/shelf/rooms/999999',   body: { name: 'Ghost Room' } },
-        { path: '/api/shelf/units/999999',   body: { name: 'Ghost Unit' } },
-        { path: '/api/shelf/shelves/999999', body: { label: 'Ghost Shelf' } },
+        { path: '/api/shelf/buildings/999999', body: { name: 'Ghost Building' } },
+        { path: '/api/shelf/rooms/999999',     body: { name: 'Ghost Room' } },
+        { path: '/api/shelf/units/999999',     body: { name: 'Ghost Unit' } },
+        { path: '/api/shelf/shelves/999999',   body: { label: 'Ghost Shelf' } },
       ];
       for (const { path, body } of cases) {
         const { status, body: resBody } = await req('PUT', path, body);
         assert.equal(status, 404, `PUT ${path} should be 404`);
         assert.equal(resBody.error, 'Not found', `PUT ${path} should have 'Not found'`);
+      }
+    });
+
+    it('DELETE for unknown buildings/rooms/units/shelves returns 404 Not found', async () => {
+      const paths = [
+        '/api/shelf/buildings/999999',
+        '/api/shelf/rooms/999999',
+        '/api/shelf/units/999999',
+        '/api/shelf/shelves/999999',
+      ];
+      for (const path of paths) {
+        const { status, body } = await req('DELETE', path);
+        assert.equal(status, 404, `DELETE ${path} should be 404`);
+        assert.equal(body.error, 'Not found', `DELETE ${path} should have 'Not found'`);
+      }
+    });
+
+    it('PUT/DELETE on malformed shelf hierarchy ids return 400 Invalid id', async () => {
+      // The id parser short-circuits before any validation or DB work for
+      // every singleton route in the hierarchy. The /order routes are
+      // excluded — they have their own ids-array contract.
+      const cases = [
+        { method: 'PUT',    path: '/api/shelf/buildings/abc' },
+        { method: 'PUT',    path: '/api/shelf/rooms/abc' },
+        { method: 'PUT',    path: '/api/shelf/units/abc' },
+        { method: 'PUT',    path: '/api/shelf/shelves/abc' },
+        { method: 'DELETE', path: '/api/shelf/buildings/abc' },
+        { method: 'DELETE', path: '/api/shelf/rooms/abc' },
+        { method: 'DELETE', path: '/api/shelf/units/abc' },
+        { method: 'DELETE', path: '/api/shelf/shelves/abc' },
+      ];
+      for (const { method, path } of cases) {
+        const body = method === 'PUT' ? { name: 'X', label: 'X' } : undefined;
+        const { status, body: resBody } = await req(method, path, body);
+        assert.equal(status, 400, `${method} ${path} should be 400`);
+        assert.equal(resBody.error, 'Invalid id', `${method} ${path} should have 'Invalid id'`);
       }
     });
 
