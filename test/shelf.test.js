@@ -177,6 +177,24 @@ describe('shelf', () => {
       assert.equal(body.error, 'Label is required');
     });
 
+    it('all rooms/units name guards return 400 with "Name is required"', async () => {
+      // Five unpinned guards across POST/PUT for buildings/rooms/units share
+      // the same contract; one table-driven test keeps validation symmetric
+      // across the hierarchy.
+      const cases = [
+        { method: 'PUT',    path: `/api/shelf/buildings/${buildingId}`, body: { name: '' } },
+        { method: 'POST',   path: '/api/shelf/rooms',                   body: { building_id: buildingId, name: '' } },
+        { method: 'PUT',    path: `/api/shelf/rooms/${roomId}`,         body: { name: '' } },
+        { method: 'POST',   path: '/api/shelf/units',                   body: { room_id: roomId, name: '' } },
+        { method: 'PUT',    path: `/api/shelf/units/${unitId}`,         body: { name: '' } },
+      ];
+      for (const { method, path, body } of cases) {
+        const { status, body: resBody } = await req(method, path, body);
+        assert.equal(status, 400, `${method} ${path} should be 400`);
+        assert.equal(resBody.error, 'Name is required', `${method} ${path} should have 'Name is required'`);
+      }
+    });
+
     it('POST /api/shelf/shelves returns 404 when unit_id points to no unit', async () => {
       const { status, body } = await req('POST', '/api/shelf/shelves', { unit_id: 999999, label: 'Ghost' });
       assert.equal(status, 404);
