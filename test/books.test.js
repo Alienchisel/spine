@@ -1079,6 +1079,71 @@ describe('books', () => {
       }
     });
 
+    it('q supports Google-style AND / OR / NOT / phrases / parens', async () => {
+      // Build a small fixture with three orthogonal tag groupings so each
+      // operator can be exercised on its own. Stems keep names unique across
+      // test re-runs.
+      const stem = 'dsl-' + Math.random().toString(36).slice(2, 7);
+      const { body: scifiManga } = await req('POST', '/api/books', {
+        title: `${stem} alpha`, tags: ['Sci-Fi', 'Manga'],
+      });
+      const { body: scifiOnly } = await req('POST', '/api/books', {
+        title: `${stem} beta`, tags: ['Sci-Fi'],
+      });
+      const { body: mangaOnly } = await req('POST', '/api/books', {
+        title: `${stem} gamma`, tags: ['Manga'],
+      });
+      const { body: neither } = await req('POST', '/api/books', {
+        title: `${stem} delta`, tags: ['History'],
+      });
+
+      const collect = async (q) => {
+        const { body } = await req('GET', `/api/books?q=${encodeURIComponent(q)}&limit=50`);
+        return new Set(body.books.map(b => b.id));
+      };
+
+      // Implicit AND: both tags required → only the (Sci-Fi, Manga) book.
+      // Use a tag-name that won't surface from the title (titles use stems).
+      const andResult = await collect(`${stem} Sci-Fi Manga`);
+      assert.ok(andResult.has(scifiManga.id), 'AND should match book with both tags');
+      assert.ok(!andResult.has(scifiOnly.id), 'AND should exclude Sci-Fi-only');
+      assert.ok(!andResult.has(mangaOnly.id), 'AND should exclude Manga-only');
+
+      // Explicit OR: either tag matches.
+      const orResult = await collect(`${stem} (Sci-Fi OR Manga)`);
+      assert.ok(orResult.has(scifiManga.id));
+      assert.ok(orResult.has(scifiOnly.id));
+      assert.ok(orResult.has(mangaOnly.id));
+      assert.ok(!orResult.has(neither.id));
+
+      // NOT: exclude books with a given tag.
+      const notResult = await collect(`${stem} -Manga`);
+      assert.ok(notResult.has(scifiOnly.id), 'NOT should keep Sci-Fi-only');
+      assert.ok(notResult.has(neither.id),   'NOT should keep History-only');
+      assert.ok(!notResult.has(scifiManga.id), 'NOT should drop Manga-tagged');
+      assert.ok(!notResult.has(mangaOnly.id),  'NOT should drop Manga-tagged');
+
+      // Quoted phrase: literal substring, distinct from token AND.
+      const { body: phraseBook } = await req('POST', '/api/books', {
+        title: `${stem} heart of darkness fixture`,
+      });
+      const phraseResult = await collect(`"heart of darkness" ${stem}`);
+      assert.ok(phraseResult.has(phraseBook.id), 'phrase should match exact substring');
+
+      // Lowercase 'or' is a literal term, not the OR operator (so titles like
+      // "Pride or Prejudice" don't get parsed as boolean expressions).
+      const { body: orBook } = await req('POST', '/api/books', {
+        title: `${stem} pride or prejudice`,
+      });
+      const lowerResult = await collect(`${stem} pride or prejudice`);
+      assert.ok(lowerResult.has(orBook.id), 'lowercase or should be treated as a term');
+
+      // NOT keyword (uppercase) is equivalent to '-' prefix.
+      const notKeywordResult = await collect(`${stem} NOT Manga`);
+      assert.ok(notKeywordResult.has(scifiOnly.id));
+      assert.ok(!notKeywordResult.has(scifiManga.id));
+    });
+
     it('field=rating filters by exact rating value (incl. half-stars)', async () => {
       // Branch: rating = parseFloat(v). Use a half-star to confirm parseFloat
       // is preserved end-to-end and the SQL = comparison handles 4.5.

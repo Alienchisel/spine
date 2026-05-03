@@ -248,6 +248,7 @@ export default function Library() {
               value={queryRaw}
               onChange={(e) => setQueryRaw(e.target.value)}
               placeholder="Search title, people, series, or tags…"
+              title={'Search syntax:\n  word word — match both (AND)\n  word OR word — either\n  "exact phrase"\n  -word — exclude\n  (a OR b) c — group'}
               className="bg-neutral-800 border border-leather/30 rounded-lg px-4 py-2 text-sm text-parchment placeholder-neutral-500 focus:outline-none focus:border-leather/70 focus:ring-1 focus:ring-oak/25 transition-colors duration-150 w-full sm:w-56"
             />
             <button
