@@ -439,6 +439,28 @@ describe('books', () => {
       assert.equal(body.source_type, 'primary');
     });
 
+    it('PUT applies the same source_type gate as POST', async () => {
+      // Editing a non-fiction book to fiction must drop source_type even if
+      // the form payload still carries the old value (round-trip pattern).
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'History', fiction: false, source_type: 'primary',
+      });
+      assert.equal(created.source_type, 'primary');
+
+      const { body: madeFiction } = await req('PUT', `/api/books/${created.id}`, {
+        ...created, fiction: true, source_type: 'primary', tags: [],
+      });
+      assert.equal(madeFiction.fiction, 1);
+      assert.equal(madeFiction.source_type, null);
+
+      // Flipping back to non-fiction lets a fresh source_type persist.
+      const { body: backToNonFiction } = await req('PUT', `/api/books/${created.id}`, {
+        ...madeFiction, fiction: false, source_type: 'secondary', tags: [],
+      });
+      assert.equal(backToNonFiction.fiction, 0);
+      assert.equal(backToNonFiction.source_type, 'secondary');
+    });
+
     it('source_type is dropped on fiction or unset-fiction books', async () => {
       // Mirrors CoreFields.jsx:64 — the form only keeps source_type when
       // fiction === false. The backend now enforces the same gate, so
