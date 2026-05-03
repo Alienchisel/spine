@@ -535,6 +535,13 @@ describe('books', () => {
       assert.equal(body.current_page, 12);
       assert.equal(body.current_minutes, 30);
     });
+
+    it('returns 404 for unknown book id', async () => {
+      // patchBook() returns null for missing rows; the route maps that to 404.
+      const { status, body } = await req('PATCH', '/api/books/999999', { current_page: 1 });
+      assert.equal(status, 404);
+      assert.equal(body.error, 'Not found');
+    });
   });
 
   describe('DELETE /api/books/:id', () => {
