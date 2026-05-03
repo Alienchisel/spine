@@ -497,6 +497,45 @@ describe('books', () => {
       assert.equal(updated.previously_owned, 1);
     });
 
+    it('non-owned physical books have condition and shelf data scrubbed', async () => {
+      // Mirrors AcquisitionFields.jsx:13 (clears condition + shelf ids on
+      // owned-toggle-off) and :44 (hides shelf picker unless owned). Backend
+      // gate at lib/books/repository.js prevents direct API calls from
+      // bypassing the form's contract — you can't shelve or assess condition
+      // on a copy you don't have.
+      const { body: bldg } = await req('POST', '/api/shelf/buildings', { name: 'Gate Test Building' });
+      const { body: rm }   = await req('POST', '/api/shelf/rooms',     { building_id: bldg.id, name: 'Gate Room' });
+      const { body: u }    = await req('POST', '/api/shelf/units',     { room_id: rm.id, name: 'Gate Unit' });
+      const { body: sh }   = await req('POST', '/api/shelf/shelves',   { unit_id: u.id, label: 'Gate Shelf' });
+
+      const payload = {
+        title: 'Sold Hardcover',
+        format: 'physical',
+        owned: false,
+        previously_owned: true,
+        condition: 'fine',
+        binding: 'hardcover',
+        shelf_id: sh.id,
+        unit_id: u.id,
+        room_id: rm.id,
+        building_id: bldg.id,
+      };
+      const { status, body } = await req('POST', '/api/books', payload);
+      assert.equal(status, 201);
+      assert.equal(body.condition, null);
+      assert.equal(body.shelf_id, null);
+      assert.equal(body.unit_id, null);
+      assert.equal(body.room_id, null);
+      assert.equal(body.building_id, null);
+      // binding is a property of the edition, not the copy — kept regardless of ownership.
+      assert.equal(body.binding, 'hardcover');
+
+      // PUT path: same scrub.
+      const { body: updated } = await req('PUT', `/api/books/${body.id}`, payload);
+      assert.equal(updated.condition, null);
+      assert.equal(updated.shelf_id, null);
+    });
+
     it('is_custom forces owned=1, previously_owned=0, and clears acquisition fields', async () => {
       // Mirrors AcquisitionFields.jsx:31-41 — toggling is_custom in the form forces
       // owned and hides/clears the acquisition fields. Backend enforces the same
@@ -2186,7 +2225,7 @@ describe('books', () => {
 
     it('shelf_id set: building_id, room_id, unit_id stored as null', async () => {
       const { body } = await req('POST', '/api/books', {
-        title: 'Shelved', shelf_id: shelfId, building_id: buildingId, room_id: roomId, unit_id: unitId,
+        title: 'Shelved', owned: true, shelf_id: shelfId, building_id: buildingId, room_id: roomId, unit_id: unitId,
       });
       assert.equal(body.shelf_id, shelfId);
       assert.equal(body.building_id, null);
@@ -2196,7 +2235,7 @@ describe('books', () => {
 
     it('unit_id wins over room_id when both present (unit is more specific)', async () => {
       const { body } = await req('POST', '/api/books', {
-        title: 'Unit Beats Room', room_id: roomId, unit_id: unitId,
+        title: 'Unit Beats Room', owned: true, room_id: roomId, unit_id: unitId,
       });
       assert.equal(body.unit_id, unitId);
       assert.equal(body.room_id, null);
@@ -2206,7 +2245,7 @@ describe('books', () => {
 
     it('room_id only: unit_id and building_id stored as null', async () => {
       const { body } = await req('POST', '/api/books', {
-        title: 'Room Only', room_id: roomId, building_id: buildingId,
+        title: 'Room Only', owned: true, room_id: roomId, building_id: buildingId,
       });
       assert.equal(body.room_id, roomId);
       assert.equal(body.unit_id, null);
@@ -2241,7 +2280,7 @@ describe('books', () => {
       assert.equal(ebook.body.duration_minutes, null);
 
       const physical = await req('POST', '/api/books', {
-        title: 'Physical Mix', format: 'physical',
+        title: 'Physical Mix', format: 'physical', owned: true,
         binding: 'hardcover', condition: 'new',
         page_count: 400, duration_minutes: 600,
       });
@@ -2256,7 +2295,7 @@ describe('books', () => {
       // shelf_id/unit_id/room_id/building_id/binding/condition/page_count
       // while the new audiobook-only fields persist.
       const { body: created } = await req('POST', '/api/books', {
-        title: 'Was Physical', format: 'physical',
+        title: 'Was Physical', format: 'physical', owned: true,
         binding: 'hardcover', condition: 'fine',
         page_count: 400, shelf_id: shelfId,
       });
@@ -2307,7 +2346,7 @@ describe('books', () => {
 
     it('unit_id only (no shelf_id, no room_id): unit_id stored', async () => {
       const { body } = await req('POST', '/api/books', {
-        title: 'Unit Only', unit_id: unitId,
+        title: 'Unit Only', owned: true, unit_id: unitId,
       });
       assert.equal(body.unit_id, unitId);
       assert.equal(body.shelf_id, null);

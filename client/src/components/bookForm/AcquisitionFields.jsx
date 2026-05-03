@@ -10,7 +10,7 @@ export default function AcquisitionFields({ form, setForm, set, pastSources, she
             <input type="checkbox" checked={form.owned}
               onChange={(e) => {
                 const owned = e.target.checked;
-                setForm(f => ({ ...f, owned, previously_owned: owned ? false : f.previously_owned, ...(!owned && { condition: '' }) }));
+                setForm(f => ({ ...f, owned, previously_owned: owned ? false : f.previously_owned, ...(!owned && { condition: '', shelf_id: null, building_id: null, room_id: null, unit_id: null }) }));
               }}
               className="w-4 h-4 rounded border-neutral-700 bg-neutral-900 text-oak focus:ring-0 focus:ring-offset-0" />
             <span className="text-sm text-neutral-300">I own this book</span>
