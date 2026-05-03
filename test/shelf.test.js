@@ -370,6 +370,30 @@ describe('shelf', () => {
       assert.ok(body.some(b => b.id === buildingBookId));
     });
 
+    it('GET /api/shelf/units/:id/books includes shelf and unit-level books, not room-only', async () => {
+      // SQL covers two placement levels: directly on a unit, or on a shelf
+      // in that unit. Books placed at the room or building level are
+      // correctly excluded.
+      const { status, body } = await req('GET', `/api/shelf/units/${unitId}/books`);
+      assert.equal(status, 200);
+      assert.ok(body.some(b => b.id === shelfedBookId), 'shelfed book should appear');
+      assert.ok(body.some(b => b.id === unitBookId), 'unit-level book should appear');
+      assert.ok(!body.some(b => b.id === buildingBookId),
+        'building-level book should NOT appear in unit drilldown');
+    });
+
+    it('GET /api/shelf/shelves/:id/books returns only books on that exact shelf', async () => {
+      // Shelf drilldown is the strictest — only direct shelf_id matches. A
+      // unit-level book on the parent unit should not appear.
+      const { status, body } = await req('GET', `/api/shelf/shelves/${shelfId}/books`);
+      assert.equal(status, 200);
+      assert.ok(body.some(b => b.id === shelfedBookId), 'shelfed book should appear');
+      assert.ok(!body.some(b => b.id === unitBookId),
+        'unit-level book should NOT appear in shelf drilldown');
+      assert.ok(!body.some(b => b.id === buildingBookId),
+        'building-level book should NOT appear in shelf drilldown');
+    });
+
     it('GET /api/shelf/rooms/:id/books includes shelf and unit-level books, not building-only', async () => {
       // SQL covers three placement levels: directly on a room, on a unit in
       // that room, or on a shelf in a unit in that room. A book placed only
