@@ -183,6 +183,39 @@ describe('books', () => {
       assert.ok(body.error);
     });
 
+    it('honors on_readlist on POST and assigns the next readlist_position', async () => {
+      // Regression: POST used to silently drop on_readlist because the field
+      // isn't in BOOK_TABLE_COLUMNS (it carries the readlist_position
+      // side-effect). createBook now mirrors patchBook's enrollment.
+      const { body: a } = await req('POST', '/api/books', {
+        title: 'wishlist-A ' + Math.random().toString(36).slice(2, 6),
+        on_readlist: true,
+      });
+      const { body: b } = await req('POST', '/api/books', {
+        title: 'wishlist-B ' + Math.random().toString(36).slice(2, 6),
+        on_readlist: true,
+      });
+      assert.equal(a.on_readlist, 1);
+      assert.equal(b.on_readlist, 1);
+      assert.ok(Number.isInteger(a.readlist_position) && a.readlist_position >= 0);
+      assert.ok(Number.isInteger(b.readlist_position) && b.readlist_position > a.readlist_position,
+        'second wishlist enrollment should land after the first');
+    });
+
+    it('does not enroll in readlist when on_readlist is absent or false', async () => {
+      const { body: omit } = await req('POST', '/api/books', {
+        title: 'no-readlist-1 ' + Math.random().toString(36).slice(2, 6),
+      });
+      const { body: explicit } = await req('POST', '/api/books', {
+        title: 'no-readlist-2 ' + Math.random().toString(36).slice(2, 6),
+        on_readlist: false,
+      });
+      assert.equal(omit.on_readlist, 0);
+      assert.equal(omit.readlist_position, null);
+      assert.equal(explicit.on_readlist, 0);
+      assert.equal(explicit.readlist_position, null);
+    });
+
     it('rejects invalid status', async () => {
       const { status } = await req('POST', '/api/books', { title: 'X', status: 'nope' });
       assert.equal(status, 400);
