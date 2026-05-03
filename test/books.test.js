@@ -2023,6 +2023,27 @@ describe('books', () => {
       assert.equal(body.building_id, null);
     });
 
+    it('non-physical books cannot have shelf locations', async () => {
+      // Shelves only hold physical books; the read path filters
+      // `format = 'physical' OR NULL`. The write path now mirrors that, so a
+      // direct API call to put an audiobook on a shelf is silently scrubbed.
+      const audio = await req('POST', '/api/books', {
+        title: 'Audio Shelved', format: 'audiobook', shelf_id: shelfId,
+      });
+      assert.equal(audio.body.shelf_id, null);
+      assert.equal(audio.body.unit_id, null);
+      assert.equal(audio.body.room_id, null);
+      assert.equal(audio.body.building_id, null);
+
+      const ebook = await req('POST', '/api/books', {
+        title: 'Ebook Roomed', format: 'ebook', room_id: roomId,
+      });
+      assert.equal(ebook.body.shelf_id, null);
+      assert.equal(ebook.body.unit_id, null);
+      assert.equal(ebook.body.room_id, null);
+      assert.equal(ebook.body.building_id, null);
+    });
+
     it('unit_id only (no shelf_id, no room_id): unit_id stored', async () => {
       const { body } = await req('POST', '/api/books', {
         title: 'Unit Only', unit_id: unitId,

@@ -234,7 +234,7 @@ describe('book contract: full field round-trip', () => {
       year_edition:      1961,               // physical-format gate means Vintage does NOT fire here (audiobook)
       abridged:          true,               // → 1 (was 0)
       shelf_id:          null,               // remove shelf
-      unit_id:           unitId,             // unit_id stored (no shelf_id, no room_id)
+      unit_id:           unitId,             // input is silently scrubbed: shelves only hold physical books
       cover_path:        '/uploads/1700000001111-billybudd.webp',
     });
 
@@ -284,9 +284,10 @@ describe('book contract: full field round-trip', () => {
     assert.equal(body.year_published, 1924);
     assert.equal(body.year_edition, 1961);
 
-    // Location: no shelf_id → unit_id stored; building/room cleared
+    // Location: audiobooks can't have shelf locations; the write path
+    // scrubs all four fields regardless of input.
     assert.equal(body.shelf_id, null);
-    assert.equal(body.unit_id, unitId);
+    assert.equal(body.unit_id, null);
     assert.equal(body.room_id, null);
     assert.equal(body.building_id, null);
 
@@ -332,7 +333,7 @@ describe('book contract: full field round-trip', () => {
     assert.equal(body.series, null);
     assert.equal(body.series_number, null);
     assert.equal(body.shelf_id, null);
-    assert.equal(body.unit_id, unitId);
+    assert.equal(body.unit_id, null);
     assert.equal(body.cover_path, '/uploads/1700000001111-billybudd.webp');
     assert.deepEqual(body.authors.map(a => a.name), ['Herman Melville', 'Raymond Weaver']);
     assert.deepEqual(body.narrators.map(n => n.name), ['Simon Vance']);
