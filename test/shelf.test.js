@@ -645,6 +645,43 @@ describe('shelf', () => {
       assert.equal(unit.book_count, 2, `unit.book_count should be exactly 2, got ${unit.book_count}`);
     });
 
+    it('PUT /api/shelf/{buildings,rooms,units}/order reorders siblings', async () => {
+      // The 400-rejection branch is covered above; this pins the success
+      // branch — the actual drag-and-drop contract used by ShelfManager.
+      // Create two fresh siblings at each level, send a reversed id list,
+      // and assert the children-list GET surfaces the new order.
+      const stem = 'reorder-' + Math.random().toString(36).slice(2, 6);
+
+      // Buildings: top-level, no parent context.
+      const { body: bA } = await req('POST', '/api/shelf/buildings', { name: `${stem} bA` });
+      const { body: bB } = await req('POST', '/api/shelf/buildings', { name: `${stem} bB` });
+      await req('PUT', '/api/shelf/buildings/order', { ids: [bB.id, bA.id] });
+      const { body: buildings } = await req('GET', '/api/shelf/buildings');
+      const bIdx = (id) => buildings.findIndex(x => x.id === id);
+      assert.ok(bIdx(bB.id) < bIdx(bA.id),
+        `bB should come before bA after reorder; got order ${buildings.map(x => x.id).join(',')}`);
+
+      // Rooms: scoped under a fresh building so we don't perturb other tests.
+      const { body: bldg } = await req('POST', '/api/shelf/buildings', { name: `${stem} parent-b` });
+      const { body: rA } = await req('POST', '/api/shelf/rooms', { building_id: bldg.id, name: `${stem} rA` });
+      const { body: rB } = await req('POST', '/api/shelf/rooms', { building_id: bldg.id, name: `${stem} rB` });
+      await req('PUT', '/api/shelf/rooms/order', { building_id: bldg.id, ids: [rB.id, rA.id] });
+      const { body: rooms } = await req('GET', `/api/shelf/buildings/${bldg.id}/rooms`);
+      const rIdx = (id) => rooms.findIndex(x => x.id === id);
+      assert.ok(rIdx(rB.id) < rIdx(rA.id),
+        `rB should come before rA after reorder; got order ${rooms.map(x => x.id).join(',')}`);
+
+      // Units: scoped under a fresh room.
+      const { body: parentRoom } = await req('POST', '/api/shelf/rooms', { building_id: bldg.id, name: `${stem} parent-r` });
+      const { body: uA } = await req('POST', '/api/shelf/units', { room_id: parentRoom.id, name: `${stem} uA` });
+      const { body: uB } = await req('POST', '/api/shelf/units', { room_id: parentRoom.id, name: `${stem} uB` });
+      await req('PUT', '/api/shelf/units/order', { room_id: parentRoom.id, ids: [uB.id, uA.id] });
+      const { body: units } = await req('GET', `/api/shelf/rooms/${parentRoom.id}/units`);
+      const uIdx = (id) => units.findIndex(x => x.id === id);
+      assert.ok(uIdx(uB.id) < uIdx(uA.id),
+        `uB should come before uA after reorder; got order ${units.map(x => x.id).join(',')}`);
+    });
+
     it('children-list endpoints order by order_index', async () => {
       // Each "children of X" route ORDER BY order_index, name. New siblings
       // get monotonically increasing order_index (max+1), so the existing
