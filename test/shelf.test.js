@@ -207,6 +207,20 @@ describe('shelf', () => {
       }
     });
 
+    it('GET .../books on malformed shelf hierarchy ids return 400 Invalid id', async () => {
+      const paths = [
+        '/api/shelf/buildings/abc/books',
+        '/api/shelf/rooms/abc/books',
+        '/api/shelf/units/abc/books',
+        '/api/shelf/shelves/abc/books',
+      ];
+      for (const path of paths) {
+        const { status, body } = await req('GET', path);
+        assert.equal(status, 400, `GET ${path} should be 400`);
+        assert.equal(body.error, 'Invalid id', `GET ${path} should have 'Invalid id'`);
+      }
+    });
+
     it('PUT/DELETE on malformed shelf hierarchy ids return 400 Invalid id', async () => {
       // The id parser short-circuits before any validation or DB work for
       // every singleton route in the hierarchy. The /order routes are
