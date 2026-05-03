@@ -177,6 +177,21 @@ describe('shelf', () => {
       assert.equal(body.error, 'Label is required');
     });
 
+    it('PUT for unknown rooms/units/shelves returns 404 Not found', async () => {
+      // Validation runs before the existence check, so each body carries a
+      // valid name/label to reach the 404 branch.
+      const cases = [
+        { path: '/api/shelf/rooms/999999',   body: { name: 'Ghost Room' } },
+        { path: '/api/shelf/units/999999',   body: { name: 'Ghost Unit' } },
+        { path: '/api/shelf/shelves/999999', body: { label: 'Ghost Shelf' } },
+      ];
+      for (const { path, body } of cases) {
+        const { status, body: resBody } = await req('PUT', path, body);
+        assert.equal(status, 404, `PUT ${path} should be 404`);
+        assert.equal(resBody.error, 'Not found', `PUT ${path} should have 'Not found'`);
+      }
+    });
+
     it('all rooms/units name guards return 400 with "Name is required"', async () => {
       // Five unpinned guards across POST/PUT for buildings/rooms/units share
       // the same contract; one table-driven test keeps validation symmetric
