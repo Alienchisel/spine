@@ -30,6 +30,12 @@ and how all related tables fit together.
 `owned` and `previously_owned` are mutually exclusive. If both are truthy on
 write, `owned` wins and `previously_owned` is forced to `0`.
 
+**Write-time normalization:** when `is_custom = 1`, the backend forces
+`owned = 1` and `previously_owned = 0`. A custom collection is by definition
+assembled by the user and currently held; the API enforces what the form's
+`AcquisitionFields.jsx` already promises (toggling Custom hides the
+ownership/previously-owned checkboxes and clears their values).
+
 ### Content flags
 
 | Column | Type | Default | Notes |
@@ -38,6 +44,11 @@ write, `owned` wins and `previously_owned` is forced to `0`.
 | `source_type` | TEXT | NULL | `primary` · `secondary` (for non-fiction source classification) |
 | `is_custom` | INTEGER | `0` | `1` = hand-entered custom entry, not from a catalogue |
 | `is_stub` | INTEGER | `0` | `1` = incomplete placeholder; auto-cleared to `0` on PUT when `title` and at least one author are both present |
+
+**Write-time normalization:** `source_type` is stored as `NULL` unless
+`fiction === 0`. Writing a `source_type` on a fiction book or on one where
+`fiction` is unset is silently scrubbed — the field is a non-fiction
+classification (primary vs secondary source).
 
 ### Format & physical properties
 
@@ -49,6 +60,18 @@ write, `owned` wins and `previously_owned` is forced to `0`.
 | `page_count` | INTEGER | Positive integer; NULL for audiobooks or unknown |
 | `duration_minutes` | INTEGER | Positive integer; meaningful for `format = 'audiobook'` |
 | `abridged` | INTEGER | `1` if this edition is abridged; `0` for complete or unset. Surfaces as the **Abridged** virtual tag |
+
+**Write-time normalization** (mirrors the format-driven clearing in
+`CoreFields.jsx` and the ownership clearing in `AcquisitionFields.jsx`):
+
+- `binding` is stored as `NULL` unless `format = 'physical'`. It describes the
+  edition (paperback / hardcover), so it's kept regardless of ownership — a
+  previously-owned hardcover still carries `binding = 'hardcover'`.
+- `condition` is stored as `NULL` unless `format = 'physical'` AND
+  (`owned = 1` OR `is_custom = 1`). Condition describes the state of *your*
+  copy, so it's only meaningful for books you currently have.
+- `page_count` is stored as `NULL` when `format = 'audiobook'`.
+- `duration_minutes` is stored as `NULL` when `format != 'audiobook'`.
 
 ### Identifiers
 
@@ -87,6 +110,11 @@ from `language`, the virtual tag **Translated** is applied (see
 |---|---|---|
 | `acquisition_source` | TEXT | Free text (e.g. `Audible`, `Amazon`, `Library`) |
 | `acquisition_date` | TEXT | Partial date: `YYYY`, `YYYY-MM`, or `YYYY-MM-DD` |
+
+**Write-time normalization:** when `is_custom = 1`, both `acquisition_source`
+and `acquisition_date` are forced to `NULL`. Custom collections are assembled
+by the user, not acquired from a vendor — the form hides the acquisition
+inputs in this case and the backend enforces the same contract.
 
 ### Rating & content
 
@@ -135,6 +163,13 @@ most specific field is stored; the rest are forced to NULL on write.
 When multiple location fields are present in a write payload, the most specific
 non-null value wins and all less-specific fields are silently cleared.
 Normalisation is applied by `normalizeBookLocation()` in `lib/books/normalization.js`.
+
+**Write-time normalization:** the entire location chain is stored as `NULL`
+unless the book is both `format = 'physical'` (or unset) AND `owned = 1`
+(or `is_custom = 1`). Books that are previously-owned, never-owned, or
+non-physical can't hold a shelf assignment — direct API writes with shelf
+data are silently scrubbed, mirroring `AcquisitionFields.jsx` which only
+shows the shelf picker when `owned && format === 'physical'`.
 | — | `shelf_position` | INTEGER | Sort position within a shelf; rewritten by `PUT /api/shelf/shelves/:id/order` |
 
 ---
