@@ -1693,12 +1693,21 @@ describe('books', () => {
       assert.equal(body.acquisition_date, '2025-06');
     });
 
-    it('saves duration_minutes and page_count', async () => {
-      const { body } = await req('POST', '/api/books', {
-        title: 'Long Book', page_count: 800, duration_minutes: 1200,
+    it('saves page_count for non-audiobooks and duration_minutes for audiobooks', async () => {
+      // Format-gated columns: page_count is meaningless for audiobooks,
+      // duration_minutes is meaningless for everything else (see
+      // CoreFields.jsx:24-25 and bookColumns).
+      const phys = await req('POST', '/api/books', {
+        title: 'Long Book', format: 'physical', page_count: 800,
       });
-      assert.equal(body.page_count, 800);
-      assert.equal(body.duration_minutes, 1200);
+      assert.equal(phys.body.page_count, 800);
+      assert.equal(phys.body.duration_minutes, null);
+
+      const audio = await req('POST', '/api/books', {
+        title: 'Long Audiobook', format: 'audiobook', duration_minutes: 1200,
+      });
+      assert.equal(audio.body.page_count, null);
+      assert.equal(audio.body.duration_minutes, 1200);
     });
 
     it('defaults language to English when omitted', async () => {
@@ -2021,6 +2030,43 @@ describe('books', () => {
       assert.equal(body.unit_id, null);
       assert.equal(body.shelf_id, null);
       assert.equal(body.building_id, null);
+    });
+
+    it('format gates which physical/audio fields persist on POST', async () => {
+      // Mirrors CoreFields.jsx:22-25 — the form clears these on format
+      // change; the API now scrubs them too. Cases:
+      //   - audiobook: binding/condition/page_count → null; duration kept.
+      //   - ebook:     binding/condition/duration → null; page_count kept.
+      //   - physical:  duration → null; the rest kept.
+      const audio = await req('POST', '/api/books', {
+        title: 'Audio Mix', format: 'audiobook',
+        binding: 'paperback', condition: 'fine',
+        page_count: 320, duration_minutes: 600,
+      });
+      assert.equal(audio.body.binding, null);
+      assert.equal(audio.body.condition, null);
+      assert.equal(audio.body.page_count, null);
+      assert.equal(audio.body.duration_minutes, 600);
+
+      const ebook = await req('POST', '/api/books', {
+        title: 'Ebook Mix', format: 'ebook',
+        binding: 'hardcover', condition: 'new',
+        page_count: 250, duration_minutes: 500,
+      });
+      assert.equal(ebook.body.binding, null);
+      assert.equal(ebook.body.condition, null);
+      assert.equal(ebook.body.page_count, 250);
+      assert.equal(ebook.body.duration_minutes, null);
+
+      const physical = await req('POST', '/api/books', {
+        title: 'Physical Mix', format: 'physical',
+        binding: 'hardcover', condition: 'new',
+        page_count: 400, duration_minutes: 600,
+      });
+      assert.equal(physical.body.binding, 'hardcover');
+      assert.equal(physical.body.condition, 'new');
+      assert.equal(physical.body.page_count, 400);
+      assert.equal(physical.body.duration_minutes, null);
     });
 
     it('non-physical books cannot have shelf locations', async () => {
