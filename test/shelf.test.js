@@ -476,6 +476,25 @@ describe('shelf', () => {
       }
     });
 
+    it('GET /api/shelf/shelves/:id/books normalizes cover_path back to /uploads/<filename>', async () => {
+      // Each shelf drilldown does its own b.cover_path → /uploads/<filename>
+      // mapping (separate from the book list path). Pin it on the strictest
+      // drilldown so a regression in any of the four routes is likely to
+      // cross with this test.
+      const filename = '9876543210-zyxwvu.jpg';
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'shelf cover ' + Math.random().toString(36).slice(2, 6),
+        format: 'physical',
+        owned: true,
+        shelf_id: shelfId,
+        cover_path: `/uploads/${filename}`,
+      });
+      const { body } = await req('GET', `/api/shelf/shelves/${shelfId}/books`);
+      const found = body.find(b => b.id === created.id);
+      assert.ok(found, 'created book should appear in the shelf drilldown');
+      assert.equal(found.cover_path, `/uploads/${filename}`);
+    });
+
     it('GET /api/shelf/shelves/:id/books returns only books on that exact shelf', async () => {
       // Shelf drilldown is the strictest — only direct shelf_id matches. A
       // unit-level book on the parent unit should not appear.
