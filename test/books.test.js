@@ -603,6 +603,15 @@ describe('books', () => {
       assert.equal(status, 400);
       assert.equal(body.error, 'Invalid book id');
     });
+
+    it('returns 200 with [] for a book with no reading-log rows', async () => {
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'no-log ' + Math.random().toString(36).slice(2, 6),
+      });
+      const { status, body } = await req('GET', `/api/books/${created.id}/log`);
+      assert.equal(status, 200);
+      assert.deepEqual(body, []);
+    });
   });
 
   describe('reads', () => {
