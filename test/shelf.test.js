@@ -304,6 +304,7 @@ describe('shelf', () => {
     let shelfedBookId;
     let unshelfedBookId;
     let unitBookId;
+    let roomBookId;
     let buildingBookId;
 
     before(async () => {
@@ -322,6 +323,8 @@ describe('shelf', () => {
       unshelfedBookId = ub.id;
       const { body: ub2 } = await req('POST', '/api/books', { title: 'Unit Only Book', owned: true, unit_id: unitId });
       unitBookId = ub2.id;
+      const { body: rb } = await req('POST', '/api/books', { title: 'Room Only Book', owned: true, room_id: roomId });
+      roomBookId = rb.id;
       const { body: bb } = await req('POST', '/api/books', { title: 'Building Book', owned: true, building_id: buildingId });
       buildingBookId = bb.id;
     });
@@ -394,7 +397,7 @@ describe('shelf', () => {
         'building-level book should NOT appear in shelf drilldown');
     });
 
-    it('GET /api/shelf/rooms/:id/books includes shelf and unit-level books, not building-only', async () => {
+    it('GET /api/shelf/rooms/:id/books includes room/unit/shelf-level books, not building-only', async () => {
       // SQL covers three placement levels: directly on a room, on a unit in
       // that room, or on a shelf in a unit in that room. A book placed only
       // at the building level is correctly excluded.
@@ -402,6 +405,7 @@ describe('shelf', () => {
       assert.equal(status, 200);
       assert.ok(body.some(b => b.id === shelfedBookId), 'shelfed book should appear');
       assert.ok(body.some(b => b.id === unitBookId), 'unit-level book should appear');
+      assert.ok(body.some(b => b.id === roomBookId), 'room-level book should appear');
       assert.ok(!body.some(b => b.id === buildingBookId),
         'building-level book should NOT appear in room drilldown');
     });
