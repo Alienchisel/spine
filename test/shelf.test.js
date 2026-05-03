@@ -125,6 +125,28 @@ describe('shelf', () => {
       assert.ok(shelf, 'shelf in tree');
     });
 
+    it('deleting a shelf releases assigned books to unshelfed without deleting them', async () => {
+      // The UI promises "books assigned here will lose their location"; the
+      // schema enforces this via ON DELETE SET NULL on books.shelf_id. Pin
+      // the user-visible behavior so a future schema or route change can't
+      // accidentally cascade-delete or leave books orphaned at the shelf id.
+      const stem = 'shelf-delete-' + Math.random().toString(36).slice(2, 6);
+      const { body: shelf } = await req('POST', '/api/shelf/shelves', { unit_id: unitId, label: `${stem} shelf` });
+      const { body: book } = await req('POST', '/api/books', {
+        title: `${stem} book`, format: 'physical', owned: true, shelf_id: shelf.id,
+      });
+
+      const { status: del } = await req('DELETE', `/api/shelf/shelves/${shelf.id}`);
+      assert.equal(del, 204);
+
+      const { body: location } = await req('GET', `/api/shelf/location/${book.id}`);
+      assert.equal(location, null, 'book should have no resolved location after shelf delete');
+
+      const { body: unshelfed } = await req('GET', '/api/shelf/unshelfed');
+      assert.ok(unshelfed.some(b => b.id === book.id),
+        'book should reappear as unshelfed after its shelf was deleted');
+    });
+
     it('GET /api/shelf/tree reports exact book_count at every level', async () => {
       // /tree has its own count SQL separate from the child-list endpoints,
       // so a tree-only regression wouldn't be caught by the child-list test.
