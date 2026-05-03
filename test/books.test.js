@@ -879,6 +879,50 @@ describe('books', () => {
         assert.equal(body.error, 'Invalid id', `${method} ${path} should have 'Invalid id' error`);
       }
     });
+
+    it('accepts year-only partial date on POST', async () => {
+      const { status, body } = await req('POST', `/api/books/${bookId}/reads`, {
+        date_finished: '2018',
+      });
+      assert.equal(status, 201);
+      assert.equal(body.date_finished, '2018');
+    });
+
+    it('accepts year-month partial date on POST', async () => {
+      const { status, body } = await req('POST', `/api/books/${bookId}/reads`, {
+        date_started: '2019-03',
+        date_finished: '2019-06',
+      });
+      assert.equal(status, 201);
+      assert.equal(body.date_started, '2019-03');
+      assert.equal(body.date_finished, '2019-06');
+    });
+
+    it('accepts mixed-precision partial dates on POST', async () => {
+      const { status, body } = await req('POST', `/api/books/${bookId}/reads`, {
+        date_started: '2020',
+        date_finished: '2020-12-15',
+      });
+      assert.equal(status, 201);
+      assert.equal(body.date_started, '2020');
+      assert.equal(body.date_finished, '2020-12-15');
+    });
+
+    it('accepts partial dates on PUT', async () => {
+      const { body: created } = await req('POST', `/api/books/${bookId}/reads`, {});
+      const { status, body } = await req('PUT', `/api/books/${bookId}/reads/${created.id}`, {
+        date_finished: '2021',
+      });
+      assert.equal(status, 200);
+      assert.equal(body.date_finished, '2021');
+    });
+
+    it('rejects invalid month in partial date on POST', async () => {
+      const { status } = await req('POST', `/api/books/${bookId}/reads`, {
+        date_finished: '2024-13',
+      });
+      assert.equal(status, 400);
+    });
   });
 
   describe('field persistence', () => {
@@ -1968,6 +2012,58 @@ describe('books', () => {
         title: 'Re-read', read_count: 5,
       });
       assert.equal(body.read_count, 5);
+    });
+
+    it('auto-INSERTs a reads row on finish transition', async () => {
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Auto-Reads Book', status: 'reading',
+      });
+      const { body: before } = await req('GET', `/api/books/${created.id}/reads`);
+      assert.equal(before.length, 0);
+      await req('PUT', `/api/books/${created.id}`, {
+        title: 'Auto-Reads Book', status: 'finished',
+        date_started: '2024-08-01', date_finished: '2024-08-15',
+      });
+      const { body: after } = await req('GET', `/api/books/${created.id}/reads`);
+      assert.equal(after.length, 1);
+      assert.equal(after[0].date_started, '2024-08-01');
+      assert.equal(after[0].date_finished, '2024-08-15');
+    });
+
+    it('manual read_count bump on already-finished book leaves reads untouched', async () => {
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Re-read Backfill', status: 'reading',
+      });
+      // First transition to finished — should add one reads row.
+      await req('PUT', `/api/books/${created.id}`, {
+        title: 'Re-read Backfill', status: 'finished', date_finished: '2024-09-01',
+      });
+      const { body: afterFinish } = await req('GET', `/api/books/${created.id}/reads`);
+      assert.equal(afterFinish.length, 1);
+      // Now bump read_count to 5 (still finished — no transition). Manual override
+      // path: should NOT auto-insert four more rows.
+      await req('PUT', `/api/books/${created.id}`, {
+        title: 'Re-read Backfill', status: 'finished', read_count: 5,
+      });
+      const { body: afterBump } = await req('GET', `/api/books/${created.id}/reads`);
+      assert.equal(afterBump.length, 1, 'manual read_count override must not expand into reads rows');
+    });
+
+    it('does not auto-INSERT when status is unchanged (e.g. patching review)', async () => {
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Re-edit Finished', status: 'reading',
+      });
+      await req('PUT', `/api/books/${created.id}`, {
+        title: 'Re-edit Finished', status: 'finished',
+      });
+      const { body: afterFinish } = await req('GET', `/api/books/${created.id}/reads`);
+      assert.equal(afterFinish.length, 1);
+      // Edit unrelated field; status stays 'finished'.
+      await req('PUT', `/api/books/${created.id}`, {
+        title: 'Re-edit Finished', status: 'finished', review: 'thoughts',
+      });
+      const { body: afterEdit } = await req('GET', `/api/books/${created.id}/reads`);
+      assert.equal(afterEdit.length, 1);
     });
   });
 

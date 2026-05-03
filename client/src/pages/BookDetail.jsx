@@ -85,10 +85,6 @@ export default function BookDetail() {
       });
       setBook(updated);
       if (!book.rating) setRatingPrompt(true);
-      await api.addRead(book.id, {
-        date_started: book.date_started || null,
-        date_finished: dateFinished,
-      }).catch(() => {});
       loadReads();
     } catch {
       setFinishError('Failed to save — please try again');

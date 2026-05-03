@@ -1,6 +1,6 @@
 import express from 'express';
 import db from '../db.js';
-import { validateBook, isValidDate } from '../lib/books/validation.js';
+import { validateBook, isValidPartialDate } from '../lib/books/validation.js';
 import { getBook, getBookCounts, getBookFacets, listBooks, createBook, updateBook, patchBook, deleteBook, updateBookCover } from '../lib/books/repository.js';
 
 const router = express.Router();
@@ -48,8 +48,8 @@ router.post('/:id/reads', (req, res) => {
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
   if (!db.prepare('SELECT id FROM books WHERE id = ?').get(id)) return res.status(404).json({ error: 'Not found' });
   const { date_started, date_finished } = req.body;
-  if (date_started && !isValidDate(date_started)) return res.status(400).json({ error: 'Invalid date_started' });
-  if (date_finished && !isValidDate(date_finished)) return res.status(400).json({ error: 'Invalid date_finished' });
+  if (date_started && !isValidPartialDate(date_started)) return res.status(400).json({ error: 'Invalid date_started' });
+  if (date_finished && !isValidPartialDate(date_finished)) return res.status(400).json({ error: 'Invalid date_finished' });
   if (date_started && date_finished && date_finished < date_started) return res.status(400).json({ error: 'date_finished cannot be before date_started' });
   const result = db.prepare("INSERT INTO reads (book_id, date_started, date_finished, created_at) VALUES (?, ?, ?, datetime('now', 'localtime'))").run(id, date_started || null, date_finished || null);
   res.status(201).json(db.prepare('SELECT * FROM reads WHERE id = ?').get(result.lastInsertRowid));
@@ -61,8 +61,8 @@ router.put('/:id/reads/:readId', (req, res) => {
   if (!Number.isInteger(id) || id < 1 || !Number.isInteger(readId) || readId < 1) return res.status(400).json({ error: 'Invalid id' });
   if (!db.prepare('SELECT id FROM reads WHERE id = ? AND book_id = ?').get(readId, id)) return res.status(404).json({ error: 'Not found' });
   const { date_started, date_finished } = req.body;
-  if (date_started && !isValidDate(date_started)) return res.status(400).json({ error: 'Invalid date_started' });
-  if (date_finished && !isValidDate(date_finished)) return res.status(400).json({ error: 'Invalid date_finished' });
+  if (date_started && !isValidPartialDate(date_started)) return res.status(400).json({ error: 'Invalid date_started' });
+  if (date_finished && !isValidPartialDate(date_finished)) return res.status(400).json({ error: 'Invalid date_finished' });
   if (date_started && date_finished && date_finished < date_started) return res.status(400).json({ error: 'date_finished cannot be before date_started' });
   db.prepare('UPDATE reads SET date_started = ?, date_finished = ? WHERE id = ?').run(date_started || null, date_finished || null, readId);
   res.json(db.prepare('SELECT * FROM reads WHERE id = ?').get(readId));

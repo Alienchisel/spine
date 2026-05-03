@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { api } from '../../api.js';
-import { formatDate } from './dates.js';
+import { formatPartialDate } from './dates.js';
+
+// Matches YYYY, YYYY-MM, or YYYY-MM-DD — same shape as isValidPartialDate on the server.
+const PARTIAL_DATE_RE = /^(\d{4}(-\d{2}(-\d{2})?)?)?$/;
 
 export default function ReadsSection({ bookId, reads, onUpdate }) {
   const [adding, setAdding] = useState(false);
@@ -9,7 +12,7 @@ export default function ReadsSection({ bookId, reads, onUpdate }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
-  const inputCls = 'bg-neutral-900 border border-neutral-700 text-neutral-300 text-xs rounded px-2 py-1 focus:outline-none focus:border-neutral-500 transition-colors';
+  const inputCls = 'bg-neutral-900 border border-neutral-700 text-neutral-300 text-xs rounded px-2 py-1 w-32 focus:outline-none focus:border-neutral-500 transition-colors';
 
   function startAdd() {
     setAdding(true);
@@ -26,6 +29,15 @@ export default function ReadsSection({ bookId, reads, onUpdate }) {
   }
 
   function validateDates() {
+    if (form.date_started && !PARTIAL_DATE_RE.test(form.date_started)) {
+      setError('Start date must be YYYY, YYYY-MM, or YYYY-MM-DD');
+      return false;
+    }
+    if (form.date_finished && !PARTIAL_DATE_RE.test(form.date_finished)) {
+      setError('Finish date must be YYYY, YYYY-MM, or YYYY-MM-DD');
+      return false;
+    }
+    // Lexical comparison works for partial dates because they're all left-padded.
     if (form.date_started && form.date_finished && form.date_finished < form.date_started) {
       setError('Finish date cannot be before start date');
       return false;
@@ -83,9 +95,9 @@ export default function ReadsSection({ bookId, reads, onUpdate }) {
         <div className="space-y-2 mb-3">
           {reads.map((r, i) => editId === r.id ? (
             <form key={r.id} onSubmit={(e) => handleUpdate(e, r.id)} className="flex flex-wrap items-center gap-2">
-              <input type="date" value={form.date_started} onChange={(e) => setForm(f => ({ ...f, date_started: e.target.value }))} className={inputCls} />
+              <input type="text" inputMode="numeric" placeholder="YYYY-MM-DD" value={form.date_started} onChange={(e) => setForm(f => ({ ...f, date_started: e.target.value }))} className={inputCls} />
               <span className="text-neutral-600 text-xs">→</span>
-              <input type="date" value={form.date_finished} onChange={(e) => setForm(f => ({ ...f, date_finished: e.target.value }))} className={inputCls} />
+              <input type="text" inputMode="numeric" placeholder="YYYY-MM-DD" value={form.date_finished} onChange={(e) => setForm(f => ({ ...f, date_finished: e.target.value }))} className={inputCls} />
               <button type="submit" disabled={saving} className="text-xs text-oak hover:text-oak/80 transition-colors disabled:opacity-40">Save</button>
               <button type="button" onClick={() => setEditId(null)} className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors">Cancel</button>
             </form>
@@ -93,8 +105,8 @@ export default function ReadsSection({ bookId, reads, onUpdate }) {
             <div key={r.id} className="flex items-center gap-3 group">
               <span className="text-xs text-neutral-600 w-4 text-right flex-shrink-0">{i + 1}.</span>
               <span className="text-xs text-neutral-400 flex-1">
-                {r.date_started ? formatDate(r.date_started) : '—'}
-                {r.date_finished ? <> <span className="text-neutral-600">→</span> {formatDate(r.date_finished)}</> : ''}
+                {r.date_started ? formatPartialDate(r.date_started) : '—'}
+                {r.date_finished ? <> <span className="text-neutral-600">→</span> {formatPartialDate(r.date_finished)}</> : ''}
               </span>
               <button onClick={() => startEdit(r)} className="text-xs text-neutral-700 hover:text-neutral-400 opacity-0 group-hover:opacity-100 transition-all">Edit</button>
               <button onClick={() => handleDelete(r.id)} className="text-xs text-neutral-700 hover:text-warn opacity-0 group-hover:opacity-100 transition-all ml-1">×</button>
@@ -106,9 +118,9 @@ export default function ReadsSection({ bookId, reads, onUpdate }) {
       )}
       {adding ? (
         <form onSubmit={handleAdd} className="flex flex-wrap items-center gap-2">
-          <input type="date" value={form.date_started} onChange={(e) => setForm(f => ({ ...f, date_started: e.target.value }))} className={inputCls} />
+          <input type="text" inputMode="numeric" placeholder="YYYY-MM-DD" value={form.date_started} onChange={(e) => setForm(f => ({ ...f, date_started: e.target.value }))} className={inputCls} />
           <span className="text-neutral-600 text-xs">→</span>
-          <input type="date" value={form.date_finished} onChange={(e) => setForm(f => ({ ...f, date_finished: e.target.value }))} className={inputCls} />
+          <input type="text" inputMode="numeric" placeholder="YYYY-MM-DD" value={form.date_finished} onChange={(e) => setForm(f => ({ ...f, date_finished: e.target.value }))} className={inputCls} />
           <button type="submit" disabled={saving} className="text-xs text-oak hover:text-oak/80 transition-colors disabled:opacity-40">Add</button>
           <button type="button" onClick={() => { setAdding(false); setError(null); }} className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors">Cancel</button>
         </form>
