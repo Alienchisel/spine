@@ -277,6 +277,36 @@ describe('shelf', () => {
       }
     });
 
+    it('PUT /api/shelf/shelves/:id/order ignores book ids belonging to a different shelf', async () => {
+      // The book reorder SQL filters by shelf_id; sending a book from
+      // another shelf must not affect either shelf's order.
+      const stem = 'shelf-book-iso-' + Math.random().toString(36).slice(2, 6);
+      const { body: u }  = await req('POST', '/api/shelf/units', { room_id: roomId, name: `${stem} unit` });
+      const { body: sA } = await req('POST', '/api/shelf/shelves', { unit_id: u.id, label: `${stem} sA` });
+      const { body: sB } = await req('POST', '/api/shelf/shelves', { unit_id: u.id, label: `${stem} sB` });
+      const { body: a1 } = await req('POST', '/api/books', { title: `${stem} a1`, format: 'physical', owned: true, shelf_id: sA.id });
+      const { body: a2 } = await req('POST', '/api/books', { title: `${stem} a2`, format: 'physical', owned: true, shelf_id: sA.id });
+      // Establish initial order on shelf A: a1 before a2.
+      await req('PUT', `/api/shelf/shelves/${sA.id}/order`, { ids: [a1.id, a2.id] });
+      // Misfire: try to reorder shelf B using shelf A's books in reverse.
+      const { status } = await req('PUT', `/api/shelf/shelves/${sB.id}/order`, { ids: [a2.id, a1.id] });
+      assert.equal(status, 204);
+      const { body: list } = await req('GET', `/api/shelf/shelves/${sA.id}/books`);
+      const ids = list.map(b => b.id);
+      const i1 = ids.indexOf(a1.id);
+      const i2 = ids.indexOf(a2.id);
+      assert.ok(i1 !== -1 && i2 !== -1, 'both books should still be on shelf A');
+      assert.ok(i1 < i2, `shelf A's order must be unchanged; got ${ids.join(',')}`);
+    });
+
+    it('PUT /api/shelf/buildings/:id rejects invalid proximity', async () => {
+      // Mirrors the existing POST proximity test; PUT has its own validation.
+      const { body: bldg } = await req('POST', '/api/shelf/buildings', { name: 'proximity-put ' + Math.random().toString(36).slice(2, 6) });
+      const { status, body } = await req('PUT', `/api/shelf/buildings/${bldg.id}`, { name: 'X', proximity: 'orbit' });
+      assert.equal(status, 400);
+      assert.equal(body.error, 'Invalid proximity');
+    });
+
     it('PUT /api/shelf/shelves/:id/order returns 400 for malformed shelf id', async () => {
       // Distinct from the ids-not-array branch — :id parser short-circuits first.
       const { status, body } = await req('PUT', '/api/shelf/shelves/abc/order', { ids: [] });
