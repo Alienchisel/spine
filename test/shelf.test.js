@@ -171,6 +171,12 @@ describe('shelf', () => {
       assert.equal(body.error, 'Label is required');
     });
 
+    it('PUT /api/shelf/shelves/:id returns 400 when label is missing', async () => {
+      const { status, body } = await req('PUT', `/api/shelf/shelves/${shelfId}`, { label: '' });
+      assert.equal(status, 400);
+      assert.equal(body.error, 'Label is required');
+    });
+
     it('POST /api/shelf/shelves returns 404 when unit_id points to no unit', async () => {
       const { status, body } = await req('POST', '/api/shelf/shelves', { unit_id: 999999, label: 'Ghost' });
       assert.equal(status, 404);
