@@ -128,7 +128,10 @@ describe('book contract: full field round-trip', () => {
     assert.equal(body.abridged, 0);
 
     // Scalar fields
-    assert.equal(body.source_type, 'primary');
+    // source_type is gated to fiction === false; this fixture is fiction=true
+    // so the input 'primary' is silently scrubbed to null. The PUT below
+    // flips fiction=false and source_type then persists as 'secondary'.
+    assert.equal(body.source_type, null);
     assert.equal(body.rating, 4.5);
     assert.equal(body.date_started, '2024-03-01');
     assert.equal(body.date_finished, null);

@@ -439,6 +439,23 @@ describe('books', () => {
       assert.equal(body.source_type, 'primary');
     });
 
+    it('source_type is dropped on fiction or unset-fiction books', async () => {
+      // Mirrors CoreFields.jsx:64 — the form only keeps source_type when
+      // fiction === false. The backend now enforces the same gate, so
+      // primary/secondary classification stays semantically clean on facets.
+      const fictionBook = await req('POST', '/api/books', {
+        title: 'Iliad', fiction: true, source_type: 'primary',
+      });
+      assert.equal(fictionBook.body.fiction, 1);
+      assert.equal(fictionBook.body.source_type, null);
+
+      const unsetBook = await req('POST', '/api/books', {
+        title: 'Mystery Genre', source_type: 'primary',
+      });
+      assert.equal(unsetBook.body.fiction, null);
+      assert.equal(unsetBook.body.source_type, null);
+    });
+
     it('saves and returns previously_owned flag', async () => {
       const { status, body } = await req('POST', '/api/books', { title: 'Sold Book', previously_owned: true });
       assert.equal(status, 201);
