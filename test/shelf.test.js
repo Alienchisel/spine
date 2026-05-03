@@ -245,6 +245,23 @@ describe('shelf', () => {
       assert.equal(treeShelf.book_count, 1, `shelf book_count: ${treeShelf.book_count}`);
     });
 
+    it('all reorder routes return 400 when ids contains a malformed entry', async () => {
+      // ['abc'], [0], [-1], [1.5] all used to silently no-op via the SQL
+      // WHERE filter. Each route now rejects them with 400 'Invalid id'.
+      const cases = [
+        { path: '/api/shelf/buildings/order',           body: { ids: ['abc'] } },
+        { path: '/api/shelf/rooms/order',               body: { building_id: buildingId, ids: [0] } },
+        { path: '/api/shelf/units/order',               body: { room_id: roomId,         ids: [-1] } },
+        { path: '/api/shelf/shelves/order',             body: { unit_id: unitId,         ids: [1.5] } },
+        { path: `/api/shelf/shelves/${shelfId}/order`,  body: { ids: ['abc'] } },
+      ];
+      for (const { path, body } of cases) {
+        const { status, body: resBody } = await req('PUT', path, body);
+        assert.equal(status, 400, `PUT ${path} should be 400`);
+        assert.equal(resBody.error, 'Invalid id', `PUT ${path} should have 'Invalid id'`);
+      }
+    });
+
     it('child POST routes return 400 for malformed parent id', async () => {
       // Truthy-but-malformed parent ids used to fall through to the
       // existence-check 404 ("X not found"), which was misleading. They

@@ -9,6 +9,12 @@ function t(val) {
   return s || null;
 }
 
+// Reorder routes must reject malformed ids in the array; otherwise the
+// `WHERE id = ?` filter silently ignores them, making client bugs invisible.
+function allPositiveInts(arr) {
+  return arr.every(n => Number.isInteger(n) && n >= 1);
+}
+
 const VALID_PROXIMITY = ['home', 'nearby', 'remote'];
 
 // ── Full tree (for pickers and manager) ───────────────────────────────────
@@ -87,6 +93,7 @@ router.post('/buildings', (req, res) => {
 router.put('/buildings/order', (req, res) => {
   const { ids } = req.body;
   if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids must be an array' });
+  if (!allPositiveInts(ids)) return res.status(400).json({ error: 'Invalid id' });
   const update = db.prepare('UPDATE buildings SET order_index = ? WHERE id = ?');
   db.transaction(() => ids.forEach((id, i) => update.run(i, id)))();
   res.status(204).end();
@@ -163,6 +170,7 @@ router.put('/rooms/order', (req, res) => {
   if (!building_id) return res.status(400).json({ error: 'building_id is required' });
   if (!Number.isInteger(building_id) || building_id < 1) return res.status(400).json({ error: 'Invalid id' });
   if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids must be an array' });
+  if (!allPositiveInts(ids)) return res.status(400).json({ error: 'Invalid id' });
   const update = db.prepare('UPDATE rooms SET order_index = ? WHERE id = ? AND building_id = ?');
   db.transaction(() => ids.forEach((id, i) => update.run(i, id, building_id)))();
   res.status(204).end();
@@ -227,6 +235,7 @@ router.put('/units/order', (req, res) => {
   if (!room_id) return res.status(400).json({ error: 'room_id is required' });
   if (!Number.isInteger(room_id) || room_id < 1) return res.status(400).json({ error: 'Invalid id' });
   if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids must be an array' });
+  if (!allPositiveInts(ids)) return res.status(400).json({ error: 'Invalid id' });
   const update = db.prepare('UPDATE units SET order_index = ? WHERE id = ? AND room_id = ?');
   db.transaction(() => ids.forEach((id, i) => update.run(i, id, room_id)))();
   res.status(204).end();
@@ -285,6 +294,7 @@ router.put('/shelves/order', (req, res) => {
   if (!unit_id) return res.status(400).json({ error: 'unit_id is required' });
   if (!Number.isInteger(unit_id) || unit_id < 1) return res.status(400).json({ error: 'Invalid id' });
   if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids must be an array' });
+  if (!allPositiveInts(ids)) return res.status(400).json({ error: 'Invalid id' });
   const update = db.prepare('UPDATE shelves SET order_index = ? WHERE id = ? AND unit_id = ?');
   db.transaction(() => ids.forEach((id, i) => update.run(i, id, unit_id)))();
   res.status(204).end();
@@ -427,6 +437,7 @@ router.put('/shelves/:id/order', (req, res) => {
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid id' });
   const { ids } = req.body;
   if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids must be an array' });
+  if (!allPositiveInts(ids)) return res.status(400).json({ error: 'Invalid id' });
   const update = db.prepare('UPDATE books SET shelf_position = ? WHERE id = ? AND shelf_id = ?');
   db.transaction(() => ids.forEach((bookId, pos) => update.run(pos, bookId, id)))();
   res.status(204).end();
