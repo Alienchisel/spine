@@ -148,6 +148,7 @@ router.get('/buildings/:id/rooms', (req, res) => {
 router.post('/rooms', (req, res) => {
   const { building_id, name } = req.body;
   if (!building_id) return res.status(400).json({ error: 'building_id is required' });
+  if (!Number.isInteger(building_id) || building_id < 1) return res.status(400).json({ error: 'Invalid id' });
   if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
   if (!db.prepare('SELECT id FROM buildings WHERE id = ?').get(building_id)) return res.status(404).json({ error: 'Building not found' });
   const max = db.prepare('SELECT MAX(order_index) AS m FROM rooms WHERE building_id = ?').get(building_id);
@@ -211,6 +212,7 @@ router.get('/rooms/:id/units', (req, res) => {
 router.post('/units', (req, res) => {
   const { room_id, name } = req.body;
   if (!room_id) return res.status(400).json({ error: 'room_id is required' });
+  if (!Number.isInteger(room_id) || room_id < 1) return res.status(400).json({ error: 'Invalid id' });
   if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
   if (!db.prepare('SELECT id FROM rooms WHERE id = ?').get(room_id)) return res.status(404).json({ error: 'Room not found' });
   const max = db.prepare('SELECT MAX(order_index) AS m FROM units WHERE room_id = ?').get(room_id);
@@ -268,6 +270,7 @@ router.get('/units/:id/shelves', (req, res) => {
 router.post('/shelves', (req, res) => {
   const { unit_id, label } = req.body;
   if (!unit_id) return res.status(400).json({ error: 'unit_id is required' });
+  if (!Number.isInteger(unit_id) || unit_id < 1) return res.status(400).json({ error: 'Invalid id' });
   if (!label?.toString().trim()) return res.status(400).json({ error: 'Label is required' });
   if (!db.prepare('SELECT id FROM units WHERE id = ?').get(unit_id)) return res.status(404).json({ error: 'Unit not found' });
   const max = db.prepare('SELECT MAX(order_index) AS m FROM shelves WHERE unit_id = ?').get(unit_id);

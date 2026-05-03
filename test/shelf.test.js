@@ -245,6 +245,22 @@ describe('shelf', () => {
       assert.equal(treeShelf.book_count, 1, `shelf book_count: ${treeShelf.book_count}`);
     });
 
+    it('child POST routes return 400 for malformed parent id', async () => {
+      // Truthy-but-malformed parent ids used to fall through to the
+      // existence-check 404 ("X not found"), which was misleading. They
+      // now 400 with 'Invalid id', matching the reorder routes.
+      const cases = [
+        { path: '/api/shelf/rooms',   body: { building_id: 'abc', name: 'X' } },
+        { path: '/api/shelf/units',   body: { room_id: 'abc',     name: 'X' } },
+        { path: '/api/shelf/shelves', body: { unit_id: 'abc',     label: 'X' } },
+      ];
+      for (const { path, body } of cases) {
+        const { status, body: resBody } = await req('POST', path, body);
+        assert.equal(status, 400, `POST ${path} should be 400`);
+        assert.equal(resBody.error, 'Invalid id', `POST ${path} should have 'Invalid id'`);
+      }
+    });
+
     it('scoped reorder routes return 400 for malformed parent id', async () => {
       // Truthy-but-malformed parent ids used to slip past the missing-parent
       // guard and silently no-op via SQL. Now they 400 with 'Invalid id'.
