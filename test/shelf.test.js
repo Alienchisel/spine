@@ -645,6 +645,22 @@ describe('shelf', () => {
       assert.equal(unit.book_count, 2, `unit.book_count should be exactly 2, got ${unit.book_count}`);
     });
 
+    it('PUT /api/shelf/shelves/order reorders shelves under a unit', async () => {
+      // Mirrors rooms/order and units/order. Backend route placement matters
+      // here — must come before /shelves/:id so Express doesn't capture
+      // 'order' as the id parameter.
+      const stem = 'shelves-reorder-' + Math.random().toString(36).slice(2, 6);
+      const { body: u } = await req('POST', '/api/shelf/units', { room_id: roomId, name: `${stem} unit` });
+      const { body: sA } = await req('POST', '/api/shelf/shelves', { unit_id: u.id, label: `${stem} sA` });
+      const { body: sB } = await req('POST', '/api/shelf/shelves', { unit_id: u.id, label: `${stem} sB` });
+      const { status } = await req('PUT', '/api/shelf/shelves/order', { unit_id: u.id, ids: [sB.id, sA.id] });
+      assert.equal(status, 204);
+      const { body: shelves } = await req('GET', `/api/shelf/units/${u.id}/shelves`);
+      const idx = (id) => shelves.findIndex(s => s.id === id);
+      assert.ok(idx(sB.id) < idx(sA.id),
+        `sB should come before sA after reorder; got ${shelves.map(s => s.id).join(',')}`);
+    });
+
     it('PUT /api/shelf/{buildings,rooms,units}/order reorders siblings', async () => {
       // The 400-rejection branch is covered above; this pins the success
       // branch — the actual drag-and-drop contract used by ShelfManager.

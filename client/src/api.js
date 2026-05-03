@@ -86,6 +86,7 @@ export const api = {
   reorderBuildings: (ids) => request('/shelf/buildings/order', { method: 'PUT', body: JSON.stringify({ ids }) }),
   reorderRooms: (buildingId, ids) => request('/shelf/rooms/order', { method: 'PUT', body: JSON.stringify({ building_id: buildingId, ids }) }),
   reorderUnits: (roomId, ids) => request('/shelf/units/order', { method: 'PUT', body: JSON.stringify({ room_id: roomId, ids }) }),
+  reorderShelves: (unitId, ids) => request('/shelf/shelves/order', { method: 'PUT', body: JSON.stringify({ unit_id: unitId, ids }) }),
   reorderShelf: (shelfId, ids) => request(`/shelf/shelves/${shelfId}/order`, { method: 'PUT', body: JSON.stringify({ ids }) }),
   getUnshelfedBooks: () => request('/shelf/unshelfed'),
   getShelfLocation: (bookId) => request(`/shelf/location/${bookId}`),

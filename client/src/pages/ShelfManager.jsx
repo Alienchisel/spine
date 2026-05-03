@@ -146,6 +146,14 @@ export default function ShelfManager() {
     }
   }
 
+  async function reorderShelves(unitId, ids) {
+    try {
+      await api.reorderShelves(unitId, ids);
+    } catch {
+      reload();
+    }
+  }
+
   async function addShelf(unitId, label) {
     try {
       await api.createShelf({ unit_id: unitId, label });
@@ -197,7 +205,7 @@ export default function ShelfManager() {
             onEdit={editBuilding} onDelete={deleteBuilding}
             onAddRoom={addRoom} onEditRoom={editRoom} onDeleteRoom={deleteRoom} onReorderRooms={reorderRooms}
             onAddUnit={addUnit} onEditUnit={editUnit} onDeleteUnit={deleteUnit} onReorderUnits={reorderUnits}
-            onAddShelf={addShelf} onEditShelf={editShelf} onDeleteShelf={deleteShelf} />
+            onAddShelf={addShelf} onEditShelf={editShelf} onDeleteShelf={deleteShelf} onReorderShelves={reorderShelves} />
         ))}
 
         {addingBuilding ? (

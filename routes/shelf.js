@@ -273,6 +273,14 @@ router.post('/shelves', (req, res) => {
   res.status(201).json(db.prepare('SELECT * FROM shelves WHERE id = ?').get(result.lastInsertRowid));
 });
 
+router.put('/shelves/order', (req, res) => {
+  const { unit_id, ids } = req.body;
+  if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids must be an array' });
+  const update = db.prepare('UPDATE shelves SET order_index = ? WHERE id = ? AND unit_id = ?');
+  db.transaction(() => ids.forEach((id, i) => update.run(i, id, unit_id)))();
+  res.status(204).end();
+});
+
 router.put('/shelves/:id', (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid id' });

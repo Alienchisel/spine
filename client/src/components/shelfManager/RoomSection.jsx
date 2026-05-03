@@ -10,7 +10,7 @@ import DragHandle from './DragHandle.jsx';
 import SortableUnit from './UnitSection.jsx';
 import { InlineInput, InlineEdit } from './InlineInputs.jsx';
 
-function RoomSection({ room, dragHandle, onEdit, onDelete, onAddUnit, onReorderUnits, onEditUnit, onDeleteUnit, onAddShelf, onEditShelf, onDeleteShelf }) {
+function RoomSection({ room, dragHandle, onEdit, onDelete, onAddUnit, onReorderUnits, onEditUnit, onDeleteUnit, onAddShelf, onEditShelf, onDeleteShelf, onReorderShelves }) {
   const [open, setOpen] = useState(true);
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -60,7 +60,8 @@ function RoomSection({ room, dragHandle, onEdit, onDelete, onAddUnit, onReorderU
               {units.map(u => (
                 <SortableUnit key={u.id} unit={u}
                   onEdit={onEditUnit} onDelete={onDeleteUnit}
-                  onAddShelf={onAddShelf} onEditShelf={onEditShelf} onDeleteShelf={onDeleteShelf} />
+                  onAddShelf={onAddShelf} onEditShelf={onEditShelf} onDeleteShelf={onDeleteShelf}
+                  onReorderShelves={onReorderShelves} />
               ))}
             </SortableContext>
           </DndContext>

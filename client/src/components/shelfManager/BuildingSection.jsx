@@ -13,7 +13,7 @@ import { PROXIMITY_LABEL, PROXIMITY_OPTIONS } from './proximity.js';
 
 function BuildingSection({ building, dragHandle, onEdit, onDelete, onAddRoom, onEditRoom, onDeleteRoom,
   onAddUnit, onReorderUnits, onEditUnit, onDeleteUnit, onAddShelf, onEditShelf, onDeleteShelf,
-  onReorderRooms }) {
+  onReorderShelves, onReorderRooms }) {
   const [open, setOpen] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editingProximity, setEditingProximity] = useState(building.proximity);
@@ -80,7 +80,8 @@ function BuildingSection({ building, dragHandle, onEdit, onDelete, onAddRoom, on
                   onEdit={onEditRoom} onDelete={onDeleteRoom}
                   onAddUnit={onAddUnit} onReorderUnits={onReorderUnits}
                   onEditUnit={onEditUnit} onDeleteUnit={onDeleteUnit}
-                  onAddShelf={onAddShelf} onEditShelf={onEditShelf} onDeleteShelf={onDeleteShelf} />
+                  onAddShelf={onAddShelf} onEditShelf={onEditShelf} onDeleteShelf={onDeleteShelf}
+                  onReorderShelves={onReorderShelves} />
               ))}
             </SortableContext>
           </DndContext>

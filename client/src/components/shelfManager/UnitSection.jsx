@@ -1,14 +1,42 @@
-import { useState } from 'react';
-import { useSortable } from '@dnd-kit/sortable';
+import { useState, useEffect } from 'react';
+import {
+  DndContext, closestCenter, PointerSensor, useSensor, useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext, useSortable, verticalListSortingStrategy, arrayMove,
+} from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import DragHandle from './DragHandle.jsx';
 import ShelfRow from './ShelfRow.jsx';
 import { InlineInput, InlineEdit } from './InlineInputs.jsx';
 
-function UnitSection({ unit, dragHandle, onEdit, onDelete, onAddShelf, onEditShelf, onDeleteShelf }) {
+function SortableShelfRow({ shelf, onEdit, onDelete }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: shelf.id });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} className={isDragging ? 'opacity-40' : ''}>
+      <ShelfRow shelf={shelf} dragHandle={<DragHandle listeners={listeners} />} onEdit={onEdit} onDelete={onDelete} />
+    </div>
+  );
+}
+
+function UnitSection({ unit, dragHandle, onEdit, onDelete, onAddShelf, onEditShelf, onDeleteShelf, onReorderShelves }) {
   const [open, setOpen] = useState(true);
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [shelves, setShelves] = useState(unit.shelves);
+  useEffect(() => setShelves(unit.shelves), [unit.shelves]);
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  function handleShelfDragEnd({ active, over }) {
+    if (!over || active.id === over.id) return;
+    const oldIdx = shelves.findIndex(s => s.id === active.id);
+    const newIdx = shelves.findIndex(s => s.id === over.id);
+    const reordered = arrayMove(shelves, oldIdx, newIdx);
+    setShelves(reordered);
+    onReorderShelves(unit.id, reordered.map(s => s.id));
+  }
 
   if (editing) return (
     <div className="py-1.5 pl-10">
@@ -37,9 +65,13 @@ function UnitSection({ unit, dragHandle, onEdit, onDelete, onAddShelf, onEditShe
       </div>
       {open && (
         <div>
-          {unit.shelves.map(s => (
-            <ShelfRow key={s.id} shelf={s} onEdit={onEditShelf} onDelete={onDeleteShelf} />
-          ))}
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleShelfDragEnd}>
+            <SortableContext items={shelves.map(s => s.id)} strategy={verticalListSortingStrategy}>
+              {shelves.map(s => (
+                <SortableShelfRow key={s.id} shelf={s} onEdit={onEditShelf} onDelete={onDeleteShelf} />
+              ))}
+            </SortableContext>
+          </DndContext>
           {adding && (
             <div className="pl-16 py-1.5">
               <InlineInput placeholder="e.g. 1, Top, A…"
