@@ -339,6 +339,25 @@ describe('shelf', () => {
       assert.ok(!body.some(b => b.id === shelfedBookId));
     });
 
+    it('GET /api/shelf/unshelfed excludes non-physical books even when location-free', async () => {
+      // The route restricts to format='physical' OR format IS NULL because
+      // shelves only hold physical books. An owned ebook or audiobook with
+      // no location must not appear.
+      const { body: ab } = await req('POST', '/api/books', {
+        title: 'unshelfed audio ' + Math.random().toString(36).slice(2, 6),
+        format: 'audiobook',
+        owned: true,
+      });
+      const { body: eb } = await req('POST', '/api/books', {
+        title: 'unshelfed ebook ' + Math.random().toString(36).slice(2, 6),
+        format: 'ebook',
+        owned: true,
+      });
+      const { body } = await req('GET', '/api/shelf/unshelfed');
+      assert.ok(!body.some(b => b.id === ab.id), 'audiobook must not appear in unshelfed');
+      assert.ok(!body.some(b => b.id === eb.id), 'ebook must not appear in unshelfed');
+    });
+
     it('GET /api/shelf/location/:bookId returns full shelf breadcrumb', async () => {
       const { status, body } = await req('GET', `/api/shelf/location/${shelfedBookId}`);
       assert.equal(status, 200);
