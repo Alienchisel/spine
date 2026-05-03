@@ -339,6 +339,19 @@ describe('shelf', () => {
       assert.ok(!body.some(b => b.id === shelfedBookId));
     });
 
+    it('GET /api/shelf/unshelfed excludes unowned physical books', async () => {
+      // The route filters owned=1 — an unowned book with no location must
+      // not appear, regardless of format.
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'unowned unshelfed ' + Math.random().toString(36).slice(2, 6),
+        format: 'physical',
+        owned: false,
+      });
+      const { body } = await req('GET', '/api/shelf/unshelfed');
+      assert.ok(!body.some(b => b.id === created.id),
+        'unowned book must not appear in unshelfed');
+    });
+
     it('GET /api/shelf/unshelfed excludes non-physical books even when location-free', async () => {
       // The route restricts to format='physical' OR format IS NULL because
       // shelves only hold physical books. An owned ebook or audiobook with
