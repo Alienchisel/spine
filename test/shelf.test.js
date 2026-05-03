@@ -645,6 +645,70 @@ describe('shelf', () => {
       assert.equal(unit.book_count, 2, `unit.book_count should be exactly 2, got ${unit.book_count}`);
     });
 
+    it('reorder routes ignore ids belonging to a different parent', async () => {
+      // Each child-reorder SQL has ... AND parent_id = ?, so passing the
+      // wrong parent should be a silent no-op. Pinning this prevents a
+      // future regression that would let one parent reorder another's children.
+      const stem = 'isolation-' + Math.random().toString(36).slice(2, 6);
+
+      // Rooms: two parents (buildings), two children each.
+      const { body: bldgA } = await req('POST', '/api/shelf/buildings', { name: `${stem} bldgA` });
+      const { body: bldgB } = await req('POST', '/api/shelf/buildings', { name: `${stem} bldgB` });
+      const { body: rA1 } = await req('POST', '/api/shelf/rooms', { building_id: bldgA.id, name: `${stem} rA1` });
+      const { body: rA2 } = await req('POST', '/api/shelf/rooms', { building_id: bldgA.id, name: `${stem} rA2` });
+      // Reorder targeting bldgB but with bldgA's room ids.
+      await req('PUT', '/api/shelf/rooms/order', { building_id: bldgB.id, ids: [rA2.id, rA1.id] });
+      const { body: roomsA } = await req('GET', `/api/shelf/buildings/${bldgA.id}/rooms`);
+      const rIdx = (id) => roomsA.findIndex(r => r.id === id);
+      assert.ok(rIdx(rA1.id) < rIdx(rA2.id),
+        `rooms in bldgA should be unchanged; got ${roomsA.map(r => r.id).join(',')}`);
+
+      // Units: two parents (rooms), two children each.
+      const { body: rmA } = await req('POST', '/api/shelf/rooms', { building_id: bldgA.id, name: `${stem} rmA` });
+      const { body: rmB } = await req('POST', '/api/shelf/rooms', { building_id: bldgA.id, name: `${stem} rmB` });
+      const { body: uA1 } = await req('POST', '/api/shelf/units', { room_id: rmA.id, name: `${stem} uA1` });
+      const { body: uA2 } = await req('POST', '/api/shelf/units', { room_id: rmA.id, name: `${stem} uA2` });
+      await req('PUT', '/api/shelf/units/order', { room_id: rmB.id, ids: [uA2.id, uA1.id] });
+      const { body: unitsA } = await req('GET', `/api/shelf/rooms/${rmA.id}/units`);
+      const uIdx = (id) => unitsA.findIndex(u => u.id === id);
+      assert.ok(uIdx(uA1.id) < uIdx(uA2.id),
+        `units in rmA should be unchanged; got ${unitsA.map(u => u.id).join(',')}`);
+
+      // Shelves: two parents (units), two children each.
+      const { body: utA } = await req('POST', '/api/shelf/units', { room_id: rmA.id, name: `${stem} utA` });
+      const { body: utB } = await req('POST', '/api/shelf/units', { room_id: rmA.id, name: `${stem} utB` });
+      const { body: sA1 } = await req('POST', '/api/shelf/shelves', { unit_id: utA.id, label: `${stem} sA1` });
+      const { body: sA2 } = await req('POST', '/api/shelf/shelves', { unit_id: utA.id, label: `${stem} sA2` });
+      await req('PUT', '/api/shelf/shelves/order', { unit_id: utB.id, ids: [sA2.id, sA1.id] });
+      const { body: shelvesA } = await req('GET', `/api/shelf/units/${utA.id}/shelves`);
+      const sIdx = (id) => shelvesA.findIndex(s => s.id === id);
+      assert.ok(sIdx(sA1.id) < sIdx(sA2.id),
+        `shelves in utA should be unchanged; got ${shelvesA.map(s => s.id).join(',')}`);
+    });
+
+    it('GET /api/shelf/buildings reports exact room_count and book_count per building', async () => {
+      // Separate SQL from /tree (routes/shelf.js:60). Pin it on an isolated
+      // building to keep counts assertable.
+      const stem = 'list-count-' + Math.random().toString(36).slice(2, 6);
+      const { body: bldg } = await req('POST', '/api/shelf/buildings', { name: `${stem} bldg` });
+      // Two rooms, then place owned books at every tier.
+      await req('POST', '/api/shelf/rooms', { building_id: bldg.id, name: `${stem} rA` });
+      const { body: rB } = await req('POST', '/api/shelf/rooms', { building_id: bldg.id, name: `${stem} rB` });
+      const { body: u } = await req('POST', '/api/shelf/units', { room_id: rB.id, name: `${stem} unit` });
+      const { body: sh } = await req('POST', '/api/shelf/shelves', { unit_id: u.id, label: `${stem} shelf` });
+      await req('POST', '/api/books', { title: `${stem} on shelf`,    format: 'physical', owned: true,  shelf_id: sh.id });
+      await req('POST', '/api/books', { title: `${stem} on unit`,     format: 'physical', owned: true,  unit_id:  u.id });
+      await req('POST', '/api/books', { title: `${stem} on room`,     format: 'physical', owned: true,  room_id:  rB.id });
+      await req('POST', '/api/books', { title: `${stem} on building`, format: 'physical', owned: true,  building_id: bldg.id });
+      await req('POST', '/api/books', { title: `${stem} unowned`,     format: 'physical', owned: false, shelf_id: sh.id });
+
+      const { body: list } = await req('GET', '/api/shelf/buildings');
+      const found = list.find(b => b.id === bldg.id);
+      assert.ok(found, 'created building should appear in the list');
+      assert.equal(found.room_count, 2, `room_count: ${found.room_count}`);
+      assert.equal(found.book_count, 4, `book_count: ${found.book_count}`);
+    });
+
     it('PUT /api/shelf/shelves/order reorders shelves under a unit', async () => {
       // Mirrors rooms/order and units/order. Backend route placement matters
       // here — must come before /shelves/:id so Express doesn't capture
