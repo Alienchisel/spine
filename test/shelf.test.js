@@ -245,17 +245,35 @@ describe('shelf', () => {
       assert.equal(treeShelf.book_count, 1, `shelf book_count: ${treeShelf.book_count}`);
     });
 
-    it('all four order routes return 400 when ids is not an array', async () => {
-      const paths = [
-        '/api/shelf/buildings/order',
-        '/api/shelf/rooms/order',
-        '/api/shelf/units/order',
-        `/api/shelf/shelves/${shelfId}/order`,
+    it('scoped reorder routes return 400 when the parent id is missing', async () => {
+      // Silent no-op on missing parent_id was a real bug — drag reorder
+      // failures must be visible. Each route uses the same error string as
+      // its sibling POST.
+      const cases = [
+        { path: '/api/shelf/rooms/order',   body: { ids: [] }, error: 'building_id is required' },
+        { path: '/api/shelf/units/order',   body: { ids: [] }, error: 'room_id is required' },
+        { path: '/api/shelf/shelves/order', body: { ids: [] }, error: 'unit_id is required' },
       ];
-      for (const path of paths) {
-        const { status, body } = await req('PUT', path, { ids: 'bad' });
+      for (const { path, body, error } of cases) {
+        const { status, body: resBody } = await req('PUT', path, body);
         assert.equal(status, 400, `PUT ${path} should be 400`);
-        assert.equal(body.error, 'ids must be an array', `PUT ${path} should have 'ids must be an array'`);
+        assert.equal(resBody.error, error, `PUT ${path} should have '${error}'`);
+      }
+    });
+
+    it('all four order routes return 400 when ids is not an array', async () => {
+      // Each scoped route now also validates its parent_id, so include valid
+      // parent ids here to ensure the ids-array branch is what fires.
+      const cases = [
+        { path: '/api/shelf/buildings/order',           body: { ids: 'bad' } },
+        { path: '/api/shelf/rooms/order',               body: { building_id: buildingId, ids: 'bad' } },
+        { path: '/api/shelf/units/order',               body: { room_id: roomId, ids: 'bad' } },
+        { path: `/api/shelf/shelves/${shelfId}/order`,  body: { ids: 'bad' } },
+      ];
+      for (const { path, body } of cases) {
+        const { status, body: resBody } = await req('PUT', path, body);
+        assert.equal(status, 400, `PUT ${path} should be 400`);
+        assert.equal(resBody.error, 'ids must be an array', `PUT ${path} should have 'ids must be an array'`);
       }
     });
 
