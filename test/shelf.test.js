@@ -306,6 +306,7 @@ describe('shelf', () => {
     let unitBookId;
     let roomBookId;
     let buildingBookId;
+    let unownedShelvedBookId;
 
     before(async () => {
       const { body: b } = await req('POST', '/api/shelf/buildings', { name: 'Location Building' });
@@ -327,6 +328,8 @@ describe('shelf', () => {
       roomBookId = rb.id;
       const { body: bb } = await req('POST', '/api/books', { title: 'Building Book', owned: true, building_id: buildingId });
       buildingBookId = bb.id;
+      const { body: us } = await req('POST', '/api/books', { title: 'Unowned Shelved', owned: false, shelf_id: shelfId });
+      unownedShelvedBookId = us.id;
     });
 
     it('GET /api/shelf/unshelfed includes owned books with no location', async () => {
@@ -337,6 +340,15 @@ describe('shelf', () => {
     it('GET /api/shelf/unshelfed excludes books with a shelf assignment', async () => {
       const { body } = await req('GET', '/api/shelf/unshelfed');
       assert.ok(!body.some(b => b.id === shelfedBookId));
+    });
+
+    it('GET /api/shelf/unshelfed excludes books at any location tier', async () => {
+      // The SQL requires shelf_id, unit_id, room_id, AND building_id all NULL.
+      // shelfedBookId is covered by the prior test; pin the other three tiers.
+      const { body } = await req('GET', '/api/shelf/unshelfed');
+      assert.ok(!body.some(b => b.id === unitBookId), 'unit-level book should not appear');
+      assert.ok(!body.some(b => b.id === roomBookId), 'room-level book should not appear');
+      assert.ok(!body.some(b => b.id === buildingBookId), 'building-level book should not appear');
     });
 
     it('GET /api/shelf/unshelfed excludes unowned physical books', async () => {
@@ -428,6 +440,23 @@ describe('shelf', () => {
       assert.ok(body.some(b => b.id === unitBookId), 'unit-level book should appear');
       assert.ok(!body.some(b => b.id === buildingBookId),
         'building-level book should NOT appear in unit drilldown');
+    });
+
+    it('all four drilldowns exclude unowned books even when shelved', async () => {
+      // Each route filters owned=1. An unowned book sitting on a shelf in
+      // the hierarchy should not surface in any drilldown.
+      const paths = [
+        `/api/shelf/buildings/${buildingId}/books`,
+        `/api/shelf/rooms/${roomId}/books`,
+        `/api/shelf/units/${unitId}/books`,
+        `/api/shelf/shelves/${shelfId}/books`,
+      ];
+      for (const path of paths) {
+        const { status, body } = await req('GET', path);
+        assert.equal(status, 200, `GET ${path} should be 200`);
+        assert.ok(!body.some(b => b.id === unownedShelvedBookId),
+          `unowned shelved book must not appear in ${path}`);
+      }
     });
 
     it('GET /api/shelf/shelves/:id/books returns only books on that exact shelf', async () => {
