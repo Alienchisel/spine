@@ -1,5 +1,5 @@
 import ChipInput from './ChipInput.jsx';
-import { input, label } from './styles.js';
+import { input, label, MARKDOWN_HINT } from './styles.js';
 
 export default function DetailsFields({ form, set, ic, pastLanguages, pastTranslators, pastPublishers, translatorInput, setTranslatorInput }) {
   return (
@@ -97,7 +97,7 @@ export default function DetailsFields({ form, set, ic, pastLanguages, pastTransl
       <div>
         <div className="flex items-baseline justify-between mb-1.5">
           <label className={label} style={{marginBottom:0}}>Description</label>
-          <span className="text-xs text-neutral-600">Markdown supported</span>
+          <span className="text-xs text-neutral-600 cursor-help underline decoration-dotted decoration-neutral-700 underline-offset-2" title={MARKDOWN_HINT}>Markdown supported</span>
         </div>
         <textarea className={`${ic('description')} resize-none`} rows={6}
           value={form.description} onChange={(e) => set('description', e.target.value)}
