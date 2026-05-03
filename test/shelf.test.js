@@ -667,6 +667,14 @@ describe('shelf', () => {
       assert.equal(body.shelf_id, undefined);
     });
 
+    it('GET /api/shelf/location/:bookId returns room-level breadcrumb', async () => {
+      const { body } = await req('GET', `/api/shelf/location/${roomBookId}`);
+      assert.equal(body.room_id, roomId);
+      assert.equal(body.building_id, buildingId);
+      assert.equal(body.unit_id, undefined);
+      assert.equal(body.shelf_id, undefined);
+    });
+
     it('GET /api/shelf/location/:bookId returns building-level breadcrumb', async () => {
       const { body } = await req('GET', `/api/shelf/location/${buildingBookId}`);
       assert.equal(body.building_id, buildingId);
