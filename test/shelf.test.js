@@ -125,6 +125,35 @@ describe('shelf', () => {
       assert.ok(shelf, 'shelf in tree');
     });
 
+    it('GET /api/shelf/tree reports exact book_count at every level', async () => {
+      // /tree has its own count SQL separate from the child-list endpoints,
+      // so a tree-only regression wouldn't be caught by the child-list test.
+      // Isolated fixture with one owned book at each tier + one unowned at
+      // the shelf gives the inverse pyramid: 4 / 3 / 2 / 1.
+      const stem = 'tree-count-' + Math.random().toString(36).slice(2, 6);
+      const { body: bldg } = await req('POST', '/api/shelf/buildings', { name: `${stem} bldg` });
+      const { body: rm }   = await req('POST', '/api/shelf/rooms',     { building_id: bldg.id, name: `${stem} room` });
+      const { body: u }    = await req('POST', '/api/shelf/units',     { room_id: rm.id,       name: `${stem} unit` });
+      const { body: sh }   = await req('POST', '/api/shelf/shelves',   { unit_id: u.id,        label: `${stem} shelf` });
+      await req('POST', '/api/books', { title: `${stem} on shelf`,    format: 'physical', owned: true,  shelf_id: sh.id });
+      await req('POST', '/api/books', { title: `${stem} on unit`,     format: 'physical', owned: true,  unit_id:  u.id });
+      await req('POST', '/api/books', { title: `${stem} on room`,     format: 'physical', owned: true,  room_id:  rm.id });
+      await req('POST', '/api/books', { title: `${stem} on building`, format: 'physical', owned: true,  building_id: bldg.id });
+      await req('POST', '/api/books', { title: `${stem} unowned`,     format: 'physical', owned: false, shelf_id: sh.id });
+
+      const { body: tree } = await req('GET', '/api/shelf/tree');
+      const treeBldg = tree.find(b => b.id === bldg.id);
+      assert.ok(treeBldg, 'created building should appear in tree');
+      const treeRoom = treeBldg.rooms.find(r => r.id === rm.id);
+      const treeUnit = treeRoom.units.find(x => x.id === u.id);
+      const treeShelf = treeUnit.shelves.find(s => s.id === sh.id);
+
+      assert.equal(treeBldg.book_count,  4, `building book_count: ${treeBldg.book_count}`);
+      assert.equal(treeRoom.book_count,  3, `room book_count: ${treeRoom.book_count}`);
+      assert.equal(treeUnit.book_count,  2, `unit book_count: ${treeUnit.book_count}`);
+      assert.equal(treeShelf.book_count, 1, `shelf book_count: ${treeShelf.book_count}`);
+    });
+
     it('all four order routes return 400 when ids is not an array', async () => {
       const paths = [
         '/api/shelf/buildings/order',
