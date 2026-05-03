@@ -495,43 +495,34 @@ describe('shelf', () => {
       }
     });
 
-    it('children-list book_count includes books at every descendant level', async () => {
-      // Children-of-parent endpoints used to undercount: rooms only counted
-      // shelf-descended books, units only shelf-descended. They now mirror
-      // /tree, so a room counts shelf + unit + room-direct, and a unit
-      // counts shelf + unit-direct. Unowned books (unownedShelvedBookId)
-      // must be excluded from both.
-      //
-      // Fixtures in this describe place: shelfedBookId on shelfId,
-      // unitBookId on unitId, roomBookId on roomId, buildingBookId on
-      // buildingId, unownedShelvedBookId (owned=false) on shelfId, plus
-      // any cascade/cover/order fixtures other tests may have created.
-      // We only assert lower bounds and the exclusion, which is durable.
-      const { body: rooms } = await req('GET', `/api/shelf/buildings/${buildingId}/rooms`);
-      const room = rooms.find(r => r.id === roomId);
-      assert.ok(room, 'fixture room should appear');
-      // Must include shelf + unit + room-level fixture books (>= 3). Must
-      // NOT include the unowned shelved book or the building-level book.
-      assert.ok(room.book_count >= 3,
-        `room book_count should include shelf+unit+room-level fixtures (>=3), got ${room.book_count}`);
+    it('children-list book_count counts every descendant level and excludes unowned/building-only', async () => {
+      // Build a fresh isolated hierarchy so exact counts are assertable.
+      // Children-of-parent endpoints used to undercount room/unit-direct
+      // placements; they now mirror /tree.
+      const stem = 'count-' + Math.random().toString(36).slice(2, 6);
+      const { body: bldg }  = await req('POST', '/api/shelf/buildings', { name: `${stem} bldg` });
+      const { body: rm }    = await req('POST', '/api/shelf/rooms',     { building_id: bldg.id, name: `${stem} room` });
+      const { body: u }     = await req('POST', '/api/shelf/units',     { room_id: rm.id,       name: `${stem} unit` });
+      const { body: sh }    = await req('POST', '/api/shelf/shelves',   { unit_id: u.id,        label: `${stem} shelf` });
 
-      const { body: units } = await req('GET', `/api/shelf/rooms/${roomId}/units`);
-      const unit = units.find(u => u.id === unitId);
-      assert.ok(unit, 'fixture unit should appear');
-      assert.ok(unit.book_count >= 2,
-        `unit book_count should include shelf+unit-level fixtures (>=2), got ${unit.book_count}`);
+      // Exactly one book at each level + one unowned shelved book.
+      await req('POST', '/api/books', { title: `${stem} on shelf`,    format: 'physical', owned: true,  shelf_id: sh.id });
+      await req('POST', '/api/books', { title: `${stem} on unit`,     format: 'physical', owned: true,  unit_id:  u.id });
+      await req('POST', '/api/books', { title: `${stem} on room`,     format: 'physical', owned: true,  room_id:  rm.id });
+      await req('POST', '/api/books', { title: `${stem} on building`, format: 'physical', owned: true,  building_id: bldg.id });
+      await req('POST', '/api/books', { title: `${stem} unowned`,     format: 'physical', owned: false, shelf_id: sh.id });
 
-      // Defense in depth: the building-level book lives on building, not
-      // room/unit. Counts must not include it. The room count is at most
-      // (room.book_count) — we just verified it's >= 3. To pin
-      // exclusion, compute building-only book count separately:
-      const { body: bldgBooks } = await req('GET', `/api/shelf/buildings/${buildingId}/books`);
-      assert.ok(bldgBooks.some(b => b.id === buildingBookId),
-        'building drilldown should still include the building-level book');
-      // Room count should be strictly less than the full building drilldown
-      // count, because it excludes the building-only book.
-      assert.ok(room.book_count < bldgBooks.length,
-        `room.book_count (${room.book_count}) should be less than building drilldown count (${bldgBooks.length}) — building-only books excluded`);
+      // Room: shelf + unit + room-level → 3. Building-level and unowned excluded.
+      const { body: rooms } = await req('GET', `/api/shelf/buildings/${bldg.id}/rooms`);
+      const room = rooms.find(r => r.id === rm.id);
+      assert.ok(room, 'created room should appear');
+      assert.equal(room.book_count, 3, `room.book_count should be exactly 3, got ${room.book_count}`);
+
+      // Unit: shelf + unit-level → 2. Room/building-level and unowned excluded.
+      const { body: units } = await req('GET', `/api/shelf/rooms/${rm.id}/units`);
+      const unit = units.find(x => x.id === u.id);
+      assert.ok(unit, 'created unit should appear');
+      assert.equal(unit.book_count, 2, `unit.book_count should be exactly 2, got ${unit.book_count}`);
     });
 
     it('children-list endpoints order by order_index', async () => {
