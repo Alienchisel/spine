@@ -216,6 +216,47 @@ describe('shelf', () => {
       }
     });
 
+    it('GET /api/shelf/tree reflects reorder at every nested level', async () => {
+      // /tree has its own ORDER BYs separate from the list/children routes.
+      // It's the actual data source for the Shelf Manager and pickers, so a
+      // tree-only ordering regression wouldn't surface anywhere else.
+      const stem = 'tree-order-' + Math.random().toString(36).slice(2, 6);
+      const { body: bA } = await req('POST', '/api/shelf/buildings', { name: `${stem} bA` });
+      const { body: bB } = await req('POST', '/api/shelf/buildings', { name: `${stem} bB` });
+      const { body: rA } = await req('POST', '/api/shelf/rooms', { building_id: bA.id, name: `${stem} rA` });
+      const { body: rB } = await req('POST', '/api/shelf/rooms', { building_id: bA.id, name: `${stem} rB` });
+      const { body: uA } = await req('POST', '/api/shelf/units', { room_id: rA.id, name: `${stem} uA` });
+      const { body: uB } = await req('POST', '/api/shelf/units', { room_id: rA.id, name: `${stem} uB` });
+      const { body: sA } = await req('POST', '/api/shelf/shelves', { unit_id: uA.id, label: `${stem} sA` });
+      const { body: sB } = await req('POST', '/api/shelf/shelves', { unit_id: uA.id, label: `${stem} sB` });
+
+      // Reverse every level via the canonical order routes.
+      await req('PUT', '/api/shelf/buildings/order', { ids: [bB.id, bA.id] });
+      await req('PUT', '/api/shelf/rooms/order',     { building_id: bA.id, ids: [rB.id, rA.id] });
+      await req('PUT', '/api/shelf/units/order',     { room_id: rA.id,     ids: [uB.id, uA.id] });
+      await req('PUT', '/api/shelf/shelves/order',   { unit_id: uA.id,     ids: [sB.id, sA.id] });
+
+      const { body: tree } = await req('GET', '/api/shelf/tree');
+      const buildingIds = tree.map(b => b.id);
+      assert.ok(buildingIds.indexOf(bB.id) < buildingIds.indexOf(bA.id),
+        `bB should come before bA in tree; got ${buildingIds.join(',')}`);
+
+      const treeBA = tree.find(b => b.id === bA.id);
+      const roomIds = treeBA.rooms.map(r => r.id);
+      assert.ok(roomIds.indexOf(rB.id) < roomIds.indexOf(rA.id),
+        `rB should come before rA under bA; got ${roomIds.join(',')}`);
+
+      const treeRA = treeBA.rooms.find(r => r.id === rA.id);
+      const unitIds = treeRA.units.map(u => u.id);
+      assert.ok(unitIds.indexOf(uB.id) < unitIds.indexOf(uA.id),
+        `uB should come before uA under rA; got ${unitIds.join(',')}`);
+
+      const treeUA = treeRA.units.find(u => u.id === uA.id);
+      const shelfIds = treeUA.shelves.map(s => s.id);
+      assert.ok(shelfIds.indexOf(sB.id) < shelfIds.indexOf(sA.id),
+        `sB should come before sA under uA; got ${shelfIds.join(',')}`);
+    });
+
     it('GET /api/shelf/tree reports exact book_count at every level', async () => {
       // /tree has its own count SQL separate from the child-list endpoints,
       // so a tree-only regression wouldn't be caught by the child-list test.
