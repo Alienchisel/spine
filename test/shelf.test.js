@@ -64,23 +64,6 @@ describe('shelf', () => {
       assert.equal(s, 404);
     });
 
-    it('PUT /api/shelf/buildings/order returns 400 when ids is not an array', async () => {
-      const { status, body } = await req('PUT', '/api/shelf/buildings/order', { ids: 'bad' });
-      assert.equal(status, 400);
-      assert.equal(body.error, 'ids must be an array');
-    });
-
-    it('PUT /api/shelf/rooms/order returns 400 when ids is not an array', async () => {
-      const { status, body } = await req('PUT', '/api/shelf/rooms/order', { ids: 'bad' });
-      assert.equal(status, 400);
-      assert.equal(body.error, 'ids must be an array');
-    });
-
-    it('PUT /api/shelf/units/order returns 400 when ids is not an array', async () => {
-      const { status, body } = await req('PUT', '/api/shelf/units/order', { ids: 'bad' });
-      assert.equal(status, 400);
-      assert.equal(body.error, 'ids must be an array');
-    });
   });
 
   describe('rooms, units, shelves hierarchy', () => {
@@ -142,9 +125,18 @@ describe('shelf', () => {
       assert.ok(shelf, 'shelf in tree');
     });
 
-    it('shelf order rejects non-array ids', async () => {
-      const { status } = await req('PUT', `/api/shelf/shelves/${shelfId}/order`, { ids: 'bad' });
-      assert.equal(status, 400);
+    it('all four order routes return 400 when ids is not an array', async () => {
+      const paths = [
+        '/api/shelf/buildings/order',
+        '/api/shelf/rooms/order',
+        '/api/shelf/units/order',
+        `/api/shelf/shelves/${shelfId}/order`,
+      ];
+      for (const path of paths) {
+        const { status, body } = await req('PUT', path, { ids: 'bad' });
+        assert.equal(status, 400, `PUT ${path} should be 400`);
+        assert.equal(body.error, 'ids must be an array', `PUT ${path} should have 'ids must be an array'`);
+      }
     });
 
     it('PUT /api/shelf/shelves/:id/order returns 400 for malformed shelf id', async () => {
