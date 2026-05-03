@@ -367,10 +367,15 @@ describe('shelf', () => {
       assert.equal(body, null);
     });
 
-    it('GET /api/shelf/buildings/:id/books includes book on a shelf in that building', async () => {
+    it('GET /api/shelf/buildings/:id/books includes books at every placement level', async () => {
+      // Building drilldown cascades all four levels: shelf, unit, room, and
+      // direct building. Asserting all four pins the route's full SQL
+      // contract (routes/shelf.js:303).
       const { body } = await req('GET', `/api/shelf/buildings/${buildingId}/books`);
-      assert.ok(body.some(b => b.id === shelfedBookId));
-      assert.ok(body.some(b => b.id === buildingBookId));
+      assert.ok(body.some(b => b.id === shelfedBookId), 'shelfed book should appear');
+      assert.ok(body.some(b => b.id === unitBookId), 'unit-level book should appear');
+      assert.ok(body.some(b => b.id === roomBookId), 'room-level book should appear');
+      assert.ok(body.some(b => b.id === buildingBookId), 'building-level book should appear');
     });
 
     it('GET /api/shelf/units/:id/books includes shelf and unit-level books, not room-only', async () => {
