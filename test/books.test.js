@@ -612,6 +612,14 @@ describe('books', () => {
       assert.equal(status, 200);
       assert.deepEqual(body, []);
     });
+
+    it('returns 200 with [] for an unknown book id (no existence check)', async () => {
+      // The route doesn't probe books table — the reading_log SELECT just
+      // matches zero rows. Pinning this avoids accidental 404 regressions.
+      const { status, body } = await req('GET', '/api/books/999999/log');
+      assert.equal(status, 200);
+      assert.deepEqual(body, []);
+    });
   });
 
   describe('reads', () => {
