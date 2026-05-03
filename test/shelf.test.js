@@ -495,6 +495,29 @@ describe('shelf', () => {
       }
     });
 
+    it('GET /api/shelf/units/:id/books orders books by shelf order_index', async () => {
+      // The unit drilldown's ORDER BY puts a book on a lower-indexed shelf
+      // before a book on a higher-indexed one. Newly created shelves get
+      // monotonically increasing order_index (max+1), so creating two new
+      // shelves here gives a deterministic ordering to assert against.
+      const stem = 'unit-order ' + Math.random().toString(36).slice(2, 6);
+      const { body: shelfA } = await req('POST', '/api/shelf/shelves', { unit_id: unitId, label: `${stem} A` });
+      const { body: shelfB } = await req('POST', '/api/shelf/shelves', { unit_id: unitId, label: `${stem} B` });
+      const { body: bookA } = await req('POST', '/api/books', {
+        title: `${stem} on A`, format: 'physical', owned: true, shelf_id: shelfA.id,
+      });
+      const { body: bookB } = await req('POST', '/api/books', {
+        title: `${stem} on B`, format: 'physical', owned: true, shelf_id: shelfB.id,
+      });
+      const { body: list } = await req('GET', `/api/shelf/units/${unitId}/books`);
+      const ids = list.map(b => b.id);
+      const ai = ids.indexOf(bookA.id);
+      const bi = ids.indexOf(bookB.id);
+      assert.ok(ai !== -1 && bi !== -1, 'both books should appear in unit drilldown');
+      assert.ok(ai < bi,
+        `book on shelf A (lower order_index) should come before book on shelf B; got order ${ids.join(',')}`);
+    });
+
     it('GET /api/shelf/shelves/:id/books orders by shelf_position', async () => {
       // shelf_position is assigned by PUT /shelves/:id/order. Create two
       // books on the same shelf, set the order explicitly, and assert the
