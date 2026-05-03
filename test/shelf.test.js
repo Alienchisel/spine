@@ -1024,6 +1024,52 @@ describe('shelf', () => {
       assert.ok(bi < ai, `B should come before A; got order ${ids.join(',')}`);
     });
 
+    it('books with NULL shelf_position fall back to series/title order', async () => {
+      // The shelf drilldown's ORDER BY is:
+      //   CASE WHEN shelf_position IS NULL THEN 1 ELSE 0 END, shelf_position,
+      //   series, series_number, title
+      // Positioned books come first; the rest fall back to series + title.
+      // Use a fresh shelf with no reorder call so every book stays at NULL,
+      // and pick titles that sort unambiguously by alpha.
+      const stem = 'fallback-' + Math.random().toString(36).slice(2, 6);
+      const { body: sh } = await req('POST', '/api/shelf/shelves', { unit_id: unitId, label: `${stem} shelf` });
+      const { body: zebra } = await req('POST', '/api/books', {
+        title: `${stem} Zebra`, format: 'physical', owned: true, shelf_id: sh.id,
+      });
+      const { body: aardvark } = await req('POST', '/api/books', {
+        title: `${stem} Aardvark`, format: 'physical', owned: true, shelf_id: sh.id,
+      });
+      const { body: list } = await req('GET', `/api/shelf/shelves/${sh.id}/books`);
+      const ids = list.map(x => x.id);
+      const ai = ids.indexOf(aardvark.id);
+      const zi = ids.indexOf(zebra.id);
+      assert.ok(ai !== -1 && zi !== -1, 'both books should appear');
+      assert.ok(ai < zi,
+        `Aardvark should sort before Zebra by title fallback; got order ${ids.join(',')}`);
+    });
+
+    it('positioned books come before NULL-position books', async () => {
+      // Mixing the two branches: one book given an explicit shelf_position via
+      // PUT /order, one left at NULL. The CASE WHEN clause must put the
+      // positioned book first regardless of title.
+      const stem = 'mixed-' + Math.random().toString(36).slice(2, 6);
+      const { body: sh } = await req('POST', '/api/shelf/shelves', { unit_id: unitId, label: `${stem} shelf` });
+      // Title ordering would put Aardvark first; explicit position should override.
+      const { body: aardvark } = await req('POST', '/api/books', {
+        title: `${stem} Aardvark`, format: 'physical', owned: true, shelf_id: sh.id,
+      });
+      const { body: zebra } = await req('POST', '/api/books', {
+        title: `${stem} Zebra`, format: 'physical', owned: true, shelf_id: sh.id,
+      });
+      // Position only Zebra — Aardvark stays at NULL.
+      const { status } = await req('PUT', `/api/shelf/shelves/${sh.id}/order`, { ids: [zebra.id] });
+      assert.equal(status, 204);
+      const { body: list } = await req('GET', `/api/shelf/shelves/${sh.id}/books`);
+      const ids = list.map(x => x.id);
+      assert.equal(ids[0], zebra.id, 'positioned book must come first even when title would lose');
+      assert.equal(ids[1], aardvark.id);
+    });
+
     it('GET /api/shelf/shelves/:id/books returns only books on that exact shelf', async () => {
       // Shelf drilldown is the strictest — only direct shelf_id matches. A
       // unit-level book on the parent unit should not appear.
