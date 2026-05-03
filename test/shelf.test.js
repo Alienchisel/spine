@@ -476,6 +476,57 @@ describe('shelf', () => {
       }
     });
 
+    it('all four drilldowns normalize cover_path back to /uploads/<filename>', async () => {
+      // Each route does its own b.cover_path → /uploads/<filename> mapping.
+      // A book on a shelf cascades up through every level, so one fixture
+      // checks all four routes.
+      const filename = '5555555555-jklmno.jpg';
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'cascade cover ' + Math.random().toString(36).slice(2, 6),
+        format: 'physical',
+        owned: true,
+        shelf_id: shelfId,
+        cover_path: `/uploads/${filename}`,
+      });
+      const paths = [
+        `/api/shelf/buildings/${buildingId}/books`,
+        `/api/shelf/rooms/${roomId}/books`,
+        `/api/shelf/units/${unitId}/books`,
+        `/api/shelf/shelves/${shelfId}/books`,
+      ];
+      for (const path of paths) {
+        const { body } = await req('GET', path);
+        const found = body.find(b => b.id === created.id);
+        assert.ok(found, `book should appear in ${path}`);
+        assert.equal(found.cover_path, `/uploads/${filename}`,
+          `cover_path should be normalized in ${path}`);
+      }
+    });
+
+    it('GET /api/shelf/shelves/:id/books orders by shelf_position', async () => {
+      // shelf_position is assigned by PUT /shelves/:id/order. Create two
+      // books on the same shelf, set the order explicitly, and assert the
+      // drilldown returns them in that order.
+      const stem = 'pos ' + Math.random().toString(36).slice(2, 6);
+      const { body: a } = await req('POST', '/api/books', {
+        title: `${stem} A`, format: 'physical', owned: true, shelf_id: shelfId,
+      });
+      const { body: b } = await req('POST', '/api/books', {
+        title: `${stem} B`, format: 'physical', owned: true, shelf_id: shelfId,
+      });
+      // Order: B first, then A.
+      const { status: orderStatus } = await req('PUT', `/api/shelf/shelves/${shelfId}/order`, {
+        ids: [b.id, a.id],
+      });
+      assert.equal(orderStatus, 204);
+      const { body: list } = await req('GET', `/api/shelf/shelves/${shelfId}/books`);
+      const ids = list.map(x => x.id);
+      const ai = ids.indexOf(a.id);
+      const bi = ids.indexOf(b.id);
+      assert.ok(ai !== -1 && bi !== -1, 'both books should appear in shelf drilldown');
+      assert.ok(bi < ai, `B should come before A; got order ${ids.join(',')}`);
+    });
+
     it('GET /api/shelf/shelves/:id/books normalizes cover_path back to /uploads/<filename>', async () => {
       // Each shelf drilldown does its own b.cover_path → /uploads/<filename>
       // mapping (separate from the book list path). Pin it on the strictest
