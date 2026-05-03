@@ -351,6 +351,23 @@ describe('shelf', () => {
       assert.ok(!body.some(b => b.id === buildingBookId), 'building-level book should not appear');
     });
 
+    it('GET /api/shelf/unshelfed normalizes cover_path back to /uploads/<filename>', async () => {
+      // Shelf routes do their own cover mapping (separate from the book list
+      // path that uses toCoverUrl). The stored value is a bare filename; the
+      // response must surface it with the /uploads/ prefix restored.
+      const filename = '1234567890-abcdef.jpg';
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'cover normalize ' + Math.random().toString(36).slice(2, 6),
+        format: 'physical',
+        owned: true,
+        cover_path: `/uploads/${filename}`,
+      });
+      const { body } = await req('GET', '/api/shelf/unshelfed');
+      const found = body.find(b => b.id === created.id);
+      assert.ok(found, 'created book should appear in unshelfed');
+      assert.equal(found.cover_path, `/uploads/${filename}`);
+    });
+
     it('GET /api/shelf/unshelfed excludes unowned physical books', async () => {
       // The route filters owned=1 — an unowned book with no location must
       // not appear, regardless of format.
