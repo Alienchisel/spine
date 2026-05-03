@@ -130,10 +130,14 @@ router.get('/buildings/:id/rooms', (req, res) => {
   const rooms = db.prepare(`
     SELECT r.*,
       (SELECT COUNT(*) FROM units WHERE room_id = r.id) AS unit_count,
-      (SELECT COUNT(*) FROM books bk
-        JOIN shelves s ON bk.shelf_id = s.id
-        JOIN units u ON s.unit_id = u.id
-        WHERE u.room_id = r.id AND bk.owned = 1) AS book_count
+      (
+        (SELECT COUNT(*) FROM books WHERE room_id = r.id AND owned = 1)
+        + (SELECT COUNT(*) FROM books WHERE unit_id IN (SELECT id FROM units WHERE room_id = r.id) AND owned = 1)
+        + (SELECT COUNT(*) FROM books bk
+            JOIN shelves s ON bk.shelf_id = s.id
+            JOIN units u ON s.unit_id = u.id
+            WHERE u.room_id = r.id AND bk.owned = 1)
+      ) AS book_count
     FROM rooms r
     WHERE r.building_id = ?
     ORDER BY r.order_index, r.name
@@ -189,9 +193,12 @@ router.get('/rooms/:id/units', (req, res) => {
   const units = db.prepare(`
     SELECT u.*,
       (SELECT COUNT(*) FROM shelves WHERE unit_id = u.id) AS shelf_count,
-      (SELECT COUNT(*) FROM books bk
-        JOIN shelves s ON bk.shelf_id = s.id
-        WHERE s.unit_id = u.id AND bk.owned = 1) AS book_count
+      (
+        (SELECT COUNT(*) FROM books WHERE unit_id = u.id AND owned = 1)
+        + (SELECT COUNT(*) FROM books bk
+            JOIN shelves s ON bk.shelf_id = s.id
+            WHERE s.unit_id = u.id AND bk.owned = 1)
+      ) AS book_count
     FROM units u
     WHERE u.room_id = ?
     ORDER BY u.order_index, u.name

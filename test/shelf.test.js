@@ -495,6 +495,45 @@ describe('shelf', () => {
       }
     });
 
+    it('children-list book_count includes books at every descendant level', async () => {
+      // Children-of-parent endpoints used to undercount: rooms only counted
+      // shelf-descended books, units only shelf-descended. They now mirror
+      // /tree, so a room counts shelf + unit + room-direct, and a unit
+      // counts shelf + unit-direct. Unowned books (unownedShelvedBookId)
+      // must be excluded from both.
+      //
+      // Fixtures in this describe place: shelfedBookId on shelfId,
+      // unitBookId on unitId, roomBookId on roomId, buildingBookId on
+      // buildingId, unownedShelvedBookId (owned=false) on shelfId, plus
+      // any cascade/cover/order fixtures other tests may have created.
+      // We only assert lower bounds and the exclusion, which is durable.
+      const { body: rooms } = await req('GET', `/api/shelf/buildings/${buildingId}/rooms`);
+      const room = rooms.find(r => r.id === roomId);
+      assert.ok(room, 'fixture room should appear');
+      // Must include shelf + unit + room-level fixture books (>= 3). Must
+      // NOT include the unowned shelved book or the building-level book.
+      assert.ok(room.book_count >= 3,
+        `room book_count should include shelf+unit+room-level fixtures (>=3), got ${room.book_count}`);
+
+      const { body: units } = await req('GET', `/api/shelf/rooms/${roomId}/units`);
+      const unit = units.find(u => u.id === unitId);
+      assert.ok(unit, 'fixture unit should appear');
+      assert.ok(unit.book_count >= 2,
+        `unit book_count should include shelf+unit-level fixtures (>=2), got ${unit.book_count}`);
+
+      // Defense in depth: the building-level book lives on building, not
+      // room/unit. Counts must not include it. The room count is at most
+      // (room.book_count) — we just verified it's >= 3. To pin
+      // exclusion, compute building-only book count separately:
+      const { body: bldgBooks } = await req('GET', `/api/shelf/buildings/${buildingId}/books`);
+      assert.ok(bldgBooks.some(b => b.id === buildingBookId),
+        'building drilldown should still include the building-level book');
+      // Room count should be strictly less than the full building drilldown
+      // count, because it excludes the building-only book.
+      assert.ok(room.book_count < bldgBooks.length,
+        `room.book_count (${room.book_count}) should be less than building drilldown count (${bldgBooks.length}) — building-only books excluded`);
+    });
+
     it('children-list endpoints order by order_index', async () => {
       // Each "children of X" route ORDER BY order_index, name. New siblings
       // get monotonically increasing order_index (max+1), so the existing
