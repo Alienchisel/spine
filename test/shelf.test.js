@@ -63,6 +63,12 @@ describe('shelf', () => {
       const { status: s } = await req('GET', `/api/shelf/buildings/${created.id}`);
       assert.equal(s, 404);
     });
+
+    it('PUT /api/shelf/buildings/order returns 400 when ids is not an array', async () => {
+      const { status, body } = await req('PUT', '/api/shelf/buildings/order', { ids: 'bad' });
+      assert.equal(status, 400);
+      assert.equal(body.error, 'ids must be an array');
+    });
   });
 
   describe('rooms, units, shelves hierarchy', () => {
