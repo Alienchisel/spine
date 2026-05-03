@@ -591,6 +591,30 @@ describe('books', () => {
       assert.equal(status, 404);
     });
 
+    it('PUT accepts authors/narrators as either name strings or {name} objects', async () => {
+      // Regression: BookCard's auto-finish PUT round-trips a fetched book —
+      // including authors/narrators as {name, ...} objects — without flattening.
+      // syncPeople and the firstAuthor derivation must handle both shapes.
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'roundtrip ' + Math.random().toString(36).slice(2, 6),
+        format: 'audiobook',
+        authors: ['Robert A. Heinlein'],
+        narrators: ['Lloyd James'],
+      });
+      const fetched = await req('GET', `/api/books/${created.id}`);
+      // GET returns authors/narrators as object arrays — PUT them back verbatim.
+      const { status, body } = await req('PUT', `/api/books/${created.id}`, {
+        ...fetched.body,
+        status: 'finished',
+        date_finished: '2024-06-01',
+        tags: [],
+      });
+      assert.equal(status, 200, 'PUT with object-array people should not 500');
+      assert.equal(body.status, 'finished');
+      assert.equal(body.authors[0].name, 'Robert A. Heinlein');
+      assert.equal(body.narrators[0].name, 'Lloyd James');
+    });
+
     it('PUT/PATCH/DELETE return 400 for malformed book id', async () => {
       // Compact guard test for the main write-route id parsers
       // (routes/books.js:87, :97, :130). Each rejects non-integer / <1 ids
