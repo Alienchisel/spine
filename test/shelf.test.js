@@ -147,6 +147,18 @@ describe('shelf', () => {
       assert.equal(status, 400);
     });
 
+    it('POST /api/shelf/units returns 400 when room_id is missing', async () => {
+      const { status, body } = await req('POST', '/api/shelf/units', { name: 'Bookcase' });
+      assert.equal(status, 400);
+      assert.equal(body.error, 'room_id is required');
+    });
+
+    it('POST /api/shelf/units returns 404 when room_id points to no room', async () => {
+      const { status, body } = await req('POST', '/api/shelf/units', { room_id: 999999, name: 'Phantom' });
+      assert.equal(status, 404);
+      assert.equal(body.error, 'Room not found');
+    });
+
     it('POST /api/shelf/shelves returns 400 when unit_id is missing', async () => {
       const { status, body } = await req('POST', '/api/shelf/shelves', { label: 'Top' });
       assert.equal(status, 400);
