@@ -1142,6 +1142,14 @@ describe('books', () => {
       const notKeywordResult = await collect(`${stem} NOT Manga`);
       assert.ok(notKeywordResult.has(scifiOnly.id));
       assert.ok(!notKeywordResult.has(scifiManga.id));
+
+      // Regression: unmatched ')' used to terminate the AND-loop early and
+      // silently drop every following token. Now stripped pre-parse so the
+      // intent ("stem AND Sci-Fi") survives.
+      const unbalanced = await collect(`${stem})) Sci-Fi`);
+      assert.ok(unbalanced.has(scifiManga.id), 'unmatched paren should not eat trailing tokens');
+      assert.ok(unbalanced.has(scifiOnly.id));
+      assert.ok(!unbalanced.has(mangaOnly.id), 'should still require Sci-Fi');
     });
 
     it('field=rating filters by exact rating value (incl. half-stars)', async () => {
