@@ -37,10 +37,14 @@ export default function ReadsSection({ bookId, reads, onUpdate }) {
       setError('Finish date must be YYYY, YYYY-MM, or YYYY-MM-DD');
       return false;
     }
-    // Lexical comparison works for partial dates because they're all left-padded.
-    if (form.date_started && form.date_finished && form.date_finished < form.date_started) {
-      setError('Finish date cannot be before start date');
-      return false;
+    // Compare on the shared prefix so mixed-precision pairs (e.g. started '2024-06',
+    // finished '2024') don't trip a lexical false-positive.
+    if (form.date_started && form.date_finished) {
+      const n = Math.min(form.date_started.length, form.date_finished.length);
+      if (form.date_finished.slice(0, n) < form.date_started.slice(0, n)) {
+        setError('Finish date cannot be before start date');
+        return false;
+      }
     }
     return true;
   }

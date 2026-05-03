@@ -923,6 +923,25 @@ describe('books', () => {
       });
       assert.equal(status, 400);
     });
+
+    it('accepts mixed-precision pair where naive lexical compare would reject', async () => {
+      // Regression: lexically '2024' < '2024-06' is true, but semantically
+      // started='2024-06' / finished='2024' means "started in June, finished
+      // sometime in 2024" — the comparison must use the shared prefix.
+      const { status } = await req('POST', `/api/books/${bookId}/reads`, {
+        date_started:  '2024-06',
+        date_finished: '2024',
+      });
+      assert.equal(status, 201);
+    });
+
+    it('still rejects partial dates that are clearly out of order', async () => {
+      const { status } = await req('POST', `/api/books/${bookId}/reads`, {
+        date_started:  '2024-06',
+        date_finished: '2023',
+      });
+      assert.equal(status, 400);
+    });
   });
 
   describe('field persistence', () => {
