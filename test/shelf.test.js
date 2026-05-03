@@ -147,6 +147,75 @@ describe('shelf', () => {
         'book should reappear as unshelfed after its shelf was deleted');
     });
 
+    it('deleting a unit releases its shelf-level and unit-level books to unshelfed', async () => {
+      // CASCADE: shelves→unit, then SET NULL on books.shelf_id and books.unit_id.
+      const stem = 'unit-delete-' + Math.random().toString(36).slice(2, 6);
+      const { body: u }  = await req('POST', '/api/shelf/units',   { room_id: roomId, name: `${stem} unit` });
+      const { body: sh } = await req('POST', '/api/shelf/shelves', { unit_id: u.id,   label: `${stem} shelf` });
+      const { body: shelfBook } = await req('POST', '/api/books', {
+        title: `${stem} on shelf`, format: 'physical', owned: true, shelf_id: sh.id,
+      });
+      const { body: unitBook }  = await req('POST', '/api/books', {
+        title: `${stem} on unit`,  format: 'physical', owned: true, unit_id:  u.id,
+      });
+
+      const { status: del } = await req('DELETE', `/api/shelf/units/${u.id}`);
+      assert.equal(del, 204);
+
+      for (const b of [shelfBook, unitBook]) {
+        const { body: location } = await req('GET', `/api/shelf/location/${b.id}`);
+        assert.equal(location, null, `book ${b.id} should have no location after unit delete`);
+      }
+      const { body: unshelfed } = await req('GET', '/api/shelf/unshelfed');
+      assert.ok(unshelfed.some(x => x.id === shelfBook.id), 'shelf-level book should be unshelfed');
+      assert.ok(unshelfed.some(x => x.id === unitBook.id),  'unit-level book should be unshelfed');
+    });
+
+    it('deleting a room releases shelf-, unit-, and room-level books to unshelfed', async () => {
+      const stem = 'room-delete-' + Math.random().toString(36).slice(2, 6);
+      const { body: rm } = await req('POST', '/api/shelf/rooms',   { building_id: buildingId, name: `${stem} room` });
+      const { body: u }  = await req('POST', '/api/shelf/units',   { room_id: rm.id,          name: `${stem} unit` });
+      const { body: sh } = await req('POST', '/api/shelf/shelves', { unit_id: u.id,           label: `${stem} shelf` });
+      const { body: shelfBook } = await req('POST', '/api/books', { title: `${stem} on shelf`, format: 'physical', owned: true, shelf_id: sh.id });
+      const { body: unitBook }  = await req('POST', '/api/books', { title: `${stem} on unit`,  format: 'physical', owned: true, unit_id:  u.id });
+      const { body: roomBook }  = await req('POST', '/api/books', { title: `${stem} on room`,  format: 'physical', owned: true, room_id:  rm.id });
+
+      const { status: del } = await req('DELETE', `/api/shelf/rooms/${rm.id}`);
+      assert.equal(del, 204);
+
+      const { body: unshelfed } = await req('GET', '/api/shelf/unshelfed');
+      for (const b of [shelfBook, unitBook, roomBook]) {
+        const { body: location } = await req('GET', `/api/shelf/location/${b.id}`);
+        assert.equal(location, null, `book ${b.id} should have no location after room delete`);
+        assert.ok(unshelfed.some(x => x.id === b.id), `book ${b.id} should be unshelfed`);
+      }
+    });
+
+    it('deleting a building releases books at every tier to unshelfed', async () => {
+      // Full cascade: building → rooms → units → shelves, plus SET NULL on
+      // every books.*_id. The strongest single proof that the location
+      // promise holds top-to-bottom.
+      const stem = 'bldg-delete-' + Math.random().toString(36).slice(2, 6);
+      const { body: bldg } = await req('POST', '/api/shelf/buildings', { name: `${stem} bldg` });
+      const { body: rm }   = await req('POST', '/api/shelf/rooms',     { building_id: bldg.id, name: `${stem} room` });
+      const { body: u }    = await req('POST', '/api/shelf/units',     { room_id: rm.id,       name: `${stem} unit` });
+      const { body: sh }   = await req('POST', '/api/shelf/shelves',   { unit_id: u.id,        label: `${stem} shelf` });
+      const { body: shelfBook } = await req('POST', '/api/books', { title: `${stem} on shelf`,    format: 'physical', owned: true, shelf_id: sh.id });
+      const { body: unitBook }  = await req('POST', '/api/books', { title: `${stem} on unit`,     format: 'physical', owned: true, unit_id:  u.id });
+      const { body: roomBook }  = await req('POST', '/api/books', { title: `${stem} on room`,     format: 'physical', owned: true, room_id:  rm.id });
+      const { body: bldgBook }  = await req('POST', '/api/books', { title: `${stem} on building`, format: 'physical', owned: true, building_id: bldg.id });
+
+      const { status: del } = await req('DELETE', `/api/shelf/buildings/${bldg.id}`);
+      assert.equal(del, 204);
+
+      const { body: unshelfed } = await req('GET', '/api/shelf/unshelfed');
+      for (const b of [shelfBook, unitBook, roomBook, bldgBook]) {
+        const { body: location } = await req('GET', `/api/shelf/location/${b.id}`);
+        assert.equal(location, null, `book ${b.id} should have no location after building delete`);
+        assert.ok(unshelfed.some(x => x.id === b.id), `book ${b.id} should be unshelfed`);
+      }
+    });
+
     it('GET /api/shelf/tree reports exact book_count at every level', async () => {
       // /tree has its own count SQL separate from the child-list endpoints,
       // so a tree-only regression wouldn't be caught by the child-list test.
