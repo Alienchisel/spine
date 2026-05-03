@@ -735,6 +735,22 @@ describe('shelf', () => {
         `shelves in utA should be unchanged; got ${shelvesA.map(s => s.id).join(',')}`);
     });
 
+    it('GET /api/shelf/buildings orders by order_index', async () => {
+      // Top-level buildings list is what ShelfView shows on initial render.
+      // New buildings get monotonically increasing order_index (max+1), so
+      // the earlier-created building should always come back first.
+      const stem = 'bldg-list-order-' + Math.random().toString(36).slice(2, 6);
+      const { body: first }  = await req('POST', '/api/shelf/buildings', { name: `${stem} first` });
+      const { body: second } = await req('POST', '/api/shelf/buildings', { name: `${stem} second` });
+      const { body: list } = await req('GET', '/api/shelf/buildings');
+      const ids = list.map(b => b.id);
+      const fi = ids.indexOf(first.id);
+      const si = ids.indexOf(second.id);
+      assert.ok(fi !== -1 && si !== -1, 'both buildings should appear');
+      assert.ok(fi < si,
+        `first-created should come before second; got ${ids.join(',')}`);
+    });
+
     it('GET /api/shelf/buildings reports exact room_count and book_count per building', async () => {
       // Separate SQL from /tree (routes/shelf.js:60). Pin it on an isolated
       // building to keep counts assertable.
