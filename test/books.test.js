@@ -738,6 +738,13 @@ describe('books', () => {
       assert.equal(status, 400);
     });
 
+    it('GET reads returns 200 with [] for an unknown book id (no existence check)', async () => {
+      // Mirrors /log and /lists — the SELECT just matches zero rows.
+      const { status, body } = await req('GET', '/api/books/999999/reads');
+      assert.equal(status, 200);
+      assert.deepEqual(body, []);
+    });
+
     it('PUT/DELETE reads return 400 when either id is malformed', async () => {
       // The compound id guard at routes/books.js:61 and :74 short-circuits
       // before any DB lookup; both ids must be positive integers.
