@@ -146,6 +146,18 @@ describe('shelf', () => {
       const { status } = await req('PUT', `/api/shelf/shelves/${shelfId}/order`, { ids: 'bad' });
       assert.equal(status, 400);
     });
+
+    it('POST /api/shelf/shelves returns 400 when unit_id is missing', async () => {
+      const { status, body } = await req('POST', '/api/shelf/shelves', { label: 'Top' });
+      assert.equal(status, 400);
+      assert.equal(body.error, 'unit_id is required');
+    });
+
+    it('POST /api/shelf/shelves returns 404 when unit_id points to no unit', async () => {
+      const { status, body } = await req('POST', '/api/shelf/shelves', { unit_id: 999999, label: 'Ghost' });
+      assert.equal(status, 404);
+      assert.equal(body.error, 'Unit not found');
+    });
   });
 
   describe('unshelfed and location', () => {
