@@ -170,7 +170,12 @@ unless the book is both `format = 'physical'` (or unset) AND `owned = 1`
 non-physical can't hold a shelf assignment — direct API writes with shelf
 data are silently scrubbed, mirroring `AcquisitionFields.jsx` which only
 shows the shelf picker when `owned && format === 'physical'`.
-| — | `shelf_position` | INTEGER | Sort position within a shelf; rewritten by `PUT /api/shelf/shelves/:id/order` |
+
+#### Shelf ordering
+
+| Column | Type | Notes |
+|---|---|---|
+| `shelf_position` | INTEGER | Sort position within a shelf; rewritten by `PUT /api/shelf/shelves/:id/order` |
 
 ---
 
