@@ -214,6 +214,27 @@ describe('shelf', () => {
       }
     });
 
+    it('GET singletons and children/location on malformed ids return 400 Invalid id', async () => {
+      const paths = [
+        '/api/shelf/buildings/abc',
+        '/api/shelf/buildings/abc/rooms',
+        '/api/shelf/rooms/abc/units',
+        '/api/shelf/units/abc/shelves',
+        '/api/shelf/location/abc',
+      ];
+      for (const path of paths) {
+        const { status, body } = await req('GET', path);
+        assert.equal(status, 400, `GET ${path} should be 400`);
+        assert.equal(body.error, 'Invalid id', `GET ${path} should have 'Invalid id'`);
+      }
+    });
+
+    it('GET /api/shelf/buildings/:id returns 404 for unknown id', async () => {
+      const { status, body } = await req('GET', '/api/shelf/buildings/999999');
+      assert.equal(status, 404);
+      assert.equal(body.error, 'Not found');
+    });
+
     it('GET .../books on malformed shelf hierarchy ids return 400 Invalid id', async () => {
       const paths = [
         '/api/shelf/buildings/abc/books',
