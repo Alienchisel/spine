@@ -16,7 +16,14 @@ export default function Loved() {
   }, []);
 
   function handleUpdate(updated) {
-    setBooks(bs => bs.map(b => b.id === updated.id ? updated : b).filter(b => b.loved));
+    // Loved sorts by updated_at DESC (no UI selector). Splice the updated book
+    // to the top so inline edits bump it right away, matching the server's
+    // ordering on next mount.
+    if (!updated.loved) {
+      setBooks(bs => bs.filter(b => b.id !== updated.id));
+    } else {
+      setBooks(bs => [updated, ...bs.filter(b => b.id !== updated.id)]);
+    }
   }
 
   return (

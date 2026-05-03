@@ -179,6 +179,11 @@ export default function Library() {
       loadedRef.current -= 1;
       setTotal(t => t - 1);
       setBooks(bs => bs.filter(b => b.id !== updated.id));
+    } else if (sort === 'updated') {
+      // Mirror the server's `updated_at DESC` ordering locally so an inline
+      // edit (rating, progress, finish) bumps the book to the top right away
+      // instead of waiting for a refetch on next mount.
+      setBooks(bs => [updated, ...bs.filter(b => b.id !== updated.id)]);
     } else {
       setBooks(bs => bs.map(b => b.id === updated.id ? updated : b));
     }
