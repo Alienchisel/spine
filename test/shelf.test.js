@@ -261,13 +261,14 @@ describe('shelf', () => {
       }
     });
 
-    it('all four order routes return 400 when ids is not an array', async () => {
-      // Each scoped route now also validates its parent_id, so include valid
+    it('all order routes return 400 when ids is not an array', async () => {
+      // Each scoped route also validates its parent_id, so include valid
       // parent ids here to ensure the ids-array branch is what fires.
       const cases = [
         { path: '/api/shelf/buildings/order',           body: { ids: 'bad' } },
         { path: '/api/shelf/rooms/order',               body: { building_id: buildingId, ids: 'bad' } },
         { path: '/api/shelf/units/order',               body: { room_id: roomId, ids: 'bad' } },
+        { path: '/api/shelf/shelves/order',             body: { unit_id: unitId, ids: 'bad' } },
         { path: `/api/shelf/shelves/${shelfId}/order`,  body: { ids: 'bad' } },
       ];
       for (const { path, body } of cases) {
