@@ -367,6 +367,14 @@ describe('shelf', () => {
       assert.equal(body, null);
     });
 
+    it('GET /api/shelf/location/:bookId returns 200 with null for an unknown book id', async () => {
+      // Lookup-not-resource contract: an unknown but valid-looking id should
+      // behave like an unplaced book, not 404. Prevents drift over time.
+      const { status, body } = await req('GET', '/api/shelf/location/999999');
+      assert.equal(status, 200);
+      assert.equal(body, null);
+    });
+
     it('GET /api/shelf/buildings/:id/books includes books at every placement level', async () => {
       // Building drilldown cascades all four levels: shelf, unit, room, and
       // direct building. Asserting all four pins the route's full SQL
