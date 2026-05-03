@@ -2069,6 +2069,39 @@ describe('books', () => {
       assert.equal(physical.body.duration_minutes, null);
     });
 
+    it('PUT applies the same format-gated scrub as POST', async () => {
+      // Editing a physical book into an audiobook (rare but real) must clear
+      // shelf_id/unit_id/room_id/building_id/binding/condition/page_count
+      // while the new audiobook-only fields persist.
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Was Physical', format: 'physical',
+        binding: 'hardcover', condition: 'fine',
+        page_count: 400, shelf_id: shelfId,
+      });
+      // Sanity: POST stored the physical-only fields.
+      assert.equal(created.binding, 'hardcover');
+      assert.equal(created.shelf_id, shelfId);
+
+      // Round-trip the GET shape but flip format and add duration; existing
+      // shelf_id stays in the payload, mirroring what a careless edit-form
+      // round-trip would send.
+      const { body: updated } = await req('PUT', `/api/books/${created.id}`, {
+        ...created,
+        format: 'audiobook',
+        duration_minutes: 700,
+        tags: [],
+      });
+      assert.equal(updated.format, 'audiobook');
+      assert.equal(updated.duration_minutes, 700);
+      assert.equal(updated.binding, null);
+      assert.equal(updated.condition, null);
+      assert.equal(updated.page_count, null);
+      assert.equal(updated.shelf_id, null);
+      assert.equal(updated.unit_id, null);
+      assert.equal(updated.room_id, null);
+      assert.equal(updated.building_id, null);
+    });
+
     it('non-physical books cannot have shelf locations', async () => {
       // Shelves only hold physical books; the read path filters
       // `format = 'physical' OR NULL`. The write path now mirrors that, so a
