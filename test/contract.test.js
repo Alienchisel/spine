@@ -204,8 +204,8 @@ describe('book contract: full field round-trip', () => {
       translators:       ['Constance Garnett'],
       tags:              ['classic', 'novella'],
       status:            'finished',          // triggers read_count +1
-      owned:             false,
-      previously_owned:  true,
+      owned:             false,               // is_custom gate forces → 1
+      previously_owned:  true,                // is_custom gate forces → 0
       is_custom:         true,
       is_stub:           true,                // auto-cleared: title + authors present → 0
       loved:             true,
@@ -214,8 +214,8 @@ describe('book contract: full field round-trip', () => {
       rating:            3.5,
       date_started:      '2024-04-01',
       date_finished:     '2024-04-10',
-      acquisition_source:'Library',
-      acquisition_date:  '2024',              // year-only partial date
+      acquisition_source:'Library',           // is_custom gate forces → null
+      acquisition_date:  '2024',              // is_custom gate forces → null
       format:            'audiobook',
       binding:           null,                // cleared
       condition:         null,                // cleared
@@ -253,9 +253,11 @@ describe('book contract: full field round-trip', () => {
     assert.equal(body.status, 'finished');
     assert.equal(body.read_count, 1);
 
-    // Boolean flags
-    assert.equal(body.owned, 0);
-    assert.equal(body.previously_owned, 1);
+    // Boolean flags. is_custom forces owned=1 and previously_owned=0 — see
+    // bookColumns gate at lib/books/repository.js. The dedicated test for this
+    // gate lives in books.test.js next to the ownership tests.
+    assert.equal(body.owned, 1);
+    assert.equal(body.previously_owned, 0);
     assert.equal(body.is_custom, 1);
     assert.equal(body.is_stub, 0);            // auto-cleared: title + authors present
     assert.equal(body.loved, 1);
@@ -268,8 +270,9 @@ describe('book contract: full field round-trip', () => {
     assert.equal(body.rating, 3.5);
     assert.equal(body.date_started, '2024-04-01');
     assert.equal(body.date_finished, '2024-04-10');
-    assert.equal(body.acquisition_source, 'Library');
-    assert.equal(body.acquisition_date, '2024');
+    // is_custom gate clears both — input was 'Library' / '2024'.
+    assert.equal(body.acquisition_source, null);
+    assert.equal(body.acquisition_date, null);
     assert.equal(body.format, 'audiobook');
     assert.equal(body.binding, null);
     assert.equal(body.condition, null);
@@ -322,8 +325,8 @@ describe('book contract: full field round-trip', () => {
     assert.equal(body.asin, null);
     assert.equal(body.status, 'finished');
     assert.equal(body.read_count, 1);
-    assert.equal(body.owned, 0);
-    assert.equal(body.previously_owned, 1);
+    assert.equal(body.owned, 1);              // forced by is_custom gate
+    assert.equal(body.previously_owned, 0);   // forced by is_custom gate
     assert.equal(body.is_custom, 1);
     assert.equal(body.is_stub, 0);
     assert.equal(body.loved, 1);

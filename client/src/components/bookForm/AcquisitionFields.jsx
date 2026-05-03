@@ -31,7 +31,7 @@ export default function AcquisitionFields({ form, setForm, set, pastSources, she
           <input type="checkbox" checked={form.is_custom}
             onChange={(e) => {
               const is_custom = e.target.checked;
-              setForm(f => ({ ...f, is_custom, owned: is_custom ? true : f.owned, ...(is_custom && { acquisition_source: '', acquisition_date: '' }) }));
+              setForm(f => ({ ...f, is_custom, owned: is_custom ? true : f.owned, ...(is_custom && { previously_owned: false, acquisition_source: '', acquisition_date: '' }) }));
             }}
             className="w-4 h-4 rounded border-neutral-700 bg-neutral-900 text-oak focus:ring-0 focus:ring-offset-0" />
           <span className="text-sm text-neutral-300">

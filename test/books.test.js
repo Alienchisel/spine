@@ -497,6 +497,34 @@ describe('books', () => {
       assert.equal(updated.previously_owned, 1);
     });
 
+    it('is_custom forces owned=1, previously_owned=0, and clears acquisition fields', async () => {
+      // Mirrors AcquisitionFields.jsx:31-41 — toggling is_custom in the form forces
+      // owned and hides/clears the acquisition fields. Backend enforces the same
+      // contract so a direct API call can't drift from the form's promises.
+      const payload = {
+        title: 'Custom Anthology',
+        is_custom: true,
+        owned: false,
+        previously_owned: true,
+        acquisition_source: 'Amazon',
+        acquisition_date: '2024',
+      };
+      const { status, body } = await req('POST', '/api/books', payload);
+      assert.equal(status, 201);
+      assert.equal(body.is_custom, 1);
+      assert.equal(body.owned, 1);
+      assert.equal(body.previously_owned, 0);
+      assert.equal(body.acquisition_source, null);
+      assert.equal(body.acquisition_date, null);
+
+      // PUT-path enforcement: same payload via update should land the same way.
+      const { body: updated } = await req('PUT', `/api/books/${body.id}`, { ...payload });
+      assert.equal(updated.owned, 1);
+      assert.equal(updated.previously_owned, 0);
+      assert.equal(updated.acquisition_source, null);
+      assert.equal(updated.acquisition_date, null);
+    });
+
     it('saves and returns ASIN', async () => {
       const { status, body } = await req('POST', '/api/books', { title: 'Audible Book', asin: 'B01N4P45MO' });
       assert.equal(status, 201);
