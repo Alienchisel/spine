@@ -245,6 +245,21 @@ describe('shelf', () => {
       assert.equal(treeShelf.book_count, 1, `shelf book_count: ${treeShelf.book_count}`);
     });
 
+    it('scoped reorder routes return 400 for malformed parent id', async () => {
+      // Truthy-but-malformed parent ids used to slip past the missing-parent
+      // guard and silently no-op via SQL. Now they 400 with 'Invalid id'.
+      const cases = [
+        { path: '/api/shelf/rooms/order',   body: { building_id: 'abc', ids: [] } },
+        { path: '/api/shelf/units/order',   body: { room_id: 'abc',     ids: [] } },
+        { path: '/api/shelf/shelves/order', body: { unit_id: 'abc',     ids: [] } },
+      ];
+      for (const { path, body } of cases) {
+        const { status, body: resBody } = await req('PUT', path, body);
+        assert.equal(status, 400, `PUT ${path} should be 400`);
+        assert.equal(resBody.error, 'Invalid id', `PUT ${path} should have 'Invalid id'`);
+      }
+    });
+
     it('scoped reorder routes return 400 when the parent id is missing', async () => {
       // Silent no-op on missing parent_id was a real bug — drag reorder
       // failures must be visible. Each route uses the same error string as
