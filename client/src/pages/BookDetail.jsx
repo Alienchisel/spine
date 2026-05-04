@@ -63,6 +63,14 @@ export default function BookDetail() {
   // re-fires on book?.id, which is downstream of the first effect's setBook.
   const idGenRef = useRef(0);
   const bookGenRef = useRef(0);
+  // Tracks the URL's current id every render so callbacks fired by child
+  // components (e.g. ProgressSection.onChange after an async save) can
+  // tell whether their result still belongs to the page being viewed.
+  // Compared against `updated.id` rather than via the gen counters because
+  // the child triggers its own out-of-band fetch — gen capture would need
+  // to live inside the child.
+  const latestIdRef = useRef(id);
+  latestIdRef.current = id;
   const [seriesSiblings, setSeriesSiblings] = useState([]);
 
   function loadReads() {
@@ -362,9 +370,16 @@ export default function BookDetail() {
 
           {(book.status === 'reading' || book.status === 'paused') && (
             <ProgressSection book={book} log={log} onChange={(updated) => {
+              // ProgressSection's save resolved — but the user may have
+              // navigated to another book in the meantime. Drop the
+              // result if its id doesn't match the URL anymore.
+              if (String(updated.id) !== String(latestIdRef.current)) return;
               setBook(updated);
               setLogError(null);
-              api.getBookLog(id).then(setLog).catch(() => setLogError('Failed to refresh reading log.'));
+              const reqId = id;
+              api.getBookLog(reqId)
+                .then(l => { if (String(reqId) === String(latestIdRef.current)) setLog(l); })
+                .catch(() => { if (String(reqId) === String(latestIdRef.current)) setLogError('Failed to refresh reading log.'); });
             }} />
           )}
 
