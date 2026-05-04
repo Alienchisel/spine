@@ -153,6 +153,9 @@ export default function Stats() {
   const [stats, setStats] = useState(null);
   const [settings, setSettings] = useState({});
   const [error, setError] = useState(null);
+  // Separate from `error` because that one fully replaces the page on
+  // load failure. saveGoal rollbacks should leave the page intact.
+  const [actionError, setActionError] = useState(null);
 
   useEffect(() => {
     Promise.all([api.getStats(), api.getSettings()])
@@ -162,11 +165,13 @@ export default function Stats() {
 
   async function saveGoal(key, value) {
     const prev = settings[key];
+    setActionError(null);
     setSettings(s => ({ ...s, [key]: String(value) }));
     try {
       await api.setSetting(key, value);
     } catch {
       setSettings(s => ({ ...s, [key]: prev }));
+      setActionError('Failed to save goal.');
     }
   }
 
@@ -187,6 +192,8 @@ export default function Stats() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
       <h1 className="font-slab text-2xl text-parchment tracking-wide uppercase">Stats</h1>
+
+      {actionError && <p className="text-xs text-warn">{actionError}</p>}
 
       <Section title="Goals">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
