@@ -10,6 +10,15 @@ export default function LookupPanel({ onApply }) {
   const [error, setError] = useState(null);
   const debounce = useRef(null);
 
+  async function runSearch(q) {
+    if (!q.trim()) return;
+    setSearching(true);
+    setError(null);
+    try { setResults(await api.searchBooks(q)); }
+    catch { setError('Open Library search failed — please try again.'); }
+    finally { setSearching(false); }
+  }
+
   function handleInput(e) {
     const q = e.target.value;
     setQuery(q);
@@ -17,12 +26,16 @@ export default function LookupPanel({ onApply }) {
     setError(null);
     clearTimeout(debounce.current);
     if (!q.trim()) return;
-    debounce.current = setTimeout(async () => {
-      setSearching(true);
-      try { setResults(await api.searchBooks(q)); }
-      catch { setError('Open Library search failed — please try again.'); }
-      finally { setSearching(false); }
-    }, 400);
+    debounce.current = setTimeout(() => runSearch(q), 400);
+  }
+
+  function handleKeyDown(e) {
+    // Enter flushes the 400ms debounce — useful when pasting an ISBN.
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      clearTimeout(debounce.current);
+      runSearch(query);
+    }
   }
 
   async function handlePick(result) {
@@ -37,6 +50,7 @@ export default function LookupPanel({ onApply }) {
         type="search"
         value={query}
         onChange={handleInput}
+        onKeyDown={handleKeyDown}
         placeholder="Search Open Library to auto-fill…"
         className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2.5 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-oak/60 focus:ring-1 focus:ring-oak/25 transition-colors duration-150"
       />
