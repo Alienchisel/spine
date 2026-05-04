@@ -243,15 +243,19 @@ export default function Library() {
             >
               {SORTS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
             </select>
-            <input
-              ref={searchRef}
-              type="search"
-              value={queryRaw}
-              onChange={(e) => setQueryRaw(e.target.value)}
-              placeholder="Search title, people, series, or tags…"
-              className="bg-neutral-800 border border-leather/30 rounded-lg px-4 py-2 text-sm text-parchment placeholder-neutral-500 focus:outline-none focus:border-leather/70 focus:ring-1 focus:ring-oak/25 transition-colors duration-150 w-full sm:w-56"
-            />
-            <SearchHelp />
+            <div className="relative w-full sm:w-56">
+              <input
+                ref={searchRef}
+                type="search"
+                value={queryRaw}
+                onChange={(e) => setQueryRaw(e.target.value)}
+                placeholder="Search title, people, series, or tags…"
+                className="w-full bg-neutral-800 border border-leather/30 rounded-lg pl-4 pr-10 py-2 text-sm text-parchment placeholder-neutral-500 focus:outline-none focus:border-leather/70 focus:ring-1 focus:ring-oak/25 transition-colors duration-150 [&::-webkit-search-cancel-button]:appearance-none"
+              />
+              <div className="absolute right-1.5 top-1/2 -translate-y-1/2">
+                <SearchHelp />
+              </div>
+            </div>
             <button
               onClick={() => setFiltersOpen(o => !o)}
               className={`flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg whitespace-nowrap transition-[transform,background-color,color] ease-out duration-150 active:scale-[0.98] ${
