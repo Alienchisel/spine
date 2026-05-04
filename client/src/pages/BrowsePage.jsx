@@ -38,6 +38,10 @@ export default function BrowsePage() {
   const [loading,     setLoading]     = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadingAll,  setLoadingAll]  = useState(false);
+  // Initial load failure: replaces the empty-state with an error message.
+  const [fetchError,  setFetchError]  = useState(false);
+  // Pagination failure: leaves loaded books visible, shows near Load more.
+  const [actionError, setActionError] = useState(null);
   const loadedRef = useRef(0);
   const genRef    = useRef(0);
   const gridCols  = useGridCols(BROWSE_BPS);
@@ -45,6 +49,7 @@ export default function BrowsePage() {
   useEffect(() => {
     genRef.current += 1;
     setLoading(true);
+    setFetchError(false);
     setBooks([]);
     loadedRef.current = 0;
     api.getBooks({ field, value: decoded, sort: browseSort(field), limit: PAGE_SIZE, offset: 0 })
@@ -52,24 +57,32 @@ export default function BrowsePage() {
         setBooks(b);
         setTotal(t);
         loadedRef.current = b.length;
-      }).finally(() => setLoading(false));
+      })
+      .catch(() => setFetchError(true))
+      .finally(() => setLoading(false));
   }, [field, decoded]);
 
   function handleLoadMore() {
     const gen = genRef.current;
     setLoadingMore(true);
+    setActionError(null);
     api.getBooks({ field, value: decoded, sort: browseSort(field), limit: PAGE_SIZE, offset: loadedRef.current })
       .then(({ books: b, total: t }) => {
         if (gen !== genRef.current) return;
         setBooks(prev => [...prev, ...b]);
         setTotal(t);
         loadedRef.current += b.length;
-      }).finally(() => { if (gen === genRef.current) setLoadingMore(false); });
+      })
+      .catch(() => {
+        if (gen === genRef.current) setActionError('Failed to load more books.');
+      })
+      .finally(() => { if (gen === genRef.current) setLoadingMore(false); });
   }
 
   async function handleLoadAll() {
     const gen = genRef.current;
     setLoadingAll(true);
+    setActionError(null);
     try {
       let serverTotal = total;
       while (gen === genRef.current && loadedRef.current < serverTotal) {
@@ -81,6 +94,8 @@ export default function BrowsePage() {
         serverTotal = t;
         if (b.length === 0) break;
       }
+    } catch {
+      if (gen === genRef.current) setActionError('Failed to load more books.');
     } finally {
       if (gen === genRef.current) setLoadingAll(false);
     }
@@ -109,6 +124,10 @@ export default function BrowsePage() {
 
       {loading ? (
         <div className="text-neutral-700 text-sm">Loading…</div>
+      ) : fetchError ? (
+        <div className="text-center py-32">
+          <p className="text-neutral-600">Failed to load books. Please try again.</p>
+        </div>
       ) : books.length === 0 ? (
         <div className="text-neutral-600 text-sm">No books found.</div>
       ) : (() => {
@@ -131,7 +150,8 @@ export default function BrowsePage() {
         );
       })()}
       {hasMore && (
-        <div className="mt-10 flex justify-center gap-3">
+        <div className="mt-10 flex flex-col items-center gap-2">
+        <div className="flex justify-center gap-3">
           <button
             onClick={handleLoadMore}
             disabled={loadingMore || loadingAll}
@@ -146,6 +166,8 @@ export default function BrowsePage() {
           >
             {loadingAll ? `Loading all · ${loadedRef.current}/${total}` : 'Load all'}
           </button>
+        </div>
+        {actionError && <p className="text-xs text-warn">{actionError}</p>}
         </div>
       )}
     </div>

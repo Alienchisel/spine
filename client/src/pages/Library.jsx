@@ -73,6 +73,10 @@ export default function Library() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadingAll,  setLoadingAll]  = useState(false);
   const [fetchError,  setFetchError]  = useState(false);
+  // Distinct from fetchError (which fully replaces the list when the
+  // initial fetch fails). Pagination failures are transient and should
+  // leave the loaded books visible; surfaced near the Load more buttons.
+  const [actionError, setActionError] = useState(null);
   const [facets,      setFacets]      = useState(null);
   const [counts,      setCounts]      = useState({});
   const [expandedSeries, setExpandedSeries] = useState(new Set());
@@ -146,17 +150,21 @@ export default function Library() {
   function handleLoadMore() {
     const gen = genRef.current;
     setLoadingMore(true);
+    setActionError(null);
     api.getBooks(buildApiParams(tab, sort, filters, query, loadedRef.current)).then(({ books: b, total: t }) => {
       if (gen !== genRef.current) return;
       setBooks(prev => [...prev, ...b]);
       setTotal(t);
       loadedRef.current += b.length;
+    }).catch(() => {
+      if (gen === genRef.current) setActionError('Failed to load more books.');
     }).finally(() => { if (gen === genRef.current) setLoadingMore(false); });
   }
 
   async function handleLoadAll() {
     const gen = genRef.current;
     setLoadingAll(true);
+    setActionError(null);
     try {
       let serverTotal = total;
       while (gen === genRef.current && loadedRef.current < serverTotal) {
@@ -168,6 +176,8 @@ export default function Library() {
         serverTotal = t;
         if (b.length === 0) break; // guard against unexpected 0-length response
       }
+    } catch {
+      if (gen === genRef.current) setActionError('Failed to load more books.');
     } finally {
       if (gen === genRef.current) setLoadingAll(false);
     }
@@ -383,21 +393,24 @@ export default function Library() {
             </div>
           )}
           {hasMore && (
-            <div className="mt-10 flex justify-center gap-3">
-              <button
-                onClick={handleLoadMore}
-                disabled={loadingMore || loadingAll}
-                className="text-sm text-neutral-500 hover:text-neutral-200 disabled:opacity-40 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
-              >
-                {loadingMore ? 'Loading…' : `Load more · ${total - loadedRef.current} remaining`}
-              </button>
-              <button
-                onClick={handleLoadAll}
-                disabled={loadingMore || loadingAll}
-                className="text-sm text-neutral-500 hover:text-neutral-200 disabled:opacity-40 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
-              >
-                {loadingAll ? `Loading all · ${loadedRef.current}/${total}` : 'Load all'}
-              </button>
+            <div className="mt-10 flex flex-col items-center gap-2">
+              <div className="flex justify-center gap-3">
+                <button
+                  onClick={handleLoadMore}
+                  disabled={loadingMore || loadingAll}
+                  className="text-sm text-neutral-500 hover:text-neutral-200 disabled:opacity-40 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
+                >
+                  {loadingMore ? 'Loading…' : `Load more · ${total - loadedRef.current} remaining`}
+                </button>
+                <button
+                  onClick={handleLoadAll}
+                  disabled={loadingMore || loadingAll}
+                  className="text-sm text-neutral-500 hover:text-neutral-200 disabled:opacity-40 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
+                >
+                  {loadingAll ? `Loading all · ${loadedRef.current}/${total}` : 'Load all'}
+                </button>
+              </div>
+              {actionError && <p className="text-xs text-warn">{actionError}</p>}
             </div>
           )}
         </>
