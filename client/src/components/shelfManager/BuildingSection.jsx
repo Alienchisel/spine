@@ -53,7 +53,7 @@ function BuildingSection({ building, dragHandle, onEdit, onDelete, onAddRoom, on
     <div className="border border-neutral-800 rounded-lg overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 bg-neutral-900/50 group">
         <div className="flex items-center gap-1 min-w-0">
-          <span className="opacity-0 group-hover:opacity-100 transition-opacity">{dragHandle}</span>
+          <span className="opacity-30 group-hover:opacity-100 transition-opacity">{dragHandle}</span>
           <button onClick={() => setOpen(o => !o)} className="flex items-center gap-2 text-left min-w-0">
             <span className="text-neutral-500 text-xs w-3 flex-shrink-0">{open ? '▾' : '▸'}</span>
           <span className="text-sm font-medium text-parchment">{building.name}</span>
@@ -63,7 +63,7 @@ function BuildingSection({ building, dragHandle, onEdit, onDelete, onAddRoom, on
           <span className="text-xs text-neutral-600">{building.rooms.length} {building.rooms.length === 1 ? 'room' : 'rooms'}</span>
           </button>
         </div>
-        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex items-center gap-2 opacity-30 group-hover:opacity-100 transition-opacity">
           {open && !adding && (
             <button onClick={() => setAdding(true)} className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors whitespace-nowrap">+ room</button>
           )}

@@ -102,8 +102,8 @@ export default function ReadsSection({ bookId, reads, onUpdate }) {
                 {r.date_started ? formatPartialDate(r.date_started) : '—'}
                 {r.date_finished ? <> <span className="text-neutral-600">→</span> {formatPartialDate(r.date_finished)}</> : ''}
               </span>
-              <button onClick={() => startEdit(r)} className="text-xs text-neutral-700 hover:text-neutral-400 opacity-0 group-hover:opacity-100 transition-all">Edit</button>
-              <button onClick={() => handleDelete(r.id)} className="text-xs text-neutral-700 hover:text-warn opacity-0 group-hover:opacity-100 transition-all ml-1">×</button>
+              <button onClick={() => startEdit(r)} className="text-xs text-neutral-700 hover:text-neutral-400 opacity-30 group-hover:opacity-100 transition-all">Edit</button>
+              <button onClick={() => handleDelete(r.id)} className="text-xs text-neutral-700 hover:text-warn opacity-30 group-hover:opacity-100 transition-all ml-1">×</button>
             </div>
           ))}
         </div>
