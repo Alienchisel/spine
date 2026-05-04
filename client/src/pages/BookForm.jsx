@@ -34,6 +34,11 @@ export default function BookForm() {
   const [fetchingCover, setFetchingCover] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  // If the edit-fetch fails, the form stays at FORM_DEFAULTS — looks
+  // exactly like a fresh "Add Book" form. Saving from that state would
+  // PUT defaults over the real book and wipe its relations (syncAuthors([]),
+  // syncTags([]), etc.). loadError gates submit so that can't happen.
+  const [loadError, setLoadError] = useState(null);
   const [pastSources, setPastSources] = useState([]);
   const [pastAuthors, setPastAuthors] = useState([]);
   const [pastPublishers, setPastPublishers] = useState([]);
@@ -68,6 +73,7 @@ export default function BookForm() {
 
   useEffect(() => {
     if (!isEdit) return;
+    setLoadError(null);
     api.getBook(id).then((book) => {
       setForm(bookToFormState(book));
       if (book.duration_minutes) {
@@ -75,7 +81,7 @@ export default function BookForm() {
         setDurationM(String(book.duration_minutes % 60));
       }
       if (book.cover_path) setCoverPreview(book.cover_path);
-    });
+    }).catch(() => setLoadError('Failed to load book.'));
   }, [id, isEdit]);
 
   function set(field, value) {
@@ -240,6 +246,12 @@ export default function BookForm() {
         {isEdit ? 'Edit book' : 'Add book'}
       </h1>
 
+      {loadError && (
+        <div className="mb-6 px-3 py-2 bg-warn/10 border border-warn/30 rounded text-sm text-warn">
+          {loadError} The form below shows defaults — saving has been disabled to avoid overwriting the book.
+        </div>
+      )}
+
       {!isEdit && <LookupPanel onApply={applyResult} />}
 
       <div className="flex gap-8 items-start">
@@ -314,7 +326,7 @@ export default function BookForm() {
         <button
           form="book-form"
           type="submit"
-          disabled={saving || uploading}
+          disabled={saving || uploading || !!loadError}
           className="ml-auto bg-oak hover:bg-leather active:scale-[0.98] disabled:opacity-40 text-neutral-950 font-semibold px-6 py-2 rounded-md transition-[transform,background-color] ease-out duration-150 text-sm"
         >
           {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add to library'}
