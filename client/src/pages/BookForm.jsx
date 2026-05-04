@@ -48,7 +48,9 @@ export default function BookForm() {
   const [durationM, setDurationM] = useState('');
 
   useEffect(() => {
-    api.getShelfTree().then(setShelfTree).catch(() => {});
+    api.getShelfTree()
+      .then(setShelfTree)
+      .catch(() => setError('Failed to load shelves — the shelf picker may be empty.'));
   }, []);
 
   useEffect(() => {

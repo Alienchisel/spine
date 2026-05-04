@@ -136,7 +136,10 @@ export default function ShelfView() {
       : unitId              ? api.getUnitBooks(unitId)
       : roomId              ? api.getRoomBooks(roomId)
       : api.getBuildingBooks(buildingId);
-    fetch.then(setBooks).catch(() => {}).finally(() => setBooksLoading(false));
+    fetch
+      .then(setBooks)
+      .catch(() => setError('Failed to load books at this location.'))
+      .finally(() => setBooksLoading(false));
   }, [buildingId, roomId, unitId, shelfId]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
@@ -149,7 +152,12 @@ export default function ShelfView() {
     const reordered = arrayMove(books, oldIndex, newIndex);
     setBooks(reordered);
     api.reorderShelf(shelfId, reordered.map(b => b.id))
-      .catch(() => api.getShelfBooks(shelfId).then(setBooks).catch(() => {}));
+      .catch(() => api.getShelfBooks(shelfId).then(setBooks).catch(() =>
+        // Reorder failed AND the recovery refetch also failed — leave the
+        // optimistic order in the UI but warn the user it didn't save so
+        // they can refresh manually.
+        setError('Reorder failed and could not be reverted — refresh the page.')
+      ));
   }
 
   const building = tree.find(b => b.id === buildingId);
@@ -317,7 +325,9 @@ export default function ShelfView() {
                       return [...others, ...reordered];
                     });
                     api.reorderShelf(shelfId, reordered.map(b => b.id))
-                      .catch(() => api.getUnitBooks(unitId).then(setBooks).catch(() => {}));
+                      .catch(() => api.getUnitBooks(unitId).then(setBooks).catch(() =>
+                        setError('Reorder failed and could not be reverted — refresh the page.')
+                      ));
                   }}
                 />
               ))}
