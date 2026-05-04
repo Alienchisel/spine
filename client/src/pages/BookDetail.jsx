@@ -52,6 +52,10 @@ export default function BookDetail() {
   // state as "book genuinely has no shelf assignment" — indistinguishable
   // failure mode. This separates them.
   const [locationError, setLocationError] = useState(null);
+  // Delete button sits at the bottom of the right column, far from
+  // actionError's render slot in the action column. Separate state so the
+  // failure message can render right next to the button that triggered it.
+  const [deleteError, setDeleteError] = useState(null);
   const [seriesSiblings, setSeriesSiblings] = useState([]);
 
   function loadReads() {
@@ -142,11 +146,12 @@ export default function BookDetail() {
 
   async function handleDelete() {
     if (!await confirm(`Delete "${book.title}"?`)) return;
+    setDeleteError(null);
     try {
       await api.deleteBook(id);
       navigate('/');
     } catch {
-      alert('Failed to delete — please try again');
+      setDeleteError('Failed to delete book. Please try again.');
     }
   }
 
@@ -402,6 +407,7 @@ export default function BookDetail() {
             >
               Delete
             </button>
+            {deleteError && <p className="text-xs text-warn mt-2">{deleteError}</p>}
           </div>
         </div>
       </div>
