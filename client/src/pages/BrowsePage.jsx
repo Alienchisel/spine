@@ -47,19 +47,24 @@ export default function BrowsePage() {
   const gridCols  = useGridCols(BROWSE_BPS);
 
   useEffect(() => {
-    genRef.current += 1;
+    // Capture this navigation's generation. If the user navigates to a
+    // different field/value before the fetch resolves, a later useEffect
+    // run will increment genRef again and these guards will short-circuit
+    // the stale response so it can't overwrite the new browse target.
+    const gen = ++genRef.current;
     setLoading(true);
     setFetchError(false);
     setBooks([]);
     loadedRef.current = 0;
     api.getBooks({ field, value: decoded, sort: browseSort(field), limit: PAGE_SIZE, offset: 0 })
       .then(({ books: b, total: t }) => {
+        if (gen !== genRef.current) return;
         setBooks(b);
         setTotal(t);
         loadedRef.current = b.length;
       })
-      .catch(() => setFetchError(true))
-      .finally(() => setLoading(false));
+      .catch(() => { if (gen === genRef.current) setFetchError(true); })
+      .finally(() => { if (gen === genRef.current) setLoading(false); });
   }, [field, decoded]);
 
   function handleLoadMore() {
