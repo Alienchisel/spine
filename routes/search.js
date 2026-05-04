@@ -28,8 +28,11 @@ router.get('/', async (req, res) => {
   if (!q?.trim()) return res.json([]);
 
   try {
-    const stripped = q.replace(/[-\s]/g, '');
-    const isIsbn = /^\d{10}(\d{3})?$/.test(stripped);
+    // Accept ISBN-10 (with optional X check digit) and ISBN-13. Uppercasing
+    // first so a lowercased 'x' from the search bar still matches and lands
+    // in the outbound query in canonical form. Mirrors ingest.js:24.
+    const stripped = q.replace(/[-\s]/g, '').toUpperCase();
+    const isIsbn = /^\d{13}$|^\d{9}[\dX]$/.test(stripped);
     const olQuery = isIsbn ? `isbn:${stripped}` : q;
     const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(olQuery)}&fields=key,title,author_name,number_of_pages_median,publisher,cover_i,isbn&limit=10`;
     const response = await fetchWithTimeout(url);

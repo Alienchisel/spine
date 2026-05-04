@@ -92,6 +92,35 @@ describe('search', () => {
     }
   });
 
+  it('GET /api/search rewrites hyphenated ISBN-10 with X check digit to q=isbn:<canonical>', async () => {
+    // Mirrors ingest.js:24, which already accepts the X check digit. Two
+    // assertions in one test: the X is preserved (uppercased) and lowercase
+    // 'x' from a sloppy paste also resolves to the same canonical form.
+    const cases = [
+      { input: '0-8044-2957-X', expected: 'q=isbn%3A080442957X' },
+      { input: '080442957x',    expected: 'q=isbn%3A080442957X' },
+    ];
+    for (const c of cases) {
+      let outboundUrl = null;
+      const originalFetch = globalThis.fetch;
+      const fetchMock = mock.method(globalThis, 'fetch', async (target, init) => {
+        const targetStr = typeof target === 'string' ? target : String(target);
+        if (targetStr.startsWith(url)) return originalFetch(target, init);
+        outboundUrl = targetStr;
+        return { ok: true, json: async () => ({ docs: [] }) };
+      });
+      try {
+        const { status } = await req(`/api/search?q=${encodeURIComponent(c.input)}`);
+        assert.equal(status, 200);
+        assert.ok(outboundUrl, `outbound call expected for ${c.input}`);
+        assert.ok(outboundUrl.includes(c.expected),
+          `for input ${c.input}, expected ${c.expected} in outbound URL, got: ${outboundUrl}`);
+      } finally {
+        fetchMock.mock.restore();
+      }
+    }
+  });
+
   it('GET /api/search maps an Open Library doc into the Spine result shape', async () => {
     const fakeDoc = {
       key: '/works/OL456W',
