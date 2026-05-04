@@ -80,6 +80,7 @@ export default function Library() {
   const [facets,      setFacets]      = useState(null);
   const [facetsError, setFacetsError] = useState(false);
   const [counts,      setCounts]      = useState({});
+  const [countsError, setCountsError] = useState(false);
   const [expandedSeries, setExpandedSeries] = useState(new Set());
 
   const loadedRef  = useRef(0);
@@ -113,7 +114,8 @@ export default function Library() {
 
   // Tab counts badge
   useEffect(() => {
-    api.getBookCounts().then(setCounts).catch(() => {});
+    setCountsError(false);
+    api.getBookCounts().then(setCounts).catch(() => setCountsError(true));
   }, []);
 
   // Fetch facets on tab / filter / query change; prune only on tab change
@@ -231,20 +233,29 @@ export default function Library() {
     <div>
       <div className="flex flex-col gap-3 mb-8">
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="flex gap-1 bg-neutral-900 p-1 rounded-lg w-fit">
-            {TABS.map((t) => (
-              <button
-                key={t.key}
-                onClick={() => { setTab(t.key); setExpandedSeries(new Set()); }}
-                className={`px-5 py-2 text-sm rounded-md whitespace-nowrap transition-[transform,background-color,color] ease-out duration-150 active:scale-[0.98] ${
-                  tab === t.key
-                    ? 'bg-binding/25 text-parchment font-semibold'
-                    : 'font-medium text-neutral-400 hover:text-neutral-200'
-                }`}
-              >
-                {t.label}{counts[t.key] != null ? <span className="ml-1.5 text-xs opacity-50 tabular-nums">{counts[t.key]}</span> : null}
-              </button>
-            ))}
+          <div className="flex items-center gap-1.5">
+            <div className="flex gap-1 bg-neutral-900 p-1 rounded-lg w-fit">
+              {TABS.map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => { setTab(t.key); setExpandedSeries(new Set()); }}
+                  className={`px-5 py-2 text-sm rounded-md whitespace-nowrap transition-[transform,background-color,color] ease-out duration-150 active:scale-[0.98] ${
+                    tab === t.key
+                      ? 'bg-binding/25 text-parchment font-semibold'
+                      : 'font-medium text-neutral-400 hover:text-neutral-200'
+                  }`}
+                >
+                  {t.label}{counts[t.key] != null ? <span className="ml-1.5 text-xs opacity-50 tabular-nums">{counts[t.key]}</span> : null}
+                </button>
+              ))}
+            </div>
+            {countsError && (
+              // Counts fetch failed — badge numbers are missing. A small ⚠
+              // glyph next to the tab strip explains why on hover without
+              // shifting layout for the common case where counts succeeded.
+              <span title="Failed to load tab counts" aria-label="Failed to load tab counts"
+                    className="text-warn/70 text-xs leading-none cursor-help select-none">⚠</span>
+            )}
           </div>
 
           <div className="flex items-center gap-2 sm:ml-auto">
