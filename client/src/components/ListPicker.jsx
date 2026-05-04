@@ -18,6 +18,7 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
   const [memberIds, setMemberIds] = useState(new Set());
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(new Set());
+  const [error, setError] = useState(null);
   const buttonRef = useRef(null);
   const dropdownRef = useRef(null);
 
@@ -55,10 +56,15 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
 
     setOpen(true);
     setLoading(true);
+    setError(null);
     try {
       const [allLists, ids] = await Promise.all([api.getLists(), api.getBookLists(bookId)]);
       setLists(allLists);
       setMemberIds(new Set(ids));
+    } catch {
+      setLists([]);
+      setMemberIds(new Set());
+      setError('Failed to load lists');
     } finally {
       setLoading(false);
     }
@@ -69,6 +75,7 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
     e.stopPropagation();
     if (busy.has(listId)) return;
     setBusy(s => new Set([...s, listId]));
+    setError(null);
     try {
       if (memberIds.has(listId)) {
         await api.removeFromList(listId, bookId);
@@ -77,6 +84,8 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
         await api.addToList(listId, bookId);
         setMemberIds(s => new Set([...s, listId]));
       }
+    } catch {
+      setError('Failed to update list');
     } finally {
       setBusy(s => { const n = new Set(s); n.delete(listId); return n; });
     }
@@ -92,6 +101,10 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
     >
       {loading ? (
         <p className="text-xs text-neutral-600 px-3 py-2">Loading…</p>
+      ) : error && lists.length === 0 ? (
+        // Load failed and we have nothing to show — error replaces the
+        // list content rather than sitting on top of an empty state.
+        <p className="text-xs text-warn px-3 py-2">{error}</p>
       ) : lists.length === 0 ? (
         <div className="px-3 py-2">
           <p className="text-xs text-neutral-600 mb-1">No lists yet.</p>
@@ -99,8 +112,11 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
             Create a list →
           </Link>
         </div>
-      ) : (
-        lists.map(list => {
+      ) : (<>
+        {/* Toggle failed but lists are loaded — surface the error above
+            the list buttons so the user knows their click didn't take. */}
+        {error && <p className="text-xs text-warn px-3 py-1.5 border-b border-neutral-800">{error}</p>}
+        {lists.map(list => {
           const checked = memberIds.has(list.id);
           return (
             <button
@@ -119,8 +135,8 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
               <span className={`truncate ${checked ? 'text-neutral-200' : 'text-neutral-400'}`} title={list.name}>{list.name}</span>
             </button>
           );
-        })
-      )}
+        })}
+      </>)}
     </div>,
     document.body
   );
