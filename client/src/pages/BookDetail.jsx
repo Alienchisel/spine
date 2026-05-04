@@ -44,6 +44,10 @@ export default function BookDetail() {
   // Reads (per-completion history) fetches — separate render slot, separate
   // state. Renders above ReadsSection.
   const [readsError, setReadsError] = useState(null);
+  // Series-sibling fetch powers the prev/next nav between volumes. Failure
+  // just hides the nav — small but tells the user why a book in a known
+  // series shows no prev/next strip.
+  const [seriesError, setSeriesError] = useState(null);
   const [seriesSiblings, setSeriesSiblings] = useState([]);
 
   function loadReads() {
@@ -64,9 +68,10 @@ export default function BookDetail() {
     if (!book?.id) return;
     api.getShelfLocation(book.id).then(setLocation).catch(() => setLocation(null));
     if (book.series) {
+      setSeriesError(null);
       api.getBooks({ series: book.series, field: 'series', limit: 100 })
         .then(r => setSeriesSiblings(r.books || []))
-        .catch(() => {});
+        .catch(() => setSeriesError('Failed to load series navigation.'));
     }
   }, [book?.id]);
 
@@ -251,6 +256,9 @@ export default function BookDetail() {
             </p>
           )}
 
+          {seriesError && (
+            <p className="text-xs text-warn mb-5 -mt-2">{seriesError}</p>
+          )}
           {(() => {
             if (seriesSiblings.length < 2) return null;
             const idx = seriesSiblings.findIndex(b => b.id === book.id);
