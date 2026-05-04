@@ -338,6 +338,18 @@ does **not** increment `read_count` (the two stores remain decoupled per
 the rules above; this lets you log five separate readings while keeping
 `read_count = 1` if you'd rather count it as a single work-experience).
 
+`POST /api/books/:id/reread` is the third path: an atomic re-read shortcut
+for an already-finished book. It bumps `read_count` by 1 and inserts a
+`reads` row inside the same transaction, using optional `date_started` /
+`date_finished` (partial dates accepted, same shape and ordering rule as
+`/reads`). Status doesn't change — this fires no finish-transition because
+the book is already `finished` — so without this endpoint the client would
+need a `PUT` for the count and a separate `POST /reads` for the log row,
+risking half-applied state on partial failure. The BookDetail "Log a
+re-read" button calls this endpoint when the book's status is `finished`;
+in-progress books still see the plain "Log a read" affordance that hits
+`POST /reads`.
+
 ### date_started / date_finished
 
 Both fields represent **current copy/edition status**, not a complete history.
@@ -387,7 +399,8 @@ are accepted (shorter date treated as a span on its common prefix), while
 clearly out-of-order pairs like `started='2024-06'` / `finished='2023'` are
 still rejected.
 
-API: `GET/POST /api/books/:id/reads`, `PUT/DELETE /api/books/:id/reads/:readId`
+API: `GET/POST /api/books/:id/reads`, `PUT/DELETE /api/books/:id/reads/:readId`,
+`POST /api/books/:id/reread` (atomic `read_count++` + reads-row insert).
 
 ### reading_log
 

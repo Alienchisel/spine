@@ -8,9 +8,10 @@ export const EMPTY_FILTERS = {
   sources:         [],
   series:          [],
   tags:            [],
-  // 'all' = require every selected tag (matches search-bar AND default).
-  // 'any' = match any selected tag (the legacy facet behavior).
-  // Only meaningful when 2+ real tags are selected.
+  // 'all' = require every selected tag (default; matches the search-bar AND
+  // semantic). 'any' = match any selected tag (the multi-select-facet OR
+  // semantic, opt-in via the All/Any toggle in FilterPanel). Only meaningful
+  // when 2+ real tags are selected.
   tagsMode:        'all',
   owned:           null,
   previouslyOwned: null,
