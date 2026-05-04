@@ -48,6 +48,10 @@ export default function BookDetail() {
   // just hides the nav — small but tells the user why a book in a known
   // series shows no prev/next strip.
   const [seriesError, setSeriesError] = useState(null);
+  // getShelfLocation failure used to set location=null, which is the same
+  // state as "book genuinely has no shelf assignment" — indistinguishable
+  // failure mode. This separates them.
+  const [locationError, setLocationError] = useState(null);
   const [seriesSiblings, setSeriesSiblings] = useState([]);
 
   function loadReads() {
@@ -66,7 +70,10 @@ export default function BookDetail() {
 
   useEffect(() => {
     if (!book?.id) return;
-    api.getShelfLocation(book.id).then(setLocation).catch(() => setLocation(null));
+    setLocationError(null);
+    api.getShelfLocation(book.id)
+      .then(setLocation)
+      .catch(() => { setLocation(null); setLocationError('Failed to load shelf location.'); });
     if (book.series) {
       setSeriesError(null);
       api.getBooks({ series: book.series, field: 'series', limit: 100 })
@@ -333,6 +340,7 @@ export default function BookDetail() {
             );
           })()}
 
+          {locationError && <p className="text-xs text-warn mb-2">{locationError}</p>}
           <MetadataList book={book} location={location} />
 
           {book.tags?.length > 0 && (
