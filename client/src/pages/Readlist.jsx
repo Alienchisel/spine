@@ -105,6 +105,10 @@ export default function Readlist() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // Distinct from `error` (which replaces the whole list on load failure) —
+  // reorder failures are transient and the user still needs to see their
+  // list, so we render this one as an inline banner above the DnD context.
+  const [dragError, setDragError] = useState(null);
   const [tab, setTab] = useState('physical');
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
@@ -139,8 +143,13 @@ export default function Readlist() {
     // leaving books from other tabs in place.
     const queue = [...reorderedVisible];
     const reorderedAll = books.map(b => activeFormats.includes(b.format) ? queue.shift() : b);
+    const previous = books;  // snapshot for rollback if save fails
+    setDragError(null);
     setBooks(reorderedAll);
-    api.reorderReadlist(reorderedAll.map(b => b.id));
+    api.reorderReadlist(reorderedAll.map(b => b.id)).catch(() => {
+      setBooks(previous);
+      setDragError('Failed to save readlist order.');
+    });
   }
 
   async function handleRemove(id) {
@@ -180,7 +189,8 @@ export default function Readlist() {
             Browse your library →
           </Link>
         </div>
-      ) : (
+      ) : (<>
+        {dragError && <p className="text-xs text-warn mb-2">{dragError}</p>}
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={visibleBooks.map(b => b.id)} strategy={verticalListSortingStrategy}>
             <div className="space-y-1.5">
@@ -190,7 +200,7 @@ export default function Readlist() {
             </div>
           </SortableContext>
         </DndContext>
-      )}
+      </>)}
     </div>
   );
 }
