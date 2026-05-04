@@ -33,10 +33,6 @@ function booksForList(listId, { sort = 'added', limit = null, offset = 0 } = {})
     ${limitSql}
   `).all(listId);
 
-  // Authors / narrators / tags now come back as [{id, name}] objects (same
-  // shape as every other book-list endpoint). Previously this route returned
-  // authors/narrators as plain string arrays — a quiet shape divergence.
-  // ListDetail's formatAuthors() handles both shapes so no UI break.
   return { books: serveBookCardRows(rows), total };
 }
 
