@@ -218,7 +218,7 @@ export default function ListDetail() {
         setTotal(data.total);
         loadedRef.current = data.books.length;
       })
-      .catch(() => setError('Failed to load list.'))
+      .catch(() => { if (!stale) setError('Failed to load list.'); })
       .finally(() => { if (!stale) setLoading(false); });
     return () => { stale = true; };
   }, [id, sort]);
