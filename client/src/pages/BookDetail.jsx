@@ -33,6 +33,10 @@ export default function BookDetail() {
   const [finishing, setFinishing] = useState(false);
   const [finishError, setFinishError] = useState(null);
   const [loadError, setLoadError] = useState(false);
+  // Surfaces failures from the three quick actions in the action column
+  // (loved/readlist toggles, rate). finishError is kept separate because
+  // it has its own established render slot under the Mark-as-finished button.
+  const [actionError, setActionError] = useState(null);
   const [seriesSiblings, setSeriesSiblings] = useState([]);
 
   function loadReads() {
@@ -58,17 +62,23 @@ export default function BookDetail() {
   }, [book?.id]);
 
   async function toggleLoved() {
+    setActionError(null);
     try {
       const updated = await api.patchBook(book.id, { loved: book.loved ? 0 : 1 });
       setBook(updated);
-    } catch {}
+    } catch {
+      setActionError('Failed to update loved');
+    }
   }
 
   async function toggleReadlist() {
+    setActionError(null);
     try {
       const updated = await api.patchBook(book.id, { on_readlist: book.on_readlist ? 0 : 1 });
       setBook(updated);
-    } catch {}
+    } catch {
+      setActionError('Failed to update readlist');
+    }
   }
 
   async function handleFinish() {
@@ -95,6 +105,7 @@ export default function BookDetail() {
   }
 
   async function handleRate(rating) {
+    setActionError(null);
     try {
       const updated = await api.updateBook(book.id, {
         ...book,
@@ -103,7 +114,9 @@ export default function BookDetail() {
       });
       setBook(updated);
       setRatingPrompt(false);
-    } catch {}
+    } catch {
+      setActionError('Failed to save rating');
+    }
   }
 
   async function handleDelete() {
@@ -198,6 +211,11 @@ export default function BookDetail() {
                 <p className="text-center text-xs text-neutral-600 mt-2">{book.rating} / 5</p>
               )}
             </div>
+            {actionError && (
+              <div className="border-t border-neutral-800 py-2 px-3">
+                <p className="text-[10px] text-warn text-center">{actionError}</p>
+              </div>
+            )}
           </div>
         </div>
 
