@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { FORM_DEFAULTS, VIRTUAL_TAG_NAMES } from '../../../shared/bookFields.js';
@@ -49,6 +49,10 @@ export default function BookForm() {
   const [pastTags, setPastTags] = useState([]);
   const [shelfTree, setShelfTree] = useState([]);
   const [filledByLookup, setFilledByLookup] = useState(new Set());
+  // Stale-response guard for the edit-mode getBook fetch. Quick navigation
+  // between two edit pages could otherwise let an older response clobber
+  // the form populated for a newer book id.
+  const editGenRef = useRef(0);
   const [durationH, setDurationH] = useState('');
   const [durationM, setDurationM] = useState('');
 
@@ -73,15 +77,17 @@ export default function BookForm() {
 
   useEffect(() => {
     if (!isEdit) return;
+    const gen = ++editGenRef.current;
     setLoadError(null);
     api.getBook(id).then((book) => {
+      if (gen !== editGenRef.current) return;
       setForm(bookToFormState(book));
       if (book.duration_minutes) {
         setDurationH(String(Math.floor(book.duration_minutes / 60)));
         setDurationM(String(book.duration_minutes % 60));
       }
       if (book.cover_path) setCoverPreview(book.cover_path);
-    }).catch(() => setLoadError('Failed to load book.'));
+    }).catch(() => { if (gen === editGenRef.current) setLoadError('Failed to load book.'); });
   }, [id, isEdit]);
 
   function set(field, value) {

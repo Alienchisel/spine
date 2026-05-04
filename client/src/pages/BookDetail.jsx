@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { api } from '../api.js';
@@ -56,17 +56,37 @@ export default function BookDetail() {
   // actionError's render slot in the action column. Separate state so the
   // failure message can render right next to the button that triggered it.
   const [deleteError, setDeleteError] = useState(null);
+
+  // Stale-response guards. Quick clicking between books in a list could
+  // otherwise let an older response from book A clobber the page for the
+  // newly-loaded book B. Two independent gens because the second effect
+  // re-fires on book?.id, which is downstream of the first effect's setBook.
+  const idGenRef = useRef(0);
+  const bookGenRef = useRef(0);
   const [seriesSiblings, setSeriesSiblings] = useState([]);
 
   function loadReads() {
+    // Capture the current id-generation so a slow response can't clobber
+    // the reads list for a book the user has since navigated away from.
+    // (handleFinish and ReadsSection.onUpdate also call this; if the user
+    // navigates mid-flight, idGenRef bumps and this response is dropped.)
+    const gen = idGenRef.current;
     setReadsError(null);
-    api.getBookReads(id).then(setReads).catch(() => setReadsError('Failed to load read history.'));
+    api.getBookReads(id)
+      .then(r => { if (gen === idGenRef.current) setReads(r); })
+      .catch(() => { if (gen === idGenRef.current) setReadsError('Failed to load read history.'); });
   }
 
   useEffect(() => {
-    api.getBook(id).then(setBook).catch(() => setLoadError(true)).finally(() => setLoading(false));
+    const gen = ++idGenRef.current;
+    api.getBook(id)
+      .then(b => { if (gen === idGenRef.current) setBook(b); })
+      .catch(() => { if (gen === idGenRef.current) setLoadError(true); })
+      .finally(() => { if (gen === idGenRef.current) setLoading(false); });
     setLogError(null);
-    api.getBookLog(id).then(setLog).catch(() => setLogError('Failed to load reading log.'));
+    api.getBookLog(id)
+      .then(l => { if (gen === idGenRef.current) setLog(l); })
+      .catch(() => { if (gen === idGenRef.current) setLogError('Failed to load reading log.'); });
     loadReads();
     setDescExpanded(false);
     setSeriesSiblings([]);
@@ -74,15 +94,20 @@ export default function BookDetail() {
 
   useEffect(() => {
     if (!book?.id) return;
+    const gen = ++bookGenRef.current;
     setLocationError(null);
     api.getShelfLocation(book.id)
-      .then(setLocation)
-      .catch(() => { setLocation(null); setLocationError('Failed to load shelf location.'); });
+      .then(loc => { if (gen === bookGenRef.current) setLocation(loc); })
+      .catch(() => {
+        if (gen !== bookGenRef.current) return;
+        setLocation(null);
+        setLocationError('Failed to load shelf location.');
+      });
     if (book.series) {
       setSeriesError(null);
       api.getBooks({ series: book.series, field: 'series', limit: 100 })
-        .then(r => setSeriesSiblings(r.books || []))
-        .catch(() => setSeriesError('Failed to load series navigation.'));
+        .then(r => { if (gen === bookGenRef.current) setSeriesSiblings(r.books || []); })
+        .catch(() => { if (gen === bookGenRef.current) setSeriesError('Failed to load series navigation.'); });
     }
   }, [book?.id]);
 

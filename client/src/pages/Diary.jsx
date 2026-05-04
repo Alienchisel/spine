@@ -224,18 +224,24 @@ export default function Diary() {
   const [error,       setError]       = useState(null);
   const [deleteError, setDeleteError] = useState(null);
   const dayRefs = useRef({});
+  // Stale-response guard for getDiary on year change. Quick clicking
+  // through years could otherwise let an older year's response clobber
+  // the displayed days/years/stats for a newly-selected year.
+  const yearGenRef = useRef(0);
   const confirm = useConfirm();
 
   useEffect(() => {
+    const gen = ++yearGenRef.current;
     setLoading(true);
     api.getDiary(year)
       .then(({ days: d, years: ys, stats: s }) => {
+        if (gen !== yearGenRef.current) return;
         setDays(d);
         setYears(ys);
         setStats(s);
       })
-      .catch(() => setError('Failed to load diary.'))
-      .finally(() => setLoading(false));
+      .catch(() => { if (gen === yearGenRef.current) setError('Failed to load diary.'); })
+      .finally(() => { if (gen === yearGenRef.current) setLoading(false); });
   }, [year]);
 
   async function handleDelete(entryId, title) {
