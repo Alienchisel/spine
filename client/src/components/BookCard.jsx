@@ -159,11 +159,13 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact 
     e.preventDefault();
     if (loving) return;
     setLoving(true);
+    setError(null);
     try {
       const updated = await api.patchBook(book.id, { loved: book.loved ? 0 : 1 });
       setBook(updated);
       onProgressUpdate?.(updated);
     } catch {
+      setError('Failed to update loved');
     } finally {
       setLoving(false);
     }
@@ -173,11 +175,13 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact 
     e.preventDefault();
     if (listing) return;
     setListing(true);
+    setError(null);
     try {
       const updated = await api.patchBook(book.id, { on_readlist: book.on_readlist ? 0 : 1 });
       setBook(updated);
       onProgressUpdate?.(updated);
     } catch {
+      setError('Failed to update readlist');
     } finally {
       setListing(false);
     }
@@ -286,6 +290,14 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact 
           )}
         </>}
       </Link>
+
+      {/* Card-level error surface for quick actions (loved / readlist toggles)
+          when neither the rating prompt nor the progress editor is open —
+          those blocks render `error` inline themselves. Without this, a
+          failed PATCH would silently leave the icon unchanged. */}
+      {!compact && error && !ratingPrompt && !open && (
+        <p className="text-xs text-warn mt-0.5">{error}</p>
+      )}
 
       {!compact && ratingPrompt && (
         <div className="mt-1.5">
