@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import BookCard from '../components/BookCard.jsx';
 import FilterPanel from '../components/FilterPanel.jsx';
+import SearchHelp from '../components/SearchHelp.jsx';
 import ListRow from '../components/library/ListRow.jsx';
 import SeriesCard from '../components/library/SeriesCard.jsx';
 import { EMPTY_FILTERS, countFilters, pruneFilters, buildApiParams } from '../components/library/filters.js';
@@ -248,9 +249,9 @@ export default function Library() {
               value={queryRaw}
               onChange={(e) => setQueryRaw(e.target.value)}
               placeholder="Search title, people, series, or tags…"
-              title={'Search syntax:\n  word word — match both (AND)\n  word OR word — either\n  "exact phrase"\n  -word — exclude\n  (a OR b) c — group'}
               className="bg-neutral-800 border border-leather/30 rounded-lg px-4 py-2 text-sm text-parchment placeholder-neutral-500 focus:outline-none focus:border-leather/70 focus:ring-1 focus:ring-oak/25 transition-colors duration-150 w-full sm:w-56"
             />
+            <SearchHelp />
             <button
               onClick={() => setFiltersOpen(o => !o)}
               className={`flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg whitespace-nowrap transition-[transform,background-color,color] ease-out duration-150 active:scale-[0.98] ${

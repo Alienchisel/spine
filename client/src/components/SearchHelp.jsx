@@ -1,0 +1,73 @@
+import { useState, useEffect, useRef } from 'react';
+
+export default function SearchHelp() {
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClickOutside(e) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setOpen(false);
+    }
+    function handleEscape(e) { if (e.key === 'Escape') setOpen(false); }
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [open]);
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        aria-label="Search syntax help"
+        title="Search syntax help"
+        className={`flex items-center justify-center w-7 h-7 rounded-lg text-sm transition-colors ${
+          open ? 'bg-binding/25 text-parchment' : 'bg-neutral-800 text-neutral-500 hover:text-neutral-300'
+        }`}
+      >
+        ?
+      </button>
+      {open && (
+        <div
+          role="dialog"
+          aria-label="Search syntax"
+          className="absolute right-0 top-full mt-2 z-20 w-80 rounded-lg border border-neutral-700 bg-neutral-900 p-4 text-sm text-neutral-300 shadow-xl"
+        >
+          <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Search syntax</p>
+          <dl className="space-y-2">
+            <div className="grid grid-cols-[auto_1fr] gap-x-3">
+              <code className="text-oak whitespace-nowrap">word word</code>
+              <span className="text-neutral-400">match both (AND, default)</span>
+            </div>
+            <div className="grid grid-cols-[auto_1fr] gap-x-3">
+              <code className="text-oak whitespace-nowrap">word OR word</code>
+              <span className="text-neutral-400">match either (uppercase OR)</span>
+            </div>
+            <div className="grid grid-cols-[auto_1fr] gap-x-3">
+              <code className="text-oak whitespace-nowrap">"exact phrase"</code>
+              <span className="text-neutral-400">literal substring match</span>
+            </div>
+            <div className="grid grid-cols-[auto_1fr] gap-x-3">
+              <code className="text-oak whitespace-nowrap">-word</code>
+              <span className="text-neutral-400">exclude (also <code className="text-oak">NOT word</code>)</span>
+            </div>
+            <div className="grid grid-cols-[auto_1fr] gap-x-3">
+              <code className="text-oak whitespace-nowrap">(a OR b) c</code>
+              <span className="text-neutral-400">group sub-expressions</span>
+            </div>
+          </dl>
+          <p className="text-xs text-neutral-600 mt-3 leading-relaxed">
+            Each term matches against title, series, tags, authors, narrators,
+            or translators. <code className="text-neutral-500">or</code> and{' '}
+            <code className="text-neutral-500">not</code> in lowercase are treated
+            as literal words.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
