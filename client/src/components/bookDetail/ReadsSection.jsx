@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { api } from '../../api.js';
 import PartialDateInput from '../PartialDateInput.jsx';
+import { useConfirm } from '../ConfirmModal.jsx';
 import { formatPartialDate } from './dates.js';
 
 export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBookUpdate }) {
@@ -9,6 +10,7 @@ export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBo
   const [form, setForm] = useState({ date_started: '', date_finished: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const confirm = useConfirm();
 
   // On a finished book, "log a read" means re-read: bump read_count + add row
   // atomically via the backend's /reread endpoint. On an in-progress book it's
@@ -84,7 +86,7 @@ export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBo
   }
 
   async function handleDelete(readId) {
-    if (!confirm('Remove this read entry?')) return;
+    if (!await confirm('Remove this read entry?')) return;
     try {
       await api.deleteRead(bookId, readId);
       onUpdate();

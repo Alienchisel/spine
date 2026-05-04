@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
+import { useConfirm } from '../components/ConfirmModal.jsx';
 
 export default function Lists() {
   const [lists, setLists] = useState([]);
@@ -10,6 +11,7 @@ export default function Lists() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState(null);
   const inputRef = useRef(null);
+  const confirm = useConfirm();
 
   useEffect(() => {
     api.getLists()
@@ -40,7 +42,7 @@ export default function Lists() {
     const msg = list.book_count > 0
       ? `Delete "${list.name}"? It contains ${list.book_count} ${list.book_count === 1 ? 'book' : 'books'}.`
       : `Delete "${list.name}"?`;
-    if (!confirm(msg)) return;
+    if (!await confirm(msg)) return;
     await api.deleteList(list.id);
     setLists(ls => ls.filter(l => l.id !== list.id));
   }

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { formatAuthors, fmtShortDate } from '../utils.js';
+import { useConfirm } from '../components/ConfirmModal.jsx';
 
 function formatDate(dateStr) {
   const today = new Date().toLocaleDateString('en-CA');
@@ -223,6 +224,7 @@ export default function Diary() {
   const [error,       setError]       = useState(null);
   const [deleteError, setDeleteError] = useState(null);
   const dayRefs = useRef({});
+  const confirm = useConfirm();
 
   useEffect(() => {
     setLoading(true);
@@ -237,7 +239,7 @@ export default function Diary() {
   }, [year]);
 
   async function handleDelete(entryId, title) {
-    if (!confirm(`Remove "${title}" from diary?`)) return;
+    if (!await confirm(`Remove "${title}" from diary?`)) return;
     try {
       await api.deleteDiaryEntry(entryId);
       setDays(ds => ds.map(d => ({ ...d, entries: d.entries.filter(e => e.id !== entryId) })).filter(d => d.entries.length > 0));

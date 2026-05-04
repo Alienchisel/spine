@@ -9,6 +9,7 @@ import {
 import { api } from '../api.js';
 import SortableBuilding from '../components/shelfManager/BuildingSection.jsx';
 import { PROXIMITY_LABEL, PROXIMITY_OPTIONS } from '../components/shelfManager/proximity.js';
+import { useConfirm } from '../components/ConfirmModal.jsx';
 
 export default function ShelfManager() {
   const [tree, setTree] = useState([]);
@@ -16,6 +17,7 @@ export default function ShelfManager() {
   const [newBuildingName, setNewBuildingName] = useState('');
   const [newBuildingProximity, setNewBuildingProximity] = useState('home');
   const [error, setError] = useState(null);
+  const confirm = useConfirm();
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -63,7 +65,7 @@ export default function ShelfManager() {
   }
 
   async function deleteBuilding(id) {
-    if (!confirm('Delete this building and all its rooms, units, and shelves?')) return;
+    if (!await confirm('Delete this building and all its rooms, units, and shelves?')) return;
     try {
       await api.deleteBuilding(id);
       reload();
@@ -100,7 +102,7 @@ export default function ShelfManager() {
   }
 
   async function deleteRoom(id) {
-    if (!confirm('Delete this room and all its units and shelves?')) return;
+    if (!await confirm('Delete this room and all its units and shelves?')) return;
     try {
       await api.deleteRoom(id);
       reload();
@@ -137,7 +139,7 @@ export default function ShelfManager() {
   }
 
   async function deleteUnit(id) {
-    if (!confirm('Delete this unit and all its shelves?')) return;
+    if (!await confirm('Delete this unit and all its shelves?')) return;
     try {
       await api.deleteUnit(id);
       reload();
@@ -174,7 +176,7 @@ export default function ShelfManager() {
   }
 
   async function deleteShelf(id) {
-    if (!confirm('Delete this shelf? Books assigned here will lose their location.')) return;
+    if (!await confirm('Delete this shelf? Books assigned here will lose their location.')) return;
     try {
       await api.deleteShelf(id);
       reload();

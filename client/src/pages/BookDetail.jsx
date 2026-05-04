@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import { api } from '../api.js';
 import StarRating from '../components/StarRating.jsx';
 import ListPicker from '../components/ListPicker.jsx';
+import { useConfirm } from '../components/ConfirmModal.jsx';
 import { realTagNames } from '../utils.js';
 import ProgressSection from '../components/bookDetail/ProgressSection.jsx';
 import ReadsSection from '../components/bookDetail/ReadsSection.jsx';
@@ -21,6 +22,7 @@ const STATUS_COLOR = {
 export default function BookDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const confirm = useConfirm();
   const [book, setBook] = useState(null);
   const [loading, setLoading] = useState(true);
   const [location, setLocation] = useState(null);
@@ -105,7 +107,7 @@ export default function BookDetail() {
   }
 
   async function handleDelete() {
-    if (!confirm(`Delete "${book.title}"?`)) return;
+    if (!await confirm(`Delete "${book.title}"?`)) return;
     try {
       await api.deleteBook(id);
       navigate('/');
