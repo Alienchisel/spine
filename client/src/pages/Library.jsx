@@ -78,6 +78,7 @@ export default function Library() {
   // leave the loaded books visible; surfaced near the Load more buttons.
   const [actionError, setActionError] = useState(null);
   const [facets,      setFacets]      = useState(null);
+  const [facetsError, setFacetsError] = useState(false);
   const [counts,      setCounts]      = useState({});
   const [expandedSeries, setExpandedSeries] = useState(new Set());
 
@@ -120,13 +121,14 @@ export default function Library() {
     let stale = false;
     const isTabChange = prevTabRef.current !== tab;
     prevTabRef.current = tab;
+    setFacetsError(false);
     api.getBookFacets(buildApiParams(tab, sort, filters, query, 0))
       .then(f => {
         if (stale) return;
         setFacets(f);
         if (isTabChange) setFilters(prev => pruneFilters(prev, f));
       })
-      .catch(() => {});
+      .catch(() => { if (!stale) setFacetsError(true); });
     return () => { stale = true; };
   }, [tab, filters, query]);
 
@@ -323,6 +325,15 @@ export default function Library() {
 
         {filtersOpen && facets && (
           <FilterPanel tab={tab} facets={facets} filters={filters} onChange={setFilters} />
+        )}
+        {filtersOpen && !facets && facetsError && (
+          // Facets fetch failed and we have nothing to show. The filter panel
+          // would otherwise be invisible (gated on facets being non-null);
+          // surface why so the user knows it's a fetch error, not "you have
+          // no facets to filter on".
+          <p className="text-xs text-warn mt-3 pt-4 border-t border-neutral-800/60">
+            Failed to load filter options.
+          </p>
         )}
       </div>
 

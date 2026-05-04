@@ -41,10 +41,14 @@ export default function BookDetail() {
   // separate from actionError because logError renders above the ReadingLog
   // component on the right side of the page, distinct from the action column.
   const [logError, setLogError] = useState(null);
+  // Reads (per-completion history) fetches — separate render slot, separate
+  // state. Renders above ReadsSection.
+  const [readsError, setReadsError] = useState(null);
   const [seriesSiblings, setSeriesSiblings] = useState([]);
 
   function loadReads() {
-    api.getBookReads(id).then(setReads).catch(() => {});
+    setReadsError(null);
+    api.getBookReads(id).then(setReads).catch(() => setReadsError('Failed to load read history.'));
   }
 
   useEffect(() => {
@@ -339,14 +343,17 @@ export default function BookDetail() {
             </div>
           )}
 
-          {(book.status !== 'unread' || reads.length > 0) && (
-            <ReadsSection
-              bookId={book.id}
-              reads={reads}
-              isFinished={book.status === 'finished'}
-              onUpdate={loadReads}
-              onBookUpdate={setBook}
-            />
+          {(book.status !== 'unread' || reads.length > 0 || readsError) && (
+            <>
+              {readsError && <p className="text-xs text-warn mb-2">{readsError}</p>}
+              <ReadsSection
+                bookId={book.id}
+                reads={reads}
+                isFinished={book.status === 'finished'}
+                onUpdate={loadReads}
+                onBookUpdate={setBook}
+              />
+            </>
           )}
 
           {(book.status === 'finished' || book.read_count > 0) && book.review && (
