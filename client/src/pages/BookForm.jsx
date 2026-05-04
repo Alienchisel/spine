@@ -53,6 +53,11 @@ export default function BookForm() {
   // between two edit pages could otherwise let an older response clobber
   // the form populated for a newer book id.
   const editGenRef = useRef(0);
+  // True while the edit-mode getBook fetch is in flight. Disables submit
+  // so a user clicking Save during the gap can't PUT the previous book's
+  // form data to the new id. Distinct from `saving` (which is the actual
+  // save in progress) and `loadError` (set only on failure).
+  const [loadingBook, setLoadingBook] = useState(false);
   const [durationH, setDurationH] = useState('');
   const [durationM, setDurationM] = useState('');
 
@@ -78,7 +83,19 @@ export default function BookForm() {
   useEffect(() => {
     if (!isEdit) return;
     const gen = ++editGenRef.current;
+    // Reset all form state tied to the previous id so the form doesn't
+    // briefly show A's fields under B's URL during the in-flight gap.
+    // Combined with loadingBook → disabled submit, this also closes the
+    // data-loss path where a quick Save during the gap would PUT A's
+    // form data to B's id.
     setLoadError(null);
+    setLoadingBook(true);
+    setForm(FORM_DEFAULTS);
+    setDurationH('');
+    setDurationM('');
+    setCoverPreview(null);
+    setCoverError(null);
+    setFilledByLookup(new Set());
     api.getBook(id).then((book) => {
       if (gen !== editGenRef.current) return;
       setForm(bookToFormState(book));
@@ -87,7 +104,9 @@ export default function BookForm() {
         setDurationM(String(book.duration_minutes % 60));
       }
       if (book.cover_path) setCoverPreview(book.cover_path);
-    }).catch(() => { if (gen === editGenRef.current) setLoadError('Failed to load book.'); });
+    })
+      .catch(() => { if (gen === editGenRef.current) setLoadError('Failed to load book.'); })
+      .finally(() => { if (gen === editGenRef.current) setLoadingBook(false); });
   }, [id, isEdit]);
 
   function set(field, value) {
@@ -337,7 +356,7 @@ export default function BookForm() {
         <button
           form="book-form"
           type="submit"
-          disabled={saving || uploading || !!loadError}
+          disabled={saving || uploading || !!loadError || loadingBook}
           className="ml-auto bg-oak hover:bg-leather active:scale-[0.98] disabled:opacity-40 text-neutral-950 font-semibold px-6 py-2 rounded-md transition-[transform,background-color] ease-out duration-150 text-sm"
         >
           {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add to library'}
