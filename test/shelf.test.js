@@ -734,6 +734,73 @@ describe('shelf', () => {
       }
     });
 
+    it('shelf book-list responses include the scalar fields BookCard renders', async () => {
+      // BookCard reads loved / is_custom / on_readlist for badges and
+      // page_count + current_page for the progress bar. Without these in
+      // the SELECT, every BookCard rendered from a shelf endpoint silently
+      // lacks them. Shelf endpoints only ever return physical books per the
+      // ownership/format gate, so the audiobook duration branch isn't
+      // exercised here — but the columns are still in the SELECT and would
+      // round-trip if a non-physical book ever appeared.
+      const stem = 'card-fields-' + Math.random().toString(36).slice(2, 6);
+      const { body: bldg } = await req('POST', '/api/shelf/buildings', { name: `${stem} bldg` });
+      const { body: rm }   = await req('POST', '/api/shelf/rooms',     { building_id: bldg.id, name: `${stem} room` });
+      const { body: u }    = await req('POST', '/api/shelf/units',     { room_id: rm.id, name: `${stem} unit` });
+      const { body: sh }   = await req('POST', '/api/shelf/shelves',   { unit_id: u.id, label: stem });
+
+      // Physical reading book on the shelf — populated progress + loved badge.
+      const { body: shelfed } = await req('POST', '/api/books', {
+        title: `${stem} shelved`, format: 'physical', owned: true,
+        status: 'reading', page_count: 400, shelf_id: sh.id,
+      });
+      await req('PATCH', `/api/books/${shelfed.id}`, { current_page: 120 });
+      await req('PATCH', `/api/books/${shelfed.id}`, { loved: true });
+
+      // Unshelfed: owned physical with no location, different progress.
+      const { body: unshelfed } = await req('POST', '/api/books', {
+        title: `${stem} unshelfed`, format: 'physical', owned: true,
+        status: 'reading', page_count: 250,
+      });
+      await req('PATCH', `/api/books/${unshelfed.id}`, { current_page: 75 });
+
+      const find = (body, id) => body.find(b => b.id === id);
+
+      // Shelf drilldown — full field set for the physical reading book.
+      const { body: shelfBooks } = await req('GET', `/api/shelf/shelves/${sh.id}/books`);
+      const fromShelf = find(shelfBooks, shelfed.id);
+      assert.ok(fromShelf, 'physical book should appear on its shelf');
+      assert.equal(fromShelf.page_count,       400);
+      assert.equal(fromShelf.current_page,     120);
+      assert.equal(fromShelf.loved,            1);
+      assert.equal(fromShelf.is_custom,        0);
+      assert.equal(fromShelf.on_readlist,      0);
+      // Audiobook progress columns are present (just NULL for a physical).
+      assert.equal(fromShelf.duration_minutes, null);
+      assert.equal(fromShelf.current_minutes,  null);
+
+      // Unit / room / building drilldowns cascade through the same shape.
+      for (const path of [
+        `/api/shelf/units/${u.id}/books`,
+        `/api/shelf/rooms/${rm.id}/books`,
+        `/api/shelf/buildings/${bldg.id}/books`,
+      ]) {
+        const { body } = await req('GET', path);
+        const row = find(body, shelfed.id);
+        assert.ok(row, `shelved book should appear in ${path}`);
+        assert.equal(row.page_count,   400);
+        assert.equal(row.current_page, 120);
+        assert.equal(row.loved,        1);
+      }
+
+      // /unshelfed picks up the unshelfed fixture with its progress.
+      const { body: unsh } = await req('GET', '/api/shelf/unshelfed');
+      const fromUnshelfed = find(unsh, unshelfed.id);
+      assert.ok(fromUnshelfed, 'owned physical with no location should appear in /unshelfed');
+      assert.equal(fromUnshelfed.page_count,   250);
+      assert.equal(fromUnshelfed.current_page, 75);
+      assert.equal(fromUnshelfed.loved,        0);
+    });
+
     it('all four drilldowns normalize cover_path back to /uploads/<filename>', async () => {
       // Each route does its own b.cover_path → /uploads/<filename> mapping.
       // A book on a shelf cascades up through every level, so one fixture
