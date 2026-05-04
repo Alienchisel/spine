@@ -111,14 +111,19 @@ export default function BookForm() {
       description: description || f.description,
     }));
     if (result.cover_url) {
+      setCoverError(null);
       setCoverPreview(result.cover_url);
       try {
         const { path } = await api.fetchCover(result.cover_url);
         setCoverPreview(path);
         set('cover_path', path);
       } catch {
-        // preview stays as external URL but cover_path stays empty — external URLs
-        // can't be stored as filenames and would break display via toCoverUrl()
+        // External URLs can't be stored as filenames and would break display
+        // via toCoverUrl(), so cover_path must stay empty. Clearing the
+        // preview too — leaving the external URL up would look like the
+        // cover was applied when in fact nothing will persist on save.
+        setCoverPreview(null);
+        setCoverError('Could not save lookup cover. Choose or paste another image.');
       }
     }
   }
