@@ -825,21 +825,35 @@ describe('shelf', () => {
         tags:      [`${stem}-tag-A`, `${stem}-tag-B`],
       });
 
-      // Every drilldown should return the joined fields.
-      for (const path of [
-        `/api/shelf/shelves/${sh.id}/books`,
-        `/api/shelf/units/${u.id}/books`,
-        `/api/shelf/rooms/${rm.id}/books`,
-        `/api/shelf/buildings/${bldg.id}/books`,
-      ]) {
-        const { body } = await req('GET', path);
-        const row = body.find(b => b.id === book.id);
-        assert.ok(row, `book should appear in ${path}`);
-        assert.deepEqual(row.authors.map(a => a.name),   ['Frank Herbert']);
-        assert.deepEqual(row.narrators.map(n => n.name), ['Scott Brick']);
-        assert.equal(row.tags.length, 2, `tags should be populated in ${path}`);
-        assert.ok(row.tags.some(t => t.name === `${stem}-tag-A`));
-        assert.ok(row.tags.some(t => t.name === `${stem}-tag-B`));
+      // Owned physical with no location — pins /unshelfed parity since it
+      // uses the same attachBookCardJoinedFields helper as the drilldowns.
+      // Without this, a future refactor that dropped the helper call only
+      // from /unshelfed wouldn't be caught.
+      const { body: unshelfedBook } = await req('POST', '/api/books', {
+        title: `${stem} unshelfed`, format: 'physical', owned: true,
+        authors:   ['Ursula K. Le Guin'],
+        narrators: ['Carrington MacDuffie'],
+        tags:      [`${stem}-unsh-tag`],
+      });
+
+      // Every drilldown plus /unshelfed should return the joined fields.
+      const checks = [
+        { path: `/api/shelf/shelves/${sh.id}/books`,  bookId: book.id,         author: 'Frank Herbert',     narrator: 'Scott Brick',         tagNames: [`${stem}-tag-A`, `${stem}-tag-B`] },
+        { path: `/api/shelf/units/${u.id}/books`,     bookId: book.id,         author: 'Frank Herbert',     narrator: 'Scott Brick',         tagNames: [`${stem}-tag-A`, `${stem}-tag-B`] },
+        { path: `/api/shelf/rooms/${rm.id}/books`,    bookId: book.id,         author: 'Frank Herbert',     narrator: 'Scott Brick',         tagNames: [`${stem}-tag-A`, `${stem}-tag-B`] },
+        { path: `/api/shelf/buildings/${bldg.id}/books`, bookId: book.id,      author: 'Frank Herbert',     narrator: 'Scott Brick',         tagNames: [`${stem}-tag-A`, `${stem}-tag-B`] },
+        { path: `/api/shelf/unshelfed`,               bookId: unshelfedBook.id, author: 'Ursula K. Le Guin', narrator: 'Carrington MacDuffie', tagNames: [`${stem}-unsh-tag`] },
+      ];
+      for (const c of checks) {
+        const { body } = await req('GET', c.path);
+        const row = body.find(b => b.id === c.bookId);
+        assert.ok(row, `book should appear in ${c.path}`);
+        assert.deepEqual(row.authors.map(a => a.name),   [c.author]);
+        assert.deepEqual(row.narrators.map(n => n.name), [c.narrator]);
+        assert.equal(row.tags.length, c.tagNames.length, `tags should be populated in ${c.path}`);
+        for (const tagName of c.tagNames) {
+          assert.ok(row.tags.some(t => t.name === tagName), `${c.path} should include tag ${tagName}`);
+        }
       }
 
       // Regression: with tags now present on shelf-served books, simulating
