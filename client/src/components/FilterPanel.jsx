@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { VIRTUAL_TAG_NAMES } from '../../../shared/bookFields.js';
 
 const MISSING_FIELDS = [
   { key: 'cover',     label: 'Cover' },
@@ -180,6 +181,32 @@ export default function FilterPanel({ facets, filters, onChange }) {
 
       {tags.length > 0 && (
         <FilterSection key="tags" label="Tags" active={filters.tags.length > 0}>
+          {(() => {
+            // The All/Any toggle only matters when 2+ real (non-virtual) tags
+            // are selected. Virtual tags are always ANDed individually, so
+            // they don't participate in the mode.
+            const selectedRealCount = filters.tags.filter(t => !VIRTUAL_TAG_NAMES.includes(t)).length;
+            if (selectedRealCount < 2) return null;
+            return (
+              <div className="w-full flex items-center gap-1.5 mb-2 text-xs">
+                <span className="text-neutral-500">match</span>
+                {['all', 'any'].map(mode => (
+                  <button key={mode} type="button"
+                    onClick={() => onChange({ ...filters, tagsMode: mode })}
+                    className={`px-2 py-0.5 rounded-full transition-colors ${
+                      (filters.tagsMode || 'all') === mode
+                        ? 'bg-binding/30 text-parchment'
+                        : 'bg-neutral-800 text-neutral-500 hover:text-neutral-300'
+                    }`}>
+                    {mode}
+                  </button>
+                ))}
+                <span className="text-neutral-600 ml-1">
+                  {(filters.tagsMode || 'all') === 'all' ? '— books with every selected tag' : '— books with any selected tag'}
+                </span>
+              </div>
+            );
+          })()}
           {tags.map(t => (
             <button key={t} type="button" onClick={() => toggle('tags', t)}
               className={pill(filters.tags.includes(t))}>

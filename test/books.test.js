@@ -1079,6 +1079,49 @@ describe('books', () => {
       }
     });
 
+    it('tag filter defaults to AND across multiple tags; tagsMode=any opts back into OR', async () => {
+      // Mirrors the search-bar AND default. The legacy 'any' (IN-list) path
+      // is kept for users who want the multi-select facet behavior.
+      const stem = 'tagmode-' + Math.random().toString(36).slice(2, 7);
+      // Disambiguating tag tokens — share a stem so the test can scope to its
+      // own fixtures even on a populated library.
+      const tagA = `${stem}-A`;
+      const tagB = `${stem}-B`;
+      const { body: both } = await req('POST', '/api/books', {
+        title: `${stem} both`, tags: [tagA, tagB],
+      });
+      const { body: aOnly } = await req('POST', '/api/books', {
+        title: `${stem} aOnly`, tags: [tagA],
+      });
+      const { body: bOnly } = await req('POST', '/api/books', {
+        title: `${stem} bOnly`, tags: [tagB],
+      });
+
+      const enc = encodeURIComponent;
+      const collect = async (q) => {
+        const { body } = await req('GET', `/api/books?${q}&limit=50`);
+        return new Set(body.books.map(b => b.id));
+      };
+
+      // Default (AND): only the book with both tags.
+      const andResult = await collect(`tags=${enc(tagA)}&tags=${enc(tagB)}`);
+      assert.ok(andResult.has(both.id), 'AND should match the two-tag book');
+      assert.ok(!andResult.has(aOnly.id), 'AND should exclude single-tag book A');
+      assert.ok(!andResult.has(bOnly.id), 'AND should exclude single-tag book B');
+
+      // Explicit any: every selected tag's books.
+      const orResult = await collect(`tags=${enc(tagA)}&tags=${enc(tagB)}&tagsMode=any`);
+      assert.ok(orResult.has(both.id));
+      assert.ok(orResult.has(aOnly.id));
+      assert.ok(orResult.has(bOnly.id));
+
+      // Single-tag selection is unchanged (the AND/HAVING branch only fires for ≥2).
+      const singleResult = await collect(`tags=${enc(tagA)}`);
+      assert.ok(singleResult.has(both.id));
+      assert.ok(singleResult.has(aOnly.id));
+      assert.ok(!singleResult.has(bOnly.id));
+    });
+
     it('q supports Google-style AND / OR / NOT / phrases / parens', async () => {
       // Build a small fixture with three orthogonal tag groupings so each
       // operator can be exercised on its own. Stems keep names unique across

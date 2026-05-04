@@ -8,6 +8,10 @@ export const EMPTY_FILTERS = {
   sources:         [],
   series:          [],
   tags:            [],
+  // 'all' = require every selected tag (matches search-bar AND default).
+  // 'any' = match any selected tag (the legacy facet behavior).
+  // Only meaningful when 2+ real tags are selected.
+  tagsMode:        'all',
   owned:           null,
   previouslyOwned: null,
   custom:          null,
@@ -51,6 +55,7 @@ export function buildApiParams(tab, sort, filters, q, offset) {
   if (filters.publishers.length) p.publishers     = filters.publishers;
   if (filters.series.length)     p.series         = filters.series;
   if (filters.tags.length)       p.tags           = filters.tags;
+  if (filters.tags.length > 1 && filters.tagsMode === 'any') p.tagsMode = 'any';
   if (filters.owned !== null)           p.owned           = String(filters.owned);
   if (filters.previouslyOwned !== null) p.previouslyOwned = String(filters.previouslyOwned);
   if (filters.custom !== null)          p.custom          = String(filters.custom);
