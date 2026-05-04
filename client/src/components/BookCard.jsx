@@ -185,11 +185,12 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact 
 
   async function handleRate(rating) {
     try {
-      const rated = await api.updateBook(book.id, {
-        ...book,
-        rating,
-        tags: realTagNames(book.tags),
-      });
+      // Only forward `tags` if the parent actually loaded them onto the book
+      // prop. Sending `tags: []` when we don't know the real tags would wipe
+      // them; omitting the key tells the backend to leave them untouched.
+      const payload = { ...book, rating };
+      if (book.tags !== undefined) payload.tags = realTagNames(book.tags);
+      const rated = await api.updateBook(book.id, payload);
       setBook(rated);
       onProgressUpdate?.(rated);
       setRatingPrompt(false);

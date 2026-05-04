@@ -801,6 +801,61 @@ describe('shelf', () => {
       assert.equal(fromUnshelfed.loved,        0);
     });
 
+    it('shelf book-list responses include authors, narrators, and tags for BookCard', async () => {
+      // The byline ('by Frank Herbert') and the rate-from-card flow both
+      // depend on these joined fields. Without them, ShelfView cards would
+      // show no author byline AND rate-from-card would wipe all tags
+      // (realTagNames(undefined) returns []).
+      const stem = 'joined-' + Math.random().toString(36).slice(2, 6);
+      const { body: bldg } = await req('POST', '/api/shelf/buildings', { name: `${stem} bldg` });
+      const { body: rm }   = await req('POST', '/api/shelf/rooms',     { building_id: bldg.id, name: `${stem} room` });
+      const { body: u }    = await req('POST', '/api/shelf/units',     { room_id: rm.id, name: `${stem} unit` });
+      const { body: sh }   = await req('POST', '/api/shelf/shelves',   { unit_id: u.id, label: stem });
+
+      const { body: book } = await req('POST', '/api/books', {
+        title: `${stem} book`, format: 'physical', owned: true, shelf_id: sh.id,
+        authors:   ['Frank Herbert'],
+        narrators: ['Scott Brick'],
+        tags:      [`${stem}-tag-A`, `${stem}-tag-B`],
+      });
+
+      // Every drilldown should return the joined fields.
+      for (const path of [
+        `/api/shelf/shelves/${sh.id}/books`,
+        `/api/shelf/units/${u.id}/books`,
+        `/api/shelf/rooms/${rm.id}/books`,
+        `/api/shelf/buildings/${bldg.id}/books`,
+      ]) {
+        const { body } = await req('GET', path);
+        const row = body.find(b => b.id === book.id);
+        assert.ok(row, `book should appear in ${path}`);
+        assert.deepEqual(row.authors.map(a => a.name),   ['Frank Herbert']);
+        assert.deepEqual(row.narrators.map(n => n.name), ['Scott Brick']);
+        assert.equal(row.tags.length, 2, `tags should be populated in ${path}`);
+        assert.ok(row.tags.some(t => t.name === `${stem}-tag-A`));
+        assert.ok(row.tags.some(t => t.name === `${stem}-tag-B`));
+      }
+
+      // Regression: with tags now present on shelf-served books, simulating
+      // BookCard's rate-from-card flow must NOT wipe the tags. (Pre-fix the
+      // shelf payload had no tags, so realTagNames(undefined) returned []
+      // and the PUT silently nuked the book's tags.)
+      const { body: shelfBooks } = await req('GET', `/api/shelf/shelves/${sh.id}/books`);
+      const shelfRow = shelfBooks.find(b => b.id === book.id);
+      // Mirror BookCard.handleRate: spread the shelf row, set rating,
+      // forward real tag names. Note: relations must be names (strings)
+      // for the PUT, not {id, name} objects.
+      const { body: rated } = await req('PUT', `/api/books/${book.id}`, {
+        ...shelfRow,
+        rating: 4,
+        authors:   shelfRow.authors.map(a => a.name),
+        narrators: shelfRow.narrators.map(n => n.name),
+        tags:      shelfRow.tags.filter(t => !t.virtual).map(t => t.name),
+      });
+      assert.equal(rated.rating, 4);
+      assert.equal(rated.tags.length, 2, 'tags must survive rate-from-card');
+    });
+
     it('all four drilldowns normalize cover_path back to /uploads/<filename>', async () => {
       // Each route does its own b.cover_path → /uploads/<filename> mapping.
       // A book on a shelf cascades up through every level, so one fixture
