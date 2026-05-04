@@ -37,7 +37,16 @@ export function ConfirmModalProvider({ children }) {
 
   const confirm = useCallback((input) => {
     const opts = normalize(input);
-    return new Promise(resolve => setState({ ...opts, resolve }));
+    return new Promise(resolve => {
+      // Guard against rapid double-calls: if a prior confirm is still open,
+      // resolve it as false (cancel) before swapping in the new one. Without
+      // this the first awaiting caller would hang forever when the second
+      // setState overwrites its resolve callback.
+      setState(prev => {
+        if (prev) prev.resolve(false);
+        return { ...opts, resolve };
+      });
+    });
   }, []);
 
   const close = useCallback((result) => {
