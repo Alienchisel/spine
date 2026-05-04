@@ -68,7 +68,7 @@ export default function BookForm() {
       setPastNarrators(f.narrators || []);
       setPastLanguages(f.languages || []);
       setPastTags(f.tags?.filter(t => !VIRTUAL_TAG_NAMES.includes(t)) || []);
-    });
+    }).catch(() => setError('Failed to load suggestions — autocomplete lists may be empty.'));
   }, []);
 
   useEffect(() => {
