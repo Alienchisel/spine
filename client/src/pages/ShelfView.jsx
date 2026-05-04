@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import {
   DndContext,
@@ -115,6 +115,10 @@ export default function ShelfView() {
   const [loading, setLoading] = useState(true);
   const [booksLoading, setBooksLoading] = useState(false);
   const [error, setError] = useState(null);
+  // Stale-response guard for the location-books fetch. Bumped on every
+  // location change AND on returns to the root view so an in-flight
+  // request from a prior location can't setBooks after navigation.
+  const booksGenRef = useRef(0);
 
   const buildingId = params.get('b') ? Number(params.get('b')) : null;
   const roomId     = params.get('r') ? Number(params.get('r')) : null;
@@ -129,6 +133,10 @@ export default function ShelfView() {
   }, []);
 
   useEffect(() => {
+    // Bump the gen unconditionally — also on the root-view branch — so any
+    // previous location's in-flight fetch is dropped when its response
+    // arrives.
+    const gen = ++booksGenRef.current;
     if (!buildingId && !roomId && !unitId && !shelfId) { setBooks([]); return; }
     setBooks([]);
     setBooksLoading(true);
@@ -137,9 +145,9 @@ export default function ShelfView() {
       : roomId              ? api.getRoomBooks(roomId)
       : api.getBuildingBooks(buildingId);
     fetch
-      .then(setBooks)
-      .catch(() => setError('Failed to load books at this location.'))
-      .finally(() => setBooksLoading(false));
+      .then(b => { if (gen === booksGenRef.current) setBooks(b); })
+      .catch(() => { if (gen === booksGenRef.current) setError('Failed to load books at this location.'); })
+      .finally(() => { if (gen === booksGenRef.current) setBooksLoading(false); });
   }, [buildingId, roomId, unitId, shelfId]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
