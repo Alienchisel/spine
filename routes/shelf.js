@@ -327,7 +327,7 @@ router.delete('/shelves/:id', (req, res) => {
 router.get('/unshelfed', (_req, res) => {
   const books = db.prepare(`
     SELECT id, title, cover_path, status, rating, loved, is_custom, on_readlist,
-           format, page_count, current_page, duration_minutes, current_minutes
+           format, series, series_number, page_count, current_page, duration_minutes, current_minutes
     FROM books
     WHERE owned = 1 AND (format = 'physical' OR format IS NULL) AND shelf_id IS NULL AND unit_id IS NULL AND room_id IS NULL AND building_id IS NULL
     ORDER BY ${titleSortExpr('title')}

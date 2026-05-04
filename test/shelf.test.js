@@ -756,10 +756,13 @@ describe('shelf', () => {
       await req('PATCH', `/api/books/${shelfed.id}`, { current_page: 120 });
       await req('PATCH', `/api/books/${shelfed.id}`, { loved: true });
 
-      // Unshelfed: owned physical with no location, different progress.
+      // Unshelfed: owned physical with no location, different progress, plus
+      // a series so we can assert /unshelfed returns the same row shape as
+      // the four drilldowns (series + series_number included).
       const { body: unshelfed } = await req('POST', '/api/books', {
         title: `${stem} unshelfed`, format: 'physical', owned: true,
         status: 'reading', page_count: 250,
+        series: `${stem} Series`, series_number: 2,
       });
       await req('PATCH', `/api/books/${unshelfed.id}`, { current_page: 75 });
 
@@ -796,9 +799,12 @@ describe('shelf', () => {
       const { body: unsh } = await req('GET', '/api/shelf/unshelfed');
       const fromUnshelfed = find(unsh, unshelfed.id);
       assert.ok(fromUnshelfed, 'owned physical with no location should appear in /unshelfed');
-      assert.equal(fromUnshelfed.page_count,   250);
-      assert.equal(fromUnshelfed.current_page, 75);
-      assert.equal(fromUnshelfed.loved,        0);
+      assert.equal(fromUnshelfed.page_count,    250);
+      assert.equal(fromUnshelfed.current_page,  75);
+      assert.equal(fromUnshelfed.loved,         0);
+      // Shape parity with the four drilldowns: series + series_number round-trip.
+      assert.equal(fromUnshelfed.series,        `${stem} Series`);
+      assert.equal(fromUnshelfed.series_number, 2);
     });
 
     it('shelf book-list responses include authors, narrators, and tags for BookCard', async () => {
