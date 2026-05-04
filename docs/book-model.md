@@ -177,13 +177,19 @@ shows the shelf picker when `owned && format === 'physical'`.
 |---|---|---|
 | `shelf_position` | INTEGER | Sort position within a shelf; rewritten by `PUT /api/shelf/shelves/:id/order` |
 
-Every shelf-route drilldown (`/shelves/:id/books`, `/units/:id/books`,
-`/rooms/:id/books`, `/buildings/:id/books`, `/unshelfed`) returns positioned
-books first (ordered by `shelf_position`); the rest fall back to article-stripped
+The four shelf-hierarchy drilldowns (`/shelves/:id/books`, `/units/:id/books`,
+`/rooms/:id/books`, `/buildings/:id/books`) return positioned books first
+(ordered by `shelf_position`); the rest fall back to article-stripped
 `COALESCE(series, title)`, then `series_number`, then article-stripped `title`.
-Article-stripping uses the same `titleSortExpr` as Library browsing, so
-*The Odyssey* sorts under `O` everywhere — and books with no series interleave
-alphabetically with series-tagged books rather than floating to the top.
+Books with no series interleave alphabetically with series-tagged books rather
+than floating to the top.
+
+`/unshelfed` is structurally different — by definition its books have no
+location, so there's no `shelf_position` branch and no series grouping. It
+sorts purely by article-stripped `title`.
+
+Article-stripping everywhere uses the same `titleSortExpr` as Library browsing,
+so *The Odyssey* sorts under `O` rather than `T`.
 
 ---
 
