@@ -1048,6 +1048,74 @@ describe('shelf', () => {
         `Aardvark should sort before Zebra by title fallback; got order ${ids.join(',')}`);
     });
 
+    // Article-stripping fallback: every shelf-route ORDER BY now uses
+    // titleSortExpr so 'The Odyssey' sorts under O, matching Library
+    // browsing instead of dropping under T. Five drilldowns, five tests —
+    // one per surface that does title-fallback.
+    function makeArticleStripFixture(stem, parent) {
+      // Two unpositioned, no-series books; only the article-stripping
+      // expression decides their order. With strip: Odyssey < Phaedo (O<P);
+      // without: Phaedo < The Odyssey (P<T).
+      return Promise.all([
+        req('POST', '/api/books', { title: `The Odyssey ${stem}`, format: 'physical', owned: true, ...parent }),
+        req('POST', '/api/books', { title: `Phaedo ${stem}`,      format: 'physical', owned: true, ...parent }),
+      ]).then(([{ body: o }, { body: p }]) => ({ odysseyId: o.id, phaedoId: p.id }));
+    }
+    function assertArticleStripped(list, odysseyId, phaedoId, surface) {
+      const ids = list.map(x => x.id);
+      const oi = ids.indexOf(odysseyId);
+      const pi = ids.indexOf(phaedoId);
+      assert.ok(oi !== -1 && pi !== -1, `both books should appear in ${surface}`);
+      assert.ok(oi < pi,
+        `${surface}: 'The Odyssey' should sort under O (article-stripped) before 'Phaedo'; got order ${ids.join(',')}`);
+    }
+
+    it('shelf drilldown article-strips the title fallback', async () => {
+      const stem = 'art-shelf-' + Math.random().toString(36).slice(2, 6);
+      const { body: sh } = await req('POST', '/api/shelf/shelves', { unit_id: unitId, label: stem });
+      const { odysseyId, phaedoId } = await makeArticleStripFixture(stem, { shelf_id: sh.id });
+      const { body: list } = await req('GET', `/api/shelf/shelves/${sh.id}/books`);
+      assertArticleStripped(list, odysseyId, phaedoId, 'shelf drilldown');
+    });
+
+    it('unit drilldown article-strips the title fallback', async () => {
+      const stem = 'art-unit-' + Math.random().toString(36).slice(2, 6);
+      const { body: u }  = await req('POST', '/api/shelf/units',   { room_id: roomId, name: stem });
+      const { body: sh } = await req('POST', '/api/shelf/shelves', { unit_id: u.id, label: stem });
+      const { odysseyId, phaedoId } = await makeArticleStripFixture(stem, { shelf_id: sh.id });
+      const { body: list } = await req('GET', `/api/shelf/units/${u.id}/books`);
+      assertArticleStripped(list, odysseyId, phaedoId, 'unit drilldown');
+    });
+
+    it('room drilldown article-strips the title fallback', async () => {
+      const stem = 'art-room-' + Math.random().toString(36).slice(2, 6);
+      const { body: r }  = await req('POST', '/api/shelf/rooms',   { building_id: buildingId, name: stem });
+      const { body: u }  = await req('POST', '/api/shelf/units',   { room_id: r.id, name: stem });
+      const { body: sh } = await req('POST', '/api/shelf/shelves', { unit_id: u.id, label: stem });
+      const { odysseyId, phaedoId } = await makeArticleStripFixture(stem, { shelf_id: sh.id });
+      const { body: list } = await req('GET', `/api/shelf/rooms/${r.id}/books`);
+      assertArticleStripped(list, odysseyId, phaedoId, 'room drilldown');
+    });
+
+    it('building drilldown article-strips the title fallback', async () => {
+      const stem = 'art-bldg-' + Math.random().toString(36).slice(2, 6);
+      const { body: b }  = await req('POST', '/api/shelf/buildings', { name: stem });
+      const { body: r }  = await req('POST', '/api/shelf/rooms',     { building_id: b.id, name: stem });
+      const { body: u }  = await req('POST', '/api/shelf/units',     { room_id: r.id, name: stem });
+      const { body: sh } = await req('POST', '/api/shelf/shelves',   { unit_id: u.id, label: stem });
+      const { odysseyId, phaedoId } = await makeArticleStripFixture(stem, { shelf_id: sh.id });
+      const { body: list } = await req('GET', `/api/shelf/buildings/${b.id}/books`);
+      assertArticleStripped(list, odysseyId, phaedoId, 'building drilldown');
+    });
+
+    it('unshelfed list article-strips the title sort', async () => {
+      const stem = 'art-uns-' + Math.random().toString(36).slice(2, 6);
+      // No shelf/unit/room/building → unshelfed.
+      const { odysseyId, phaedoId } = await makeArticleStripFixture(stem, {});
+      const { body: list } = await req('GET', '/api/shelf/unshelfed');
+      assertArticleStripped(list, odysseyId, phaedoId, '/unshelfed');
+    });
+
     it('positioned books come before NULL-position books', async () => {
       // Mixing the two branches: one book given an explicit shelf_position via
       // PUT /order, one left at NULL. The CASE WHEN clause must put the

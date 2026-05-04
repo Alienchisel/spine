@@ -1,5 +1,6 @@
 import express from 'express';
 import db from '../db.js';
+import { titleSortExpr } from '../lib/books/filters.js';
 
 const router = express.Router();
 
@@ -327,7 +328,7 @@ router.get('/unshelfed', (_req, res) => {
     SELECT id, title, cover_path, status, rating
     FROM books
     WHERE owned = 1 AND (format = 'physical' OR format IS NULL) AND shelf_id IS NULL AND unit_id IS NULL AND room_id IS NULL AND building_id IS NULL
-    ORDER BY title
+    ORDER BY ${titleSortExpr('title')}
   `).all().map(b => ({ ...b, cover_path: b.cover_path ? `/uploads/${b.cover_path}` : null }));
   res.json(books);
 });
@@ -365,7 +366,7 @@ router.get('/buildings/:id/books', (req, res) => {
       COALESCE(s_direct.order_index, 999999),
       CASE WHEN b.shelf_position IS NULL THEN 1 ELSE 0 END,
       b.shelf_position,
-      COALESCE(b.series, b.title), b.series_number, b.title
+      ${titleSortExpr('COALESCE(b.series, b.title)')}, b.series_number, ${titleSortExpr('b.title')}
   `).all(id, id, id, id).map(b => ({ ...b, cover_path: b.cover_path ? `/uploads/${b.cover_path}` : null }));
   res.json(books);
 });
@@ -393,7 +394,7 @@ router.get('/rooms/:id/books', (req, res) => {
       COALESCE(s_direct.order_index, 999999),
       CASE WHEN b.shelf_position IS NULL THEN 1 ELSE 0 END,
       b.shelf_position,
-      COALESCE(b.series, b.title), b.series_number, b.title
+      ${titleSortExpr('COALESCE(b.series, b.title)')}, b.series_number, ${titleSortExpr('b.title')}
   `).all(id, id, id).map(b => ({ ...b, cover_path: b.cover_path ? `/uploads/${b.cover_path}` : null }));
   res.json(books);
 });
@@ -413,7 +414,7 @@ router.get('/units/:id/books', (req, res) => {
       COALESCE(s.order_index, 0),
       CASE WHEN b.shelf_position IS NULL THEN 1 ELSE 0 END,
       b.shelf_position,
-      COALESCE(b.series, b.title), b.series_number, b.title
+      ${titleSortExpr('COALESCE(b.series, b.title)')}, b.series_number, ${titleSortExpr('b.title')}
   `).all(id, id).map(b => ({ ...b, cover_path: b.cover_path ? `/uploads/${b.cover_path}` : null }));
   res.json(books);
 });
@@ -427,7 +428,7 @@ router.get('/shelves/:id/books', (req, res) => {
     SELECT b.id, b.title, b.cover_path, b.status, b.rating, b.series, b.series_number, b.format
     FROM books b
     WHERE b.shelf_id = ? AND b.owned = 1
-    ORDER BY CASE WHEN b.shelf_position IS NULL THEN 1 ELSE 0 END, b.shelf_position, b.series, b.series_number, b.title
+    ORDER BY CASE WHEN b.shelf_position IS NULL THEN 1 ELSE 0 END, b.shelf_position, ${titleSortExpr('COALESCE(b.series, b.title)')}, b.series_number, ${titleSortExpr('b.title')}
   `).all(id).map(b => ({ ...b, cover_path: b.cover_path ? `/uploads/${b.cover_path}` : null }));
   res.json(books);
 });
