@@ -80,7 +80,6 @@ export default function BookDetail() {
         ...book,
         status: 'finished',
         date_finished: dateFinished,
-        read_count: (book.read_count || 0) + 1,
         tags: realTagNames(book.tags),
       });
       setBook(updated);
