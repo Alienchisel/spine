@@ -191,9 +191,11 @@ export default function ListDetail() {
   const [loadingAll, setLoadingAll] = useState(false);
   const [error, setError] = useState(null);
   // Distinct from `error`, which fully replaces the page on load failure
-  // (line ~294). Reorder failures are transient and the user still needs
-  // to see the list, so this surfaces inline above the books.
-  const [dragError, setDragError] = useState(null);
+  // (line ~294). Transient mutation/pagination failures (reorder, Load
+  // more, Show all) leave the list intact, so this surfaces inline —
+  // both above the books and next to the Load more buttons so it's
+  // visible wherever the user's eye happens to be.
+  const [actionError, setActionError] = useState(null);
   const [sort, setSort] = useState('added');
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
@@ -224,12 +226,14 @@ export default function ListDetail() {
   const loadMore = useCallback(async () => {
     const gen = genRef.current;
     setLoadingMore(true);
+    setActionError(null);
     try {
       const data = await api.getList(id, { sort, limit: PAGE_SIZE, offset: loadedRef.current });
       if (gen !== genRef.current) return;
       setList(l => ({ ...l, books: [...l.books, ...data.books] }));
       loadedRef.current += data.books.length;
     } catch {
+      if (gen === genRef.current) setActionError('Failed to load more books.');
     } finally {
       if (gen === genRef.current) setLoadingMore(false);
     }
@@ -238,6 +242,7 @@ export default function ListDetail() {
   const loadAll = useCallback(async () => {
     const gen = genRef.current;
     setLoadingAll(true);
+    setActionError(null);
     try {
       while (gen === genRef.current && loadedRef.current < total) {
         const data = await api.getList(id, { sort, limit: PAGE_SIZE, offset: loadedRef.current });
@@ -246,6 +251,8 @@ export default function ListDetail() {
         loadedRef.current += data.books.length;
         if (data.books.length === 0) break;
       }
+    } catch {
+      if (gen === genRef.current) setActionError('Failed to load more books.');
     } finally {
       if (gen === genRef.current) setLoadingAll(false);
     }
@@ -288,11 +295,11 @@ export default function ListDetail() {
     const oldIndex = list.books.findIndex(b => b.id === active.id);
     const newIndex = list.books.findIndex(b => b.id === over.id);
     const reordered = arrayMove(list.books, oldIndex, newIndex);
-    setDragError(null);
+    setActionError(null);
     setList(l => ({ ...l, books: reordered }));
     api.reorderList(id, reordered.map(b => b.id)).catch(() => {
       setList(l => ({ ...l, books: arrayMove(l.books, newIndex, oldIndex) }));
-      setDragError('Failed to save list order.');
+      setActionError('Failed to save list order.');
     });
   }
 
@@ -349,7 +356,7 @@ export default function ListDetail() {
               {SORTS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
             </select>
           </div>
-          {dragError && <p className="text-xs text-warn mb-2">{dragError}</p>}
+          {actionError && <p className="text-xs text-warn mb-2">{actionError}</p>}
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={list.books.map(b => b.id)} strategy={verticalListSortingStrategy}>
               <div className="space-y-1.5">
@@ -360,21 +367,24 @@ export default function ListDetail() {
             </SortableContext>
           </DndContext>
           {sort !== 'added' && list.books.length < total && (
-            <div className="mt-6 flex justify-center gap-3">
-              <button
-                onClick={loadMore}
-                disabled={loadingMore || loadingAll}
-                className="text-sm text-neutral-500 hover:text-neutral-300 disabled:opacity-40 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
-              >
-                {loadingMore ? 'Loading…' : `Load more · ${total - list.books.length} remaining`}
-              </button>
-              <button
-                onClick={loadAll}
-                disabled={loadingMore || loadingAll}
-                className="text-sm text-neutral-500 hover:text-neutral-300 disabled:opacity-40 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
-              >
-                {loadingAll ? `Loading all · ${list.books.length}/${total}` : 'Load all'}
-              </button>
+            <div className="mt-6 flex flex-col items-center gap-2">
+              <div className="flex justify-center gap-3">
+                <button
+                  onClick={loadMore}
+                  disabled={loadingMore || loadingAll}
+                  className="text-sm text-neutral-500 hover:text-neutral-300 disabled:opacity-40 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
+                >
+                  {loadingMore ? 'Loading…' : `Load more · ${total - list.books.length} remaining`}
+                </button>
+                <button
+                  onClick={loadAll}
+                  disabled={loadingMore || loadingAll}
+                  className="text-sm text-neutral-500 hover:text-neutral-300 disabled:opacity-40 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
+                >
+                  {loadingAll ? `Loading all · ${list.books.length}/${total}` : 'Load all'}
+                </button>
+              </div>
+              {actionError && <p className="text-xs text-warn">{actionError}</p>}
             </div>
           )}
         </>
