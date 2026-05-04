@@ -116,13 +116,14 @@ export default function BookForm() {
   }
 
   async function fetchCoverFromIsbn() {
+    setCoverError(null);
     setFetchingCover(true);
     try {
       const updated = await api.fetchBookCover(id);
       setCoverPreview(updated.cover_path);
       set('cover_path', updated.cover_path);
     } catch (e) {
-      setError(e.message);
+      setCoverError(e.message || 'Failed to fetch cover');
     } finally {
       setFetchingCover(false);
     }
