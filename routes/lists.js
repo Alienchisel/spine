@@ -1,7 +1,6 @@
 import express from 'express';
 import db from '../db.js';
-import { toCoverUrl } from '../lib/books/normalization.js';
-import { attachBookCardJoinedFields } from '../lib/books/joinedFields.js';
+import { serveBookCardRows } from '../lib/books/joinedFields.js';
 
 const router = express.Router();
 
@@ -38,12 +37,7 @@ function booksForList(listId, { sort = 'added', limit = null, offset = 0 } = {})
   // shape as every other book-list endpoint). Previously this route returned
   // authors/narrators as plain string arrays — a quiet shape divergence.
   // ListDetail's formatAuthors() handles both shapes so no UI break.
-  const books = attachBookCardJoinedFields(rows).map(b => ({
-    ...b,
-    cover_path: toCoverUrl(b.cover_path),
-  }));
-
-  return { books, total };
+  return { books: serveBookCardRows(rows), total };
 }
 
 // GET /api/lists — all lists with book count
