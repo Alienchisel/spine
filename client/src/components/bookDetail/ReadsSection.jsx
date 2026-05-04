@@ -3,12 +3,17 @@ import { api } from '../../api.js';
 import PartialDateInput from '../PartialDateInput.jsx';
 import { formatPartialDate } from './dates.js';
 
-export default function ReadsSection({ bookId, reads, onUpdate }) {
+export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBookUpdate }) {
   const [adding, setAdding] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({ date_started: '', date_finished: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+
+  // On a finished book, "log a read" means re-read: bump read_count + add row
+  // atomically via the backend's /reread endpoint. On an in-progress book it's
+  // just an explicit log entry, no count bump (book hasn't been "finished" yet).
+  const isReread = !!isFinished;
 
   function startAdd() {
     setAdding(true);
@@ -45,12 +50,18 @@ export default function ReadsSection({ bookId, reads, onUpdate }) {
     setSaving(true);
     setError(null);
     try {
-      await api.addRead(bookId, { date_started: form.date_started || null, date_finished: form.date_finished || null });
+      const payload = { date_started: form.date_started || null, date_finished: form.date_finished || null };
+      if (isReread) {
+        const updated = await api.rereadBook(bookId, payload);
+        onBookUpdate?.(updated);
+      } else {
+        await api.addRead(bookId, payload);
+      }
       setAdding(false);
       setForm({ date_started: '', date_finished: '' });
       onUpdate();
     } catch {
-      setError('Failed to add read');
+      setError(isReread ? 'Failed to log re-read' : 'Failed to add read');
     } finally {
       setSaving(false);
     }
@@ -119,7 +130,9 @@ export default function ReadsSection({ bookId, reads, onUpdate }) {
           <button type="button" onClick={() => { setAdding(false); setError(null); }} className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors">Cancel</button>
         </form>
       ) : (
-        <button onClick={startAdd} className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors">+ Log a read</button>
+        <button onClick={startAdd} className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors">
+          {isReread ? '+ Log a re-read' : '+ Log a read'}
+        </button>
       )}
       {error && <p className="text-xs text-warn mt-2">{error}</p>}
     </div>

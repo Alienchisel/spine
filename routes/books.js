@@ -112,6 +112,32 @@ router.patch('/:id', (req, res) => {
   res.json(book);
 });
 
+// One-shot atomic re-read: bump read_count by 1 and insert a reads row in
+// the same transaction. Distinct from a finish-transition (status doesn't
+// change here — book is already 'finished' when the user re-reads it), so
+// the auto-INSERT path in updateBook doesn't fire and we'd otherwise need
+// two client calls (PUT to bump count + POST /reads to log the row) that
+// can leave half-applied state on partial failure. See docs/book-model.md
+// § "reads rows" for how this fits the broader contract.
+router.post('/:id/reread', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
+  const existing = db.prepare('SELECT read_count FROM books WHERE id = ?').get(id);
+  if (!existing) return res.status(404).json({ error: 'Not found' });
+  const { date_started, date_finished } = req.body || {};
+  if (date_started  && !isValidPartialDate(date_started))  return res.status(400).json({ error: 'Invalid date_started' });
+  if (date_finished && !isValidPartialDate(date_finished)) return res.status(400).json({ error: 'Invalid date_finished' });
+  if (date_started && date_finished && partialDateBefore(date_finished, date_started)) {
+    return res.status(400).json({ error: 'date_finished cannot be before date_started' });
+  }
+  db.transaction(() => {
+    db.prepare("UPDATE books SET read_count = read_count + 1, updated_at = datetime('now', 'localtime') WHERE id = ?").run(id);
+    db.prepare("INSERT INTO reads (book_id, date_started, date_finished, created_at) VALUES (?, ?, ?, datetime('now', 'localtime'))")
+      .run(id, date_started || null, date_finished || null);
+  })();
+  res.json(getBook(id));
+});
+
 router.post('/:id/fetch-cover', async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });

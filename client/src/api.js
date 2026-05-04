@@ -36,6 +36,7 @@ export const api = {
   patchBook: (id, data) => request(`/books/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   getBookReads: (bookId) => request(`/books/${bookId}/reads`),
   addRead: (bookId, data) => request(`/books/${bookId}/reads`, { method: 'POST', body: JSON.stringify(data) }),
+  rereadBook: (bookId, data) => request(`/books/${bookId}/reread`, { method: 'POST', body: JSON.stringify(data) }),
   updateRead: (bookId, readId, data) => request(`/books/${bookId}/reads/${readId}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteRead: (bookId, readId) => request(`/books/${bookId}/reads/${readId}`, { method: 'DELETE' }),
   deleteBook: (id) => request(`/books/${id}`, { method: 'DELETE' }),

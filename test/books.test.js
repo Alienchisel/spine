@@ -1009,6 +1009,73 @@ describe('books', () => {
       });
       assert.equal(status, 400);
     });
+
+    it('POST /:id/reread bumps read_count and inserts a reads row atomically', async () => {
+      // Set up a finished book with one read already logged.
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Re-read Endpoint Test', status: 'reading',
+      });
+      await req('PUT', `/api/books/${created.id}`, {
+        title: 'Re-read Endpoint Test', status: 'finished',
+        date_started: '2024-01-01', date_finished: '2024-01-15',
+      });
+      // After the finish-transition: read_count=1 + 1 reads row from auto-INSERT.
+      const { body: afterFinish } = await req('GET', `/api/books/${created.id}`);
+      assert.equal(afterFinish.read_count, 1);
+      const { body: readsAfterFinish } = await req('GET', `/api/books/${created.id}/reads`);
+      assert.equal(readsAfterFinish.length, 1);
+
+      // Now log a re-read with a different date range.
+      const { status, body } = await req('POST', `/api/books/${created.id}/reread`, {
+        date_started: '2025-03-01', date_finished: '2025-03-20',
+      });
+      assert.equal(status, 200);
+      assert.equal(body.read_count, 2, 'response should reflect bumped count');
+
+      const { body: refetched } = await req('GET', `/api/books/${created.id}`);
+      assert.equal(refetched.read_count, 2);
+      const { body: reads } = await req('GET', `/api/books/${created.id}/reads`);
+      assert.equal(reads.length, 2);
+      const newRow = reads.find(r => r.date_started === '2025-03-01');
+      assert.ok(newRow, 'new reads row should exist');
+      assert.equal(newRow.date_finished, '2025-03-20');
+    });
+
+    it('POST /:id/reread accepts no body (date-less re-read)', async () => {
+      const { body: created } = await req('POST', '/api/books', { title: 'Date-less Re-read' });
+      const { status, body } = await req('POST', `/api/books/${created.id}/reread`, {});
+      assert.equal(status, 200);
+      assert.equal(body.read_count, 1);
+      const { body: reads } = await req('GET', `/api/books/${created.id}/reads`);
+      assert.equal(reads.length, 1);
+      assert.equal(reads[0].date_started, null);
+      assert.equal(reads[0].date_finished, null);
+    });
+
+    it('POST /:id/reread validates partial dates and ordering', async () => {
+      const { body: created } = await req('POST', '/api/books', { title: 'Re-read Validation' });
+      const bad = await req('POST', `/api/books/${created.id}/reread`, { date_started: '2024-13' });
+      assert.equal(bad.status, 400);
+      const order = await req('POST', `/api/books/${created.id}/reread`, {
+        date_started: '2024-06', date_finished: '2023',
+      });
+      assert.equal(order.status, 400);
+      // Mixed-precision pairs that compare equal on shared prefix are accepted.
+      const ok = await req('POST', `/api/books/${created.id}/reread`, {
+        date_started: '2024-06', date_finished: '2024',
+      });
+      assert.equal(ok.status, 200);
+    });
+
+    it('POST /:id/reread returns 404 for unknown book', async () => {
+      const { status } = await req('POST', '/api/books/999999/reread', {});
+      assert.equal(status, 404);
+    });
+
+    it('POST /:id/reread returns 400 for malformed book id', async () => {
+      const { status } = await req('POST', '/api/books/abc/reread', {});
+      assert.equal(status, 400);
+    });
   });
 
   describe('field persistence', () => {

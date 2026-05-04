@@ -311,7 +311,13 @@ export default function BookDetail() {
           )}
 
           {(book.status !== 'unread' || reads.length > 0) && (
-            <ReadsSection bookId={book.id} reads={reads} onUpdate={loadReads} />
+            <ReadsSection
+              bookId={book.id}
+              reads={reads}
+              isFinished={book.status === 'finished'}
+              onUpdate={loadReads}
+              onBookUpdate={setBook}
+            />
           )}
 
           {(book.status === 'finished' || book.read_count > 0) && book.review && (
