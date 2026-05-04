@@ -1,6 +1,7 @@
 import express from 'express';
 import db from '../db.js';
 import { toCoverUrl } from '../lib/books/normalization.js';
+import { attachBookCardJoinedFields } from '../lib/books/joinedFields.js';
 
 const router = express.Router();
 
@@ -33,49 +34,13 @@ function booksForList(listId, { sort = 'added', limit = null, offset = 0 } = {})
     ${limitSql}
   `).all(listId);
 
-  const ids = rows.map(r => r.id);
-  const tagsByBook = {};
-  const authorsByBook = {};
-  const narratorsByBook = {};
-  if (ids.length > 0) {
-    const ph = ids.map(() => '?').join(',');
-    const tagRows = db.prepare(`
-      SELECT bt.book_id, t.id, t.name FROM tags t
-      JOIN book_tags bt ON bt.tag_id = t.id
-      WHERE bt.book_id IN (${ph})
-    `).all(...ids);
-    for (const tr of tagRows) {
-      if (!tagsByBook[tr.book_id]) tagsByBook[tr.book_id] = [];
-      tagsByBook[tr.book_id].push({ id: tr.id, name: tr.name });
-    }
-    const authorRows = db.prepare(`
-      SELECT ba.book_id, a.name FROM authors a
-      JOIN book_authors ba ON ba.author_id = a.id
-      WHERE ba.book_id IN (${ph})
-      ORDER BY ba.position
-    `).all(...ids);
-    for (const ar of authorRows) {
-      if (!authorsByBook[ar.book_id]) authorsByBook[ar.book_id] = [];
-      authorsByBook[ar.book_id].push(ar.name);
-    }
-    const narratorRows = db.prepare(`
-      SELECT bn.book_id, n.name FROM narrators n
-      JOIN book_narrators bn ON bn.narrator_id = n.id
-      WHERE bn.book_id IN (${ph})
-      ORDER BY bn.position
-    `).all(...ids);
-    for (const nr of narratorRows) {
-      if (!narratorsByBook[nr.book_id]) narratorsByBook[nr.book_id] = [];
-      narratorsByBook[nr.book_id].push(nr.name);
-    }
-  }
-
-  const books = rows.map(b => ({
+  // Authors / narrators / tags now come back as [{id, name}] objects (same
+  // shape as every other book-list endpoint). Previously this route returned
+  // authors/narrators as plain string arrays — a quiet shape divergence.
+  // ListDetail's formatAuthors() handles both shapes so no UI break.
+  const books = attachBookCardJoinedFields(rows).map(b => ({
     ...b,
     cover_path: toCoverUrl(b.cover_path),
-    tags: tagsByBook[b.id] || [],
-    authors: authorsByBook[b.id] || [],
-    narrators: narratorsByBook[b.id] || [],
   }));
 
   return { books, total };
