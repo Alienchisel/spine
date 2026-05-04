@@ -79,17 +79,36 @@ export default function BookDetail() {
 
   useEffect(() => {
     const gen = ++idGenRef.current;
+    // Reset all state tied to the previous book so we don't briefly render
+    // stale content under the new id. Without this, navigating between
+    // books would leave the prior book's detail page visible until the new
+    // fetch resolved — and a failed new fetch would leave it visible
+    // forever (since the !book branch only fires when book is falsy).
+    setLoading(true);
+    setLoadError(false);
+    setBook(null);
+    setLog([]);
+    setLogError(null);
+    setReads([]);
+    setReadsError(null);
+    setLocation(null);
+    setLocationError(null);
+    setSeriesSiblings([]);
+    setSeriesError(null);
+    setActionError(null);
+    setFinishError(null);
+    setDeleteError(null);
+    setRatingPrompt(false);
+    setDescExpanded(false);
+
     api.getBook(id)
       .then(b => { if (gen === idGenRef.current) setBook(b); })
       .catch(() => { if (gen === idGenRef.current) setLoadError(true); })
       .finally(() => { if (gen === idGenRef.current) setLoading(false); });
-    setLogError(null);
     api.getBookLog(id)
       .then(l => { if (gen === idGenRef.current) setLog(l); })
       .catch(() => { if (gen === idGenRef.current) setLogError('Failed to load reading log.'); });
     loadReads();
-    setDescExpanded(false);
-    setSeriesSiblings([]);
   }, [id]);
 
   useEffect(() => {
