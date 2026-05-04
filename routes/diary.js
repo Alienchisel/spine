@@ -1,5 +1,6 @@
 import express from 'express';
 import db from '../db.js';
+import { toCoverUrl } from '../lib/books/normalization.js';
 import { calcStreaks } from '../lib/stats/streaks.js';
 
 const router = express.Router();
@@ -46,7 +47,7 @@ router.get('/', (req, res) => {
     byDate[row.date].push({
       id: row.id, book_id: row.book_id, title: row.title,
       authors: authorMap.get(row.book_id) || [],
-      cover_path: row.cover_path ? `/uploads/${row.cover_path}` : null,
+      cover_path: toCoverUrl(row.cover_path),
       format: row.format, pages_read: row.pages_read, minutes_read: row.minutes_read,
     });
   }

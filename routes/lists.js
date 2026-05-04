@@ -1,5 +1,6 @@
 import express from 'express';
 import db from '../db.js';
+import { toCoverUrl } from '../lib/books/normalization.js';
 
 const router = express.Router();
 
@@ -71,7 +72,7 @@ function booksForList(listId, { sort = 'added', limit = null, offset = 0 } = {})
 
   const books = rows.map(b => ({
     ...b,
-    cover_path: b.cover_path ? `/uploads/${b.cover_path}` : null,
+    cover_path: toCoverUrl(b.cover_path),
     tags: tagsByBook[b.id] || [],
     authors: authorsByBook[b.id] || [],
     narrators: narratorsByBook[b.id] || [],

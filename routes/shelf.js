@@ -2,6 +2,7 @@ import express from 'express';
 import db from '../db.js';
 import { titleSortExpr } from '../lib/books/filters.js';
 import { attachBookCardJoinedFields } from '../lib/books/joinedFields.js';
+import { toCoverUrl } from '../lib/books/normalization.js';
 
 const router = express.Router();
 
@@ -331,7 +332,7 @@ router.get('/unshelfed', (_req, res) => {
     FROM books
     WHERE owned = 1 AND (format = 'physical' OR format IS NULL) AND shelf_id IS NULL AND unit_id IS NULL AND room_id IS NULL AND building_id IS NULL
     ORDER BY ${titleSortExpr('title')}
-  `).all().map(b => ({ ...b, cover_path: b.cover_path ? `/uploads/${b.cover_path}` : null }));
+  `).all().map(b => ({ ...b, cover_path: toCoverUrl(b.cover_path) }));
   res.json(attachBookCardJoinedFields(books));
 });
 
@@ -370,7 +371,7 @@ router.get('/buildings/:id/books', (req, res) => {
       CASE WHEN b.shelf_position IS NULL THEN 1 ELSE 0 END,
       b.shelf_position,
       ${titleSortExpr('COALESCE(b.series, b.title)')}, b.series_number, ${titleSortExpr('b.title')}
-  `).all(id, id, id, id).map(b => ({ ...b, cover_path: b.cover_path ? `/uploads/${b.cover_path}` : null }));
+  `).all(id, id, id, id).map(b => ({ ...b, cover_path: toCoverUrl(b.cover_path) }));
   res.json(attachBookCardJoinedFields(books));
 });
 
@@ -399,7 +400,7 @@ router.get('/rooms/:id/books', (req, res) => {
       CASE WHEN b.shelf_position IS NULL THEN 1 ELSE 0 END,
       b.shelf_position,
       ${titleSortExpr('COALESCE(b.series, b.title)')}, b.series_number, ${titleSortExpr('b.title')}
-  `).all(id, id, id).map(b => ({ ...b, cover_path: b.cover_path ? `/uploads/${b.cover_path}` : null }));
+  `).all(id, id, id).map(b => ({ ...b, cover_path: toCoverUrl(b.cover_path) }));
   res.json(attachBookCardJoinedFields(books));
 });
 
@@ -420,7 +421,7 @@ router.get('/units/:id/books', (req, res) => {
       CASE WHEN b.shelf_position IS NULL THEN 1 ELSE 0 END,
       b.shelf_position,
       ${titleSortExpr('COALESCE(b.series, b.title)')}, b.series_number, ${titleSortExpr('b.title')}
-  `).all(id, id).map(b => ({ ...b, cover_path: b.cover_path ? `/uploads/${b.cover_path}` : null }));
+  `).all(id, id).map(b => ({ ...b, cover_path: toCoverUrl(b.cover_path) }));
   res.json(attachBookCardJoinedFields(books));
 });
 
@@ -435,7 +436,7 @@ router.get('/shelves/:id/books', (req, res) => {
     FROM books b
     WHERE b.shelf_id = ? AND b.owned = 1
     ORDER BY CASE WHEN b.shelf_position IS NULL THEN 1 ELSE 0 END, b.shelf_position, ${titleSortExpr('COALESCE(b.series, b.title)')}, b.series_number, ${titleSortExpr('b.title')}
-  `).all(id).map(b => ({ ...b, cover_path: b.cover_path ? `/uploads/${b.cover_path}` : null }));
+  `).all(id).map(b => ({ ...b, cover_path: toCoverUrl(b.cover_path) }));
   res.json(attachBookCardJoinedFields(books));
 });
 

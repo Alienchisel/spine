@@ -1,54 +1,21 @@
 import express from 'express';
 import db from '../db.js';
+import { toCoverUrl } from '../lib/books/normalization.js';
+import { attachBookCardJoinedFields } from '../lib/books/joinedFields.js';
 
 const router = express.Router();
 
 router.get('/', (_req, res) => {
-  const books = db.prepare(`
+  const rows = db.prepare(`
     SELECT * FROM books WHERE on_readlist = 1
     ORDER BY readlist_position ASC, id ASC
   `).all();
-  if (!books.length) return res.json([]);
-  const ids = books.map(b => b.id);
-  const tagRows = db.prepare(`
-    SELECT bt.book_id, t.id, t.name FROM tags t
-    JOIN book_tags bt ON bt.tag_id = t.id
-    WHERE bt.book_id IN (${ids.map(() => '?').join(',')})
-  `).all(...ids);
-  const tagMap = new Map();
-  for (const row of tagRows) {
-    if (!tagMap.has(row.book_id)) tagMap.set(row.book_id, []);
-    tagMap.get(row.book_id).push({ id: row.id, name: row.name });
-  }
-  const authorRows = db.prepare(`
-    SELECT ba.book_id, a.id, a.name FROM authors a
-    JOIN book_authors ba ON ba.author_id = a.id
-    WHERE ba.book_id IN (${ids.map(() => '?').join(',')})
-    ORDER BY ba.position
-  `).all(...ids);
-  const authorMap = new Map();
-  for (const row of authorRows) {
-    if (!authorMap.has(row.book_id)) authorMap.set(row.book_id, []);
-    authorMap.get(row.book_id).push({ id: row.id, name: row.name });
-  }
-  const narratorRows = db.prepare(`
-    SELECT bn.book_id, n.id, n.name FROM narrators n
-    JOIN book_narrators bn ON bn.narrator_id = n.id
-    WHERE bn.book_id IN (${ids.map(() => '?').join(',')})
-    ORDER BY bn.position
-  `).all(...ids);
-  const narratorMap = new Map();
-  for (const row of narratorRows) {
-    if (!narratorMap.has(row.book_id)) narratorMap.set(row.book_id, []);
-    narratorMap.get(row.book_id).push({ id: row.id, name: row.name });
-  }
-  res.json(books.map(b => ({
+  if (!rows.length) return res.json([]);
+  const books = attachBookCardJoinedFields(rows).map(b => ({
     ...b,
-    cover_path: b.cover_path ? `/uploads/${b.cover_path}` : null,
-    tags: tagMap.get(b.id) ?? [],
-    authors: authorMap.get(b.id) ?? [],
-    narrators: narratorMap.get(b.id) ?? [],
-  })));
+    cover_path: toCoverUrl(b.cover_path),
+  }));
+  res.json(books);
 });
 
 router.put('/order', (req, res) => {
