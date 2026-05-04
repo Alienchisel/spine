@@ -37,6 +37,10 @@ export default function BookDetail() {
   // (loved/readlist toggles, rate). finishError is kept separate because
   // it has its own established render slot under the Mark-as-finished button.
   const [actionError, setActionError] = useState(null);
+  // Reading-log fetches (initial mount + post-progress-save refresh) — kept
+  // separate from actionError because logError renders above the ReadingLog
+  // component on the right side of the page, distinct from the action column.
+  const [logError, setLogError] = useState(null);
   const [seriesSiblings, setSeriesSiblings] = useState([]);
 
   function loadReads() {
@@ -45,7 +49,8 @@ export default function BookDetail() {
 
   useEffect(() => {
     api.getBook(id).then(setBook).catch(() => setLoadError(true)).finally(() => setLoading(false));
-    api.getBookLog(id).then(setLog).catch(() => {});
+    setLogError(null);
+    api.getBookLog(id).then(setLog).catch(() => setLogError('Failed to load reading log.'));
     loadReads();
     setDescExpanded(false);
     setSeriesSiblings([]);
@@ -288,7 +293,11 @@ export default function BookDetail() {
           </div>
 
           {(book.status === 'reading' || book.status === 'paused') && (
-            <ProgressSection book={book} log={log} onChange={(updated) => { setBook(updated); api.getBookLog(id).then(setLog).catch(() => {}); }} />
+            <ProgressSection book={book} log={log} onChange={(updated) => {
+              setBook(updated);
+              setLogError(null);
+              api.getBookLog(id).then(setLog).catch(() => setLogError('Failed to refresh reading log.'));
+            }} />
           )}
 
           {book.description && (() => {
@@ -360,6 +369,7 @@ export default function BookDetail() {
             </div>
           )}
 
+          {logError && <p className="text-xs text-warn mb-2">{logError}</p>}
           <ReadingLog log={log} isAudiobook={book.format === 'audiobook'} />
 
           <div className="mt-8 pt-6 border-t border-neutral-800/60">
