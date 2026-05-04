@@ -249,6 +249,11 @@ export default function Library() {
                 type="search"
                 value={queryRaw}
                 onChange={(e) => setQueryRaw(e.target.value)}
+                onKeyDown={(e) => {
+                  // Enter flushes the 300ms debounce — keyboard users get
+                  // the snappy feedback they expect from a "submit" key.
+                  if (e.key === 'Enter') { e.preventDefault(); setQuery(queryRaw); }
+                }}
                 placeholder="Search title, people, series, or tags…"
                 className="w-full bg-neutral-800 border border-leather/30 rounded-lg pl-4 pr-10 py-2 text-sm text-parchment placeholder-neutral-500 focus:outline-none focus:border-leather/70 focus:ring-1 focus:ring-oak/25 transition-colors duration-150 [&::-webkit-search-cancel-button]:appearance-none"
               />
