@@ -27,7 +27,10 @@ export default function ShelfManager() {
     const newIdx = tree.findIndex(b => b.id === over.id);
     const reordered = arrayMove(tree, oldIdx, newIdx);
     setTree(reordered);
-    api.reorderBuildings(reordered.map(b => b.id)).catch(() => reload());
+    api.reorderBuildings(reordered.map(b => b.id)).catch(() => {
+      setError('Failed to save reorder.');
+      reload();  // refetches the canonical tree (may overwrite error if reload also fails)
+    });
   }
 
   async function reload() {
@@ -87,6 +90,7 @@ export default function ShelfManager() {
     try {
       await api.reorderRooms(buildingId, ids);
     } catch {
+      setError('Failed to save reorder.');
       reload();
     }
   }
@@ -115,6 +119,7 @@ export default function ShelfManager() {
     try {
       await api.reorderUnits(roomId, ids);
     } catch {
+      setError('Failed to save reorder.');
       reload();
     }
   }
@@ -152,6 +157,7 @@ export default function ShelfManager() {
     try {
       await api.reorderShelves(unitId, ids);
     } catch {
+      setError('Failed to save reorder.');
       reload();
     }
   }

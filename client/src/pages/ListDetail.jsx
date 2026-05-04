@@ -190,6 +190,10 @@ export default function ListDetail() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadingAll, setLoadingAll] = useState(false);
   const [error, setError] = useState(null);
+  // Distinct from `error`, which fully replaces the page on load failure
+  // (line ~294). Reorder failures are transient and the user still needs
+  // to see the list, so this surfaces inline above the books.
+  const [dragError, setDragError] = useState(null);
   const [sort, setSort] = useState('added');
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
@@ -284,9 +288,11 @@ export default function ListDetail() {
     const oldIndex = list.books.findIndex(b => b.id === active.id);
     const newIndex = list.books.findIndex(b => b.id === over.id);
     const reordered = arrayMove(list.books, oldIndex, newIndex);
+    setDragError(null);
     setList(l => ({ ...l, books: reordered }));
     api.reorderList(id, reordered.map(b => b.id)).catch(() => {
       setList(l => ({ ...l, books: arrayMove(l.books, newIndex, oldIndex) }));
+      setDragError('Failed to save list order.');
     });
   }
 
@@ -343,6 +349,7 @@ export default function ListDetail() {
               {SORTS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
             </select>
           </div>
+          {dragError && <p className="text-xs text-warn mb-2">{dragError}</p>}
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={list.books.map(b => b.id)} strategy={verticalListSortingStrategy}>
               <div className="space-y-1.5">
