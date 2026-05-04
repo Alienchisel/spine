@@ -106,9 +106,10 @@ export default function Readlist() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   // Distinct from `error` (which replaces the whole list on load failure) —
-  // reorder failures are transient and the user still needs to see their
-  // list, so we render this one as an inline banner above the DnD context.
-  const [dragError, setDragError] = useState(null);
+  // transient mutation failures (reorder, remove) are non-fatal and the user
+  // still needs to see the list, so we render this one as an inline banner
+  // above the DnD context.
+  const [actionError, setActionError] = useState(null);
   const [tab, setTab] = useState('physical');
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
@@ -144,17 +145,22 @@ export default function Readlist() {
     const queue = [...reorderedVisible];
     const reorderedAll = books.map(b => activeFormats.includes(b.format) ? queue.shift() : b);
     const previous = books;  // snapshot for rollback if save fails
-    setDragError(null);
+    setActionError(null);
     setBooks(reorderedAll);
     api.reorderReadlist(reorderedAll.map(b => b.id)).catch(() => {
       setBooks(previous);
-      setDragError('Failed to save readlist order.');
+      setActionError('Failed to save readlist order.');
     });
   }
 
   async function handleRemove(id) {
-    await api.patchBook(id, { on_readlist: 0 });
-    setBooks(bs => bs.filter(b => b.id !== id));
+    setActionError(null);
+    try {
+      await api.patchBook(id, { on_readlist: 0 });
+      setBooks(bs => bs.filter(b => b.id !== id));
+    } catch {
+      setActionError('Failed to remove book from readlist.');
+    }
   }
 
   return (
@@ -190,7 +196,7 @@ export default function Readlist() {
           </Link>
         </div>
       ) : (<>
-        {dragError && <p className="text-xs text-warn mb-2">{dragError}</p>}
+        {actionError && <p className="text-xs text-warn mb-2">{actionError}</p>}
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={visibleBooks.map(b => b.id)} strategy={verticalListSortingStrategy}>
             <div className="space-y-1.5">
