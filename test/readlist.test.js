@@ -92,4 +92,34 @@ describe('readlist', () => {
     const { status } = await req('PUT', '/api/readlist/order', { ids: 'bad' });
     assert.equal(status, 400);
   });
+
+  it('GET /api/readlist returns the BookCard row shape (cover_path normalized + joined fields)', async () => {
+    // Pins the serveBookCardRows() refactor at the route boundary. If the
+    // helper ever changes shape, this test catches it for /api/readlist
+    // independently of the shelf-route coverage.
+    const stem = 'rl-shape-' + Math.random().toString(36).slice(2, 6);
+    const { body: created } = await req('POST', '/api/books', {
+      title: `${stem} book`,
+      authors:   ['Frank Herbert'],
+      narrators: ['Scott Brick'],
+      tags:      [`${stem}-tag`],
+      cover_path: '/uploads/9999999999-readlist.jpg',
+    });
+    await req('PATCH', `/api/books/${created.id}`, { on_readlist: true });
+
+    const { body } = await req('GET', '/api/readlist');
+    const row = body.find(b => b.id === created.id);
+    assert.ok(row, 'created book should appear in readlist');
+
+    // cover_path normalized through toCoverUrl: bare filename → /uploads/<filename>
+    assert.equal(row.cover_path, '/uploads/9999999999-readlist.jpg');
+    // authors / narrators as [{ id, name }] objects (not string arrays)
+    assert.deepEqual(row.authors.map(a => a.name),   ['Frank Herbert']);
+    assert.deepEqual(row.narrators.map(n => n.name), ['Scott Brick']);
+    assert.ok(row.authors[0].id, 'author should carry an id');
+    // tags as [{ id, name }] objects
+    assert.equal(row.tags.length, 1);
+    assert.equal(row.tags[0].name, `${stem}-tag`);
+    assert.ok(row.tags[0].id, 'tag should carry an id');
+  });
 });

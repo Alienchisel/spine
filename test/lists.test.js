@@ -79,6 +79,34 @@ describe('lists', () => {
       const { status } = await req('GET', '/api/lists/99999');
       assert.equal(status, 404);
     });
+
+    it('returns books in BookCard row shape (cover_path normalized + joined fields)', async () => {
+      // Pins the serveBookCardRows() refactor at the route boundary. The
+      // shelf coverage tests the same helper from the shelf side; this test
+      // ensures /api/lists/:id won't silently drift if the helper changes.
+      const stem = 'list-shape-' + Math.random().toString(36).slice(2, 6);
+      const list = await createList(`${stem} list`);
+      const { body: created } = await req('POST', '/api/books', {
+        title: `${stem} book`,
+        authors:   ['Ursula K. Le Guin'],
+        narrators: ['Carrington MacDuffie'],
+        tags:      [`${stem}-tag`],
+        cover_path: '/uploads/9999999999-listdetail.jpg',
+      });
+      await req('POST', `/api/lists/${list.id}/books`, { book_id: created.id });
+
+      const { body } = await req('GET', `/api/lists/${list.id}`);
+      const row = body.books.find(b => b.id === created.id);
+      assert.ok(row, 'added book should appear in list');
+
+      assert.equal(row.cover_path, '/uploads/9999999999-listdetail.jpg');
+      assert.deepEqual(row.authors.map(a => a.name),   ['Ursula K. Le Guin']);
+      assert.deepEqual(row.narrators.map(n => n.name), ['Carrington MacDuffie']);
+      assert.ok(row.authors[0].id, 'author should carry an id');
+      assert.equal(row.tags.length, 1);
+      assert.equal(row.tags[0].name, `${stem}-tag`);
+      assert.ok(row.tags[0].id, 'tag should carry an id');
+    });
   });
 
   describe('PUT /api/lists/:id', () => {
