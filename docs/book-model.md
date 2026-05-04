@@ -318,12 +318,19 @@ The virtual tag **Re-read** fires when `read_count > 1`, regardless of how many
 
 ### reads rows
 
-`reads` rows are opt-in history. Creating a `reads` row does not increment
-`read_count`. Reaching `status = 'finished'` does not automatically create a
-`reads` row. The finish flow in the UI does both — but they are independent
-operations: `PUT` to update status/read_count, then `POST /reads` to log the
-read-through — so partial failure of either leaves a consistent if incomplete
-state.
+A finish-transition (a `PUT` whose `status='finished'` and whose stored
+status was anything else) auto-INSERTs one `reads` row inside the same
+transaction, using the payload's `date_started` and `date_finished` (NULL
+when the user doesn't know). This keeps the per-completion log in sync with
+`read_count` for the common path without forcing a second round-trip from
+the client.
+
+`POST /api/books/:id/reads` is still available for explicit logging — used
+when you want to backfill an old read with specific dates, or log multiple
+reads on a book without status-toggling. Creating a `reads` row this way
+does **not** increment `read_count` (the two stores remain decoupled per
+the rules above; this lets you log five separate readings while keeping
+`read_count = 1` if you'd rather count it as a single work-experience).
 
 ### date_started / date_finished
 
@@ -364,9 +371,15 @@ Records of individual read-throughs.
 |---|---|---|
 | `id` | INTEGER PK | |
 | `book_id` | INTEGER | → books.id ON DELETE CASCADE |
-| `date_started` | TEXT | `YYYY-MM-DD` · nullable |
-| `date_finished` | TEXT | `YYYY-MM-DD` · nullable; must not be before `date_started` |
+| `date_started` | TEXT | Partial date: `YYYY`, `YYYY-MM`, or `YYYY-MM-DD` · nullable |
+| `date_finished` | TEXT | Partial date: `YYYY`, `YYYY-MM`, or `YYYY-MM-DD` · nullable; must not be before `date_started` |
 | `created_at` | TEXT | |
+
+The "must not be before" comparison runs on the shared prefix of the two
+values, so mixed-precision pairs like `started='2024-06'` / `finished='2024'`
+are accepted (shorter date treated as a span on its common prefix), while
+clearly out-of-order pairs like `started='2024-06'` / `finished='2023'` are
+still rejected.
 
 API: `GET/POST /api/books/:id/reads`, `PUT/DELETE /api/books/:id/reads/:readId`
 
@@ -424,3 +437,36 @@ API: `GET/POST/PUT/DELETE` endpoints under `/api/shelf/buildings`,
 `/api/shelf/rooms`, `/api/shelf/units`, `/api/shelf/shelves`, plus
 `/api/shelf/tree`, `/api/shelf/unshelfed`, `/api/shelf/location/:bookId`,
 and book-listing endpoints (`/api/shelf/buildings/:id/books`, etc.).
+
+---
+
+## Search DSL
+
+`GET /api/books?q=<query>` accepts a Google-style boolean DSL. Each atom is
+matched by `LIKE '%term%'` against six surfaces — `title`, `series`, `tag.name`,
+`author.name`, `narrator.name`, `translator.name` — joined with OR. The DSL
+combines those atoms with the operators below.
+
+| Operator | Example | Meaning |
+|---|---|---|
+| Whitespace (implicit AND) | `Sci-Fi Manga` | Match books with **both** terms |
+| Uppercase `OR` | `Naval OR 40k` | Match either term |
+| Quoted phrase | `"Heart of Darkness"` | Literal substring match |
+| `-` prefix or uppercase `NOT` | `fantasy -manga` · `fantasy NOT manga` | Exclude books matching the operand |
+| Parentheses | `(Naval OR 40k) War` | Group sub-expressions |
+
+Lowercase `or` and `not` are deliberately treated as literal terms, so book
+titles like *Pride or Prejudice* or *Stranger Than Fiction: True Stories* don't
+get parsed as boolean expressions. `OR` and `NOT` must be uppercase to act as
+operators — same convention as Google.
+
+Edge-case handling that doesn't surprise the user:
+
+- An unmatched `)` is silently dropped before parsing (so `dune))) frank` is
+  treated as `dune frank`, not as `dune` with the rest swallowed).
+- An unmatched `"` runs to end-of-input as a phrase.
+- `-` before `(` or `"` negates the whole group/phrase (`-(a OR b)`,
+  `-"phrase"`), matching Google's behavior.
+
+Implemented in `lib/books/searchQuery.js` (tokenizer + recursive-descent parser
++ SQL builder); wired into `lib/books/filters.js` via `buildSearchCondition`.
