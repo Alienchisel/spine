@@ -1027,10 +1027,12 @@ describe('shelf', () => {
     it('books with NULL shelf_position fall back to series/title order', async () => {
       // The shelf drilldown's ORDER BY is:
       //   CASE WHEN shelf_position IS NULL THEN 1 ELSE 0 END, shelf_position,
-      //   series, series_number, title
-      // Positioned books come first; the rest fall back to series + title.
-      // Use a fresh shelf with no reorder call so every book stays at NULL,
-      // and pick titles that sort unambiguously by alpha.
+      //   titleSortExpr(COALESCE(series, title)), series_number, titleSortExpr(title)
+      // Positioned books come first; the rest fall back to article-stripped
+      // COALESCE(series, title) → series_number → article-stripped title.
+      // This test exercises the simple alphabetical case (no article stripping
+      // needed) on a fresh shelf with no reorder calls; the article-strip
+      // behavior itself is covered by the dedicated tests below.
       const stem = 'fallback-' + Math.random().toString(36).slice(2, 6);
       const { body: sh } = await req('POST', '/api/shelf/shelves', { unit_id: unitId, label: `${stem} shelf` });
       const { body: zebra } = await req('POST', '/api/books', {
