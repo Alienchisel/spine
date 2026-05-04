@@ -56,7 +56,22 @@ function FilterSection({ label, children, defaultOpen = true, active = false }) 
   );
 }
 
-export default function FilterPanel({ facets, filters, onChange }) {
+// Status filter is hidden on the four single-status tabs since picking one
+// of those tabs already constrains the result set to that status — adding
+// status chips on top would either be redundant ("Reading" tab + Reading
+// chip) or contradictory ("Reading" tab + Finished chip → empty result
+// because the conditions AND together). On owned / prev_owned / loved /
+// all, status is orthogonal and the chips are useful.
+const STATUS_TABS_HIDING_STATUS_FILTER = new Set(['reading', 'paused', 'finished', 'unread']);
+
+const STATUSES = [
+  { key: 'reading',  label: 'Reading' },
+  { key: 'paused',   label: 'Paused' },
+  { key: 'finished', label: 'Finished' },
+  { key: 'unread',   label: 'Unread' },
+];
+
+export default function FilterPanel({ tab, facets, filters, onChange }) {
   if (!facets) return null;
   function toggle(section, value) {
     const cur = filters[section];
@@ -114,6 +129,17 @@ export default function FilterPanel({ facets, filters, onChange }) {
             <button key={f} type="button" onClick={() => toggle('formats', f)}
               className={pill(filters.formats.includes(f))}>
               {FORMAT_LABEL[f]}
+            </button>
+          ))}
+        </FilterSection>
+      )}
+
+      {!STATUS_TABS_HIDING_STATUS_FILTER.has(tab) && (
+        <FilterSection key="status" label="Status" active={(filters.statuses?.length || 0) > 0}>
+          {STATUSES.map(s => (
+            <button key={s.key} type="button" onClick={() => toggle('statuses', s.key)}
+              className={pill(filters.statuses?.includes(s.key))}>
+              {s.label}
             </button>
           ))}
         </FilterSection>

@@ -1146,6 +1146,41 @@ describe('books', () => {
       }
     });
 
+    it('statuses[] filter accepts multiple statuses (OR within the filter, AND with everything else)', async () => {
+      // The Library tab strip pins one status at a time (or owned/all);
+      // statuses[] is the multi-select that lives in FilterPanel for use on
+      // the owned/prev_owned/loved/all tabs where status is orthogonal.
+      const stem = 'statuses-' + Math.random().toString(36).slice(2, 7);
+      const { body: rd } = await req('POST', '/api/books', { title: `${stem} reading`, status: 'reading' });
+      const { body: pd } = await req('POST', '/api/books', { title: `${stem} paused`,  status: 'paused' });
+      const { body: fd } = await req('POST', '/api/books', { title: `${stem} finished`, status: 'finished' });
+      const { body: ud } = await req('POST', '/api/books', { title: `${stem} unread`,  status: 'unread' });
+
+      const enc = encodeURIComponent;
+      const collect = async (q) => {
+        const { body } = await req('GET', `/api/books?q=${enc(stem)}&${q}&limit=50`);
+        return new Set(body.books.map(b => b.id));
+      };
+
+      // Single status: just that status.
+      const oneOnly = await collect('statuses=reading');
+      assert.ok(oneOnly.has(rd.id));
+      assert.ok(!oneOnly.has(pd.id));
+      assert.ok(!oneOnly.has(fd.id));
+      assert.ok(!oneOnly.has(ud.id));
+
+      // Multi: in-progress shortcut (reading OR paused).
+      const inProgress = await collect('statuses=reading&statuses=paused');
+      assert.ok(inProgress.has(rd.id));
+      assert.ok(inProgress.has(pd.id));
+      assert.ok(!inProgress.has(fd.id));
+      assert.ok(!inProgress.has(ud.id));
+
+      // No statuses param → no status restriction (all four match the stem).
+      const all = await collect('');
+      assert.ok(all.has(rd.id) && all.has(pd.id) && all.has(fd.id) && all.has(ud.id));
+    });
+
     it('tag filter defaults to AND across multiple tags; tagsMode=any opts back into OR', async () => {
       // Mirrors the search-bar AND default. The legacy 'any' (IN-list) path
       // is kept for users who want the multi-select facet behavior.

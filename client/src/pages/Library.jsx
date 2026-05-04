@@ -303,7 +303,7 @@ export default function Library() {
         </div>
 
         {filtersOpen && facets && (
-          <FilterPanel facets={facets} filters={filters} onChange={setFilters} />
+          <FilterPanel tab={tab} facets={facets} filters={filters} onChange={setFilters} />
         )}
       </div>
 

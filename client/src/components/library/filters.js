@@ -8,6 +8,7 @@ export const EMPTY_FILTERS = {
   sources:         [],
   series:          [],
   tags:            [],
+  statuses:        [],
   // 'all' = require every selected tag (default; matches the search-bar AND
   // semantic). 'any' = match any selected tag (the multi-select-facet OR
   // semantic, opt-in via the All/Any toggle in FilterPanel). Only meaningful
@@ -22,6 +23,7 @@ export const EMPTY_FILTERS = {
 export function countFilters(f) {
   return f.missing.length + f.formats.length + f.ratings.length +
     f.publishers.length + f.sources.length + f.series.length + f.tags.length +
+    (f.statuses?.length || 0) +
     (f.owned !== null ? 1 : 0) + (f.previouslyOwned !== null ? 1 : 0) +
     (f.custom !== null ? 1 : 0) + (f.loved !== null ? 1 : 0);
 }
@@ -56,6 +58,7 @@ export function buildApiParams(tab, sort, filters, q, offset) {
   if (filters.publishers.length) p.publishers     = filters.publishers;
   if (filters.series.length)     p.series         = filters.series;
   if (filters.tags.length)       p.tags           = filters.tags;
+  if (filters.statuses?.length)  p.statuses       = filters.statuses;
   if (filters.tags.length > 1 && filters.tagsMode === 'any') p.tagsMode = 'any';
   if (filters.owned !== null)           p.owned           = String(filters.owned);
   if (filters.previouslyOwned !== null) p.previouslyOwned = String(filters.previouslyOwned);
