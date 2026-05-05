@@ -34,6 +34,11 @@ export default function BookForm() {
   const [fetchingCover, setFetchingCover] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  // Setup-load warnings split per fetch so a later success of one doesn't
+  // mask an earlier failure of the other. `error` above stays scoped to
+  // form-save failures.
+  const [shelfTreeError, setShelfTreeError] = useState(null);
+  const [suggestionsError, setSuggestionsError] = useState(null);
   // If the edit-fetch fails, the form stays at FORM_DEFAULTS — looks
   // exactly like a fresh "Add Book" form. Saving from that state would
   // PUT defaults over the real book and wipe its relations (syncAuthors([]),
@@ -72,14 +77,16 @@ export default function BookForm() {
 
   useEffect(() => {
     let stale = false;
+    setShelfTreeError(null);
     api.getShelfTree()
       .then(t => { if (!stale) setShelfTree(t); })
-      .catch(() => { if (!stale) setError('Failed to load shelves — the shelf picker may be empty.'); });
+      .catch(() => { if (!stale) setShelfTreeError('Failed to load shelves — the shelf picker may be empty.'); });
     return () => { stale = true; };
   }, []);
 
   useEffect(() => {
     let stale = false;
+    setSuggestionsError(null);
     api.getBookFacets().then(f => {
       if (stale) return;
       setPastSources(f.sources || []);
@@ -90,7 +97,7 @@ export default function BookForm() {
       setPastNarrators(f.narrators || []);
       setPastLanguages(f.languages || []);
       setPastTags(f.tags?.filter(t => !VIRTUAL_TAG_NAMES.includes(t)) || []);
-    }).catch(() => { if (!stale) setError('Failed to load suggestions — autocomplete lists may be empty.'); });
+    }).catch(() => { if (!stale) setSuggestionsError('Failed to load suggestions — autocomplete lists may be empty.'); });
     return () => { stale = true; };
   }, []);
 
@@ -388,7 +395,11 @@ export default function BookForm() {
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 bg-neutral-950/90 backdrop-blur border-t border-neutral-800 px-4 py-3 flex items-center justify-between gap-4">
-        {error && <p className="text-sm text-warn truncate">{error}</p>}
+        <div className="flex flex-col gap-0.5 min-w-0">
+          {error            && <p className="text-sm text-warn truncate">{error}</p>}
+          {shelfTreeError   && <p className="text-xs text-warn/80 truncate">{shelfTreeError}</p>}
+          {suggestionsError && <p className="text-xs text-warn/80 truncate">{suggestionsError}</p>}
+        </div>
         <button
           form="book-form"
           type="submit"
