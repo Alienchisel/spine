@@ -2918,5 +2918,17 @@ describe('books', () => {
       assert.ok(ids.has(titleHit.id));
       assert.ok(ids.has(authorHit.id));
     });
+
+    it('inner colons inside a qualifier value are part of the value', async () => {
+      // Series names sometimes contain colons (e.g. "Hugo Award: Best Novel").
+      // The value scan must run to the next whitespace/paren/quote rather
+      // than splitting at the first inner colon.
+      const colonStem = stem + 'colon';
+      const { body: hit } = await req('POST', '/api/books', {
+        title: 'Inner Colon', series: `${colonStem}:Best`,
+      });
+      const ids = await search(`series:${colonStem}:Best`);
+      assert.ok(ids.has(hit.id));
+    });
   });
 });
