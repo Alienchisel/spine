@@ -439,6 +439,19 @@ describe('books', () => {
       assert.equal(body.source_type, 'primary');
     });
 
+    it('accepts integer fiction=0 for source_type gating (GET→PUT roundtrip)', async () => {
+      // Stored books carry integer fiction (0/1), so a roundtripped payload
+      // (GET → PUT with the same shape) sends fiction:0 not fiction:false.
+      // The gate must accept both, otherwise source_type silently drops on
+      // every edit of a non-fiction book by an API client that doesn't
+      // re-coerce the field.
+      const { body } = await req('POST', '/api/books', {
+        title: 'Histories', fiction: 0, source_type: 'secondary',
+      });
+      assert.equal(body.fiction, 0);
+      assert.equal(body.source_type, 'secondary');
+    });
+
     it('PUT applies the same source_type gate as POST', async () => {
       // Editing a non-fiction book to fiction must drop source_type even if
       // the form payload still carries the old value (round-trip pattern).
