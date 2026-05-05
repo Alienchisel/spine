@@ -239,7 +239,11 @@ export default function Library() {
   return (
     <div>
       <div className="flex flex-col gap-3 mb-8">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        {/* Toolbar is always two rows: tab strip on top (filter the corpus),
+            controls cluster below (how to view it). Single-row layout used
+            to clip the search bar at borderline widths once Archived joined
+            the tab strip in 1.20.0. */}
+        <div className="flex flex-col gap-3">
           <div className="flex items-center gap-1.5">
             <div className="flex gap-1 bg-neutral-900 p-1 rounded-lg w-fit">
               {TABS.map((t) => (
@@ -265,7 +269,7 @@ export default function Library() {
             )}
           </div>
 
-          <div className="flex items-center gap-2 sm:ml-auto">
+          <div className="flex items-center gap-2">
             <select
               value={sort}
               onChange={(e) => { setSort(e.target.value); setExpandedSeries(new Set()); }}
