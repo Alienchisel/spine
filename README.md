@@ -50,9 +50,41 @@ SPINE_URL=http://your-host:3001 node ingest.js <isbn>
 | `PORT` | `3001` | Port the server listens on |
 | `DB_PATH` | `./spine.db` | Path to the SQLite database file |
 
+## Importers
+
+Scripts in `scripts/` import Amazon/Audible "Request my data" CSV exports into Spine. Each one runs in dry-run mode by default; pass `--apply` to actually write.
+
+### Audible listening → diary
+
+```bash
+node scripts/import-audible-listening.js path/to/Listening.csv
+node scripts/import-audible-listening.js path/to/Listening.csv --apply
+node scripts/import-audible-listening.js path/to/Listening.csv --apply --min-event-seconds=60
+```
+
+Groups events by (ASIN, date), sums `Event Duration Milliseconds` to per-day minutes, and upserts into `reading_log` (the table that powers the Diary). Books are matched by ASIN; `--min-event-seconds` (default 60) drops sub-threshold accidental plays.
+
+### Repair audiobook ASINs from listening data
+
+```bash
+node scripts/repair-asins-from-listening.js path/to/Listening.csv
+node scripts/repair-asins-from-listening.js path/to/Listening.csv --apply
+```
+
+Matches CSV products to Spine audiobooks by normalised title, then either fills missing ASINs or replaces existing ones with the CSV's authoritative value. Reports ambiguous matches and unmatched products as a punch-list.
+
+### Estimate finish dates from listening data
+
+```bash
+node scripts/estimate-finish-dates-from-listening.js path/to/Listening.csv
+node scripts/estimate-finish-dates-from-listening.js path/to/Listening.csv --apply
+```
+
+Walks per-ASIN listening events chronologically, detects completions (End Position ≥ 95% of Book Length) and re-reads (position resets back to ≤ 5% with at least 7 days gap since the last completion). Backfills `books.date_started`, `books.date_finished`, `books.read_count`, `books.status`, and inserts `reads` rows — only fills, never overwrites manually-entered dates.
+
 ## Troubleshooting
 
-`sharp` and `better-sqlite3` are native modules that compile against your local Node/OS during `npm install`. If the setup fails, make sure you have the required build tools:
+`better-sqlite3` is a native module that compiles against your local Node/OS during `npm install`. If the setup fails, make sure you have the required build tools:
 
 **Linux (Debian/Ubuntu):**
 ```bash
