@@ -234,7 +234,11 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
       <Link
         to={`/books/${book.id}`}
         className="group block"
-        title={[book.title, book.authors?.map(a => a.name).join(', ')].filter(Boolean).join(' — ')}
+        title={[
+          book.title,
+          book.authors?.map(a => a.name).join(', '),
+          isAudiobook && book.narrators?.length > 0 ? `read by ${book.narrators.map(n => n.name).join(', ')}` : null,
+        ].filter(Boolean).join(' — ')}
       >
         {/* Hover signal: a 2px white inset frame on the cover. Implemented
             via an absolute-positioned overlay sibling AFTER the img so the
@@ -319,6 +323,9 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
             {!compact && book.authors?.length > 0 && (
               <p className="text-xs text-white/70 leading-tight line-clamp-1 mt-0.5">{formatAuthors(book.authors)}</p>
             )}
+            {!compact && isAudiobook && book.narrators?.length > 0 && (
+              <p className="text-xs text-white/55 leading-tight line-clamp-1 mt-0.5">{formatAuthors(book.narrators)}</p>
+            )}
           </div>
           {/* Inner-frame ring: drawn via box-shadow inset on a layer ABOVE
               the img (where the inset shadow on the frame itself would be
@@ -337,12 +344,16 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
           when neither the rating prompt nor the progress editor is open —
           those blocks render `error` inline themselves. Without this, a
           failed PATCH would silently leave the icon unchanged. */}
+      {/* mt-2 (rather than mt-0.5 / mt-1.5) gives the inline content blocks
+          breathing room from the cover bottom now that the under-cover
+          title/author labels are gone — without the buffer the rating
+          prompt and progress editor sit flush against the cover edge. */}
       {!compact && error && !ratingPrompt && !open && (
-        <p className="text-xs text-warn mt-0.5">{error}</p>
+        <p className="text-xs text-warn mt-2">{error}</p>
       )}
 
       {!compact && ratingPrompt && (
-        <div className="mt-1.5">
+        <div className="mt-2">
           <div className="flex items-center gap-2">
             <StarRating value={null} onChange={handleRate} />
             <button
@@ -357,7 +368,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
       )}
 
       {!compact && (book.status === 'reading' || book.status === 'paused') && (
-        <div className="mt-1.5">
+        <div className="mt-2">
           <button
             onClick={openEditor}
             className="flex items-center gap-1 text-xs text-neutral-600 hover:text-neutral-300 transition-colors"
