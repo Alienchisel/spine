@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { useConfirm } from '../components/ConfirmModal.jsx';
-import CompletionIndicator from '../components/CompletionIndicator.jsx';
 
 export default function Lists() {
   const [lists, setLists] = useState([]);
@@ -105,13 +104,7 @@ export default function Lists() {
                   {list.name}
                 </span>
               </Link>
-              {/* Hidden on narrow screens to keep the overview row a single line.
-                  The full indicators always show on the list detail page. */}
-              <div className="hidden md:grid grid-cols-2 gap-2 w-72 flex-shrink-0">
-                <CompletionIndicator label="Owned" count={list.owned_count    ?? 0} total={list.book_count} size="sm" />
-                <CompletionIndicator label="Read"  count={list.finished_count ?? 0} total={list.book_count} size="sm" />
-              </div>
-              <span className="text-xs text-neutral-600 flex-shrink-0 tabular-nums">
+              <span className="text-xs text-neutral-600 flex-shrink-0">
                 {list.book_count} {list.book_count === 1 ? 'book' : 'books'}
               </span>
               <button
