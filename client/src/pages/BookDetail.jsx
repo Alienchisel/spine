@@ -123,6 +123,11 @@ export default function BookDetail() {
     if (!book?.id) return;
     const gen = ++bookGenRef.current;
     setLocationError(null);
+    // Clear seriesError unconditionally — if the new book has no series,
+    // we still need to wipe a stale seriesError from the previous book.
+    // Was previously inside `if (book.series)` and so wouldn't fire when
+    // navigating from a series-book (failed series load) to a standalone.
+    setSeriesError(null);
     api.getShelfLocation(book.id)
       .then(loc => { if (gen === bookGenRef.current) setLocation(loc); })
       .catch(() => {
@@ -131,7 +136,6 @@ export default function BookDetail() {
         setLocationError('Failed to load shelf location.');
       });
     if (book.series) {
-      setSeriesError(null);
       api.getBooks({ series: book.series, field: 'series', limit: 100 })
         .then(r => { if (gen === bookGenRef.current) setSeriesSiblings(r.books || []); })
         .catch(() => { if (gen === bookGenRef.current) setSeriesError('Failed to load series navigation.'); });

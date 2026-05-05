@@ -147,6 +147,10 @@ export default function ShelfView() {
     // previous location's in-flight fetch is dropped when its response
     // arrives.
     const gen = ++booksGenRef.current;
+    // Clear any prior load/reorder error so it doesn't haunt the next
+    // location. Without this, a failed load at shelf A keeps showing its
+    // warning after the user navigates to shelf B (or to root view).
+    setError(null);
     if (!buildingId && !roomId && !unitId && !shelfId) { setBooks([]); return; }
     setBooks([]);
     setBooksLoading(true);
