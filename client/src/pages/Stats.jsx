@@ -112,7 +112,11 @@ function GoalCard({ label, current, goal, onSave, onEditStart, color = 'bg-oak' 
   function handleSubmit(e) {
     e.preventDefault();
     const val = parseInt(input);
-    if (!isNaN(val) && val > 0) onSave(val);
+    // Reject blank / zero / negative submissions: keep the editor open so
+    // the user has a visible signal their input wasn't accepted, instead of
+    // the form silently collapsing as if it took.
+    if (isNaN(val) || val <= 0) return;
+    onSave(val);
     setEditing(false);
   }
 
