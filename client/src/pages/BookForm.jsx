@@ -269,6 +269,12 @@ export default function BookForm() {
 
   async function handleSubmit(e) {
     e.preventDefault();
+    // Mirror the gating conditions on the submit button — pressing Enter in
+    // any field would otherwise bypass the disabled button and submit. The
+    // loadError / loadingBook cases are load-bearing: submitting during the
+    // edit-load gap PUTs FORM_DEFAULTS over the real book, which is the
+    // data-loss path we already plugged at the button level.
+    if (saving || uploading || loadingBook || loadError) return;
     if (!form.title.trim()) { setActiveTab('core'); return; }
     setSaving(true);
     setError(null);
