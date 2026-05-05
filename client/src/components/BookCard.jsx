@@ -236,7 +236,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
             translate-up + cover-zoom + dark-overlay stack read a bit
             cinematic; a single coloured ring is quieter and matches the
             calm-bookish aesthetic. */}
-        <div className={`relative bg-neutral-800 overflow-hidden ring-2 ring-inset ring-white/0 group-hover:ring-white/60 transition-[box-shadow] duration-200 ${compact ? 'aspect-[2/3] rounded-sm' : 'aspect-[2/3] rounded mb-2.5 shadow-xl'}`}>
+        <div className={`relative bg-neutral-800 overflow-hidden ring-2 ring-inset ring-[#ffffff00] group-hover:ring-[#ffffff99] transition-[box-shadow] duration-200 ${compact ? 'aspect-[2/3] rounded-sm' : 'aspect-[2/3] rounded mb-2.5 shadow-xl'}`}>
           {book.cover_path ? (
             <img
               src={book.cover_path}

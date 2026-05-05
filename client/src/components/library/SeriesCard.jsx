@@ -23,7 +23,7 @@ export default function SeriesCard({ seriesName, books, expanded, onToggle, comp
       {/* Hover signal: same warm oak rim as BookCard. The previous lift on
           the wrapper read as a card-pop; a static frame with a coloured ring
           is quieter and matches the calm-bookish aesthetic. */}
-      <div className={`relative aspect-[2/3] overflow-hidden ring-2 ring-inset ring-white/0 group-hover:ring-white/60 transition-[box-shadow] duration-200 ${compact ? 'rounded-sm' : 'mb-2.5 rounded shadow-[0_10px_20px_-5px_rgba(0,0,0,0.55),0_4px_8px_-2px_rgba(0,0,0,0.35)]'}`}>
+      <div className={`relative aspect-[2/3] overflow-hidden ring-2 ring-inset ring-[#ffffff00] group-hover:ring-[#ffffff99] transition-[box-shadow] duration-200 ${compact ? 'rounded-sm' : 'mb-2.5 rounded shadow-[0_10px_20px_-5px_rgba(0,0,0,0.55),0_4px_8px_-2px_rgba(0,0,0,0.35)]'}`}>
         {sorted.slice(0, 4).map((vol, i, arr) => {
           const n = arr.length;
           const leftPct = n === 1 ? 0 : (i * 45 / (n - 1));

@@ -34,7 +34,7 @@ function SortableShelfCover({ book }) {
               outside the frame on hover. The previous lift + white ring
               pattern read more cinematic and stood out against the rest
               of the app once BookCard moved to the calmer style. */}
-          <div className={`w-[240px] ${book.format === 'audiobook' ? 'h-[240px]' : 'h-[360px]'} rounded overflow-hidden bg-neutral-800 shadow-xl ring-2 ring-inset ring-white/0 group-hover:ring-white/60 transition-[box-shadow] duration-200`}>
+          <div className={`w-[240px] ${book.format === 'audiobook' ? 'h-[240px]' : 'h-[360px]'} rounded overflow-hidden bg-neutral-800 shadow-xl ring-2 ring-inset ring-[#ffffff00] group-hover:ring-[#ffffff99] transition-[box-shadow] duration-200`}>
             {book.cover_path
               ? <img src={book.cover_path} alt={book.title} draggable={false} className="w-full h-full object-cover" />
               : <div className="w-full h-full flex items-end p-2 bg-gradient-to-br from-neutral-700 to-neutral-900">
