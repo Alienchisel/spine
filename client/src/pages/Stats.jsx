@@ -104,7 +104,7 @@ function formatHours(minutes) {
 
 const FORMAT_LABEL = { physical: 'Physical', ebook: 'Digital', audiobook: 'Audiobook' };
 
-function GoalCard({ label, current, goal, onSave, color = 'bg-oak' }) {
+function GoalCard({ label, current, goal, onSave, onEditStart, color = 'bg-oak' }) {
   const [editing, setEditing] = useState(false);
   const [input, setInput] = useState('');
   const pct = goal > 0 ? Math.min(100, Math.round((current / goal) * 100)) : 0;
@@ -132,7 +132,7 @@ function GoalCard({ label, current, goal, onSave, color = 'bg-oak' }) {
           </form>
         ) : (
           <button
-            onClick={() => { setInput(goal ? String(goal) : ''); setEditing(true); }}
+            onClick={() => { onEditStart?.(); setInput(goal ? String(goal) : ''); setEditing(true); }}
             className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors tabular-nums"
           >
             {current.toLocaleString()} / {goal ? goal.toLocaleString() : <span className="text-neutral-700">set goal</span>}
@@ -202,6 +202,7 @@ export default function Stats() {
             current={todayPages}
             goal={settings.daily_pages_goal ? parseInt(settings.daily_pages_goal) : 0}
             onSave={v => saveGoal('daily_pages_goal', v)}
+            onEditStart={() => setActionError(null)}
             color="bg-oak"
           />
           <GoalCard
@@ -209,6 +210,7 @@ export default function Stats() {
             current={thisYearPages}
             goal={settings.yearly_pages_goal ? parseInt(settings.yearly_pages_goal) : 0}
             onSave={v => saveGoal('yearly_pages_goal', v)}
+            onEditStart={() => setActionError(null)}
             color="bg-oak"
           />
           <GoalCard
@@ -216,6 +218,7 @@ export default function Stats() {
             current={thisYearBooks}
             goal={settings.yearly_books_goal ? parseInt(settings.yearly_books_goal) : 0}
             onSave={v => saveGoal('yearly_books_goal', v)}
+            onEditStart={() => setActionError(null)}
             color="bg-leather"
           />
         </div>
