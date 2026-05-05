@@ -259,42 +259,37 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact 
             <div className={`absolute bottom-0 left-0 right-0 h-0.5 ${STATUS_BAR[book.status]}`} />
           )}
           {!compact && (
-            <>
-              {/* Gradient backdrop sits behind the action icons; visible only
-                  on hover so the cover stays uncluttered at rest. */}
-              <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/65 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-              {/* All icons are hidden at rest and fade in on hover. Active
-                  state (loved, on_readlist) is still expressed via colour
-                  once the icon is visible — a loved book's heart appears
-                  red, an unloved book's appears white — but neither is
-                  visible until the user hovers. */}
-              <div className="absolute inset-x-0 bottom-3 flex justify-center items-center gap-4">
-                <button
-                  onClick={toggleReadlist}
-                  disabled={listing}
-                  className={`leading-none opacity-0 group-hover:opacity-100 transition-[opacity,color] disabled:opacity-50 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)] ${book.on_readlist ? 'text-sky-400 hover:text-sky-300' : 'text-white hover:text-sky-300'}`}
-                  title={book.on_readlist ? 'On readlist' : 'Add to readlist'}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-5 h-5">
-                    <path d="M2 2.75A2.75 2.75 0 0 1 4.75 0h6.5A2.75 2.75 0 0 1 14 2.75v12.5a.75.75 0 0 1-1.18.617L8 12.21l-4.82 3.657A.75.75 0 0 1 2 15.25V2.75Z" />
-                  </svg>
-                </button>
-                <button
-                  onClick={toggleLoved}
-                  disabled={loving}
-                  className={`leading-none text-2xl opacity-0 group-hover:opacity-100 transition-[opacity,color] disabled:opacity-50 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)] ${book.loved ? 'text-red-400 hover:text-red-300' : 'text-white hover:text-red-300'}`}
-                  title={book.loved ? 'Loved' : 'Mark as loved'}
-                >
-                  {book.loved ? '♥' : '♡'}
-                </button>
-                <ListPicker
-                  bookId={book.id}
-                  dropUp
-                  iconClassName="w-5 h-5"
-                  buttonClassName="opacity-0 group-hover:opacity-100 text-white hover:text-sky-300 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)] transition-opacity"
-                />
-              </div>
-            </>
+            // Self-contained dark tray that holds the action icons. The
+            // whole tray (rectangle + contents) fades in together on hover
+            // — at rest the cover is fully uncluttered. Active state
+            // (loved, on_readlist) still expresses via colour once the tray
+            // is visible.
+            <div className="absolute inset-x-3 bottom-3 flex justify-center items-center gap-4 px-3 py-1.5 bg-black/65 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                onClick={toggleReadlist}
+                disabled={listing}
+                className={`leading-none transition-colors disabled:opacity-50 ${book.on_readlist ? 'text-sky-400 hover:text-sky-300' : 'text-white hover:text-sky-300'}`}
+                title={book.on_readlist ? 'On readlist' : 'Add to readlist'}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-5 h-5">
+                  <path d="M2 2.75A2.75 2.75 0 0 1 4.75 0h6.5A2.75 2.75 0 0 1 14 2.75v12.5a.75.75 0 0 1-1.18.617L8 12.21l-4.82 3.657A.75.75 0 0 1 2 15.25V2.75Z" />
+                </svg>
+              </button>
+              <button
+                onClick={toggleLoved}
+                disabled={loving}
+                className={`leading-none text-2xl transition-colors disabled:opacity-50 ${book.loved ? 'text-red-400 hover:text-red-300' : 'text-white hover:text-red-300'}`}
+                title={book.loved ? 'Loved' : 'Mark as loved'}
+              >
+                {book.loved ? '♥' : '♡'}
+              </button>
+              <ListPicker
+                bookId={book.id}
+                dropUp
+                iconClassName="w-5 h-5"
+                buttonClassName="text-white hover:text-sky-300 transition-colors"
+              />
+            </div>
           )}
           {compact && (
             <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-1.5 pt-4 pb-1.5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
