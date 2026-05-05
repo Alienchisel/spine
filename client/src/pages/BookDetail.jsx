@@ -138,71 +138,94 @@ export default function BookDetail() {
     }
   }, [book?.id]);
 
+  // Helper for the four async handlers below — drops the response if the
+  // user has navigated away to another book by the time the await resolves.
+  // Without this, A's PATCH/PUT result would clobber state under B's URL.
+  function isStillCurrent(reqId) {
+    return String(reqId) === String(latestIdRef.current);
+  }
+
   async function toggleLoved() {
+    const reqId = book.id;
     setActionError(null);
     try {
-      const updated = await api.patchBook(book.id, { loved: book.loved ? 0 : 1 });
+      const updated = await api.patchBook(reqId, { loved: book.loved ? 0 : 1 });
+      if (!isStillCurrent(reqId)) return;
       setBook(updated);
     } catch {
+      if (!isStillCurrent(reqId)) return;
       setActionError('Failed to update loved');
     }
   }
 
   async function toggleReadlist() {
+    const reqId = book.id;
     setActionError(null);
     try {
-      const updated = await api.patchBook(book.id, { on_readlist: book.on_readlist ? 0 : 1 });
+      const updated = await api.patchBook(reqId, { on_readlist: book.on_readlist ? 0 : 1 });
+      if (!isStillCurrent(reqId)) return;
       setBook(updated);
     } catch {
+      if (!isStillCurrent(reqId)) return;
       setActionError('Failed to update readlist');
     }
   }
 
   async function handleFinish() {
     if (finishing) return;
+    const reqId = book.id;
     setFinishing(true);
     setFinishError(null);
     try {
       const today = new Date().toLocaleDateString('en-CA');
       const dateFinished = book.date_finished || today;
-      const updated = await api.updateBook(book.id, {
+      const updated = await api.updateBook(reqId, {
         ...book,
         status: 'finished',
         date_finished: dateFinished,
         tags: realTagNames(book.tags),
       });
+      if (!isStillCurrent(reqId)) return;
       setBook(updated);
       if (!book.rating) setRatingPrompt(true);
       loadReads();
     } catch {
+      if (!isStillCurrent(reqId)) return;
       setFinishError('Failed to save — please try again');
     } finally {
+      // setFinishing always resets — it's a button-state flag, leaving it
+      // true after navigation just disables a button that's now unmounted.
       setFinishing(false);
     }
   }
 
   async function handleRate(rating) {
+    const reqId = book.id;
     setActionError(null);
     try {
-      const updated = await api.updateBook(book.id, {
+      const updated = await api.updateBook(reqId, {
         ...book,
         rating,
         tags: realTagNames(book.tags),
       });
+      if (!isStillCurrent(reqId)) return;
       setBook(updated);
       setRatingPrompt(false);
     } catch {
+      if (!isStillCurrent(reqId)) return;
       setActionError('Failed to save rating');
     }
   }
 
   async function handleDelete() {
     if (!await confirm(`Delete "${book.title}"?`)) return;
+    const reqId = id;
     setDeleteError(null);
     try {
-      await api.deleteBook(id);
+      await api.deleteBook(reqId);
       navigate('/');
     } catch {
+      if (!isStillCurrent(reqId)) return;
       setDeleteError('Failed to delete book. Please try again.');
     }
   }
