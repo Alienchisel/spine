@@ -382,7 +382,7 @@ export default function ListDetail() {
           {editMode ? (
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext items={list.books.map(b => b.id)} strategy={rectSortingStrategy}>
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-x-4 gap-y-7 items-start">
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-x-4 gap-y-5 items-start">
                   {list.books.map(book => (
                     <SortableBookCard key={book.id} book={book} onRemove={handleRemove} draggable={draggable} />
                   ))}
@@ -390,7 +390,7 @@ export default function ListDetail() {
               </SortableContext>
             </DndContext>
           ) : (
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-x-4 gap-y-7 items-start">
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-x-4 gap-y-5 items-start">
               {list.books.map(book => (
                 <BookCard key={book.id} book={book} />
               ))}

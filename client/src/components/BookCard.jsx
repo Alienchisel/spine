@@ -246,7 +246,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
             on the frame itself would render below the img (per the CSS
             painting order: bg → inset shadow → content) and be invisible
             on covers whose artwork fills the frame. */}
-        <div className={`relative bg-neutral-800 overflow-hidden ${compact ? 'aspect-[2/3] rounded-sm' : 'aspect-[2/3] rounded mb-2.5 shadow-xl'}`}>
+        <div className={`relative bg-neutral-800 overflow-hidden ${compact ? 'aspect-[2/3] rounded-sm' : 'aspect-[2/3] rounded shadow-lg'}`}>
           {book.cover_path ? (
             <img
               src={book.cover_path}

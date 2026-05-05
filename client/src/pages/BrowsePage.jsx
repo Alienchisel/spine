@@ -143,7 +143,7 @@ export default function BrowsePage() {
         const trim = hasMore && gridCols > 0 && books.length > gridCols ? books.length % gridCols : 0;
         const visible = trim > 0 ? books.slice(0, -trim) : books;
         return (
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 gap-y-7 items-start">
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 gap-y-5 items-start">
             {visible.map(book => <BookCard key={book.id} book={book} />)}
           </div>
         );

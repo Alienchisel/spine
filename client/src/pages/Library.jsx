@@ -36,7 +36,7 @@ const SORTS = [
 ];
 
 const GRID = {
-  comfortable: 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-x-4 gap-y-7 items-start',
+  comfortable: 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-x-4 gap-y-5 items-start',
   compact:     'grid grid-cols-6 sm:grid-cols-9 md:grid-cols-12 gap-0.5 items-start',
 };
 

@@ -34,7 +34,7 @@ function SortableShelfCover({ book }) {
               the cover via a sibling overlay (the inset shadow on the
               frame itself would be hidden behind the img per CSS painting
               order). */}
-          <div className={`relative w-[240px] ${book.format === 'audiobook' ? 'h-[240px]' : 'h-[360px]'} rounded overflow-hidden bg-neutral-800 shadow-xl`}>
+          <div className={`relative w-[240px] ${book.format === 'audiobook' ? 'h-[240px]' : 'h-[360px]'} rounded overflow-hidden bg-neutral-800 shadow-lg`}>
             {book.cover_path
               ? <img src={book.cover_path} alt={book.title} draggable={false} className="w-full h-full object-cover" />
               : <div className="w-full h-full flex items-end p-2 bg-gradient-to-br from-neutral-700 to-neutral-900">
@@ -269,7 +269,7 @@ export default function ShelfView() {
                 <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-4 pb-2 border-b border-neutral-800">
                   No location assigned · {unshelfed.length}
                 </h2>
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 gap-y-7">
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 gap-y-5">
                   {unshelfed.map(book => (
                     <BookCard key={book.id} book={book} />
                   ))}
@@ -297,7 +297,7 @@ export default function ShelfView() {
         {booksLoading ? (
           <div className="text-neutral-700 text-sm mt-6">Loading…</div>
         ) : books.length > 0 && (
-          <div className={`grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 gap-y-7 ${rooms.length > 0 ? 'mt-8' : ''}`}>
+          <div className={`grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 gap-y-5 ${rooms.length > 0 ? 'mt-8' : ''}`}>
             {books.map(book => <BookCard key={book.id} book={book} />)}
           </div>
         )}
@@ -323,7 +323,7 @@ export default function ShelfView() {
         {booksLoading ? (
           <div className="text-neutral-700 text-sm mt-6">Loading…</div>
         ) : books.length > 0 && (
-          <div className={`grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 gap-y-7 ${units.length > 0 ? 'mt-8' : ''}`}>
+          <div className={`grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 gap-y-5 ${units.length > 0 ? 'mt-8' : ''}`}>
             {books.map(book => <BookCard key={book.id} book={book} />)}
           </div>
         )}
@@ -377,7 +377,7 @@ export default function ShelfView() {
                 {shelves.length > 0 && (
                   <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-4">Not on a shelf</h2>
                 )}
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 gap-y-7">
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 gap-y-5">
                   {unitOnly.map(book => <BookCard key={book.id} book={book} />)}
                 </div>
               </div>
