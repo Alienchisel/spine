@@ -259,27 +259,43 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact 
             <div className={`absolute bottom-0 left-0 right-0 h-0.5 ${STATUS_BAR[book.status]}`} />
           )}
           {!compact && (
-            <div className="absolute bottom-1.5 right-1.5 flex gap-0.5 items-center">
-              <button
-                onClick={toggleReadlist}
-                disabled={listing}
-                className={`bg-black/60 backdrop-blur-sm rounded px-1 py-0.5 leading-none transition-colors disabled:opacity-50 ${book.on_readlist ? 'text-sky-400' : 'text-neutral-600 hover:text-neutral-300'}`}
-                title={book.on_readlist ? 'On readlist' : 'Add to readlist'}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3">
-                  <path d="M2 2.75A2.75 2.75 0 0 1 4.75 0h6.5A2.75 2.75 0 0 1 14 2.75v12.5a.75.75 0 0 1-1.18.617L8 12.21l-4.82 3.657A.75.75 0 0 1 2 15.25V2.75Z" />
-                </svg>
-              </button>
-              <button
-                onClick={toggleLoved}
-                disabled={loving}
-                className={`bg-black/60 backdrop-blur-sm rounded px-1 py-0.5 text-sm leading-none transition-colors disabled:opacity-50 ${book.loved ? 'text-red-400' : 'text-neutral-600 hover:text-neutral-300'}`}
-                title={book.loved ? 'Loved' : 'Mark as loved'}
-              >
-                {book.loved ? '♥' : '♡'}
-              </button>
-              <ListPicker bookId={book.id} dropUp iconClassName="w-3 h-3" buttonClassName="bg-black/60 backdrop-blur-sm rounded px-1 py-0.5" />
-            </div>
+            <>
+              {/* Gradient backdrop sits behind the action icons; visible only
+                  on hover so the cover stays uncluttered at rest. */}
+              <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/65 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+              {/* Each icon shows at rest only when its state is active —
+                  loved books still flag their red heart, readlist items
+                  still flag their sky bookmark — otherwise hidden until
+                  hover. ListPicker has no synchronously-known active state
+                  here (membership is fetched on open), so it stays hidden
+                  until hover. */}
+              <div className="absolute inset-x-0 bottom-3 flex justify-center items-center gap-4">
+                <button
+                  onClick={toggleReadlist}
+                  disabled={listing}
+                  className={`leading-none transition-[opacity,color] disabled:opacity-50 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)] ${book.on_readlist ? 'opacity-100 text-sky-400 hover:text-sky-300' : 'opacity-0 group-hover:opacity-100 text-white hover:text-sky-300'}`}
+                  title={book.on_readlist ? 'On readlist' : 'Add to readlist'}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-5 h-5">
+                    <path d="M2 2.75A2.75 2.75 0 0 1 4.75 0h6.5A2.75 2.75 0 0 1 14 2.75v12.5a.75.75 0 0 1-1.18.617L8 12.21l-4.82 3.657A.75.75 0 0 1 2 15.25V2.75Z" />
+                  </svg>
+                </button>
+                <button
+                  onClick={toggleLoved}
+                  disabled={loving}
+                  className={`leading-none text-2xl transition-[opacity,color] disabled:opacity-50 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)] ${book.loved ? 'opacity-100 text-red-400 hover:text-red-300' : 'opacity-0 group-hover:opacity-100 text-white hover:text-red-300'}`}
+                  title={book.loved ? 'Loved' : 'Mark as loved'}
+                >
+                  {book.loved ? '♥' : '♡'}
+                </button>
+                <ListPicker
+                  bookId={book.id}
+                  dropUp
+                  iconClassName="w-5 h-5"
+                  buttonClassName="opacity-0 group-hover:opacity-100 text-white hover:text-sky-300 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)] transition-opacity"
+                />
+              </div>
+            </>
           )}
           {compact && (
             <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-1.5 pt-4 pb-1.5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
