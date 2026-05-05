@@ -160,12 +160,17 @@ export default function ShelfView() {
     const reordered = arrayMove(books, oldIndex, newIndex);
     setBooks(reordered);
     api.reorderShelf(shelfId, reordered.map(b => b.id))
-      .catch(() => api.getShelfBooks(shelfId).then(setBooks).catch(() =>
-        // Reorder failed AND the recovery refetch also failed — leave the
-        // optimistic order in the UI but warn the user it didn't save so
-        // they can refresh manually.
-        setError('Reorder failed and could not be reverted — refresh the page.')
-      ));
+      .catch(() => {
+        // Always tell the user their reorder didn't save — even when the
+        // recovery refetch succeeds and the canonical order snaps back into
+        // place, otherwise the snap-back looks like the drag never
+        // registered. If the refetch ALSO fails we upgrade the message so
+        // the user knows to refresh manually.
+        setError('Failed to save reorder.');
+        api.getShelfBooks(shelfId).then(setBooks).catch(() =>
+          setError('Reorder failed and could not be reverted — refresh the page.')
+        );
+      });
   }
 
   const building = tree.find(b => b.id === buildingId);
@@ -333,9 +338,12 @@ export default function ShelfView() {
                       return [...others, ...reordered];
                     });
                     api.reorderShelf(shelfId, reordered.map(b => b.id))
-                      .catch(() => api.getUnitBooks(unitId).then(setBooks).catch(() =>
-                        setError('Reorder failed and could not be reverted — refresh the page.')
-                      ));
+                      .catch(() => {
+                        setError('Failed to save reorder.');
+                        api.getUnitBooks(unitId).then(setBooks).catch(() =>
+                          setError('Reorder failed and could not be reverted — refresh the page.')
+                        );
+                      });
                   }}
                 />
               ))}

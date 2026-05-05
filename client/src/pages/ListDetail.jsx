@@ -265,13 +265,17 @@ export default function ListDetail() {
   }
 
   async function handleRemove(bookId) {
+    setActionError(null);
     try {
       await api.removeFromList(id, bookId);
       setList(l => ({ ...l, books: l.books.filter(b => b.id !== bookId) }));
       setTotal(t => t - 1);
       loadedRef.current -= 1;
     } catch {
-      setError('Failed to remove book from list.');
+      // actionError, not error: this fails inline with the list intact.
+      // The page-replacing `error` is reserved for load failures where
+      // there's no list to render anyway.
+      setActionError('Failed to remove book from list.');
     }
   }
 
