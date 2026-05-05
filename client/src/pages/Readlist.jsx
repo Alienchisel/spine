@@ -115,7 +115,15 @@ export default function Readlist() {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   useEffect(() => {
-    api.getReadlist().then(setBooks).catch(() => setError('Failed to load readlist.')).finally(() => setLoading(false));
+    // Stale flag drops the response if the user navigates away before
+    // getReadlist resolves — setBooks / setError / setLoading otherwise
+    // fire on an unmounted component.
+    let stale = false;
+    api.getReadlist()
+      .then(b => { if (!stale) setBooks(b); })
+      .catch(() => { if (!stale) setError('Failed to load readlist.'); })
+      .finally(() => { if (!stale) setLoading(false); });
+    return () => { stale = true; };
   }, []);
 
   const counts = useMemo(() => {
