@@ -230,7 +230,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
   const archivedDim = book.archived ? 'opacity-60 saturate-50' : '';
 
   return (
-    <div onKeyDown={handleKeyDown} className={`transition-[background-color] ease-out duration-150 ${archivedDim}`}>
+    <div onKeyDown={handleKeyDown} className={`transition-[background-color] ease-out duration-150 ${compact ? '' : 'bg-card rounded-lg p-1.5'} ${archivedDim}`}>
       <Link
         to={`/books/${book.id}`}
         className="group block"
@@ -319,7 +319,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
               the img (where the inset shadow on the frame itself would be
               hidden behind the img). Pointer-events disabled so the action
               tray and other clickable overlays still receive hovers. */}
-          <div className={`pointer-events-none absolute inset-0 ring-2 ring-inset ring-[#ffffff00] group-hover:ring-[#ffffff99] transition-[box-shadow] duration-200 ${compact ? 'rounded-sm' : 'rounded'}`} />
+          <div className={`pointer-events-none absolute inset-0 ring-2 ring-inset ring-binding/25 group-hover:ring-[#ffffff99] transition-[box-shadow] duration-200 ${compact ? 'rounded-sm' : 'rounded'}`} />
           {/* Caller-supplied overlay anchored INSIDE the cover frame — used
               by ListDetail's SortableBookCard to position its drag handle
               over the cover (not below the title/author block, where the

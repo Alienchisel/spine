@@ -40,7 +40,7 @@ function SortableShelfCover({ book }) {
               : <div className="w-full h-full flex items-end p-2 bg-gradient-to-br from-neutral-700 to-neutral-900">
                   <span className="text-xs text-neutral-400 leading-tight line-clamp-4">{book.title}</span>
                 </div>}
-            <div className="pointer-events-none absolute inset-0 rounded ring-2 ring-inset ring-[#ffffff00] group-hover:ring-[#ffffff99] transition-[box-shadow] duration-200" />
+            <div className="pointer-events-none absolute inset-0 rounded ring-2 ring-inset ring-binding/25 group-hover:ring-[#ffffff99] transition-[box-shadow] duration-200" />
           </div>
         </Link>
         <button

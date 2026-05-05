@@ -22,7 +22,7 @@ export default function SeriesCard({ seriesName, books, expanded, onToggle, comp
         sorted[0]?.authors?.map(a => a.name).join(', '),
         statusParts.join(' · '),
       ].filter(Boolean).join(' — ')}
-      className={`group transition-[background-color] ease-out duration-150 text-left w-full ${compact ? 'hover:opacity-80' : `${expanded ? 'ring-1 ring-binding/40 rounded-lg' : ''}`}`}
+      className={`group transition-[background-color] ease-out duration-150 text-left w-full ${compact ? 'hover:opacity-80' : `bg-card rounded-lg p-1.5 ${expanded ? 'ring-1 ring-binding/40' : ''}`}`}
     >
       {/* Hover signal: 2px white inset frame, same as BookCard. Drawn via
           an overlay sibling (below) so the box-shadow paints above the
@@ -57,7 +57,7 @@ export default function SeriesCard({ seriesName, books, expanded, onToggle, comp
         <div className="absolute top-1.5 right-1.5 bg-black/75 text-neutral-300 text-xs font-bold px-1.5 py-0.5 rounded backdrop-blur-sm leading-none">
           {books.length}
         </div>
-        <div className={`pointer-events-none absolute inset-0 ring-2 ring-inset ring-[#ffffff00] group-hover:ring-[#ffffff99] transition-[box-shadow] duration-200 ${compact ? 'rounded-sm' : 'rounded'}`} />
+        <div className={`pointer-events-none absolute inset-0 ring-2 ring-inset ring-binding/25 group-hover:ring-[#ffffff99] transition-[box-shadow] duration-200 ${compact ? 'rounded-sm' : 'rounded'}`} />
       </div>
     </button>
   );
