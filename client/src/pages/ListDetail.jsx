@@ -283,11 +283,11 @@ export default function ListDetail() {
     e.preventDefault();
     const name = renameValue.trim();
     if (!name || name === list.name) { setRenaming(false); return; }
+    setRenameError(null);
     try {
       const updated = await api.renameList(id, name);
       setList(l => ({ ...l, name: updated.name }));
       setRenaming(false);
-      setRenameError(null);
     } catch (err) {
       setRenameError(err.message);
     }
