@@ -24,7 +24,7 @@ function PencilIcon() {
   );
 }
 
-export default function BookCard({ book: initialBook, onProgressUpdate, compact }) {
+export default function BookCard({ book: initialBook, onProgressUpdate, compact, coverOverlay }) {
   const [book, setBook] = useState(initialBook);
   const [open, setOpen] = useState(false);
   const [loving, setLoving] = useState(false);
@@ -296,6 +296,11 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact 
               <p className="text-xs text-white leading-tight line-clamp-2">{book.title}</p>
             </div>
           )}
+          {/* Caller-supplied overlay anchored INSIDE the cover frame — used
+              by ListDetail's SortableBookCard to position its drag handle
+              over the cover (not below the title/author block, where the
+              wrapper's bounding box would otherwise place a `bottom-*`). */}
+          {coverOverlay}
         </div>
         {!compact && <>
           <p className="text-sm font-medium text-neutral-200 truncate group-hover:text-white transition-colors leading-tight" title={book.title}>

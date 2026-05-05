@@ -30,7 +30,11 @@ function SortableShelfCover({ book }) {
     >
       <div className="relative group">
         <Link to={`/books/${book.id}`} draggable={false} className="block">
-          <div className={`w-[240px] ${book.format === 'audiobook' ? 'h-[240px]' : 'h-[360px]'} rounded overflow-hidden bg-neutral-800 shadow-xl ring-1 ring-white/5 hover:ring-white/20 transition-transform duration-200 ease-out hover:-translate-y-1`}>
+          {/* Hover treatment matches BookCard: still cover, oak ring offset
+              outside the frame on hover. The previous lift + white ring
+              pattern read more cinematic and stood out against the rest
+              of the app once BookCard moved to the calmer style. */}
+          <div className={`w-[240px] ${book.format === 'audiobook' ? 'h-[240px]' : 'h-[360px]'} rounded overflow-hidden bg-neutral-800 shadow-xl ring-1 ring-white/5 group-hover:ring-2 group-hover:ring-offset-2 group-hover:ring-offset-base group-hover:ring-oak/80 transition-[box-shadow] duration-150`}>
             {book.cover_path
               ? <img src={book.cover_path} alt={book.title} draggable={false} className="w-full h-full object-cover" />
               : <div className="w-full h-full flex items-end p-2 bg-gradient-to-br from-neutral-700 to-neutral-900">

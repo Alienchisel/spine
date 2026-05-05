@@ -45,18 +45,20 @@ function SortableBookCard({ book, onRemove, draggable }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: book.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
 
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      className={`relative select-none transition-opacity ring-2 ring-binding/40 rounded-lg ${isDragging ? 'opacity-40' : ''}`}
-    >
-      <BookCard book={book} />
+  // Drag handle and remove × are passed into BookCard's `coverOverlay` so
+  // they anchor inside the cover frame (which is the right reference for
+  // bottom/top positioning) rather than the outer wrapper, which extends
+  // past the cover to include the title/author block. The drag-handle
+  // button calls preventDefault so a plain click doesn't navigate to the
+  // detail page via BookCard's enclosing Link; a real drag is suppressed
+  // by dnd-kit before click fires anyway.
+  const overlay = (
+    <>
       {draggable && (
         <button
           {...listeners}
-          className="absolute bottom-1.5 left-1/2 -translate-x-1/2 bg-black/75 backdrop-blur-sm rounded px-2 py-1 text-neutral-300 hover:text-white transition-colors cursor-grab active:cursor-grabbing"
+          onClick={(e) => e.preventDefault()}
+          className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/75 backdrop-blur-sm rounded px-2 py-1 text-neutral-300 hover:text-white transition-colors cursor-grab active:cursor-grabbing"
           aria-label="Drag to reorder"
         >
           <DragHandle />
@@ -64,13 +66,24 @@ function SortableBookCard({ book, onRemove, draggable }) {
       )}
       {onRemove && (
         <button
-          onClick={() => onRemove(book.id)}
-          className="absolute -top-2 -right-2 bg-neutral-900 hover:bg-red-900 border border-neutral-700 rounded-full w-6 h-6 flex items-center justify-center text-neutral-400 hover:text-white transition-colors text-base leading-none shadow-lg"
+          onClick={(e) => { e.preventDefault(); onRemove(book.id); }}
+          className="absolute top-1 right-1 bg-neutral-900/90 hover:bg-red-900 border border-neutral-700 rounded-full w-6 h-6 flex items-center justify-center text-neutral-400 hover:text-white transition-colors text-base leading-none shadow-lg"
           title="Remove from list"
         >
           ×
         </button>
       )}
+    </>
+  );
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      className={`relative select-none transition-opacity ring-2 ring-binding/40 rounded-lg ${isDragging ? 'opacity-40' : ''}`}
+    >
+      <BookCard book={book} coverOverlay={overlay} />
     </div>
   );
 }
@@ -230,9 +243,21 @@ export default function ListDetail() {
 
   async function handleRemove(bookId) {
     setActionError(null);
+    // Capture the book's owned/finished state before removing so the
+    // completion indicators on the page header don't go stale. Only `total`
+    // was being decremented before; the percentages would keep showing the
+    // pre-remove ratio until a full refetch.
+    const removed = list.books.find(b => b.id === bookId);
+    const ownedDelta    = removed?.owned                  ? 1 : 0;
+    const finishedDelta = removed?.status === 'finished'  ? 1 : 0;
     try {
       await api.removeFromList(id, bookId);
-      setList(l => ({ ...l, books: l.books.filter(b => b.id !== bookId) }));
+      setList(l => ({
+        ...l,
+        books:          l.books.filter(b => b.id !== bookId),
+        owned_count:    Math.max(0, (l.owned_count    ?? 0) - ownedDelta),
+        finished_count: Math.max(0, (l.finished_count ?? 0) - finishedDelta),
+      }));
       setTotal(t => t - 1);
       loadedRef.current -= 1;
     } catch {
