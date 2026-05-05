@@ -220,14 +220,18 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact 
   const archivedDim = book.archived ? 'opacity-60 saturate-50' : '';
 
   return (
-    <div onKeyDown={handleKeyDown} className={`transition-[transform,background-color] ease-out duration-150 ${compact ? '' : 'bg-card rounded-lg p-2 pb-2.5 hover:-translate-y-0.5'} ${archivedDim}`}>
+    <div onKeyDown={handleKeyDown} className={`transition-[background-color] ease-out duration-150 ${compact ? '' : 'bg-card rounded-lg p-2 pb-2.5'} ${archivedDim}`}>
       <Link to={`/books/${book.id}`} className="group block">
-        <div className={`relative bg-neutral-800 overflow-hidden ring-1 ring-white/5 ${compact ? 'aspect-[2/3] rounded-sm' : 'aspect-[2/3] rounded mb-2.5 shadow-xl'}`}>
+        {/* Hover signal: a warm oak ring around the cover. The previous
+            translate-up + cover-zoom + dark-overlay stack read a bit
+            cinematic; a single coloured ring is quieter and matches the
+            calm-bookish aesthetic. */}
+        <div className={`relative bg-neutral-800 overflow-hidden ring-1 ring-white/5 group-hover:ring-oak/50 transition-[box-shadow] duration-150 ${compact ? 'aspect-[2/3] rounded-sm' : 'aspect-[2/3] rounded mb-2.5 shadow-xl'}`}>
           {book.cover_path ? (
             <img
               src={book.cover_path}
               alt={book.title}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              className="w-full h-full object-cover"
             />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center p-3 bg-gradient-to-br from-neutral-700 to-neutral-900 gap-2">
@@ -282,7 +286,6 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact 
               <p className="text-xs text-white leading-tight line-clamp-2">{book.title}</p>
             </div>
           )}
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors pointer-events-none" />
         </div>
         {!compact && <>
           <p className="text-sm font-medium text-neutral-200 truncate group-hover:text-white transition-colors leading-tight" title={book.title}>
