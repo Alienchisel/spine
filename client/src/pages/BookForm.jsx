@@ -62,6 +62,11 @@ export default function BookForm() {
   // quickly picking B, used to let A's slower description/cover awaits
   // resolve after B's and overwrite B's form fields and cover state.
   const lookupApplyGenRef = useRef(0);
+  // Stale-result guard for any cover-affecting action — fetchCoverFromIsbn,
+  // uploadFile, the paste/drag fetchAndSetCover, AND applyResult's cover
+  // branch. Shared across all four so any combo (paste-then-upload,
+  // ISBN-then-pick, etc.) drops the slower one's writes and finally.
+  const coverActionGenRef = useRef(0);
   const [durationH, setDurationH] = useState('');
   const [durationM, setDurationM] = useState('');
 
@@ -142,11 +147,12 @@ export default function BookForm() {
       description: description || f.description,
     }));
     if (result.cover_url) {
+      const coverGen = ++coverActionGenRef.current;
       setCoverError(null);
       setCoverPreview(result.cover_url);
       try {
         const { path } = await api.fetchCover(result.cover_url);
-        if (gen !== lookupApplyGenRef.current) return;
+        if (gen !== lookupApplyGenRef.current || coverGen !== coverActionGenRef.current) return;
         setCoverPreview(path);
         set('cover_path', path);
       } catch {
@@ -154,7 +160,7 @@ export default function BookForm() {
         // via toCoverUrl(), so cover_path must stay empty. Clearing the
         // preview too — leaving the external URL up would look like the
         // cover was applied when in fact nothing will persist on save.
-        if (gen !== lookupApplyGenRef.current) return;
+        if (gen !== lookupApplyGenRef.current || coverGen !== coverActionGenRef.current) return;
         setCoverPreview(null);
         setCoverError('Could not save lookup cover. Choose or paste another image.');
       }
@@ -162,48 +168,59 @@ export default function BookForm() {
   }
 
   async function fetchCoverFromIsbn() {
+    const gen = ++coverActionGenRef.current;
     setCoverError(null);
     setFetchingCover(true);
     try {
       const updated = await api.fetchBookCover(id);
+      if (gen !== coverActionGenRef.current) return;
       setCoverPreview(updated.cover_path);
       set('cover_path', updated.cover_path);
     } catch (e) {
+      if (gen !== coverActionGenRef.current) return;
       setCoverError(e.message || 'Failed to fetch cover');
     } finally {
-      setFetchingCover(false);
+      // Only clear the spinner if this action is still current — otherwise
+      // we'd kill a newer action's in-flight indicator.
+      if (gen === coverActionGenRef.current) setFetchingCover(false);
     }
   }
 
   async function uploadFile(file) {
+    const gen = ++coverActionGenRef.current;
     setCoverPreview(URL.createObjectURL(file));
     setCoverError(null);
     setUploading(true);
     try {
       const result = await api.uploadCover(file);
+      if (gen !== coverActionGenRef.current) return;
       set('cover_path', result.path);
     } catch (e) {
+      if (gen !== coverActionGenRef.current) return;
       setCoverPreview(null);
       setCoverError(e.message || 'Upload failed');
     } finally {
-      setUploading(false);
+      if (gen === coverActionGenRef.current) setUploading(false);
     }
   }
 
   useEffect(() => {
     async function fetchAndSetCover(url) {
+      const gen = ++coverActionGenRef.current;
       setCoverPreview(url);
       setCoverError(null);
       setUploading(true);
       try {
         const result = await api.fetchCover(url);
+        if (gen !== coverActionGenRef.current) return;
         set('cover_path', result.path);
         setCoverPreview(result.path);
       } catch (e) {
+        if (gen !== coverActionGenRef.current) return;
         setCoverPreview(null);
         setCoverError(e.message || 'Failed to fetch cover');
       } finally {
-        setUploading(false);
+        if (gen === coverActionGenRef.current) setUploading(false);
       }
     }
 
