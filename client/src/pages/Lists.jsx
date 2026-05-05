@@ -27,6 +27,11 @@ export default function Lists() {
     if (!name) return;
     setCreating(true);
     setCreateError(null);
+    // createError and deleteError both render in the strip just below the
+    // create form, so a stale message from the other handler would sit
+    // visible alongside a successful action. Clear both on entry from each
+    // handler so the visible state always matches the most recent action.
+    setDeleteError(null);
     try {
       const created = await api.createList(name);
       setLists(ls => [...ls, { ...created, book_count: 0 }].sort((a, b) => a.name.localeCompare(b.name)));
@@ -45,6 +50,7 @@ export default function Lists() {
       : `Delete "${list.name}"?`;
     if (!await confirm(msg)) return;
     setDeleteError(null);
+    setCreateError(null);
     try {
       await api.deleteList(list.id);
       setLists(ls => ls.filter(l => l.id !== list.id));
