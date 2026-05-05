@@ -283,9 +283,8 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
             // whole tray (rectangle + contents) fades in together on hover
             // — at rest the cover is fully uncluttered. Active state
             // (loved, on_readlist) still expresses via colour once the tray
-            // is visible. Sits above the title-overlay band that fades in
-            // along the bottom of the cover.
-            <div className="absolute inset-x-3 bottom-14 flex justify-center items-center gap-4 px-3 py-1.5 bg-black/65 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+            // is visible.
+            <div className="absolute inset-x-3 bottom-3 flex justify-center items-center gap-4 px-3 py-1.5 bg-black/65 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
               <button
                 onClick={toggleReadlist}
                 disabled={listing}
@@ -312,21 +311,10 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
               />
             </div>
           )}
-          {/* Hover-revealed title + author at the bottom of the cover.
-              Replaces the always-on labels that used to sit under the
-              cover — covers carry their own text, and the user wanted
-              the grid to read as pure posters at rest. Pointer-events
-              disabled so the action tray (sitting just above) still
-              receives hovers/clicks. */}
-          <div className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none ${compact ? 'px-1.5 pt-4 pb-1.5' : 'px-3 pt-8 pb-2.5'}`}>
-            <p className={`text-white leading-tight line-clamp-2 ${compact ? 'text-xs' : 'text-sm font-medium'}`}>{book.title}</p>
-            {!compact && book.authors?.length > 0 && (
-              <p className="text-xs text-white/70 leading-tight line-clamp-1 mt-0.5">{formatAuthors(book.authors)}</p>
-            )}
-            {!compact && isAudiobook && book.narrators?.length > 0 && (
-              <p className="text-xs text-white/55 leading-tight line-clamp-1 mt-0.5">{formatAuthors(book.narrators)}</p>
-            )}
-          </div>
+          {/* No on-cover text overlay. Title / author / narrator are
+              available via the Link's `title` attribute (native browser
+              tooltip on long hover) and via click-through to BookDetail.
+              Keeping the cover face uncluttered was the explicit ask. */}
           {/* Inner-frame ring: drawn via box-shadow inset on a layer ABOVE
               the img (where the inset shadow on the frame itself would be
               hidden behind the img). Pointer-events disabled so the action
