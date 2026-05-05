@@ -22,13 +22,21 @@ const LIST_ORDER_BY = {
 function booksForList(listId, { sort = 'added', limit = null, offset = 0 } = {}) {
   const orderBy = LIST_ORDER_BY[sort] || LIST_ORDER_BY.added;
   const limitSql = limit != null ? `LIMIT ${limit} OFFSET ${offset}` : '';
-  const total = db.prepare('SELECT COUNT(*) AS c FROM list_books WHERE list_id = ?').get(listId).c;
+  // Archived books are excluded from list views and from the count so the
+  // overview badge matches what's actually visible. Membership in list_books
+  // is preserved across archive/un-archive — the row reappears intact when
+  // the user un-archives.
+  const total = db.prepare(`
+    SELECT COUNT(*) AS c FROM list_books lb
+    JOIN books b ON b.id = lb.book_id
+    WHERE lb.list_id = ? AND COALESCE(b.archived,0) = 0
+  `).get(listId).c;
 
   const rows = db.prepare(`
     SELECT b.*, lb.added_at, lb.position
     FROM books b
     JOIN list_books lb ON lb.book_id = b.id
-    WHERE lb.list_id = ?
+    WHERE lb.list_id = ? AND COALESCE(b.archived,0) = 0
     ORDER BY ${orderBy}
     ${limitSql}
   `).all(listId);
@@ -38,10 +46,12 @@ function booksForList(listId, { sort = 'added', limit = null, offset = 0 } = {})
 
 // GET /api/lists — all lists with book count
 router.get('/', (_req, res) => {
+  // book_count excludes archived books so the badge matches the list view.
   const lists = db.prepare(`
-    SELECT l.*, COUNT(lb.book_id) as book_count
+    SELECT l.*, COUNT(CASE WHEN COALESCE(b.archived,0) = 0 THEN 1 END) AS book_count
     FROM lists l
     LEFT JOIN list_books lb ON lb.list_id = l.id
+    LEFT JOIN books b ON b.id = lb.book_id
     GROUP BY l.id
     ORDER BY l.name ASC
   `).all();

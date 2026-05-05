@@ -2672,4 +2672,121 @@ describe('books', () => {
       assert.equal(cleared.cover_path, null, 'null cover_path on PUT should clear');
     });
   });
+
+  describe('archived', () => {
+    it('persists archived flag through POST, PUT, and PATCH', async () => {
+      const { body: created } = await req('POST', '/api/books', { title: 'Archive POST', archived: true });
+      assert.equal(created.archived, 1);
+
+      const { body: putUnarchive } = await req('PUT', `/api/books/${created.id}`, {
+        ...created, archived: false, tags: [],
+      });
+      assert.equal(putUnarchive.archived, 0);
+
+      const { body: patched } = await req('PATCH', `/api/books/${created.id}`, { archived: true });
+      assert.equal(patched.archived, 1);
+    });
+
+    it('archiving auto-clears on_readlist (forward-looking state)', async () => {
+      // The readlist is a forward-looking queue, so archiving (a forward-looking
+      // hide-from-active decision) implies removing from it. Loved and shelf
+      // assignment are passive metadata and stay intact — see book-model.md.
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Archive readlist-clear', on_readlist: true, loved: true,
+      });
+      assert.equal(created.on_readlist, 1);
+      assert.notEqual(created.readlist_position, null);
+      assert.equal(created.loved, 1);
+
+      const { body: archived } = await req('PATCH', `/api/books/${created.id}`, { archived: true });
+      assert.equal(archived.archived, 1);
+      assert.equal(archived.on_readlist, 0);
+      assert.equal(archived.readlist_position, null);
+      assert.equal(archived.loved, 1, 'loved is passive metadata and survives archiving');
+    });
+
+    it('list endpoint excludes archived by default', async () => {
+      const { body: active }   = await req('POST', '/api/books', { title: 'Active list-default' });
+      const { body: archived } = await req('POST', '/api/books', { title: 'Archived list-default', archived: true });
+
+      const { body: list } = await req('GET', '/api/books?limit=200');
+      const ids = list.books.map(b => b.id);
+      assert.ok(ids.includes(active.id),    'active book should appear');
+      assert.ok(!ids.includes(archived.id), 'archived book should NOT appear by default');
+    });
+
+    it('tab=archived returns archived-only', async () => {
+      const { body: active }   = await req('POST', '/api/books', { title: 'Active tab-archived' });
+      const { body: archived } = await req('POST', '/api/books', { title: 'Archived tab-archived', archived: true });
+
+      const { body: list } = await req('GET', '/api/books?tab=archived&limit=200');
+      const ids = list.books.map(b => b.id);
+      assert.ok(ids.includes(archived.id), 'archived book should appear on Archived tab');
+      assert.ok(!ids.includes(active.id),  'active book should NOT appear on Archived tab');
+    });
+
+    it('archived=any includes both active and archived', async () => {
+      const { body: active }   = await req('POST', '/api/books', { title: 'Active any-mode' });
+      const { body: archived } = await req('POST', '/api/books', { title: 'Archived any-mode', archived: true });
+
+      const { body: list } = await req('GET', '/api/books?archived=any&limit=200');
+      const ids = list.books.map(b => b.id);
+      assert.ok(ids.includes(active.id));
+      assert.ok(ids.includes(archived.id));
+    });
+
+    it('free-text search (q) surfaces archived results so users can find them to un-archive', async () => {
+      // The Archived tab is the dedicated browse surface, but the search bar
+      // must still find archived items — otherwise an archived book is
+      // unfindable except by clicking through to the Archived tab and
+      // searching there. This mirrors the design rule: history-style
+      // surfaces include archived; the search affordance is treated as
+      // history-style for findability.
+      const { body: archived } = await req('POST', '/api/books', {
+        title: 'ZZUniqueArchivedSentinel', archived: true,
+      });
+      const { body: list } = await req('GET', '/api/books?q=ZZUniqueArchivedSentinel');
+      const ids = list.books.map(b => b.id);
+      assert.ok(ids.includes(archived.id), 'archived book should appear in q-bearing search');
+    });
+
+    it('archived=0 forces exclusion even with a search query', async () => {
+      // Escape hatch for callers that want strictly-active search (e.g. a
+      // future "search active library only" toggle). q-bearing default of
+      // include-archived is overridable.
+      await req('POST', '/api/books', { title: 'ZZForceExclude', archived: true });
+      const { body: list } = await req('GET', '/api/books?q=ZZForceExclude&archived=0');
+      assert.equal(list.books.length, 0);
+    });
+
+    it('GET /api/books/counts excludes archived from active counts and surfaces archived count', async () => {
+      // Tests share an in-memory DB so we measure deltas around fresh inserts
+      // rather than expecting absolute counts. The point of this test is the
+      // gate logic: an archived book bumps `archived` but NOT the per-status
+      // or owned/total counters.
+      const before = (await req('GET', '/api/books/counts')).body;
+
+      const { body: arch1 } = await req('POST', '/api/books', {
+        title: 'CountTest Arch finished', owned: true, status: 'finished', archived: true,
+      });
+      const { body: arch2 } = await req('POST', '/api/books', {
+        title: 'CountTest Arch reading',  owned: true, status: 'reading',  archived: true,
+      });
+      const { body: act1 } = await req('POST', '/api/books', {
+        title: 'CountTest Active reading', owned: true, status: 'reading',
+      });
+
+      const after = (await req('GET', '/api/books/counts')).body;
+      assert.equal(after.archived - before.archived, 2, 'archived counter += 2 archived inserts');
+      assert.equal(after.reading  - before.reading,  1, 'reading counter += 1 active reading (archived ones excluded)');
+      assert.equal(after.finished - before.finished, 0, 'finished counter += 0 (the only finished insert was archived)');
+      assert.equal(after.owned    - before.owned,    1, 'owned counter += 1 (archived owned books excluded)');
+      assert.equal(after.total    - before.total,    1, 'total reflects active-library size (archived excluded)');
+
+      // Cleanup so other tests don't see these fixtures.
+      await req('DELETE', `/api/books/${arch1.id}`);
+      await req('DELETE', `/api/books/${arch2.id}`);
+      await req('DELETE', `/api/books/${act1.id}`);
+    });
+  });
 });

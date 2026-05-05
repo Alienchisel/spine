@@ -15,7 +15,7 @@ export const SCALAR_FIELDS = [
 
 // Stored as 0/1 in the DB. Form holds them as JS booleans.
 export const BOOLEAN_FIELDS = [
-  'owned', 'previously_owned', 'is_custom', 'is_stub', 'loved', 'year_approximate', 'abridged',
+  'owned', 'previously_owned', 'is_custom', 'is_stub', 'loved', 'year_approximate', 'abridged', 'archived',
 ];
 
 // Three-way: null | true | false. Stored as NULL/0/1.
@@ -66,7 +66,7 @@ export const FORM_DEFAULTS = Object.freeze({
 
   // Booleans.
   owned: false, previously_owned: false, is_custom: false, is_stub: false,
-  loved: false, year_approximate: false, abridged: false,
+  loved: false, year_approximate: false, abridged: false, archived: false,
 
   // Tri-state.
   fiction: null,
@@ -127,5 +127,6 @@ export const BOOK_TABLE_COLUMNS = Object.freeze([
   'language', 'original_language',
   'year_published', 'year_approximate', 'year_edition',
   'abridged',
+  'archived',
   'shelf_id', 'building_id', 'room_id', 'unit_id',
 ]);

@@ -24,30 +24,30 @@ const VALID_PROXIMITY = ['home', 'nearby', 'remote'];
 router.get('/tree', (_req, res) => {
   const buildings = db.prepare(`
     SELECT b.*,
-      (SELECT COUNT(*) FROM books WHERE building_id = b.id AND owned = 1)
-      + (SELECT COUNT(*) FROM books WHERE room_id IN (SELECT id FROM rooms WHERE building_id = b.id) AND owned = 1)
-      + (SELECT COUNT(*) FROM books WHERE unit_id IN (SELECT u.id FROM units u JOIN rooms r ON u.room_id = r.id WHERE r.building_id = b.id) AND owned = 1)
-      + (SELECT COUNT(*) FROM books bk JOIN shelves s ON bk.shelf_id = s.id JOIN units u ON s.unit_id = u.id JOIN rooms r ON u.room_id = r.id WHERE r.building_id = b.id AND bk.owned = 1)
+      (SELECT COUNT(*) FROM books WHERE building_id = b.id AND owned = 1 AND COALESCE(archived,0) = 0)
+      + (SELECT COUNT(*) FROM books WHERE room_id IN (SELECT id FROM rooms WHERE building_id = b.id) AND owned = 1 AND COALESCE(archived,0) = 0)
+      + (SELECT COUNT(*) FROM books WHERE unit_id IN (SELECT u.id FROM units u JOIN rooms r ON u.room_id = r.id WHERE r.building_id = b.id) AND owned = 1 AND COALESCE(archived,0) = 0)
+      + (SELECT COUNT(*) FROM books bk JOIN shelves s ON bk.shelf_id = s.id JOIN units u ON s.unit_id = u.id JOIN rooms r ON u.room_id = r.id WHERE r.building_id = b.id AND bk.owned = 1 AND COALESCE(bk.archived,0) = 0)
       AS book_count
     FROM buildings b ORDER BY b.order_index, b.name
   `).all();
   const rooms     = db.prepare(`
     SELECT r.*,
-      (SELECT COUNT(*) FROM books WHERE room_id = r.id AND owned = 1)
-      + (SELECT COUNT(*) FROM books WHERE unit_id IN (SELECT id FROM units WHERE room_id = r.id) AND owned = 1)
-      + (SELECT COUNT(*) FROM books b JOIN shelves s ON b.shelf_id = s.id JOIN units u ON s.unit_id = u.id WHERE u.room_id = r.id AND b.owned = 1)
+      (SELECT COUNT(*) FROM books WHERE room_id = r.id AND owned = 1 AND COALESCE(archived,0) = 0)
+      + (SELECT COUNT(*) FROM books WHERE unit_id IN (SELECT id FROM units WHERE room_id = r.id) AND owned = 1 AND COALESCE(archived,0) = 0)
+      + (SELECT COUNT(*) FROM books b JOIN shelves s ON b.shelf_id = s.id JOIN units u ON s.unit_id = u.id WHERE u.room_id = r.id AND b.owned = 1 AND COALESCE(b.archived,0) = 0)
       AS book_count
     FROM rooms r ORDER BY r.order_index, r.name
   `).all();
   const units     = db.prepare(`
     SELECT u.*,
-      (SELECT COUNT(*) FROM books WHERE unit_id = u.id AND owned = 1)
-      + (SELECT COUNT(*) FROM books WHERE shelf_id IN (SELECT id FROM shelves WHERE unit_id = u.id) AND owned = 1)
+      (SELECT COUNT(*) FROM books WHERE unit_id = u.id AND owned = 1 AND COALESCE(archived,0) = 0)
+      + (SELECT COUNT(*) FROM books WHERE shelf_id IN (SELECT id FROM shelves WHERE unit_id = u.id) AND owned = 1 AND COALESCE(archived,0) = 0)
       AS book_count
     FROM units u ORDER BY u.order_index, u.name
   `).all();
   const shelves   = db.prepare(`
-    SELECT s.*, (SELECT COUNT(*) FROM books WHERE shelf_id = s.id AND owned = 1) AS book_count
+    SELECT s.*, (SELECT COUNT(*) FROM books WHERE shelf_id = s.id AND owned = 1 AND COALESCE(archived,0) = 0) AS book_count
     FROM shelves s ORDER BY s.order_index, s.label
   `).all();
   const tree = buildings.map(b => ({
@@ -69,10 +69,10 @@ router.get('/buildings', (_req, res) => {
   const buildings = db.prepare(`
     SELECT b.*,
       (SELECT COUNT(*) FROM rooms WHERE building_id = b.id) AS room_count,
-      (SELECT COUNT(*) FROM books WHERE building_id = b.id AND owned = 1)
-      + (SELECT COUNT(*) FROM books WHERE room_id IN (SELECT id FROM rooms WHERE building_id = b.id) AND owned = 1)
-      + (SELECT COUNT(*) FROM books WHERE unit_id IN (SELECT u.id FROM units u JOIN rooms r ON u.room_id = r.id WHERE r.building_id = b.id) AND owned = 1)
-      + (SELECT COUNT(*) FROM books bk JOIN shelves s ON bk.shelf_id = s.id JOIN units u ON s.unit_id = u.id JOIN rooms r ON u.room_id = r.id WHERE r.building_id = b.id AND bk.owned = 1)
+      (SELECT COUNT(*) FROM books WHERE building_id = b.id AND owned = 1 AND COALESCE(archived,0) = 0)
+      + (SELECT COUNT(*) FROM books WHERE room_id IN (SELECT id FROM rooms WHERE building_id = b.id) AND owned = 1 AND COALESCE(archived,0) = 0)
+      + (SELECT COUNT(*) FROM books WHERE unit_id IN (SELECT u.id FROM units u JOIN rooms r ON u.room_id = r.id WHERE r.building_id = b.id) AND owned = 1 AND COALESCE(archived,0) = 0)
+      + (SELECT COUNT(*) FROM books bk JOIN shelves s ON bk.shelf_id = s.id JOIN units u ON s.unit_id = u.id JOIN rooms r ON u.room_id = r.id WHERE r.building_id = b.id AND bk.owned = 1 AND COALESCE(bk.archived,0) = 0)
       AS book_count
     FROM buildings b
     ORDER BY b.order_index, b.name
@@ -140,12 +140,12 @@ router.get('/buildings/:id/rooms', (req, res) => {
     SELECT r.*,
       (SELECT COUNT(*) FROM units WHERE room_id = r.id) AS unit_count,
       (
-        (SELECT COUNT(*) FROM books WHERE room_id = r.id AND owned = 1)
-        + (SELECT COUNT(*) FROM books WHERE unit_id IN (SELECT id FROM units WHERE room_id = r.id) AND owned = 1)
+        (SELECT COUNT(*) FROM books WHERE room_id = r.id AND owned = 1 AND COALESCE(archived,0) = 0)
+        + (SELECT COUNT(*) FROM books WHERE unit_id IN (SELECT id FROM units WHERE room_id = r.id) AND owned = 1 AND COALESCE(archived,0) = 0)
         + (SELECT COUNT(*) FROM books bk
             JOIN shelves s ON bk.shelf_id = s.id
             JOIN units u ON s.unit_id = u.id
-            WHERE u.room_id = r.id AND bk.owned = 1)
+            WHERE u.room_id = r.id AND bk.owned = 1 AND COALESCE(bk.archived,0) = 0)
       ) AS book_count
     FROM rooms r
     WHERE r.building_id = ?
@@ -207,10 +207,10 @@ router.get('/rooms/:id/units', (req, res) => {
     SELECT u.*,
       (SELECT COUNT(*) FROM shelves WHERE unit_id = u.id) AS shelf_count,
       (
-        (SELECT COUNT(*) FROM books WHERE unit_id = u.id AND owned = 1)
+        (SELECT COUNT(*) FROM books WHERE unit_id = u.id AND owned = 1 AND COALESCE(archived,0) = 0)
         + (SELECT COUNT(*) FROM books bk
             JOIN shelves s ON bk.shelf_id = s.id
-            WHERE s.unit_id = u.id AND bk.owned = 1)
+            WHERE s.unit_id = u.id AND bk.owned = 1 AND COALESCE(bk.archived,0) = 0)
       ) AS book_count
     FROM units u
     WHERE u.room_id = ?
@@ -270,7 +270,7 @@ router.get('/units/:id/shelves', (req, res) => {
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid id' });
   const shelves = db.prepare(`
     SELECT s.*,
-      (SELECT COUNT(*) FROM books WHERE shelf_id = s.id AND owned = 1) AS book_count
+      (SELECT COUNT(*) FROM books WHERE shelf_id = s.id AND owned = 1 AND COALESCE(archived,0) = 0) AS book_count
     FROM shelves s
     WHERE s.unit_id = ?
     ORDER BY s.order_index, s.label
@@ -329,7 +329,7 @@ router.get('/unshelfed', (_req, res) => {
     SELECT id, title, cover_path, status, rating, loved, is_custom, on_readlist,
            format, series, series_number, page_count, current_page, duration_minutes, current_minutes
     FROM books
-    WHERE owned = 1 AND (format = 'physical' OR format IS NULL) AND shelf_id IS NULL AND unit_id IS NULL AND room_id IS NULL AND building_id IS NULL
+    WHERE owned = 1 AND COALESCE(archived,0) = 0 AND (format = 'physical' OR format IS NULL) AND shelf_id IS NULL AND unit_id IS NULL AND room_id IS NULL AND building_id IS NULL
     ORDER BY ${titleSortExpr('title')}
   `).all();
   res.json(serveBookCardRows(books));
@@ -354,7 +354,7 @@ router.get('/buildings/:id/books', (req, res) => {
     -- resolve effective unit
     LEFT JOIN units       u_direct ON u_direct.id = b.unit_id
     LEFT JOIN units       u_via_sh ON u_via_sh.id = s_direct.unit_id
-    WHERE b.owned = 1
+    WHERE b.owned = 1 AND COALESCE(b.archived,0) = 0
       AND (
         b.building_id = ?
         OR r_direct.building_id = ?
@@ -386,7 +386,7 @@ router.get('/rooms/:id/books', (req, res) => {
     LEFT JOIN units   u_direct ON u_direct.id = b.unit_id
     LEFT JOIN shelves s_direct ON s_direct.id = b.shelf_id
     LEFT JOIN units   u_via_s  ON u_via_s.id  = s_direct.unit_id
-    WHERE b.owned = 1
+    WHERE b.owned = 1 AND COALESCE(b.archived,0) = 0
       AND (
         b.room_id = ?
         OR u_direct.room_id = ?
@@ -413,7 +413,7 @@ router.get('/units/:id/books', (req, res) => {
            b.loved, b.is_custom, b.on_readlist, b.page_count, b.current_page, b.duration_minutes, b.current_minutes
     FROM books b
     LEFT JOIN shelves s ON s.id = b.shelf_id
-    WHERE b.owned = 1
+    WHERE b.owned = 1 AND COALESCE(b.archived,0) = 0
       AND (b.unit_id = ? OR s.unit_id = ?)
     ORDER BY
       COALESCE(s.order_index, 0),
@@ -433,7 +433,7 @@ router.get('/shelves/:id/books', (req, res) => {
     SELECT b.id, b.title, b.cover_path, b.status, b.rating, b.series, b.series_number, b.format,
            b.loved, b.is_custom, b.on_readlist, b.page_count, b.current_page, b.duration_minutes, b.current_minutes
     FROM books b
-    WHERE b.shelf_id = ? AND b.owned = 1
+    WHERE b.shelf_id = ? AND b.owned = 1 AND COALESCE(b.archived,0) = 0
     ORDER BY CASE WHEN b.shelf_position IS NULL THEN 1 ELSE 0 END, b.shelf_position, ${titleSortExpr('COALESCE(b.series, b.title)')}, b.series_number, ${titleSortExpr('b.title')}
   `).all(id);
   res.json(serveBookCardRows(books));

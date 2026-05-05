@@ -171,6 +171,19 @@ export default function BookDetail() {
     }
   }
 
+  async function toggleArchived() {
+    const reqId = book.id;
+    setActionError(null);
+    try {
+      const updated = await api.patchBook(reqId, { archived: book.archived ? 0 : 1 });
+      if (!isStillCurrent(reqId)) return;
+      setBook(updated);
+    } catch {
+      if (!isStillCurrent(reqId)) return;
+      setActionError('Failed to update archive state');
+    }
+  }
+
   async function handleFinish() {
     if (finishing) return;
     const reqId = book.id;
@@ -281,6 +294,17 @@ export default function BookDetail() {
                 <ListPicker bookId={book.id} iconClassName="w-5 h-5" />
                 <span className="text-[10px] uppercase tracking-wider pointer-events-none">Lists</span>
               </div>
+              <button
+                onClick={toggleArchived}
+                className={`flex flex-col items-center gap-1.5 transition-colors ${book.archived ? 'text-amber-500' : 'text-neutral-600 hover:text-neutral-300'}`}
+                title={book.archived ? 'Restore from archive' : 'Archive — hide from active library'}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-5 h-5">
+                  <path d="M2 3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1.5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3Z" />
+                  <path fillRule="evenodd" d="M2.875 7a.5.5 0 0 0-.5.5v5.625A1.875 1.875 0 0 0 4.25 15h7.5a1.875 1.875 0 0 0 1.875-1.875V7.5a.5.5 0 0 0-.5-.5h-10.25Zm3.625 2.5a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75Z" clipRule="evenodd" />
+                </svg>
+                <span className="text-[10px] uppercase tracking-wider">{book.archived ? 'Archived' : 'Archive'}</span>
+              </button>
             </div>
             {(book.status === 'reading' || book.status === 'paused') && (
               <div className="border-t border-neutral-800 py-2.5 px-3">
@@ -322,7 +346,14 @@ export default function BookDetail() {
 
         <div className="flex-1 min-w-0 pt-1">
           <div className="flex items-start justify-between gap-4 mb-1">
-            <h1 className="text-2xl font-bold text-white leading-tight">{book.title}</h1>
+            <h1 className="text-2xl font-bold text-white leading-tight">
+              {book.title}
+              {book.archived ? (
+                <span className="ml-2 align-middle text-[10px] uppercase tracking-wider text-amber-500/80 font-normal border border-amber-500/30 rounded px-1.5 py-0.5">
+                  Archived
+                </span>
+              ) : null}
+            </h1>
             <Link
               to={`/books/${book.id}/edit`}
               className="text-sm text-neutral-500 hover:text-neutral-200 transition-colors flex-shrink-0 pt-1"

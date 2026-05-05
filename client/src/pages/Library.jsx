@@ -18,6 +18,7 @@ const TABS = [
   { key: 'owned',     label: 'Owned' },
   { key: 'prev_owned', label: 'Prev. owned' },
   { key: 'all',       label: 'All' },
+  { key: 'archived',  label: 'Archived' },
 ];
 
 const SESSION_KEY = 'spine-library-state';
@@ -52,7 +53,7 @@ function FilterIcon() {
   );
 }
 
-const VALID_TABS = new Set(['reading', 'paused', 'finished', 'unread', 'owned', 'prev_owned', 'all']);
+const VALID_TABS = new Set(['reading', 'paused', 'finished', 'unread', 'owned', 'prev_owned', 'all', 'archived']);
 
 export default function Library() {
   const [searchParams] = useSearchParams();

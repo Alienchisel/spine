@@ -99,6 +99,7 @@ describe('book contract: full field round-trip', () => {
       year_approximate:  false,               // → 0
       year_edition:      2003,
       abridged:          false,               // → 0
+      archived:          false,               // → 0
       shelf_id:          shelfId,             // clears building/room/unit_id
       cover_path:        '/uploads/1700000000000-mobydick.webp',
     });
@@ -126,6 +127,7 @@ describe('book contract: full field round-trip', () => {
     assert.equal(body.fiction, 1);
     assert.equal(body.year_approximate, 0);
     assert.equal(body.abridged, 0);
+    assert.equal(body.archived, 0);
 
     // Scalar fields
     // source_type is gated to fiction === false; this fixture is fiction=true
@@ -236,6 +238,7 @@ describe('book contract: full field round-trip', () => {
       year_approximate:  true,               // → 1 (was 0)
       year_edition:      1961,               // physical-format gate means Vintage does NOT fire here (audiobook)
       abridged:          true,               // → 1 (was 0)
+      archived:          true,               // → 1 (was 0)
       shelf_id:          null,               // remove shelf
       unit_id:           unitId,             // input is silently scrubbed: shelves only hold physical books
       cover_path:        '/uploads/1700000001111-billybudd.webp',
@@ -264,6 +267,7 @@ describe('book contract: full field round-trip', () => {
     assert.equal(body.fiction, 0);            // false → 0
     assert.equal(body.year_approximate, 1);   // true → 1
     assert.equal(body.abridged, 1);           // true → 1
+    assert.equal(body.archived, 1);           // true → 1
 
     // Scalar fields
     assert.equal(body.source_type, 'secondary');
@@ -333,6 +337,7 @@ describe('book contract: full field round-trip', () => {
     assert.equal(body.fiction, 0);
     assert.equal(body.year_approximate, 1);
     assert.equal(body.abridged, 1);
+    assert.equal(body.archived, 1);
     assert.equal(body.rating, 3.5);
     assert.equal(body.page_count, null);
     assert.equal(body.duration_minutes, 180);

@@ -26,6 +26,7 @@ and how all related tables fit together.
 | `owned` | INTEGER | `0` | `1` = owned; `0` = not owned |
 | `previously_owned` | INTEGER | `0` | `1` = once owned, since sold/given away |
 | `loved` | INTEGER | `0` | `1` = marked as a favourite |
+| `archived` | INTEGER | `0` | `1` = hidden from active library; see "Archived books" below |
 
 `owned` and `previously_owned` are mutually exclusive. If both are truthy on
 write, `owned` wins and `previously_owned` is forced to `0`.
@@ -35,6 +36,38 @@ write, `owned` wins and `previously_owned` is forced to `0`.
 assembled by the user and currently held; the API enforces what the form's
 `AcquisitionFields.jsx` already promises (toggling Custom hides the
 ownership/previously-owned checkboxes and clears their values).
+
+#### Archived books
+
+`archived` lets the user tuck a book away without deleting it — for editions
+supplanted by a newer copy, books they've moved on from but can't (or won't)
+sell or give away. The flag is orthogonal to `status`, `owned`, `loved`, etc.:
+a finished book you want to forget is both `finished` AND `archived = 1`.
+
+**What changes when a book is archived:**
+
+| Surface | Behavior |
+|---|---|
+| Library list, Browse, Shelf views, Readlist, Lists, facets, series-shelf | Default-hidden; opt in via `archived='any'` query param or the Archived tab |
+| Library tab strip | A dedicated **Archived** tab appears alongside Owned / Prev. owned / Wishlist; its count comes from `getBookCounts().archived`. Other counters exclude archived books |
+| Free-text search (`?q=...`) | **Includes** archived results so users can find a book to un-archive. Override with `archived=0` for strictly-active search |
+| Stats, Diary, BookDetail page | **Always include** archived books — reading history is fact and isn't rewritten when a book is tucked away |
+
+**Side-effects on archive-on:**
+
+- `on_readlist` is cleared to `0` and `readlist_position` to `NULL` (the
+  readlist is forward-looking and shouldn't carry archived items)
+- `loved`, shelf assignment, list memberships, tags, reads rows — all preserved.
+  Un-archiving restores the book to its prior state on every other axis.
+
+**API contract:**
+
+- `POST` and `PUT /api/books` accept `archived: true|false`
+- `PATCH /api/books/:id` accepts `archived: 0|1` (and applies the readlist clear)
+- `GET /api/books` query params: `archived='any'` (include both),
+  `archived='1'` / `'true'` (archived only), `archived='0'` / `'false'`
+  (strictly active). Default behavior: exclude archived unless a free-text
+  search query is present.
 
 ### Content flags
 

@@ -213,8 +213,13 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact 
 
   const numCls = 'bg-neutral-800 border border-neutral-700 text-parchment text-xs rounded px-2 py-1 focus:outline-none focus:border-leather [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none';
 
+  // Archived books are dimmed and slightly desaturated so the state reads at
+  // a glance — used on the Archived tab and on search-result cards (search
+  // surfaces archived items so users can find them to un-archive).
+  const archivedDim = book.archived ? 'opacity-60 saturate-50' : '';
+
   return (
-    <div onKeyDown={handleKeyDown} className={`transition-[transform,background-color] ease-out duration-150 ${compact ? '' : 'bg-card rounded-lg p-2 pb-2.5 hover:-translate-y-0.5'}`}>
+    <div onKeyDown={handleKeyDown} className={`transition-[transform,background-color] ease-out duration-150 ${compact ? '' : 'bg-card rounded-lg p-2 pb-2.5 hover:-translate-y-0.5'} ${archivedDim}`}>
       <Link to={`/books/${book.id}`} className="group block">
         <div className={`relative bg-neutral-800 overflow-hidden ring-1 ring-white/5 ${compact ? 'aspect-[2/3] rounded-sm' : 'aspect-[2/3] rounded mb-2.5 shadow-xl'}`}>
           {book.cover_path ? (
