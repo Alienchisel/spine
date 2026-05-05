@@ -15,10 +15,15 @@ export default function Lists() {
   const confirm = useConfirm();
 
   useEffect(() => {
+    // Stale flag drops the response if the user navigates away before
+    // getLists resolves — setLists / setError / setLoading otherwise fire
+    // on an unmounted component.
+    let stale = false;
     api.getLists()
-      .then(setLists)
-      .catch(() => setError('Failed to load lists.'))
-      .finally(() => setLoading(false));
+      .then(ls => { if (!stale) setLists(ls); })
+      .catch(() => { if (!stale) setError('Failed to load lists.'); })
+      .finally(() => { if (!stale) setLoading(false); });
+    return () => { stale = true; };
   }, []);
 
   async function handleCreate(e) {
