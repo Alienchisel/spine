@@ -20,10 +20,10 @@ export default function SeriesCard({ seriesName, books, expanded, onToggle, comp
       onClick={onToggle}
       className={`group transition-[background-color] ease-out duration-150 text-left w-full ${compact ? 'hover:opacity-80' : `bg-card rounded-lg p-2 pb-2.5 ${expanded ? 'ring-1 ring-binding/40' : ''}`}`}
     >
-      {/* Hover signal: same warm oak rim as BookCard. The previous lift on
-          the wrapper read as a card-pop; a static frame with a coloured ring
-          is quieter and matches the calm-bookish aesthetic. */}
-      <div className={`relative aspect-[2/3] overflow-hidden ring-2 ring-inset ring-[#ffffff00] group-hover:ring-[#ffffff99] transition-[box-shadow] duration-200 ${compact ? 'rounded-sm' : 'mb-2.5 rounded shadow-[0_10px_20px_-5px_rgba(0,0,0,0.55),0_4px_8px_-2px_rgba(0,0,0,0.35)]'}`}>
+      {/* Hover signal: 2px white inset frame, same as BookCard. Drawn via
+          an overlay sibling (below) so the box-shadow paints above the
+          stacked cover images instead of beneath them. */}
+      <div className={`relative aspect-[2/3] overflow-hidden ${compact ? 'rounded-sm' : 'mb-2.5 rounded shadow-[0_10px_20px_-5px_rgba(0,0,0,0.55),0_4px_8px_-2px_rgba(0,0,0,0.35)]'}`}>
         {sorted.slice(0, 4).map((vol, i, arr) => {
           const n = arr.length;
           const leftPct = n === 1 ? 0 : (i * 45 / (n - 1));
@@ -53,6 +53,7 @@ export default function SeriesCard({ seriesName, books, expanded, onToggle, comp
         <div className="absolute top-1.5 right-1.5 bg-black/75 text-neutral-300 text-xs font-bold px-1.5 py-0.5 rounded backdrop-blur-sm leading-none">
           {books.length}
         </div>
+        <div className={`pointer-events-none absolute inset-0 ring-2 ring-inset ring-[#ffffff00] group-hover:ring-[#ffffff99] transition-[box-shadow] duration-200 ${compact ? 'rounded-sm' : 'rounded'}`} />
       </div>
       {!compact && <>
         <p className="text-sm font-medium text-neutral-200 truncate leading-tight" title={seriesName}>{seriesName}</p>

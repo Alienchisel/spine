@@ -232,11 +232,13 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
   return (
     <div onKeyDown={handleKeyDown} className={`transition-[background-color] ease-out duration-150 ${compact ? '' : 'bg-card rounded-lg p-2 pb-2.5'} ${archivedDim}`}>
       <Link to={`/books/${book.id}`} className="group block">
-        {/* Hover signal: a warm oak ring around the cover. The previous
-            translate-up + cover-zoom + dark-overlay stack read a bit
-            cinematic; a single coloured ring is quieter and matches the
-            calm-bookish aesthetic. */}
-        <div className={`relative bg-neutral-800 overflow-hidden ring-2 ring-inset ring-[#ffffff00] group-hover:ring-[#ffffff99] transition-[box-shadow] duration-200 ${compact ? 'aspect-[2/3] rounded-sm' : 'aspect-[2/3] rounded mb-2.5 shadow-xl'}`}>
+        {/* Hover signal: a 2px white inset frame on the cover. Implemented
+            via an absolute-positioned overlay sibling AFTER the img so the
+            box-shadow paints above the image content — `box-shadow: inset`
+            on the frame itself would render below the img (per the CSS
+            painting order: bg → inset shadow → content) and be invisible
+            on covers whose artwork fills the frame. */}
+        <div className={`relative bg-neutral-800 overflow-hidden ${compact ? 'aspect-[2/3] rounded-sm' : 'aspect-[2/3] rounded mb-2.5 shadow-xl'}`}>
           {book.cover_path ? (
             <img
               src={book.cover_path}
@@ -306,6 +308,11 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
               <p className="text-xs text-white leading-tight line-clamp-2">{book.title}</p>
             </div>
           )}
+          {/* Inner-frame ring: drawn via box-shadow inset on a layer ABOVE
+              the img (where the inset shadow on the frame itself would be
+              hidden behind the img). Pointer-events disabled so the action
+              tray and other clickable overlays still receive hovers. */}
+          <div className={`pointer-events-none absolute inset-0 ring-2 ring-inset ring-[#ffffff00] group-hover:ring-[#ffffff99] transition-[box-shadow] duration-200 ${compact ? 'rounded-sm' : 'rounded'}`} />
           {/* Caller-supplied overlay anchored INSIDE the cover frame — used
               by ListDetail's SortableBookCard to position its drag handle
               over the cover (not below the title/author block, where the

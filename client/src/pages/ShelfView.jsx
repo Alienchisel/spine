@@ -30,16 +30,17 @@ function SortableShelfCover({ book }) {
     >
       <div className="relative group">
         <Link to={`/books/${book.id}`} draggable={false} className="block">
-          {/* Hover treatment matches BookCard: still cover, oak ring offset
-              outside the frame on hover. The previous lift + white ring
-              pattern read more cinematic and stood out against the rest
-              of the app once BookCard moved to the calmer style. */}
-          <div className={`w-[240px] ${book.format === 'audiobook' ? 'h-[240px]' : 'h-[360px]'} rounded overflow-hidden bg-neutral-800 shadow-xl ring-2 ring-inset ring-[#ffffff00] group-hover:ring-[#ffffff99] transition-[box-shadow] duration-200`}>
+          {/* Hover treatment matches BookCard: 2px white inset frame on
+              the cover via a sibling overlay (the inset shadow on the
+              frame itself would be hidden behind the img per CSS painting
+              order). */}
+          <div className={`relative w-[240px] ${book.format === 'audiobook' ? 'h-[240px]' : 'h-[360px]'} rounded overflow-hidden bg-neutral-800 shadow-xl`}>
             {book.cover_path
               ? <img src={book.cover_path} alt={book.title} draggable={false} className="w-full h-full object-cover" />
               : <div className="w-full h-full flex items-end p-2 bg-gradient-to-br from-neutral-700 to-neutral-900">
                   <span className="text-xs text-neutral-400 leading-tight line-clamp-4">{book.title}</span>
                 </div>}
+            <div className="pointer-events-none absolute inset-0 rounded ring-2 ring-inset ring-[#ffffff00] group-hover:ring-[#ffffff99] transition-[box-shadow] duration-200" />
           </div>
         </Link>
         <button
