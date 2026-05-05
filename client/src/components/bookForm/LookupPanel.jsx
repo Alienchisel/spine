@@ -9,14 +9,30 @@ export default function LookupPanel({ onApply }) {
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState(null);
   const debounce = useRef(null);
+  // Stale-response guard: a slow Open Library response from an earlier
+  // keystroke can land AFTER a newer request finished, repopulating the
+  // dropdown with results for a query the user has since revised, cleared,
+  // or already picked from. Each runSearch captures its gen and drops its
+  // own state writes if a newer call (or a clear/pick) has bumped the ref.
+  const searchGenRef = useRef(0);
 
   async function runSearch(q) {
     if (!q.trim()) return;
+    const gen = ++searchGenRef.current;
     setSearching(true);
     setError(null);
-    try { setResults(await api.searchBooks(q)); }
-    catch { setError('Open Library search failed — please try again.'); }
-    finally { setSearching(false); }
+    try {
+      const r = await api.searchBooks(q);
+      if (gen !== searchGenRef.current) return;
+      setResults(r);
+    } catch {
+      if (gen !== searchGenRef.current) return;
+      setError('Open Library search failed — please try again.');
+    } finally {
+      // Spinner only flips off for the LATEST request; a stale response that
+      // arrives while a newer one is still in flight must leave it on.
+      if (gen === searchGenRef.current) setSearching(false);
+    }
   }
 
   function handleInput(e) {
@@ -25,7 +41,13 @@ export default function LookupPanel({ onApply }) {
     setResults([]);
     setError(null);
     clearTimeout(debounce.current);
-    if (!q.trim()) return;
+    if (!q.trim()) {
+      // Bump gen so any in-flight request can't repopulate the dropdown
+      // after the user has emptied the field.
+      searchGenRef.current++;
+      setSearching(false);
+      return;
+    }
     debounce.current = setTimeout(() => runSearch(q), 400);
   }
 
@@ -39,8 +61,12 @@ export default function LookupPanel({ onApply }) {
   }
 
   async function handlePick(result) {
+    // Same gen-bump rationale: an earlier in-flight search must not pop the
+    // dropdown back open after the user has already chosen a result.
+    searchGenRef.current++;
     setQuery('');
     setResults([]);
+    setSearching(false);
     await onApply(result);
   }
 
