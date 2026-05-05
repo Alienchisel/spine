@@ -188,6 +188,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact 
   }
 
   async function handleRate(rating) {
+    setError(null);
     try {
       // Only forward `tags` if the parent actually loaded them onto the book
       // prop. Sending `tags: []` when we don't know the real tags would wipe
