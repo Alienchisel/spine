@@ -121,8 +121,12 @@ export default function Library() {
 
   // Tab counts badge
   useEffect(() => {
+    let stale = false;
     setCountsError(false);
-    api.getBookCounts().then(setCounts).catch(() => setCountsError(true));
+    api.getBookCounts()
+      .then(c => { if (!stale) setCounts(c); })
+      .catch(() => { if (!stale) setCountsError(true); });
+    return () => { stale = true; };
   }, []);
 
   // Fetch facets on tab / filter / query change; prune only on tab change

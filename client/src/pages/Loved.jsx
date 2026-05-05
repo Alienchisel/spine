@@ -9,10 +9,12 @@ export default function Loved() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    let stale = false;
     api.getBooks({ tab: 'loved' })
-      .then(({ books }) => setBooks(books))
-      .catch(() => setError('Failed to load loved books.'))
-      .finally(() => setLoading(false));
+      .then(({ books }) => { if (!stale) setBooks(books); })
+      .catch(() => { if (!stale) setError('Failed to load loved books.'); })
+      .finally(() => { if (!stale) setLoading(false); });
+    return () => { stale = true; };
   }, []);
 
   function handleUpdate(updated) {

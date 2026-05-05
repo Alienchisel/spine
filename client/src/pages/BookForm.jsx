@@ -71,13 +71,17 @@ export default function BookForm() {
   const [durationM, setDurationM] = useState('');
 
   useEffect(() => {
+    let stale = false;
     api.getShelfTree()
-      .then(setShelfTree)
-      .catch(() => setError('Failed to load shelves — the shelf picker may be empty.'));
+      .then(t => { if (!stale) setShelfTree(t); })
+      .catch(() => { if (!stale) setError('Failed to load shelves — the shelf picker may be empty.'); });
+    return () => { stale = true; };
   }, []);
 
   useEffect(() => {
+    let stale = false;
     api.getBookFacets().then(f => {
+      if (stale) return;
       setPastSources(f.sources || []);
       setPastAuthors(f.authors || []);
       setPastPublishers(f.publishers || []);
@@ -86,7 +90,8 @@ export default function BookForm() {
       setPastNarrators(f.narrators || []);
       setPastLanguages(f.languages || []);
       setPastTags(f.tags?.filter(t => !VIRTUAL_TAG_NAMES.includes(t)) || []);
-    }).catch(() => setError('Failed to load suggestions — autocomplete lists may be empty.'));
+    }).catch(() => { if (!stale) setError('Failed to load suggestions — autocomplete lists may be empty.'); });
+    return () => { stale = true; };
   }, []);
 
   useEffect(() => {
