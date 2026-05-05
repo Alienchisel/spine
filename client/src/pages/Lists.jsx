@@ -10,6 +10,7 @@ export default function Lists() {
   const [newName, setNewName] = useState('');
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState(null);
+  const [deleteError, setDeleteError] = useState(null);
   const inputRef = useRef(null);
   const confirm = useConfirm();
 
@@ -43,8 +44,13 @@ export default function Lists() {
       ? `Delete "${list.name}"? It contains ${list.book_count} ${list.book_count === 1 ? 'book' : 'books'}.`
       : `Delete "${list.name}"?`;
     if (!await confirm(msg)) return;
-    await api.deleteList(list.id);
-    setLists(ls => ls.filter(l => l.id !== list.id));
+    setDeleteError(null);
+    try {
+      await api.deleteList(list.id);
+      setLists(ls => ls.filter(l => l.id !== list.id));
+    } catch {
+      setDeleteError('Failed to delete list.');
+    }
   }
 
   return (
@@ -69,6 +75,8 @@ export default function Lists() {
         </button>
         {createError && <span className="text-xs text-red-400">{createError}</span>}
       </form>
+
+      {deleteError && <p className="text-xs text-warn mb-4">{deleteError}</p>}
 
       {loading ? (
         <div className="text-neutral-700 text-sm">Loading…</div>
