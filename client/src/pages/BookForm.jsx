@@ -58,6 +58,10 @@ export default function BookForm() {
   // form data to the new id. Distinct from `saving` (which is the actual
   // save in progress) and `loadError` (set only on failure).
   const [loadingBook, setLoadingBook] = useState(false);
+  // Stale-result guard for applyResult. Picking lookup result A, then
+  // quickly picking B, used to let A's slower description/cover awaits
+  // resolve after B's and overwrite B's form fields and cover state.
+  const lookupApplyGenRef = useRef(0);
   const [durationH, setDurationH] = useState('');
   const [durationM, setDurationM] = useState('');
 
@@ -115,7 +119,9 @@ export default function BookForm() {
   }
 
   async function applyResult(result) {
+    const gen = ++lookupApplyGenRef.current;
     const { description } = result.key ? await api.fetchBookDescription(result.key).catch(() => ({ description: null })) : { description: null };
+    if (gen !== lookupApplyGenRef.current) return;
     const filled = new Set();
     if (result.title)           filled.add('title');
     if (result.authors?.length) filled.add('authors');
@@ -140,6 +146,7 @@ export default function BookForm() {
       setCoverPreview(result.cover_url);
       try {
         const { path } = await api.fetchCover(result.cover_url);
+        if (gen !== lookupApplyGenRef.current) return;
         setCoverPreview(path);
         set('cover_path', path);
       } catch {
@@ -147,6 +154,7 @@ export default function BookForm() {
         // via toCoverUrl(), so cover_path must stay empty. Clearing the
         // preview too — leaving the external URL up would look like the
         // cover was applied when in fact nothing will persist on save.
+        if (gen !== lookupApplyGenRef.current) return;
         setCoverPreview(null);
         setCoverError('Could not save lookup cover. Choose or paste another image.');
       }
