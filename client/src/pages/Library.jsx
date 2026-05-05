@@ -66,7 +66,13 @@ export default function Library() {
   const [filtersOpen, setFiltersOpen] = useState(() => saved.filtersOpen ?? false);
   const [filters,     setFilters]     = useState(() => saved.filters ? { ...EMPTY_FILTERS, ...saved.filters } : EMPTY_FILTERS);
   const [sort,        setSort]        = useState(() => saved.sort || 'updated');
-  const [density,     setDensity]     = useState(() => saved.density || 'comfortable');
+  // Coerce a stale saved density of 'list' to 'comfortable' — the list view
+  // is currently disabled (see commented-out toggle button and JSX below) and
+  // GRID['list'] is undefined, which would break the className expression.
+  const [density,     setDensity]     = useState(() => {
+    const d = saved.density || 'comfortable';
+    return d === 'list' ? 'comfortable' : d;
+  });
 
   const [books,       setBooks]       = useState([]);
   const [total,       setTotal]       = useState(0);
@@ -326,11 +332,13 @@ export default function Library() {
                   <rect x="1" y="8.5" width="6.5" height="6.5" rx="0.5"/><rect x="8.5" y="8.5" width="6.5" height="6.5" rx="0.5"/>
                 </svg>
               </button>
+              {/* List view disabled — preserved here in case it's revived later.
               <button onClick={() => setDensity('list')} title="List view" className={`transition-colors ${density === 'list' ? 'text-neutral-300' : 'text-neutral-700 hover:text-neutral-400'}`}>
                 <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4">
                   <rect x="1" y="2" width="14" height="2" rx="0.5"/><rect x="1" y="7" width="14" height="2" rx="0.5"/><rect x="1" y="12" width="14" height="2" rx="0.5"/>
                 </svg>
               </button>
+              */}
             </div>
           </div>
         </div>
@@ -368,53 +376,54 @@ export default function Library() {
         </div>
       ) : (
         <>
-          {density === 'list' ? (
-            <div className="divide-y divide-neutral-800/50">
-              {displayItems.map(item =>
-                item.type === 'series' ? (
-                  <div key={item.name}>
-                    <button
-                      onClick={() => toggleSeries(item.name)}
-                      className="flex items-center gap-2 py-1.5 px-2 w-full hover:bg-neutral-800/50 rounded transition-colors text-left"
-                    >
-                      <span className="text-xs text-neutral-600">{expandedSeries.has(item.name) ? '▾' : '▸'}</span>
-                      <span className="text-sm text-neutral-400 flex-1 truncate">{item.name}</span>
-                      <span className="text-xs text-neutral-600">{item.books.length} books</span>
-                    </button>
-                    {expandedSeries.has(item.name) && (
-                      <div className="pl-4">
-                        {sortVolumes(item.books).map(book => <ListRow key={book.id} book={book} />)}
-                      </div>
+          {/* List view disabled — preserved here in case it's revived later.
+              Original ternary wrapped this grid branch alongside:
+                density === 'list' ? (
+                  <div className="divide-y divide-neutral-800/50">
+                    {displayItems.map(item =>
+                      item.type === 'series' ? (
+                        <div key={item.name}>
+                          <button onClick={() => toggleSeries(item.name)} className="flex items-center gap-2 py-1.5 px-2 w-full hover:bg-neutral-800/50 rounded transition-colors text-left">
+                            <span className="text-xs text-neutral-600">{expandedSeries.has(item.name) ? '▾' : '▸'}</span>
+                            <span className="text-sm text-neutral-400 flex-1 truncate">{item.name}</span>
+                            <span className="text-xs text-neutral-600">{item.books.length} books</span>
+                          </button>
+                          {expandedSeries.has(item.name) && (
+                            <div className="pl-4">
+                              {sortVolumes(item.books).map(book => <ListRow key={book.id} book={book} />)}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <ListRow key={item.book.id} book={item.book} />
+                      )
                     )}
                   </div>
-                ) : (
-                  <ListRow key={item.book.id} book={item.book} />
-                )
-              )}
-            </div>
-          ) : (
-            <div className={GRID[density]}>
-              {displayItems.map(item =>
-                item.type === 'series' ? (
-                  <SeriesCard
-                    key={item.name}
-                    seriesName={item.name}
-                    books={item.books}
-                    expanded={expandedSeries.has(item.name)}
-                    onToggle={() => toggleSeries(item.name)}
-                    compact={density === 'compact'}
-                  />
-                ) : (
-                  <BookCard
-                    key={item.book.id}
-                    book={item.book}
-                    onProgressUpdate={handleProgressUpdate}
-                    compact={density === 'compact'}
-                  />
-                )
-              )}
-            </div>
-          )}
+                ) : ( ...the grid branch below... )
+              The toggle button that selected this view is also commented out
+              up in the density toolbar. To revive: restore the ternary, the
+              toggle button, and remove the 'list' coercion in getSaved(). */}
+          <div className={GRID[density]}>
+            {displayItems.map(item =>
+              item.type === 'series' ? (
+                <SeriesCard
+                  key={item.name}
+                  seriesName={item.name}
+                  books={item.books}
+                  expanded={expandedSeries.has(item.name)}
+                  onToggle={() => toggleSeries(item.name)}
+                  compact={density === 'compact'}
+                />
+              ) : (
+                <BookCard
+                  key={item.book.id}
+                  book={item.book}
+                  onProgressUpdate={handleProgressUpdate}
+                  compact={density === 'compact'}
+                />
+              )
+            )}
+          </div>
           {hasMore && (
             <div className="mt-10 flex flex-col items-center gap-2">
               <div className="flex justify-center gap-3">
