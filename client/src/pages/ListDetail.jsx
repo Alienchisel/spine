@@ -188,6 +188,7 @@ export default function ListDetail() {
     let stale = false;
     genRef.current += 1;
     setLoading(true);
+    setError(null);
     loadedRef.current = 0;
     const params = sort === 'added' ? { sort } : { sort, limit: PAGE_SIZE, offset: 0 };
     api.getList(id, params)
