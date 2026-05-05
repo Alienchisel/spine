@@ -120,6 +120,10 @@ export default function ShelfView() {
   const [loading, setLoading] = useState(true);
   const [booksLoading, setBooksLoading] = useState(false);
   const [error, setError] = useState(null);
+  // Distinct from page-level `error` so a flaky unshelfed fetch doesn't
+  // wipe the shelf tree (which had loaded fine in parallel) and doesn't
+  // surface as a misleading "Failed to load shelves" banner.
+  const [unshelfedError, setUnshelfedError] = useState(null);
   // Stale-response guard for the location-books fetch. Bumped on every
   // location change AND on returns to the root view so an in-flight
   // request from a prior location can't setBooks after navigation.
@@ -131,14 +135,26 @@ export default function ShelfView() {
   const shelfId    = params.get('s') ? Number(params.get('s')) : null;
 
   useEffect(() => {
-    // Stale flag drops the response if the user navigates away before
-    // Promise.all resolves — without it, setTree / setUnshelfed / setError /
-    // setLoading would fire on an unmounted component.
+    // Two independent fetches: the shelf tree is load-bearing (no tree =
+    // no shelves to browse), the unshelfed-books list is supplementary
+    // (only matters at the root view's "no location assigned" section).
+    // Splitting means a transient unshelfed failure doesn't discard a
+    // successfully-loaded tree (which Promise.all would) and produces an
+    // accurate, smaller-scope warning instead of "Failed to load shelves".
     let stale = false;
-    Promise.all([api.getShelfTree(), api.getUnshelfedBooks()])
-      .then(([t, u]) => { if (!stale) { setTree(t); setUnshelfed(u); } })
+    let pending = 2;
+    const done = () => { pending--; if (pending === 0 && !stale) setLoading(false); };
+
+    api.getShelfTree()
+      .then(t => { if (!stale) setTree(t); })
       .catch(() => { if (!stale) setError('Failed to load shelves.'); })
-      .finally(() => { if (!stale) setLoading(false); });
+      .finally(done);
+
+    api.getUnshelfedBooks()
+      .then(u => { if (!stale) setUnshelfed(u); })
+      .catch(() => { if (!stale) setUnshelfedError('Failed to load unshelfed books.'); })
+      .finally(done);
+
     return () => { stale = true; };
   }, []);
 
@@ -273,6 +289,13 @@ export default function ShelfView() {
               ))}
             </div>
 
+            {unshelfedError && (
+              // Scoped warning for an unshelfed-books fetch failure — sits
+              // where the section would otherwise render, so the user
+              // knows what specifically is missing without the page-wide
+              // "Failed to load shelves" being implied.
+              <p className="mt-10 text-xs text-warn">{unshelfedError}</p>
+            )}
             {unshelfed.length > 0 && (
               <div className="mt-10">
                 <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-4 pb-2 border-b border-neutral-800">
