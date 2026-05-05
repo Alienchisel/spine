@@ -164,17 +164,24 @@ export default function ShelfView() {
     const reordered = arrayMove(books, oldIndex, newIndex);
     setBooks(reordered);
     setError(null);
+    // Capture the location-load gen so the recovery refetch (and its error
+    // setters) can be dropped if the user has navigated to a different
+    // shelf/room/etc. by the time the reorder PUT resolves. Without this,
+    // a stale `setBooks(...)` from the recovery would clobber the new
+    // location's just-loaded books.
+    const gen = booksGenRef.current;
     api.reorderShelf(shelfId, reordered.map(b => b.id))
       .catch(() => {
+        if (gen !== booksGenRef.current) return;
         // Always tell the user their reorder didn't save — even when the
         // recovery refetch succeeds and the canonical order snaps back into
         // place, otherwise the snap-back looks like the drag never
         // registered. If the refetch ALSO fails we upgrade the message so
         // the user knows to refresh manually.
         setError('Failed to save reorder.');
-        api.getShelfBooks(shelfId).then(setBooks).catch(() =>
-          setError('Reorder failed and could not be reverted — refresh the page.')
-        );
+        api.getShelfBooks(shelfId)
+          .then(b => { if (gen === booksGenRef.current) setBooks(b); })
+          .catch(() => { if (gen === booksGenRef.current) setError('Reorder failed and could not be reverted — refresh the page.'); });
       });
   }
 
@@ -343,12 +350,18 @@ export default function ShelfView() {
                       return [...others, ...reordered];
                     });
                     setError(null);
+                    // Same navigation guard as handleDragEnd above — drop
+                    // the recovery refetch and its error setters if the
+                    // user has moved to a different location while the
+                    // reorder was in flight.
+                    const gen = booksGenRef.current;
                     api.reorderShelf(shelfId, reordered.map(b => b.id))
                       .catch(() => {
+                        if (gen !== booksGenRef.current) return;
                         setError('Failed to save reorder.');
-                        api.getUnitBooks(unitId).then(setBooks).catch(() =>
-                          setError('Reorder failed and could not be reverted — refresh the page.')
-                        );
+                        api.getUnitBooks(unitId)
+                          .then(b => { if (gen === booksGenRef.current) setBooks(b); })
+                          .catch(() => { if (gen === booksGenRef.current) setError('Reorder failed and could not be reverted — refresh the page.'); });
                       });
                   }}
                 />
