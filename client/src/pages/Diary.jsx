@@ -233,6 +233,10 @@ export default function Diary() {
   useEffect(() => {
     const gen = ++yearGenRef.current;
     setLoading(true);
+    // Reset prior load/delete errors so a stale message from one year doesn't
+    // hang on top of another year's freshly-loaded entries.
+    setError(null);
+    setDeleteError(null);
     api.getDiary(year)
       .then(({ days: d, years: ys, stats: s }) => {
         if (gen !== yearGenRef.current) return;

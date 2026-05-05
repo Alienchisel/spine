@@ -145,9 +145,14 @@ export default function BookDetail() {
     return String(reqId) === String(latestIdRef.current);
   }
 
+  // Both finishError and actionError render inside the action panel, so a
+  // stale message from one handler can sit next to a successful action from
+  // another. Each handler clears both on entry so the visible state always
+  // reflects the most recent action — same shape as the Lists.jsx fix.
   async function toggleLoved() {
     const reqId = book.id;
     setActionError(null);
+    setFinishError(null);
     try {
       const updated = await api.patchBook(reqId, { loved: book.loved ? 0 : 1 });
       if (!isStillCurrent(reqId)) return;
@@ -161,6 +166,7 @@ export default function BookDetail() {
   async function toggleReadlist() {
     const reqId = book.id;
     setActionError(null);
+    setFinishError(null);
     try {
       const updated = await api.patchBook(reqId, { on_readlist: book.on_readlist ? 0 : 1 });
       if (!isStillCurrent(reqId)) return;
@@ -174,6 +180,7 @@ export default function BookDetail() {
   async function toggleArchived() {
     const reqId = book.id;
     setActionError(null);
+    setFinishError(null);
     try {
       const updated = await api.patchBook(reqId, { archived: book.archived ? 0 : 1 });
       if (!isStillCurrent(reqId)) return;
@@ -189,6 +196,7 @@ export default function BookDetail() {
     const reqId = book.id;
     setFinishing(true);
     setFinishError(null);
+    setActionError(null);
     try {
       const today = new Date().toLocaleDateString('en-CA');
       const dateFinished = book.date_finished || today;
@@ -215,6 +223,7 @@ export default function BookDetail() {
   async function handleRate(rating) {
     const reqId = book.id;
     setActionError(null);
+    setFinishError(null);
     try {
       const updated = await api.updateBook(reqId, {
         ...book,
