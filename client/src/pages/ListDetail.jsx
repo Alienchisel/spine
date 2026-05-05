@@ -294,7 +294,13 @@ export default function ListDetail() {
     const reordered = arrayMove(list.books, oldIndex, newIndex);
     setActionError(null);
     setList(l => ({ ...l, books: reordered }));
+    // Capture the load gen so the rollback + error message are dropped if
+    // the user has navigated to a different list by the time the reorder
+    // PUT resolves. Without this, a failed PUT for list A would apply a
+    // stale arrayMove to list B's books and surface A's error on B.
+    const gen = genRef.current;
     api.reorderList(id, reordered.map(b => b.id)).catch(() => {
+      if (gen !== genRef.current) return;
       setList(l => ({ ...l, books: arrayMove(l.books, newIndex, oldIndex) }));
       setActionError('Failed to save list order.');
     });
