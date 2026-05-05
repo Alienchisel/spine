@@ -454,7 +454,14 @@ export default function BookDetail() {
                 reads={reads}
                 isFinished={book.status === 'finished'}
                 onUpdate={loadReads}
-                onBookUpdate={setBook}
+                onBookUpdate={(updated) => {
+                  // Mirrors the ProgressSection.onChange guard — if the user
+                  // navigated to another book while the rereadBook PATCH was
+                  // in flight, drop the response instead of writing book A's
+                  // data into book B's view.
+                  if (String(updated.id) !== String(latestIdRef.current)) return;
+                  setBook(updated);
+                }}
               />
             </>
           )}
