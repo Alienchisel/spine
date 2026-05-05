@@ -87,6 +87,7 @@ export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBo
 
   async function handleDelete(readId) {
     if (!await confirm('Remove this read entry?')) return;
+    setError(null);
     try {
       await api.deleteRead(bookId, readId);
       onUpdate();

@@ -246,6 +246,7 @@ export default function Diary() {
 
   async function handleDelete(entryId, title) {
     if (!await confirm(`Remove "${title}" from diary?`)) return;
+    setDeleteError(null);
     try {
       await api.deleteDiaryEntry(entryId);
       setDays(ds => ds.map(d => ({ ...d, entries: d.entries.filter(e => e.id !== entryId) })).filter(d => d.entries.length > 0));

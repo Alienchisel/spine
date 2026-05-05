@@ -34,6 +34,7 @@ export default function ShelfManager() {
     const newIdx = tree.findIndex(b => b.id === over.id);
     const reordered = arrayMove(tree, oldIdx, newIdx);
     setTree(reordered);
+    setError(null);
     api.reorderBuildings(reordered.map(b => b.id)).catch(() => {
       setError('Failed to save reorder.');
       reload();  // refetches the canonical tree (may overwrite error if reload also fails)
@@ -56,6 +57,7 @@ export default function ShelfManager() {
 
   async function addBuilding() {
     if (!newBuildingName.trim()) return;
+    setError(null);
     try {
       await api.createBuilding({ name: newBuildingName.trim(), proximity: newBuildingProximity });
       setNewBuildingName('');
@@ -69,6 +71,7 @@ export default function ShelfManager() {
 
   async function editBuilding(id, name, proximity) {
     const b = tree.find(x => x.id === id);
+    setError(null);
     try {
       await api.updateBuilding(id, { name, proximity, notes: b?.notes, order_index: b?.order_index });
       reload();
@@ -79,6 +82,7 @@ export default function ShelfManager() {
 
   async function deleteBuilding(id) {
     if (!await confirm('Delete this building and all its rooms, units, and shelves?')) return;
+    setError(null);
     try {
       await api.deleteBuilding(id);
       reload();
@@ -88,6 +92,7 @@ export default function ShelfManager() {
   }
 
   async function addRoom(buildingId, name) {
+    setError(null);
     try {
       await api.createRoom({ building_id: buildingId, name });
       reload();
@@ -97,6 +102,7 @@ export default function ShelfManager() {
   }
 
   async function reorderRooms(buildingId, ids) {
+    setError(null);
     try {
       await api.reorderRooms(buildingId, ids);
     } catch {
@@ -107,6 +113,7 @@ export default function ShelfManager() {
 
   async function editRoom(id, name) {
     const r = tree.flatMap(b => b.rooms).find(x => x.id === id);
+    setError(null);
     try {
       await api.updateRoom(id, { name, order_index: r?.order_index });
       reload();
@@ -117,6 +124,7 @@ export default function ShelfManager() {
 
   async function deleteRoom(id) {
     if (!await confirm('Delete this room and all its units and shelves?')) return;
+    setError(null);
     try {
       await api.deleteRoom(id);
       reload();
@@ -126,6 +134,7 @@ export default function ShelfManager() {
   }
 
   async function reorderUnits(roomId, ids) {
+    setError(null);
     try {
       await api.reorderUnits(roomId, ids);
     } catch {
@@ -135,6 +144,7 @@ export default function ShelfManager() {
   }
 
   async function addUnit(roomId, name) {
+    setError(null);
     try {
       await api.createUnit({ room_id: roomId, name });
       reload();
@@ -145,6 +155,7 @@ export default function ShelfManager() {
 
   async function editUnit(id, name) {
     const u = tree.flatMap(b => b.rooms).flatMap(r => r.units).find(x => x.id === id);
+    setError(null);
     try {
       await api.updateUnit(id, { name, order_index: u?.order_index });
       reload();
@@ -155,6 +166,7 @@ export default function ShelfManager() {
 
   async function deleteUnit(id) {
     if (!await confirm('Delete this unit and all its shelves?')) return;
+    setError(null);
     try {
       await api.deleteUnit(id);
       reload();
@@ -164,6 +176,7 @@ export default function ShelfManager() {
   }
 
   async function reorderShelves(unitId, ids) {
+    setError(null);
     try {
       await api.reorderShelves(unitId, ids);
     } catch {
@@ -173,6 +186,7 @@ export default function ShelfManager() {
   }
 
   async function addShelf(unitId, label) {
+    setError(null);
     try {
       await api.createShelf({ unit_id: unitId, label });
       reload();
@@ -183,6 +197,7 @@ export default function ShelfManager() {
 
   async function editShelf(id, label) {
     const s = tree.flatMap(b => b.rooms).flatMap(r => r.units).flatMap(u => u.shelves).find(x => x.id === id);
+    setError(null);
     try {
       await api.updateShelf(id, { label, order_index: s?.order_index });
       reload();
@@ -193,6 +208,7 @@ export default function ShelfManager() {
 
   async function deleteShelf(id) {
     if (!await confirm('Delete this shelf? Books assigned here will lose their location.')) return;
+    setError(null);
     try {
       await api.deleteShelf(id);
       reload();

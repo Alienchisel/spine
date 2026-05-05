@@ -159,6 +159,7 @@ export default function ShelfView() {
     const newIndex = books.findIndex(b => b.id === over.id);
     const reordered = arrayMove(books, oldIndex, newIndex);
     setBooks(reordered);
+    setError(null);
     api.reorderShelf(shelfId, reordered.map(b => b.id))
       .catch(() => {
         // Always tell the user their reorder didn't save — even when the
@@ -337,6 +338,7 @@ export default function ShelfView() {
                       const others = prev.filter(b => b.shelf_id !== shelfId);
                       return [...others, ...reordered];
                     });
+                    setError(null);
                     api.reorderShelf(shelfId, reordered.map(b => b.id))
                       .catch(() => {
                         setError('Failed to save reorder.');
