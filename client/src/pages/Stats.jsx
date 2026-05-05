@@ -160,15 +160,25 @@ export default function Stats() {
   // Separate from `error` because that one fully replaces the page on
   // load failure. saveGoal rollbacks should leave the page intact.
   const [actionError, setActionError] = useState(null);
+  // Distinct from `error` so a flaky settings fetch doesn't blank out
+  // the entire stats page (settings only feed the three Goal cards).
+  const [settingsError, setSettingsError] = useState(null);
 
   useEffect(() => {
-    // Stale flag drops the response if the user navigates away before
-    // Promise.all resolves — without it, setStats / setSettings / setError
-    // would fire on an unmounted component.
+    // Two independent results via Promise.allSettled: the stats payload
+    // is load-bearing (no stats = nothing to render); the settings payload
+    // only feeds the Goals section. Splitting the failure modes means a
+    // transient settings error produces a small section-scope warning
+    // instead of "Failed to load stats" on a perfectly-loaded page.
     let stale = false;
-    Promise.all([api.getStats(), api.getSettings()])
-      .then(([s, g]) => { if (!stale) { setStats(s); setSettings(g); } })
-      .catch(() => { if (!stale) setError('Failed to load stats'); });
+    Promise.allSettled([api.getStats(), api.getSettings()])
+      .then(([statsR, settingsR]) => {
+        if (stale) return;
+        if (statsR.status === 'fulfilled')    setStats(statsR.value);
+        else                                  setError('Failed to load stats');
+        if (settingsR.status === 'fulfilled') setSettings(settingsR.value);
+        else                                  setSettingsError('Failed to load goals.');
+      });
     return () => { stale = true; };
   }, []);
 
@@ -205,6 +215,7 @@ export default function Stats() {
       {actionError && <p className="text-xs text-warn">{actionError}</p>}
 
       <Section title="Goals">
+        {settingsError && <p className="text-xs text-warn mb-2">{settingsError}</p>}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <GoalCard
             label="Pages today"

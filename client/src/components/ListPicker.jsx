@@ -63,21 +63,32 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
     setLoading(true);
     setError(null);
     const gen = ++openGenRef.current;
-    try {
-      const [allLists, ids] = await Promise.all([api.getLists(), api.getBookLists(bookId)]);
-      if (gen !== openGenRef.current) return;
-      setLists(allLists);
-      setMemberIds(new Set(ids));
-    } catch {
-      if (gen !== openGenRef.current) return;
+    // Promise.allSettled splits the two failure modes: getLists is
+    // load-bearing (no lists = nothing to pick from), getBookLists is
+    // supplementary (just the check-mark state). With Promise.all, a
+    // failed memberships fetch would discard the successfully-loaded
+    // lists and surface as "Failed to load lists" — misleading. Now the
+    // picker still works on a memberships failure, just without showing
+    // which lists this book already belongs to.
+    const [listsR, idsR] = await Promise.allSettled([api.getLists(), api.getBookLists(bookId)]);
+    // Spinner only flips off for the LATEST open; a stale response that
+    // arrives while a newer open is still in flight must leave it on.
+    if (gen !== openGenRef.current) return;
+    if (listsR.status === 'fulfilled') {
+      setLists(listsR.value);
+    } else {
       setLists([]);
-      setMemberIds(new Set());
       setError('Failed to load lists');
-    } finally {
-      // Spinner only flips off for the LATEST open; a stale response that
-      // arrives while a newer open is still in flight must leave it on.
-      if (gen === openGenRef.current) setLoading(false);
     }
+    if (idsR.status === 'fulfilled') {
+      setMemberIds(new Set(idsR.value));
+    } else {
+      // Clear stale memberships from a prior open so the picker doesn't
+      // show wrong check-marks; failure is silent (user can still toggle,
+      // and addToList is INSERT OR IGNORE so re-adds are safe).
+      setMemberIds(new Set());
+    }
+    setLoading(false);
   }
 
   async function handleToggle(e, listId) {
