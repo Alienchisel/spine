@@ -263,17 +263,16 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact 
               {/* Gradient backdrop sits behind the action icons; visible only
                   on hover so the cover stays uncluttered at rest. */}
               <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/65 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-              {/* Each icon shows at rest only when its state is active —
-                  loved books still flag their red heart, readlist items
-                  still flag their sky bookmark — otherwise hidden until
-                  hover. ListPicker has no synchronously-known active state
-                  here (membership is fetched on open), so it stays hidden
-                  until hover. */}
+              {/* All icons are hidden at rest and fade in on hover. Active
+                  state (loved, on_readlist) is still expressed via colour
+                  once the icon is visible — a loved book's heart appears
+                  red, an unloved book's appears white — but neither is
+                  visible until the user hovers. */}
               <div className="absolute inset-x-0 bottom-3 flex justify-center items-center gap-4">
                 <button
                   onClick={toggleReadlist}
                   disabled={listing}
-                  className={`leading-none transition-[opacity,color] disabled:opacity-50 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)] ${book.on_readlist ? 'opacity-100 text-sky-400 hover:text-sky-300' : 'opacity-0 group-hover:opacity-100 text-white hover:text-sky-300'}`}
+                  className={`leading-none opacity-0 group-hover:opacity-100 transition-[opacity,color] disabled:opacity-50 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)] ${book.on_readlist ? 'text-sky-400 hover:text-sky-300' : 'text-white hover:text-sky-300'}`}
                   title={book.on_readlist ? 'On readlist' : 'Add to readlist'}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-5 h-5">
@@ -283,7 +282,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact 
                 <button
                   onClick={toggleLoved}
                   disabled={loving}
-                  className={`leading-none text-2xl transition-[opacity,color] disabled:opacity-50 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)] ${book.loved ? 'opacity-100 text-red-400 hover:text-red-300' : 'opacity-0 group-hover:opacity-100 text-white hover:text-red-300'}`}
+                  className={`leading-none text-2xl opacity-0 group-hover:opacity-100 transition-[opacity,color] disabled:opacity-50 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)] ${book.loved ? 'text-red-400 hover:text-red-300' : 'text-white hover:text-red-300'}`}
                   title={book.loved ? 'Loved' : 'Mark as loved'}
                 >
                   {book.loved ? '♥' : '♡'}
