@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { formatAuthors } from '../utils.js';
 import {
   DndContext,
   closestCenter,
@@ -16,6 +15,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { api } from '../api.js';
+import BookCard from '../components/BookCard.jsx';
 import CompletionIndicator from '../components/CompletionIndicator.jsx';
 
 const PAGE_SIZE = 48;
@@ -35,89 +35,42 @@ function DragHandle() {
   );
 }
 
-function Stars({ rating }) {
-  if (!rating) return null;
-  const full = Math.floor(rating);
-  const half = rating % 1 !== 0;
-  return (
-    <span className="text-xs text-oak tracking-tight flex-shrink-0">
-      {'★'.repeat(full)}{half ? '½' : ''}{'☆'.repeat(5 - full - (half ? 1 : 0))}
-    </span>
-  );
-}
-
-function SortableListCard({ book, onRemove, draggable }) {
+// Edit-mode wrapper around the standard BookCard. Adds drag-to-reorder and
+// remove-from-list affordances as overlays without touching BookCard, so
+// outside edit mode the list page renders identically to Library and Browse
+// — same covers, same per-card buttons, same hover behaviour. The drag
+// listeners live on the handle button (not the wrapper), so a click on the
+// cover still routes to BookDetail without arming a drag.
+function SortableBookCard({ book, onRemove, draggable }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: book.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
-
-  // Audiobook covers are square; everything else uses 2:3 like the rest of
-  // the app. Stub books still get the letter-and-title placeholder so the
-  // grid stays even when the cover is missing.
-  const coverAspect = book.format === 'audiobook' ? 'aspect-square' : 'aspect-[2/3]';
-  const titleInitial = (book.title.replace(/^(the|a|an)\s+/i, '') || book.title)[0].toUpperCase();
 
   return (
     <div
       ref={setNodeRef}
       style={style}
       {...attributes}
-      className={`select-none transition-opacity ${isDragging ? 'opacity-40' : ''}`}
+      className={`relative select-none transition-opacity ring-2 ring-binding/40 rounded-lg ${isDragging ? 'opacity-40' : ''}`}
     >
-      <div className="group bg-card rounded-lg p-2 pb-2.5 transition-transform ease-out duration-150 hover:-translate-y-0.5">
-        {/* Inner relative container scopes the absolute-positioned overlays
-            (drag handle, remove ×) to the cover area only — so `bottom-2`
-            sits at the bottom of the cover, not below the title/author. */}
-        <div className="relative mb-2.5">
-          <Link to={`/books/${book.id}`} draggable={false} className="block">
-            <div className={`relative bg-neutral-800 ${coverAspect} rounded overflow-hidden ring-1 ring-white/5 shadow-xl`}>
-              {book.cover_path ? (
-                <img src={book.cover_path} alt={book.title} draggable={false} className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center p-3 bg-gradient-to-br from-neutral-700 to-neutral-900 gap-2">
-                  <span className="text-5xl font-bold text-neutral-500 select-none leading-none">{titleInitial}</span>
-                  <span className="text-xs text-neutral-500 font-medium leading-tight line-clamp-3 text-center">{book.title}</span>
-                </div>
-              )}
-            </div>
-          </Link>
-          {/* Listeners go on the handle button (sibling of Link), NOT on the
-              wrapper, so a plain click on the cover navigates to BookDetail
-              without arming a drag. The handle only renders in `added` sort
-              since other sorts ignore manual position. */}
-          {draggable && (
-            <button
-              {...listeners}
-              className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/70 backdrop-blur-sm rounded px-2 py-1 text-neutral-400 hover:text-neutral-200 transition-colors cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100"
-              aria-label="Drag to reorder"
-            >
-              <DragHandle />
-            </button>
-          )}
-          {onRemove && (
-            <button
-              onClick={() => onRemove(book.id)}
-              className="absolute top-1 right-1 bg-black/80 backdrop-blur-sm rounded-full w-6 h-6 flex items-center justify-center text-neutral-400 hover:text-red-400 transition-colors text-base leading-none opacity-0 group-hover:opacity-100"
-              title="Remove from list"
-            >
-              ×
-            </button>
-          )}
-        </div>
-        <p className={`text-sm font-medium truncate group-hover:text-white transition-colors ${book.is_stub ? 'text-neutral-400' : 'text-neutral-200'}`} title={book.title}>
-          {book.title}
-        </p>
-        {book.authors?.length > 0 && (
-          <p className="text-xs text-neutral-500 truncate mt-0.5" title={book.authors.map(a => a.name).join(', ')}>
-            {formatAuthors(book.authors)}
-          </p>
-        )}
-        <div className="flex items-center gap-1.5 mt-1.5 text-[10px] uppercase tracking-wider flex-wrap leading-tight">
-          {book.is_stub                     && <span className="text-neutral-600">incomplete</span>}
-          {book.owned                       ? <span className="text-emerald-700">owned</span> : <span className="text-neutral-700">unowned</span>}
-          {book.status === 'finished'       && <span className="text-leather">read</span>}
-          {book.rating != null              && <Stars rating={book.rating} />}
-        </div>
-      </div>
+      <BookCard book={book} />
+      {draggable && (
+        <button
+          {...listeners}
+          className="absolute bottom-1.5 left-1/2 -translate-x-1/2 bg-black/75 backdrop-blur-sm rounded px-2 py-1 text-neutral-300 hover:text-white transition-colors cursor-grab active:cursor-grabbing"
+          aria-label="Drag to reorder"
+        >
+          <DragHandle />
+        </button>
+      )}
+      {onRemove && (
+        <button
+          onClick={() => onRemove(book.id)}
+          className="absolute -top-2 -right-2 bg-neutral-900 hover:bg-red-900 border border-neutral-700 rounded-full w-6 h-6 flex items-center justify-center text-neutral-400 hover:text-white transition-colors text-base leading-none shadow-lg"
+          title="Remove from list"
+        >
+          ×
+        </button>
+      )}
     </div>
   );
 }
@@ -200,10 +153,21 @@ export default function ListDetail() {
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
   const [renameError, setRenameError] = useState(null);
+  // Edit mode toggles drag handles + remove buttons on each card. When off,
+  // the list renders identical BookCards to Library/Browse — no drag, no
+  // remove, just covers and their normal per-card buttons (loved, readlist,
+  // list-picker, progress editor). Drag-to-reorder requires sort='added'
+  // (custom order); entering edit mode in any other sort coerces back.
+  const [editMode, setEditMode] = useState(false);
   const loadedRef = useRef(0);
   const genRef = useRef(0);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  function toggleEditMode() {
+    if (!editMode && sort !== 'added') setSort('added');
+    setEditMode(m => !m);
+  }
 
   useEffect(() => {
     let stale = false;
@@ -358,25 +322,45 @@ export default function ListDetail() {
         </div>
       ) : (
         <>
-          <div className="flex items-center justify-end mb-3">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <button
+              onClick={toggleEditMode}
+              className={`text-sm px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                editMode
+                  ? 'bg-binding/25 text-parchment'
+                  : 'bg-neutral-800 text-neutral-400 hover:text-neutral-200'
+              }`}
+            >
+              {editMode ? 'Done' : 'Edit'}
+            </button>
             <select
               value={sort}
               onChange={e => setSort(e.target.value)}
-              className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-sm text-neutral-300 focus:outline-none focus:border-oak/50 transition-colors"
+              disabled={editMode}
+              title={editMode ? 'Sorting is locked to Custom order while editing' : ''}
+              className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-sm text-neutral-300 focus:outline-none focus:border-oak/50 transition-colors disabled:opacity-50"
             >
               {SORTS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
             </select>
           </div>
           {actionError && <p className="text-xs text-warn mb-2">{actionError}</p>}
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={list.books.map(b => b.id)} strategy={rectSortingStrategy}>
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-x-4 gap-y-7 items-start">
-                {list.books.map(book => (
-                  <SortableListCard key={book.id} book={book} onRemove={handleRemove} draggable={draggable} />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
+          {editMode ? (
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={list.books.map(b => b.id)} strategy={rectSortingStrategy}>
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-x-4 gap-y-7 items-start">
+                  {list.books.map(book => (
+                    <SortableBookCard key={book.id} book={book} onRemove={handleRemove} draggable={draggable} />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          ) : (
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-x-4 gap-y-7 items-start">
+              {list.books.map(book => (
+                <BookCard key={book.id} book={book} />
+              ))}
+            </div>
+          )}
           {sort !== 'added' && list.books.length < total && (
             <div className="mt-6 flex flex-col items-center gap-2">
               <div className="flex justify-center gap-3">
