@@ -68,6 +68,7 @@ export default function BrowsePage() {
   }, [field, decoded]);
 
   function handleLoadMore() {
+    if (loadingMore || loadingAll) return;
     const gen = genRef.current;
     setLoadingMore(true);
     setActionError(null);
@@ -85,6 +86,7 @@ export default function BrowsePage() {
   }
 
   async function handleLoadAll() {
+    if (loadingMore || loadingAll) return;
     const gen = genRef.current;
     setLoadingAll(true);
     setActionError(null);

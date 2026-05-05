@@ -203,6 +203,7 @@ export default function ListDetail() {
   }, [id, sort]);
 
   const loadMore = useCallback(async () => {
+    if (loadingMore || loadingAll) return;
     const gen = genRef.current;
     setLoadingMore(true);
     setActionError(null);
@@ -216,9 +217,10 @@ export default function ListDetail() {
     } finally {
       if (gen === genRef.current) setLoadingMore(false);
     }
-  }, [id, sort]);
+  }, [id, sort, loadingMore, loadingAll]);
 
   const loadAll = useCallback(async () => {
+    if (loadingMore || loadingAll) return;
     const gen = genRef.current;
     setLoadingAll(true);
     setActionError(null);
@@ -235,7 +237,7 @@ export default function ListDetail() {
     } finally {
       if (gen === genRef.current) setLoadingAll(false);
     }
-  }, [id, sort, total]);
+  }, [id, sort, total, loadingMore, loadingAll]);
 
   function handleAdded(book) {
     setList(l => ({ ...l, books: [{ ...book, added_at: new Date().toLocaleString('sv-SE') }, ...l.books] }));

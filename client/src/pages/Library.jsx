@@ -159,6 +159,11 @@ export default function Library() {
   }, [tab, sort, filters, query]);
 
   function handleLoadMore() {
+    // Mirror the disabled button. React batches state updates, so two
+    // rapid clicks before the next render both see loadingMore=false and
+    // would otherwise fire duplicate requests at the same offset, then
+    // each appends the same books and bumps loadedRef twice.
+    if (loadingMore || loadingAll) return;
     const gen = genRef.current;
     setLoadingMore(true);
     setActionError(null);
@@ -173,6 +178,7 @@ export default function Library() {
   }
 
   async function handleLoadAll() {
+    if (loadingMore || loadingAll) return;
     const gen = genRef.current;
     setLoadingAll(true);
     setActionError(null);
