@@ -131,10 +131,15 @@ export default function ShelfView() {
   const shelfId    = params.get('s') ? Number(params.get('s')) : null;
 
   useEffect(() => {
+    // Stale flag drops the response if the user navigates away before
+    // Promise.all resolves — without it, setTree / setUnshelfed / setError /
+    // setLoading would fire on an unmounted component.
+    let stale = false;
     Promise.all([api.getShelfTree(), api.getUnshelfedBooks()])
-      .then(([t, u]) => { setTree(t); setUnshelfed(u); })
-      .catch(() => setError('Failed to load shelves.'))
-      .finally(() => setLoading(false));
+      .then(([t, u]) => { if (!stale) { setTree(t); setUnshelfed(u); } })
+      .catch(() => { if (!stale) setError('Failed to load shelves.'); })
+      .finally(() => { if (!stale) setLoading(false); });
+    return () => { stale = true; };
   }, []);
 
   useEffect(() => {
