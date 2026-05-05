@@ -324,7 +324,7 @@ export default function ListDetail() {
           <h1
             className="text-xl font-bold text-white cursor-pointer hover:text-neutral-300 transition-colors"
             title="Click to rename"
-            onClick={() => { setRenameValue(list.name); setRenaming(true); }}
+            onClick={() => { setRenameError(null); setRenameValue(list.name); setRenaming(true); }}
           >
             {list.name}
           </h1>

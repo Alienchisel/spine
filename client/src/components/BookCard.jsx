@@ -64,6 +64,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
 
   function openEditor(e) {
     e.preventDefault();
+    setError(null);
     if (mode === 'pct') {
       setInputVal(pct !== null ? String(pct) : '');
     } else if (isAudiobook) {
@@ -78,6 +79,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
   }
 
   function changeMode(m) {
+    setError(null);
     setMode(m);
     localStorage.setItem(getModeKey(book.id), m);
     if (m === 'pct') {
