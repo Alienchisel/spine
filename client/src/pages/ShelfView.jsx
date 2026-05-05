@@ -269,7 +269,7 @@ export default function ShelfView() {
                 <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-4 pb-2 border-b border-neutral-800">
                   No location assigned · {unshelfed.length}
                 </h2>
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 gap-y-5">
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-3 gap-y-5">
                   {unshelfed.map(book => (
                     <BookCard key={book.id} book={book} />
                   ))}
@@ -297,7 +297,7 @@ export default function ShelfView() {
         {booksLoading ? (
           <div className="text-neutral-700 text-sm mt-6">Loading…</div>
         ) : books.length > 0 && (
-          <div className={`grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 gap-y-5 ${rooms.length > 0 ? 'mt-8' : ''}`}>
+          <div className={`grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-3 gap-y-5 ${rooms.length > 0 ? 'mt-8' : ''}`}>
             {books.map(book => <BookCard key={book.id} book={book} />)}
           </div>
         )}
@@ -323,7 +323,7 @@ export default function ShelfView() {
         {booksLoading ? (
           <div className="text-neutral-700 text-sm mt-6">Loading…</div>
         ) : books.length > 0 && (
-          <div className={`grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 gap-y-5 ${units.length > 0 ? 'mt-8' : ''}`}>
+          <div className={`grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-3 gap-y-5 ${units.length > 0 ? 'mt-8' : ''}`}>
             {books.map(book => <BookCard key={book.id} book={book} />)}
           </div>
         )}
@@ -377,7 +377,7 @@ export default function ShelfView() {
                 {shelves.length > 0 && (
                   <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-4">Not on a shelf</h2>
                 )}
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 gap-y-5">
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-3 gap-y-5">
                   {unitOnly.map(book => <BookCard key={book.id} book={book} />)}
                 </div>
               </div>

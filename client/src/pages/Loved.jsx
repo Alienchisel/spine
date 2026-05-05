@@ -42,7 +42,7 @@ export default function Loved() {
           </Link>
         </div>
       ) : (
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 gap-y-5">
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-3 gap-y-5">
           {books.map(book => (
             <BookCard key={book.id} book={book} onProgressUpdate={handleUpdate} />
           ))}
