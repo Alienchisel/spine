@@ -2789,4 +2789,134 @@ describe('books', () => {
       await req('DELETE', `/api/books/${act1.id}`);
     });
   });
+
+  describe('search qualifiers', () => {
+    // `qualifier:value` pins a search atom to a single surface (title /
+    // series / tag / author / narrator / translator / publisher) instead
+    // of the default match-against-all-six-surfaces behaviour. Composes
+    // with AND / OR / NOT and quoted phrases.
+    const stem = 'qualifier' + Math.random().toString(36).slice(2, 8);
+
+    let titleHit, authorHit, narratorHit, tagHit, publisherHit;
+
+    before(async () => {
+      // Seed: each book has the stem in exactly ONE surface so we can
+      // assert qualifier routing rather than substring leakage.
+      ({ body: titleHit } = await req('POST', '/api/books', {
+        title: `${stem}-by-title`,
+      }));
+      ({ body: authorHit } = await req('POST', '/api/books', {
+        title: 'Authored', authors: [`${stem}-author`],
+      }));
+      ({ body: narratorHit } = await req('POST', '/api/books', {
+        title: 'Narrated', narrators: [`${stem}-narrator`],
+      }));
+      ({ body: tagHit } = await req('POST', '/api/books', {
+        title: 'Tagged', tags: [`${stem}-tag`],
+      }));
+      ({ body: publisherHit } = await req('POST', '/api/books', {
+        title: 'Published', publisher: `${stem} House`,
+      }));
+    });
+
+    async function search(q) {
+      const { body } = await req('GET', `/api/books?q=${encodeURIComponent(q)}&limit=200`);
+      return new Set(body.books.map(b => b.id));
+    }
+
+    it('bare term matches across all six default surfaces (control)', async () => {
+      // Default bare-term surfaces are title/series/tag/author/narrator/
+      // translator. Publisher is NOT in the bare-term set — it's reachable
+      // only via the explicit `publisher:` qualifier.
+      const ids = await search(stem);
+      assert.ok(ids.has(titleHit.id));
+      assert.ok(ids.has(authorHit.id));
+      assert.ok(ids.has(narratorHit.id));
+      assert.ok(ids.has(tagHit.id));
+      assert.ok(!ids.has(publisherHit.id), 'publisher is opt-in via qualifier');
+    });
+
+    it('author:X pins the match to authors only', async () => {
+      const ids = await search(`author:${stem}`);
+      assert.ok(ids.has(authorHit.id));
+      assert.ok(!ids.has(titleHit.id));
+      assert.ok(!ids.has(narratorHit.id));
+      assert.ok(!ids.has(tagHit.id));
+      assert.ok(!ids.has(publisherHit.id));
+    });
+
+    it('tag:X pins the match to real tags only', async () => {
+      const ids = await search(`tag:${stem}`);
+      assert.ok(ids.has(tagHit.id));
+      assert.ok(!ids.has(titleHit.id));
+      assert.ok(!ids.has(authorHit.id));
+    });
+
+    it('title:X pins the match to title', async () => {
+      const ids = await search(`title:${stem}`);
+      assert.ok(ids.has(titleHit.id));
+      assert.ok(!ids.has(authorHit.id));
+      assert.ok(!ids.has(tagHit.id));
+    });
+
+    it('narrator:X and translator:X pin to their respective joins', async () => {
+      const narr = await search(`narrator:${stem}`);
+      assert.ok(narr.has(narratorHit.id));
+      assert.ok(!narr.has(authorHit.id));
+
+      const trans = await search(`translator:${stem}`);
+      assert.equal(trans.size, 0, 'no translators carry the stem');
+    });
+
+    it('publisher:X pins the match to publisher', async () => {
+      const ids = await search(`publisher:${stem}`);
+      assert.ok(ids.has(publisherHit.id));
+      assert.ok(!ids.has(titleHit.id));
+    });
+
+    it('quoted value works after a qualifier', async () => {
+      const ids = await search(`publisher:"${stem} House"`);
+      assert.ok(ids.has(publisherHit.id));
+      // A bare-term search for House would surface non-publisher matches;
+      // with the qualifier + phrase, the result is publisher-only.
+      assert.ok(!ids.has(titleHit.id));
+    });
+
+    it('composes with AND, OR, and NOT', async () => {
+      // OR: title-hit AND tag-hit are both retrieved.
+      const orIds = await search(`title:${stem} OR tag:${stem}`);
+      assert.ok(orIds.has(titleHit.id));
+      assert.ok(orIds.has(tagHit.id));
+      assert.ok(!orIds.has(authorHit.id));
+
+      // AND (implicit): a book with both an author AND a tag bearing the
+      // stem — author-hit doesn't have the tag, tag-hit doesn't have the
+      // author, so the AND of qualifiers returns nothing.
+      const andIds = await search(`author:${stem} tag:${stem}`);
+      assert.equal(andIds.size, 0);
+
+      // NOT: bare match minus tag-only.
+      const notIds = await search(`${stem} -tag:${stem}`);
+      assert.ok(notIds.has(titleHit.id));
+      assert.ok(notIds.has(authorHit.id));
+      assert.ok(!notIds.has(tagHit.id));
+    });
+
+    it('unknown qualifier prefix falls back to bare-term match', async () => {
+      // `weirdqual:foo` isn't in the qualifier set, so the tokenizer treats
+      // it as an ordinary term that happens to contain a colon. The
+      // stem-only suffix won't match anything, but the test asserts the
+      // request doesn't error out.
+      const { status } = await req('GET', `/api/books?q=${encodeURIComponent('weirdqual:' + stem)}`);
+      assert.equal(status, 200);
+    });
+
+    it('qualifier with empty value is dropped silently', async () => {
+      // `author:` alone produces no token, so the q reduces to "stem"
+      // (bare term across all surfaces).
+      const ids = await search(`author: ${stem}`);
+      assert.ok(ids.has(titleHit.id));
+      assert.ok(ids.has(authorHit.id));
+    });
+  });
 });

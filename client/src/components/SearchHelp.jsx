@@ -59,12 +59,25 @@ export default function SearchHelp() {
               <code className="text-oak whitespace-nowrap">(a OR b) c</code>
               <span className="text-neutral-400">group sub-expressions</span>
             </div>
+            <div className="grid grid-cols-[auto_1fr] gap-x-3">
+              <code className="text-oak whitespace-nowrap">author:vance</code>
+              <span className="text-neutral-400">pin to one surface</span>
+            </div>
           </dl>
           <p className="text-xs text-neutral-600 mt-3 leading-relaxed">
-            Each term matches against title, series, tags, authors, narrators,
-            or translators. <code className="text-neutral-500">or</code> and{' '}
-            <code className="text-neutral-500">not</code> in lowercase are treated
-            as literal words.
+            Bare terms match across title, series, tags, authors, narrators,
+            and translators. Qualifiers <code className="text-neutral-500">title:</code>{' '}
+            <code className="text-neutral-500">series:</code>{' '}
+            <code className="text-neutral-500">tag:</code>{' '}
+            <code className="text-neutral-500">author:</code>{' '}
+            <code className="text-neutral-500">narrator:</code>{' '}
+            <code className="text-neutral-500">translator:</code>{' '}
+            <code className="text-neutral-500">publisher:</code> pin to a
+            single surface, and accept quoted values:{' '}
+            <code className="text-neutral-500">series:"New Sun"</code>.{' '}
+            <code className="text-neutral-500">or</code> and{' '}
+            <code className="text-neutral-500">not</code> in lowercase are
+            treated as literal words.
           </p>
         </div>
       )}

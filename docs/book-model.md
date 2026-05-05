@@ -506,6 +506,15 @@ combines those atoms with the operators below.
 | Quoted phrase | `"Heart of Darkness"` | Literal substring match |
 | `-` prefix or uppercase `NOT` | `fantasy -manga` · `fantasy NOT manga` | Exclude books matching the operand |
 | Parentheses | `(Naval OR 40k) War` | Group sub-expressions |
+| Qualifier `name:value` | `author:vance` · `tag:"Loeb Classical Library"` | Pin the atom to one surface |
+
+The supported qualifier names are `title`, `series`, `tag`, `author`,
+`narrator`, `translator`, and `publisher`. `publisher:` is the **only** way
+to search the publisher column — it isn't part of the bare-term default
+surfaces. `tag:` matches stored tags only; virtual tags (`Long`, `Translated`,
+`Re-read`, …) are computed from book columns and aren't joined through
+`book_tags`, so use the FilterPanel for those. An unknown qualifier
+(`foo:bar`) falls through to a plain term.
 
 Lowercase `or` and `not` are deliberately treated as literal terms, so book
 titles like *Pride or Prejudice* or *Stranger Than Fiction: True Stories* don't
