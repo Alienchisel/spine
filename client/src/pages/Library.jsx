@@ -277,7 +277,7 @@ export default function Library() {
             >
               {SORTS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
             </select>
-            <div className="relative w-full sm:w-56">
+            <div className="relative w-full sm:w-80">
               <input
                 ref={searchRef}
                 type="search"
