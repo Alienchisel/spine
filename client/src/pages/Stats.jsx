@@ -162,9 +162,14 @@ export default function Stats() {
   const [actionError, setActionError] = useState(null);
 
   useEffect(() => {
+    // Stale flag drops the response if the user navigates away before
+    // Promise.all resolves — without it, setStats / setSettings / setError
+    // would fire on an unmounted component.
+    let stale = false;
     Promise.all([api.getStats(), api.getSettings()])
-      .then(([s, g]) => { setStats(s); setSettings(g); })
-      .catch(() => setError('Failed to load stats'));
+      .then(([s, g]) => { if (!stale) { setStats(s); setSettings(g); } })
+      .catch(() => { if (!stale) setError('Failed to load stats'); });
+    return () => { stale = true; };
   }, []);
 
   async function saveGoal(key, value) {
