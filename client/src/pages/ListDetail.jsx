@@ -11,7 +11,7 @@ import {
 import {
   SortableContext,
   useSortable,
-  verticalListSortingStrategy,
+  rectSortingStrategy,
   arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -46,78 +46,77 @@ function Stars({ rating }) {
   );
 }
 
-function SortableRow({ book, onRemove, draggable }) {
+function SortableListCard({ book, onRemove, draggable }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: book.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
+
+  // Audiobook covers are square; everything else uses 2:3 like the rest of
+  // the app. Stub books still get the letter-and-title placeholder so the
+  // grid stays even when the cover is missing.
+  const coverAspect = book.format === 'audiobook' ? 'aspect-square' : 'aspect-[2/3]';
+  const titleInitial = (book.title.replace(/^(the|a|an)\s+/i, '') || book.title)[0].toUpperCase();
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-4 p-3 rounded-lg border transition-colors ${isDragging ? 'border-neutral-600 shadow-xl opacity-80' : book.is_stub ? 'bg-neutral-900/50 border-neutral-800/50' : 'bg-neutral-900 border-neutral-800'}`}
+      {...attributes}
+      className={`select-none transition-opacity ${isDragging ? 'opacity-40' : ''}`}
     >
-      {draggable ? (
-        <button
-          {...attributes}
-          {...listeners}
-          className="text-neutral-600 hover:text-neutral-400 transition-colors cursor-grab active:cursor-grabbing flex-shrink-0"
-          aria-label="Drag to reorder"
-        >
-          <DragHandle />
-        </button>
-      ) : (
-        <div className="w-3.5 flex-shrink-0" />
-      )}
-
-      <div className="w-9 h-[54px] flex-shrink-0 rounded overflow-hidden bg-neutral-800">
-        {book.cover_path ? (
-          <img src={book.cover_path} alt={book.title} className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full bg-gradient-to-br from-neutral-700 to-neutral-900" />
-        )}
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <Link to={`/books/${book.id}`} className={`text-sm font-medium hover:text-white transition-colors truncate block ${book.is_stub ? 'text-neutral-400' : 'text-neutral-200'}`} title={book.title}>
-            {book.title}
+      <div className="group bg-card rounded-lg p-2 pb-2.5 transition-transform ease-out duration-150 hover:-translate-y-0.5">
+        {/* Inner relative container scopes the absolute-positioned overlays
+            (drag handle, remove ×) to the cover area only — so `bottom-2`
+            sits at the bottom of the cover, not below the title/author. */}
+        <div className="relative mb-2.5">
+          <Link to={`/books/${book.id}`} draggable={false} className="block">
+            <div className={`relative bg-neutral-800 ${coverAspect} rounded overflow-hidden ring-1 ring-white/5 shadow-xl`}>
+              {book.cover_path ? (
+                <img src={book.cover_path} alt={book.title} draggable={false} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center p-3 bg-gradient-to-br from-neutral-700 to-neutral-900 gap-2">
+                  <span className="text-5xl font-bold text-neutral-500 select-none leading-none">{titleInitial}</span>
+                  <span className="text-xs text-neutral-500 font-medium leading-tight line-clamp-3 text-center">{book.title}</span>
+                </div>
+              )}
+            </div>
           </Link>
-          {Boolean(book.is_stub) && (
-            <span className="flex-shrink-0 text-xs text-neutral-600 border border-neutral-700 rounded px-1.5 py-0.5 leading-none">
-              incomplete
-            </span>
+          {/* Listeners go on the handle button (sibling of Link), NOT on the
+              wrapper, so a plain click on the cover navigates to BookDetail
+              without arming a drag. The handle only renders in `added` sort
+              since other sorts ignore manual position. */}
+          {draggable && (
+            <button
+              {...listeners}
+              className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/70 backdrop-blur-sm rounded px-2 py-1 text-neutral-400 hover:text-neutral-200 transition-colors cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100"
+              aria-label="Drag to reorder"
+            >
+              <DragHandle />
+            </button>
+          )}
+          {onRemove && (
+            <button
+              onClick={() => onRemove(book.id)}
+              className="absolute top-1 right-1 bg-black/80 backdrop-blur-sm rounded-full w-6 h-6 flex items-center justify-center text-neutral-400 hover:text-red-400 transition-colors text-base leading-none opacity-0 group-hover:opacity-100"
+              title="Remove from list"
+            >
+              ×
+            </button>
           )}
         </div>
-        <p className="text-xs text-neutral-500 truncate mt-0.5">
-          {[formatAuthors(book.authors), book.series && `${book.series}${book.series_number ? ` #${book.series_number}` : ''}`].filter(Boolean).join(' · ')}
+        <p className={`text-sm font-medium truncate group-hover:text-white transition-colors ${book.is_stub ? 'text-neutral-400' : 'text-neutral-200'}`} title={book.title}>
+          {book.title}
         </p>
-        {book.format === 'audiobook' && book.narrators?.length > 0 && (
-          <p className="text-xs text-neutral-600 truncate mt-0.5">{formatAuthors(book.narrators)}</p>
+        {book.authors?.length > 0 && (
+          <p className="text-xs text-neutral-500 truncate mt-0.5" title={book.authors.map(a => a.name).join(', ')}>
+            {formatAuthors(book.authors)}
+          </p>
         )}
-        {book.notes && (
-          <p className="text-xs text-neutral-600 truncate mt-0.5">{book.notes}</p>
-        )}
-      </div>
-
-      <div className="flex-shrink-0 flex items-center gap-4">
-        <Stars rating={book.rating} />
-        {book.format && book.format !== 'physical' && (
-          <span className="text-xs text-neutral-600 hidden md:block">{book.format === 'ebook' ? 'Digital' : book.format?.charAt(0).toUpperCase() + book.format?.slice(1)}</span>
-        )}
-        {book.owned ? (
-          <span className="text-xs text-emerald-700 hidden sm:block">owned</span>
-        ) : (
-          <span className="text-xs text-neutral-700 hidden sm:block">unowned</span>
-        )}
-        {onRemove && (
-          <button
-            onClick={() => onRemove(book.id)}
-            className="text-neutral-700 hover:text-red-400 transition-colors text-lg leading-none"
-            title="Remove from list"
-          >
-            ×
-          </button>
-        )}
+        <div className="flex items-center gap-1.5 mt-1.5 text-[10px] uppercase tracking-wider flex-wrap leading-tight">
+          {book.is_stub                     && <span className="text-neutral-600">incomplete</span>}
+          {book.owned                       ? <span className="text-emerald-700">owned</span> : <span className="text-neutral-700">unowned</span>}
+          {book.status === 'finished'       && <span className="text-leather">read</span>}
+          {book.rating != null              && <Stars rating={book.rating} />}
+        </div>
       </div>
     </div>
   );
@@ -370,10 +369,10 @@ export default function ListDetail() {
           </div>
           {actionError && <p className="text-xs text-warn mb-2">{actionError}</p>}
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={list.books.map(b => b.id)} strategy={verticalListSortingStrategy}>
-              <div className="space-y-1.5">
+            <SortableContext items={list.books.map(b => b.id)} strategy={rectSortingStrategy}>
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-x-4 gap-y-7 items-start">
                 {list.books.map(book => (
-                  <SortableRow key={book.id} book={book} onRemove={handleRemove} draggable={draggable} />
+                  <SortableListCard key={book.id} book={book} onRemove={handleRemove} draggable={draggable} />
                 ))}
               </div>
             </SortableContext>
