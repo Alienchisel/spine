@@ -230,8 +230,12 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
   const archivedDim = book.archived ? 'opacity-60 saturate-50' : '';
 
   return (
-    <div onKeyDown={handleKeyDown} className={`transition-[background-color] ease-out duration-150 ${compact ? '' : 'bg-card rounded-lg p-2 pb-2.5'} ${archivedDim}`}>
-      <Link to={`/books/${book.id}`} className="group block">
+    <div onKeyDown={handleKeyDown} className={`transition-[background-color] ease-out duration-150 ${archivedDim}`}>
+      <Link
+        to={`/books/${book.id}`}
+        className="group block"
+        title={[book.title, book.authors?.map(a => a.name).join(', ')].filter(Boolean).join(' — ')}
+      >
         {/* Hover signal: a 2px white inset frame on the cover. Implemented
             via an absolute-positioned overlay sibling AFTER the img so the
             box-shadow paints above the image content — `box-shadow: inset`
@@ -275,8 +279,9 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
             // whole tray (rectangle + contents) fades in together on hover
             // — at rest the cover is fully uncluttered. Active state
             // (loved, on_readlist) still expresses via colour once the tray
-            // is visible.
-            <div className="absolute inset-x-3 bottom-3 flex justify-center items-center gap-4 px-3 py-1.5 bg-black/65 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+            // is visible. Sits above the title-overlay band that fades in
+            // along the bottom of the cover.
+            <div className="absolute inset-x-3 bottom-14 flex justify-center items-center gap-4 px-3 py-1.5 bg-black/65 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
               <button
                 onClick={toggleReadlist}
                 disabled={listing}
@@ -303,11 +308,18 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
               />
             </div>
           )}
-          {compact && (
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-1.5 pt-4 pb-1.5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-              <p className="text-xs text-white leading-tight line-clamp-2">{book.title}</p>
-            </div>
-          )}
+          {/* Hover-revealed title + author at the bottom of the cover.
+              Replaces the always-on labels that used to sit under the
+              cover — covers carry their own text, and the user wanted
+              the grid to read as pure posters at rest. Pointer-events
+              disabled so the action tray (sitting just above) still
+              receives hovers/clicks. */}
+          <div className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none ${compact ? 'px-1.5 pt-4 pb-1.5' : 'px-3 pt-8 pb-2.5'}`}>
+            <p className={`text-white leading-tight line-clamp-2 ${compact ? 'text-xs' : 'text-sm font-medium'}`}>{book.title}</p>
+            {!compact && book.authors?.length > 0 && (
+              <p className="text-xs text-white/70 leading-tight line-clamp-1 mt-0.5">{formatAuthors(book.authors)}</p>
+            )}
+          </div>
           {/* Inner-frame ring: drawn via box-shadow inset on a layer ABOVE
               the img (where the inset shadow on the frame itself would be
               hidden behind the img). Pointer-events disabled so the action
@@ -319,17 +331,6 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
               wrapper's bounding box would otherwise place a `bottom-*`). */}
           {coverOverlay}
         </div>
-        {!compact && <>
-          <p className="text-sm font-medium text-neutral-200 truncate group-hover:text-white transition-colors leading-tight" title={book.title}>
-            {book.title}
-          </p>
-          {book.authors?.length > 0 && (
-            <p className="text-xs text-neutral-500 truncate mt-0.5" title={book.authors.map(a=>a.name).join(', ')}>{formatAuthors(book.authors)}</p>
-          )}
-          {isAudiobook && book.narrators?.length > 0 && (
-            <p className="text-xs text-neutral-600 truncate mt-0.5" title={book.narrators.map(n=>n.name).join(', ')}>{formatAuthors(book.narrators)}</p>
-          )}
-        </>}
       </Link>
 
       {/* Card-level error surface for quick actions (loved / readlist toggles)
