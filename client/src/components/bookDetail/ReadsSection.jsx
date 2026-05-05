@@ -48,6 +48,9 @@ export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBo
 
   async function handleAdd(e) {
     e.preventDefault();
+    // Mirror the disabled button. The re-read path is the load-bearing case:
+    // a double-fire would bump read_count by 2 and insert two reads rows.
+    if (saving) return;
     if (!validateDates()) return;
     setSaving(true);
     setError(null);
@@ -71,6 +74,7 @@ export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBo
 
   async function handleUpdate(e, readId) {
     e.preventDefault();
+    if (saving) return;
     if (!validateDates()) return;
     setSaving(true);
     setError(null);

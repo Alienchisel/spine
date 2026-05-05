@@ -104,7 +104,9 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (isEmpty) return;
+    // Mirror the disabled button. Double-fire near the page_count boundary
+    // could double-trigger the auto-finish reads-row insert.
+    if (saving || isEmpty) return;
 
     // Build and validate the patch BEFORE arming the spinner. Validation
     // returns inside try { } would still hit finally and reset `saving`

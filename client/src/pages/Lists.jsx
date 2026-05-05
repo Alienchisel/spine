@@ -23,6 +23,9 @@ export default function Lists() {
 
   async function handleCreate(e) {
     e.preventDefault();
+    // Mirror the disabled button so an Enter-key submit while a create
+    // is in flight can't race a duplicate POST.
+    if (creating) return;
     const name = newName.trim();
     if (!name) return;
     setCreating(true);
