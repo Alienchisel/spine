@@ -21,6 +21,11 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
   const [error, setError] = useState(null);
   const buttonRef = useRef(null);
   const dropdownRef = useRef(null);
+  // Stale-response guard for handleOpen. User can open → close → open
+  // before the first Promise.all resolves; the first response then writes
+  // lists/memberIds for a now-stale open. Each handleOpen bumps the ref
+  // and captures its gen; earlier in-flight calls drop their state writes.
+  const openGenRef = useRef(0);
 
   useEffect(() => {
     if (!open) return;
@@ -57,16 +62,21 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
     setOpen(true);
     setLoading(true);
     setError(null);
+    const gen = ++openGenRef.current;
     try {
       const [allLists, ids] = await Promise.all([api.getLists(), api.getBookLists(bookId)]);
+      if (gen !== openGenRef.current) return;
       setLists(allLists);
       setMemberIds(new Set(ids));
     } catch {
+      if (gen !== openGenRef.current) return;
       setLists([]);
       setMemberIds(new Set());
       setError('Failed to load lists');
     } finally {
-      setLoading(false);
+      // Spinner only flips off for the LATEST open; a stale response that
+      // arrives while a newer open is still in flight must leave it on.
+      if (gen === openGenRef.current) setLoading(false);
     }
   }
 

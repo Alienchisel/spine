@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
@@ -18,6 +18,13 @@ export default function ShelfManager() {
   const [newBuildingProximity, setNewBuildingProximity] = useState('home');
   const [error, setError] = useState(null);
   const confirm = useConfirm();
+  // Stale-response guard for reload(). Every mutation kicks off a reload,
+  // and a fast user can interleave several writes whose reload responses
+  // race. Without this, an early reload's snapshot can land last and
+  // overwrite a later reload's already-applied tree (e.g. "the room I just
+  // added vanished"). Each reload captures its gen and drops setTree if a
+  // newer reload has bumped the ref.
+  const treeGenRef = useRef(0);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -34,10 +41,13 @@ export default function ShelfManager() {
   }
 
   async function reload() {
+    const gen = ++treeGenRef.current;
     try {
       const t = await api.getShelfTree();
+      if (gen !== treeGenRef.current) return;
       setTree(t);
     } catch {
+      if (gen !== treeGenRef.current) return;
       setError('Failed to load shelves.');
     }
   }
