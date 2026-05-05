@@ -246,4 +246,50 @@ describe('lists', () => {
       assert.deepEqual(body, []);
     });
   });
+
+  describe('completion counts (Letterboxd-style indicators)', () => {
+    it('GET /api/lists includes book_count, owned_count, finished_count per list', async () => {
+      const list = await createList('Completion Overview ' + Math.random().toString(36).slice(2, 6));
+      // Mix of states: 1 owned-finished, 1 owned-unread, 1 unowned-finished, 1 archived (excluded).
+      const { body: a } = await req('POST', '/api/books', { title: 'Completion A', owned: true,  status: 'finished' });
+      const { body: b } = await req('POST', '/api/books', { title: 'Completion B', owned: true,  status: 'unread'   });
+      const { body: c } = await req('POST', '/api/books', { title: 'Completion C', owned: false, status: 'finished' });
+      const { body: d } = await req('POST', '/api/books', { title: 'Completion D', owned: true,  status: 'finished', archived: true });
+      for (const id of [a.id, b.id, c.id, d.id]) {
+        await req('POST', `/api/lists/${list.id}/books`, { book_id: id });
+      }
+      const { body } = await req('GET', '/api/lists');
+      const row = body.find(l => l.id === list.id);
+      assert.equal(row.book_count,     3, 'archived excluded from book_count');
+      assert.equal(row.owned_count,    2, 'two non-archived owned (A, B)');
+      assert.equal(row.finished_count, 2, 'two non-archived finished (A, C)');
+    });
+
+    it('GET /api/lists/:id includes owned_count and finished_count alongside total', async () => {
+      const list = await createList('Completion Detail ' + Math.random().toString(36).slice(2, 6));
+      const { body: a } = await req('POST', '/api/books', { title: 'Detail A', owned: true,  status: 'finished' });
+      const { body: b } = await req('POST', '/api/books', { title: 'Detail B', owned: true,  status: 'reading'  });
+      const { body: c } = await req('POST', '/api/books', { title: 'Detail C', owned: false, status: 'unread'   });
+      for (const id of [a.id, b.id, c.id]) {
+        await req('POST', `/api/lists/${list.id}/books`, { book_id: id });
+      }
+      const { body } = await req('GET', `/api/lists/${list.id}`);
+      assert.equal(body.total,          3);
+      assert.equal(body.owned_count,    2);
+      assert.equal(body.finished_count, 1, 'reading does not count as read');
+    });
+
+    it('counts are 0 (not undefined or null) on an empty list', async () => {
+      const list = await createList('Completion Empty ' + Math.random().toString(36).slice(2, 6));
+      const { body: detail } = await req('GET', `/api/lists/${list.id}`);
+      assert.equal(detail.total,          0);
+      assert.equal(detail.owned_count,    0);
+      assert.equal(detail.finished_count, 0);
+      const { body: overview } = await req('GET', '/api/lists');
+      const row = overview.find(l => l.id === list.id);
+      assert.equal(row.book_count,     0);
+      assert.equal(row.owned_count,    0);
+      assert.equal(row.finished_count, 0);
+    });
+  });
 });

@@ -16,6 +16,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { api } from '../api.js';
+import CompletionIndicator from '../components/CompletionIndicator.jsx';
 
 const PAGE_SIZE = 48;
 
@@ -342,6 +343,13 @@ export default function ListDetail() {
         )}
         <span className="text-xs text-neutral-600 mt-0.5">{total} {total === 1 ? 'book' : 'books'}</span>
       </div>
+
+      {total > 0 && (
+        <div className="grid grid-cols-2 gap-3 mb-6 max-w-md">
+          <CompletionIndicator label="Owned"  count={list.owned_count    ?? 0} total={total} />
+          <CompletionIndicator label="Read"   count={list.finished_count ?? 0} total={total} />
+        </div>
+      )}
 
       <QuickAdd listId={id} onAdded={handleAdded} />
 

@@ -26,11 +26,19 @@ function booksForList(listId, { sort = 'added', limit = null, offset = 0 } = {})
   // overview badge matches what's actually visible. Membership in list_books
   // is preserved across archive/un-archive — the row reappears intact when
   // the user un-archives.
-  const total = db.prepare(`
-    SELECT COUNT(*) AS c FROM list_books lb
+  // owned_count and finished_count power the Letterboxd-style completion
+  // indicators on the list detail page; computed alongside total over the
+  // same non-archived set so the percentages always read against the same
+  // denominator the user sees.
+  const counts = db.prepare(`
+    SELECT
+      COUNT(*) AS total,
+      SUM(CASE WHEN b.owned = 1            THEN 1 ELSE 0 END) AS owned,
+      SUM(CASE WHEN b.status = 'finished'  THEN 1 ELSE 0 END) AS finished
+    FROM list_books lb
     JOIN books b ON b.id = lb.book_id
     WHERE lb.list_id = ? AND COALESCE(b.archived,0) = 0
-  `).get(listId).c;
+  `).get(listId);
 
   const rows = db.prepare(`
     SELECT b.*, lb.added_at, lb.position
@@ -41,14 +49,26 @@ function booksForList(listId, { sort = 'added', limit = null, offset = 0 } = {})
     ${limitSql}
   `).all(listId);
 
-  return { books: serveBookCardRows(rows), total };
+  return {
+    books: serveBookCardRows(rows),
+    total: counts.total,
+    owned_count: counts.owned ?? 0,
+    finished_count: counts.finished ?? 0,
+  };
 }
 
-// GET /api/lists — all lists with book count
+// GET /api/lists — all lists with book count and completion counts
 router.get('/', (_req, res) => {
-  // book_count excludes archived books so the badge matches the list view.
+  // book_count, owned_count, and finished_count all exclude archived books
+  // so the overview metrics match what the list detail view will show.
+  // The `b.id IS NOT NULL` guard is load-bearing: a list with zero books
+  // produces a single LEFT-JOIN row with all b.* columns NULL, and a naive
+  // COALESCE(b.archived,0) = 0 would count that phantom row as a book.
   const lists = db.prepare(`
-    SELECT l.*, COUNT(CASE WHEN COALESCE(b.archived,0) = 0 THEN 1 END) AS book_count
+    SELECT l.*,
+      COUNT(CASE WHEN b.id IS NOT NULL AND COALESCE(b.archived,0) = 0                            THEN 1 END) AS book_count,
+      COUNT(CASE WHEN b.id IS NOT NULL AND COALESCE(b.archived,0) = 0 AND b.owned = 1            THEN 1 END) AS owned_count,
+      COUNT(CASE WHEN b.id IS NOT NULL AND COALESCE(b.archived,0) = 0 AND b.status = 'finished'  THEN 1 END) AS finished_count
     FROM lists l
     LEFT JOIN list_books lb ON lb.list_id = l.id
     LEFT JOIN books b ON b.id = lb.book_id
@@ -78,8 +98,8 @@ router.get('/:id', (req, res) => {
   const sort   = LIST_ORDER_BY[req.query.sort] ? req.query.sort : 'added';
   const limit  = req.query.limit  ? Math.min(Math.max(1, parseInt(req.query.limit)  || PAGE_SIZE), 500) : null;
   const offset = req.query.offset ? Math.max(0, parseInt(req.query.offset) || 0) : 0;
-  const { books, total } = booksForList(id, { sort, limit, offset });
-  res.json({ ...list, books, total });
+  const { books, total, owned_count, finished_count } = booksForList(id, { sort, limit, offset });
+  res.json({ ...list, books, total, owned_count, finished_count });
 });
 
 // PUT /api/lists/:id — rename
