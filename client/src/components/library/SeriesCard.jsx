@@ -18,9 +18,12 @@ export default function SeriesCard({ seriesName, books, expanded, onToggle, comp
     <button
       type="button"
       onClick={onToggle}
-      className={`transition-[transform,background-color] ease-out duration-150 text-left w-full ${compact ? 'hover:opacity-80' : `bg-card rounded-lg p-2 pb-2.5 hover:-translate-y-0.5 ${expanded ? 'ring-1 ring-binding/40' : ''}`}`}
+      className={`group transition-[background-color] ease-out duration-150 text-left w-full ${compact ? 'hover:opacity-80' : `bg-card rounded-lg p-2 pb-2.5 ${expanded ? 'ring-1 ring-binding/40' : ''}`}`}
     >
-      <div className={`relative aspect-[2/3] overflow-hidden ring-1 ring-white/5 ${compact ? 'rounded-sm' : 'mb-2.5 rounded shadow-[0_10px_20px_-5px_rgba(0,0,0,0.55),0_4px_8px_-2px_rgba(0,0,0,0.35)]'}`}>
+      {/* Hover signal: same warm oak rim as BookCard. The previous lift on
+          the wrapper read as a card-pop; a static frame with a coloured ring
+          is quieter and matches the calm-bookish aesthetic. */}
+      <div className={`relative aspect-[2/3] overflow-hidden ring-2 ring-white/5 group-hover:ring-oak/60 transition-[box-shadow] duration-150 ${compact ? 'rounded-sm' : 'mb-2.5 rounded shadow-[0_10px_20px_-5px_rgba(0,0,0,0.55),0_4px_8px_-2px_rgba(0,0,0,0.35)]'}`}>
         {sorted.slice(0, 4).map((vol, i, arr) => {
           const n = arr.length;
           const leftPct = n === 1 ? 0 : (i * 45 / (n - 1));
