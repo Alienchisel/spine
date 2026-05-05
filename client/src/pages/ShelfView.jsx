@@ -138,22 +138,20 @@ export default function ShelfView() {
     // Two independent fetches: the shelf tree is load-bearing (no tree =
     // no shelves to browse), the unshelfed-books list is supplementary
     // (only matters at the root view's "no location assigned" section).
-    // Splitting means a transient unshelfed failure doesn't discard a
-    // successfully-loaded tree (which Promise.all would) and produces an
-    // accurate, smaller-scope warning instead of "Failed to load shelves".
+    // Splitting also means `loading` tracks ONLY the shelf-tree fetch —
+    // a slow unshelfed request shouldn't keep the whole page on
+    // "Loading…" once the tree is ready. Unshelfed silently appears when
+    // it resolves; on failure the smaller-scope warning replaces it.
     let stale = false;
-    let pending = 2;
-    const done = () => { pending--; if (pending === 0 && !stale) setLoading(false); };
 
     api.getShelfTree()
       .then(t => { if (!stale) setTree(t); })
       .catch(() => { if (!stale) setError('Failed to load shelves.'); })
-      .finally(done);
+      .finally(() => { if (!stale) setLoading(false); });
 
     api.getUnshelfedBooks()
       .then(u => { if (!stale) setUnshelfed(u); })
-      .catch(() => { if (!stale) setUnshelfedError('Failed to load unshelfed books.'); })
-      .finally(done);
+      .catch(() => { if (!stale) setUnshelfedError('Failed to load unshelfed books.'); });
 
     return () => { stale = true; };
   }, []);
