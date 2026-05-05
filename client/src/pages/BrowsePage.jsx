@@ -140,17 +140,9 @@ export default function BrowsePage() {
         // Guard: keep at least one full row so a small load doesn't render empty.
         const trim = hasMore && gridCols > 0 && books.length > gridCols ? books.length % gridCols : 0;
         const visible = trim > 0 ? books.slice(0, -trim) : books;
-        const padCount = !hasMore && gridCols > 0 ? (gridCols - visible.length % gridCols) % gridCols : 0;
         return (
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 gap-y-7">
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 gap-y-7 items-start">
             {visible.map(book => <BookCard key={book.id} book={book} />)}
-            {Array.from({ length: padCount }).map((_, i) => (
-              <div
-                key={`pad-${i}`}
-                aria-hidden="true"
-                className="aspect-[2/3] rounded bg-neutral-900/70 ring-1 ring-neutral-800/60"
-              />
-            ))}
           </div>
         );
       })()}
