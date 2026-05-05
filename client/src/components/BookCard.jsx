@@ -105,30 +105,36 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
   async function handleSubmit(e) {
     e.preventDefault();
     if (isEmpty) return;
+
+    // Build and validate the patch BEFORE arming the spinner. Validation
+    // returns inside try { } would still hit finally and reset `saving`
+    // (JS semantics), but mixing "compute" with "in-flight" inside the
+    // same try-block reads like a stuck-spinner footgun. Split the phases.
+    let patchData;
+    if (isAudiobook) {
+      const enteredMinutes = (parseInt(inputH) || 0) * 60 + (parseInt(inputM) || 0);
+      let current_minutes;
+      if (mode === 'pct') {
+        current_minutes = Math.round((Math.min(100, Math.max(0, parseFloat(inputVal))) / 100) * book.duration_minutes);
+      } else if (mode === 'remaining') {
+        if (!book.duration_minutes) { setError('Duration unknown'); return; }
+        current_minutes = Math.max(0, Math.min(book.duration_minutes, book.duration_minutes - enteredMinutes));
+      } else {
+        current_minutes = enteredMinutes;
+      }
+      if (isNaN(current_minutes)) { setError('Invalid value'); return; }
+      patchData = { current_minutes };
+    } else {
+      const current_page = mode === 'pct'
+        ? Math.round((Math.min(100, Math.max(0, parseFloat(inputVal))) / 100) * book.page_count)
+        : Math.max(0, parseInt(inputVal));
+      if (isNaN(current_page)) { setError('Invalid value'); return; }
+      patchData = { current_page };
+    }
+
     setError(null);
     setSaving(true);
     try {
-      let patchData;
-      if (isAudiobook) {
-        const enteredMinutes = (parseInt(inputH) || 0) * 60 + (parseInt(inputM) || 0);
-        let current_minutes;
-        if (mode === 'pct') {
-          current_minutes = Math.round((Math.min(100, Math.max(0, parseFloat(inputVal))) / 100) * book.duration_minutes);
-        } else if (mode === 'remaining') {
-          if (!book.duration_minutes) { setError('Duration unknown'); return; }
-          current_minutes = Math.max(0, Math.min(book.duration_minutes, book.duration_minutes - enteredMinutes));
-        } else {
-          current_minutes = enteredMinutes;
-        }
-        if (isNaN(current_minutes)) { setError('Invalid value'); return; }
-        patchData = { current_minutes };
-      } else {
-        const current_page = mode === 'pct'
-          ? Math.round((Math.min(100, Math.max(0, parseFloat(inputVal))) / 100) * book.page_count)
-          : Math.max(0, parseInt(inputVal));
-        if (isNaN(current_page)) { setError('Invalid value'); return; }
-        patchData = { current_page };
-      }
       const updated = await api.patchBook(book.id, patchData);
       const isComplete = isAudiobook
         ? (updated.duration_minutes > 0 && updated.current_minutes >= updated.duration_minutes)
