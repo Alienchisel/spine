@@ -98,7 +98,9 @@ function QuickAdd({ listId, onAdded }) {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!title.trim()) return;
+    // Mirror the button's disabled predicate so an Enter-key submit while a
+    // save is in flight can't race a duplicate createBook + addToList.
+    if (saving || !title.trim()) return;
     setSaving(true);
     setError(null);
     try {
