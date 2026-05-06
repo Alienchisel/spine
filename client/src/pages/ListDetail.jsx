@@ -177,6 +177,11 @@ export default function ListDetail() {
   const [editMode, setEditMode] = useState(false);
   const loadedRef = useRef(0);
   const genRef = useRef(0);
+  // Tracks book ids whose remove call is still in flight. Prevents a fast
+  // double-click from firing a second api.removeFromList before the first
+  // resolves — that's the only window where local state still contains
+  // the book, so the in-state guard inside handleRemove can't catch it.
+  const removingIdsRef = useRef(new Set());
   const refreshTick = useRefreshTick();
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
@@ -275,17 +280,22 @@ export default function ListDetail() {
   }
 
   async function handleRemove(bookId) {
+    // Drop a duplicate remove while the first one is still in flight —
+    // local state hasn't filtered the book out yet (that happens after
+    // the await), so the in-state guard below can't see the duplicate.
+    if (removingIdsRef.current.has(bookId)) return;
+    const removed = list.books.find(b => b.id === bookId);
+    // Bail if the book is no longer in local state — a stale event that
+    // fired after a previous remove already filtered it out would
+    // otherwise hit the API for a book that's gone, and decrement
+    // total/loadedRef even though there's nothing to decrement.
+    if (!removed) return;
+    removingIdsRef.current.add(bookId);
     setActionError(null);
     // Capture the book's owned/finished state before removing so the
     // completion indicators on the page header don't go stale. Only `total`
     // was being decremented before; the percentages would keep showing the
     // pre-remove ratio until a full refetch.
-    const removed = list.books.find(b => b.id === bookId);
-    // Bail if the book is no longer in local state — a stale double-click
-    // (or a row event that fired after a previous remove already filtered
-    // it out) would otherwise hit the API for a book that's gone, and
-    // decrement total/loadedRef even though there's nothing to decrement.
-    if (!removed) return;
     const ownedDelta    = removed.owned                  ? 1 : 0;
     const finishedDelta = removed.status === 'finished'  ? 1 : 0;
     try {
@@ -307,6 +317,8 @@ export default function ListDetail() {
       // The page-replacing `error` is reserved for load failures where
       // there's no list to render anyway.
       setActionError('Failed to remove book from list.');
+    } finally {
+      removingIdsRef.current.delete(bookId);
     }
   }
 
