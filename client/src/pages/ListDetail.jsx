@@ -96,23 +96,35 @@ function QuickAdd({ listId, onAdded }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const titleRef = useRef(null);
+  // Track the current listId so a submission whose awaits resolve after the
+  // user has navigated to a different list can detect the change and skip
+  // the parent callback. onAdded → handleAdded splices into the parent's
+  // current `list` via functional setList, so without this guard a stale
+  // resolution would graft List A's just-added book onto List B's display.
+  // The form-state clears are gated too: they'd otherwise blank out fresh
+  // text the user has started typing on List B's quick-add.
+  const listIdRef = useRef(listId);
+  useEffect(() => { listIdRef.current = listId; }, [listId]);
 
   async function handleSubmit(e) {
     e.preventDefault();
     // Mirror the button's disabled predicate so an Enter-key submit while a
     // save is in flight can't race a duplicate createBook + addToList.
     if (saving || !title.trim()) return;
+    const submittedListId = listId;
     setSaving(true);
     setError(null);
     try {
       const book = await api.createBook({ title: title.trim(), authors: author.trim() ? [author.trim()] : [], is_stub: true });
-      await api.addToList(listId, book.id);
+      await api.addToList(submittedListId, book.id);
+      if (listIdRef.current !== submittedListId) return;
       onAdded(book);
       setTitle('');
       setAuthor('');
       setExpanded(false);
       titleRef.current?.focus();
     } catch (err) {
+      if (listIdRef.current !== submittedListId) return;
       setError(err.message);
     } finally {
       setSaving(false);
@@ -420,7 +432,10 @@ export default function ListDetail() {
         </div>
       )}
 
-      <QuickAdd listId={id} onAdded={handleAdded} />
+      {/* key={id} forces a fresh QuickAdd on every list switch so any
+          half-typed title/author, the expanded state, and any error
+          message don't leak from list A's view onto list B's view. */}
+      <QuickAdd key={id} listId={id} onAdded={handleAdded} />
 
       {total === 0 ? (
         <div className="text-center py-24">
