@@ -14,9 +14,16 @@ export default function Lists() {
   const [deleteError, setDeleteError] = useState(null);
   const inputRef = useRef(null);
   const confirm = useConfirm();
+  // Bumped on every load so an in-flight handleCreate whose POST resolves
+  // *after* a refresh-tick reload (which already picked up the new list)
+  // can detect the change and skip the optimistic append — without this,
+  // the success-path setLists would graft `created` onto a fresh list that
+  // already contains it, producing a duplicate row until the next reload.
+  const genRef = useRef(0);
   const refreshTick = useRefreshTick();
 
   useEffect(() => {
+    genRef.current += 1;
     // Stale flag drops the response if the user navigates away before
     // getLists resolves — setLists / setError / setLoading otherwise fire
     // on an unmounted component.
@@ -42,12 +49,22 @@ export default function Lists() {
     // visible alongside a successful action. Clear both on entry from each
     // handler so the visible state always matches the most recent action.
     setDeleteError(null);
+    const gen = genRef.current;
     try {
       const created = await api.createList(name);
+      // If a refresh-tick reload landed mid-flight, it already includes
+      // `created` — appending again would duplicate the row. The reload
+      // is the authoritative source so just trust it and skip the append.
+      if (gen !== genRef.current) {
+        setNewName('');
+        inputRef.current?.focus();
+        return;
+      }
       setLists(ls => [...ls, { ...created, book_count: 0, owned_count: 0, finished_count: 0 }].sort((a, b) => a.name.localeCompare(b.name)));
       setNewName('');
       inputRef.current?.focus();
     } catch (err) {
+      if (gen !== genRef.current) return;
       setCreateError(err.message);
     } finally {
       setCreating(false);
