@@ -23,6 +23,7 @@ function RoomSection({ room, dragHandle, onEdit, onDelete, onAddUnit, onReorderU
     if (!over || active.id === over.id) return;
     const oldIdx = units.findIndex(u => u.id === active.id);
     const newIdx = units.findIndex(u => u.id === over.id);
+    if (oldIdx < 0 || newIdx < 0) return;
     const reordered = arrayMove(units, oldIdx, newIdx);
     setUnits(reordered);
     onReorderUnits(room.id, reordered.map(u => u.id));

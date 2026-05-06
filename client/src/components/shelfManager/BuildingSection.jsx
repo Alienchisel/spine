@@ -27,6 +27,7 @@ function BuildingSection({ building, dragHandle, onEdit, onDelete, onAddRoom, on
     if (!over || active.id === over.id) return;
     const oldIdx = rooms.findIndex(r => r.id === active.id);
     const newIdx = rooms.findIndex(r => r.id === over.id);
+    if (oldIdx < 0 || newIdx < 0) return;
     const reordered = arrayMove(rooms, oldIdx, newIdx);
     setRooms(reordered);
     onReorderRooms(building.id, reordered.map(r => r.id));

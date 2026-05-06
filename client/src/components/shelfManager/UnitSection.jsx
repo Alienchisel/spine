@@ -33,6 +33,7 @@ function UnitSection({ unit, dragHandle, onEdit, onDelete, onAddShelf, onEditShe
     if (!over || active.id === over.id) return;
     const oldIdx = shelves.findIndex(s => s.id === active.id);
     const newIdx = shelves.findIndex(s => s.id === over.id);
+    if (oldIdx < 0 || newIdx < 0) return;
     const reordered = arrayMove(shelves, oldIdx, newIdx);
     setShelves(reordered);
     onReorderShelves(unit.id, reordered.map(s => s.id));
