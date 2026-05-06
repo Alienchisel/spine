@@ -198,6 +198,13 @@ export default function ListDetail() {
     // action fires between effect-start and effect-success — its fresh
     // actionError is preserved instead of getting wiped by the .then.
     setActionError(null);
+    // The genRef bump above orphans any in-flight loadMore/loadAll: their
+    // finally clauses are gated on `gen === genRef.current` and will skip
+    // setLoadingMore(false)/setLoadingAll(false), leaving the pagination
+    // buttons disabled forever. Clear the flags here so a refresh-tick or
+    // sort change can't strand them.
+    setLoadingMore(false);
+    setLoadingAll(false);
     loadedRef.current = 0;
     const params = sort === 'added' ? { sort } : { sort, limit: PAGE_SIZE, offset: 0 };
     api.getList(id, params)
