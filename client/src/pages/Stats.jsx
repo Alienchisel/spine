@@ -533,21 +533,36 @@ export default function Stats() {
       )}
 
       {decadesPublished.length > 0 && (() => {
-        const maxDecade = Math.max(...decadesPublished.map(d => d.count), 1);
+        // Fill in zero-count buckets between min and max so gaps in the
+        // timeline read visually instead of getting compressed away. Each
+        // column gets the native title for exact decade + count.
+        const sorted = [...decadesPublished].sort((a, b) => a.decade - b.decade);
+        const minDecade = sorted[0].decade;
+        const maxDecade = sorted[sorted.length - 1].decade;
+        const counts = new Map(sorted.map(d => [d.decade, d.count]));
+        const buckets = [];
+        for (let d = minDecade; d <= maxDecade; d += 10) {
+          buckets.push({ decade: d, count: counts.get(d) ?? 0 });
+        }
+        const maxCount = Math.max(...buckets.map(b => b.count), 1);
         const decadeLabel = (d) => d > 0 ? `${d}s` : `${-d - 9}–${-d} BCE`;
         return (
           <Section title="Editions by decade published">
-            <div className="space-y-2.5">
-              {decadesPublished.map(d => (
-                <Bar
-                  key={d.decade}
-                  label={decadeLabel(d.decade)}
-                  count={d.count}
-                  max={maxDecade}
-                  color="bg-binding"
-                  caption={`${d.count} ${d.count === 1 ? 'book' : 'books'}`}
-                />
-              ))}
+            <div>
+              <div className="flex items-end gap-px h-24">
+                {buckets.map(b => (
+                  <div
+                    key={b.decade}
+                    className={`flex-1 rounded-t transition-colors min-h-[1px] ${b.count > 0 ? 'bg-binding/70 hover:bg-binding' : 'bg-neutral-800'}`}
+                    style={{ height: `${(b.count / maxCount) * 100}%` }}
+                    title={`${decadeLabel(b.decade)} · ${b.count} ${b.count === 1 ? 'book' : 'books'}`}
+                  />
+                ))}
+              </div>
+              <div className="flex justify-between text-[10px] text-neutral-600 tabular-nums mt-1.5">
+                <span>{decadeLabel(minDecade)}</span>
+                <span>{decadeLabel(maxDecade)}</span>
+              </div>
             </div>
           </Section>
         );
