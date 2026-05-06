@@ -292,6 +292,7 @@ export default function ListDetail() {
     if (!over || active.id === over.id) return;
     const oldIndex = list.books.findIndex(b => b.id === active.id);
     const newIndex = list.books.findIndex(b => b.id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
     const reordered = arrayMove(list.books, oldIndex, newIndex);
     setActionError(null);
     setList(l => ({ ...l, books: reordered }));

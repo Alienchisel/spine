@@ -147,6 +147,7 @@ export default function Readlist() {
     if (!over || active.id === over.id) return;
     const oldIdx = visibleBooks.findIndex(b => b.id === active.id);
     const newIdx = visibleBooks.findIndex(b => b.id === over.id);
+    if (oldIdx < 0 || newIdx < 0) return;
     const reorderedVisible = arrayMove(visibleBooks, oldIdx, newIdx);
     // Splice the reordered tab items back into their original global slots,
     // leaving books from other tabs in place.

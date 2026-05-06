@@ -32,6 +32,7 @@ export default function ShelfManager() {
     if (!over || active.id === over.id) return;
     const oldIdx = tree.findIndex(b => b.id === active.id);
     const newIdx = tree.findIndex(b => b.id === over.id);
+    if (oldIdx < 0 || newIdx < 0) return;
     const reordered = arrayMove(tree, oldIdx, newIdx);
     setTree(reordered);
     setError(null);

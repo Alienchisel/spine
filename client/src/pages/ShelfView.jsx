@@ -83,6 +83,10 @@ function ShelfRow({ shelf, books, onReorder, onLabelClick }) {
     if (!over || active.id === over.id) return;
     const oldIdx = books.findIndex(b => b.id === active.id);
     const newIdx = books.findIndex(b => b.id === over.id);
+    // Either id missing from the current list (stale drag event, list
+    // mutated mid-drag, etc.) → bail. Without this, arrayMove with -1
+    // produces a malformed array and the reorder PUT sends wrong ids.
+    if (oldIdx < 0 || newIdx < 0) return;
     onReorder(shelf.id, arrayMove(books, oldIdx, newIdx));
   }
 
@@ -193,6 +197,7 @@ export default function ShelfView() {
     if (!over || active.id === over.id) return;
     const oldIndex = books.findIndex(b => b.id === active.id);
     const newIndex = books.findIndex(b => b.id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
     const reordered = arrayMove(books, oldIndex, newIndex);
     setBooks(reordered);
     setError(null);
