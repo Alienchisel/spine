@@ -128,6 +128,14 @@ export default function Readlist() {
 
   useEffect(() => {
     genRef.current += 1;
+    // Drop any lingering reorder/remove banner at the start of a fresh
+    // load. Without this, a "Failed to save readlist order" or
+    // "Failed to remove book…" banner can sit above an already-refreshed
+    // readlist after a refresh-tick reload. Start-clear (vs success-clear)
+    // also stacks correctly with a load failure: the actionError clears,
+    // and the more pressing setError('Failed to load readlist.') replaces
+    // it instead of two banners stacking.
+    setActionError(null);
     // Stale flag drops the response if the user navigates away before
     // getReadlist resolves — setBooks / setError / setLoading otherwise
     // fire on an unmounted component.
