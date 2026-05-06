@@ -221,8 +221,13 @@ export default function Library() {
     const statusTabs = ['reading', 'paused', 'finished', 'unread'];
     const removing = statusTabs.includes(tab) && updated.status !== tab;
     if (removing) {
-      loadedRef.current -= 1;
-      setTotal(t => t - 1);
+      // Bail if the book is no longer in local state — back-to-back
+      // status patches (a finish auto-transition followed by another
+      // edit) would otherwise double-decrement counters for a book
+      // already filtered out. Clamps below back-stop the same desync.
+      if (!books.some(b => b.id === updated.id)) return;
+      loadedRef.current = Math.max(0, loadedRef.current - 1);
+      setTotal(t => Math.max(0, t - 1));
       setBooks(bs => bs.filter(b => b.id !== updated.id));
     } else if (sort === 'updated') {
       // Mirror the server's `updated_at DESC` ordering locally so an inline
