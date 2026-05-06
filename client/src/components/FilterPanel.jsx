@@ -242,7 +242,7 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
         </FilterSection>
       )}
 
-      <FilterSection key="owned" label="Owned" defaultOpen={false} active={filters.owned !== null || filters.previouslyOwned !== null}>
+      <FilterSection key="owned" label="Owned" active={filters.owned !== null || filters.previouslyOwned !== null}>
         <button type="button" onClick={() => toggleOwned(true)}
           className={pill(filters.owned === true)}>Owned</button>
         <button type="button" onClick={() => toggleOwned(false)}
@@ -251,14 +251,14 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
           className={pill(filters.previouslyOwned === true)}>Previously owned</button>
       </FilterSection>
 
-      <FilterSection key="type" label="Type" defaultOpen={false} active={filters.custom !== null}>
+      <FilterSection key="type" label="Type" active={filters.custom !== null}>
         <button type="button" onClick={() => toggleCustom(true)}
           className={pill(filters.custom === true)}>✦ Custom</button>
         <button type="button" onClick={() => toggleCustom(false)}
           className={pill(filters.custom === false)}>Standard</button>
       </FilterSection>
 
-      <FilterSection key="loved" label="Loved" defaultOpen={false} active={filters.loved !== null}>
+      <FilterSection key="loved" label="Loved" active={filters.loved !== null}>
         <button type="button" onClick={() => toggleLoved(true)}
           className={pill(filters.loved === true)}>♥ Loved</button>
         <button type="button" onClick={() => toggleLoved(false)}
