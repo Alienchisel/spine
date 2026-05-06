@@ -165,20 +165,22 @@ export default function Stats() {
   const [settingsError, setSettingsError] = useState(null);
 
   useEffect(() => {
-    // Two independent results via Promise.allSettled: the stats payload
-    // is load-bearing (no stats = nothing to render); the settings payload
-    // only feeds the Goals section. Splitting the failure modes means a
-    // transient settings error produces a small section-scope warning
-    // instead of "Failed to load stats" on a perfectly-loaded page.
+    // Two independent fetches: stats is load-bearing (no stats = nothing
+    // to render), settings is supplementary (only feeds the Goals section).
+    // Each runs its own .then so the stats page renders as soon as the
+    // heavy stats payload arrives — a slow settings fetch shouldn't keep
+    // the whole page on null. Goals appear (or show settingsError) once
+    // settings resolves separately.
     let stale = false;
-    Promise.allSettled([api.getStats(), api.getSettings()])
-      .then(([statsR, settingsR]) => {
-        if (stale) return;
-        if (statsR.status === 'fulfilled')    setStats(statsR.value);
-        else                                  setError('Failed to load stats');
-        if (settingsR.status === 'fulfilled') setSettings(settingsR.value);
-        else                                  setSettingsError('Failed to load goals.');
-      });
+
+    api.getStats()
+      .then(s => { if (!stale) setStats(s); })
+      .catch(() => { if (!stale) setError('Failed to load stats'); });
+
+    api.getSettings()
+      .then(g => { if (!stale) setSettings(g); })
+      .catch(() => { if (!stale) setSettingsError('Failed to load goals.'); });
+
     return () => { stale = true; };
   }, []);
 
