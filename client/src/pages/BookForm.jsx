@@ -102,7 +102,16 @@ export default function BookForm() {
   }, []);
 
   useEffect(() => {
-    if (!isEdit) return;
+    if (!isEdit) {
+      // Transitioning from edit-of-X to a non-edit context (e.g. /books/new):
+      // bump the gen so any in-flight getBook(X) drops its setForm on
+      // resolve, and clear loadingBook so the submit button isn't gated
+      // forever. Without these, the new-book form could end up populated
+      // with X's data, AND the submit button stays disabled latently.
+      ++editGenRef.current;
+      setLoadingBook(false);
+      return;
+    }
     const gen = ++editGenRef.current;
     // Reset all form state tied to the previous id so the form doesn't
     // briefly show A's fields under B's URL during the in-flight gap.
