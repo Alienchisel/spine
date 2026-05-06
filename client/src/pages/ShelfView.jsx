@@ -69,6 +69,24 @@ function parseIdParam(params, key) {
   return Number.isInteger(n) && n > 0 ? n : null;
 }
 
+// Walks the b → r → u → s chain against the loaded tree, returning false
+// at the first level whose id doesn't resolve. Used to gate the
+// location-books fetch so a stale ?b=999 doesn't briefly fire a doomed
+// API call in the same render that the prune effect rewrites the URL.
+function pathResolves(tree, buildingId, roomId, unitId, shelfId) {
+  if (!buildingId) return true;
+  const building = tree.find(b => b.id === buildingId);
+  if (!building) return false;
+  if (!roomId) return true;
+  const room = building.rooms.find(r => r.id === roomId);
+  if (!room) return false;
+  if (!unitId) return true;
+  const unit = room.units.find(u => u.id === unitId);
+  if (!unit) return false;
+  if (!shelfId) return true;
+  return !!unit.shelves.find(s => s.id === shelfId);
+}
+
 function LevelCard({ primary, secondary, onClick }) {
   return (
     <button
@@ -231,6 +249,17 @@ export default function ShelfView() {
       setBooksLoading(false);
       return;
     }
+    // Defer the location fetch until the tree has loaded AND the URL
+    // path resolves in it. When treeLoaded flips true with a stale
+    // ?b=999, this effect and the prune effect run in the same render —
+    // prune's setParams is queued for the NEXT render, so without the
+    // pathResolves guard we'd fire one doomed getBuildingBooks(999)
+    // before the URL gets rewritten.
+    if (!treeLoaded || !pathResolves(tree, buildingId, roomId, unitId, shelfId)) {
+      setBooks([]);
+      setBooksLoading(false);
+      return;
+    }
     setBooks([]);
     setBooksLoading(true);
     const fetch = shelfId    ? api.getShelfBooks(shelfId)
@@ -241,7 +270,7 @@ export default function ShelfView() {
       .then(b => { if (gen === booksGenRef.current) setBooks(b); })
       .catch(() => { if (gen === booksGenRef.current) setError('Failed to load books at this location.'); })
       .finally(() => { if (gen === booksGenRef.current) setBooksLoading(false); });
-  }, [buildingId, roomId, unitId, shelfId]);
+  }, [buildingId, roomId, unitId, shelfId, treeLoaded, tree]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
