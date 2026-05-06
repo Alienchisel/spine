@@ -165,7 +165,15 @@ export default function ShelfView() {
     // location. Without this, a failed load at shelf A keeps showing its
     // warning after the user navigates to shelf B (or to root view).
     setError(null);
-    if (!buildingId && !roomId && !unitId && !shelfId) { setBooks([]); return; }
+    if (!buildingId && !roomId && !unitId && !shelfId) {
+      // Returning to the root view: drop the books grid AND clear
+      // booksLoading. Without this, an in-flight location fetch from the
+      // previous view ignores its `.finally` (gen mismatch) and leaves
+      // booksLoading latched at true.
+      setBooks([]);
+      setBooksLoading(false);
+      return;
+    }
     setBooks([]);
     setBooksLoading(true);
     const fetch = shelfId    ? api.getShelfBooks(shelfId)
