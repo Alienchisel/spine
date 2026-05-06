@@ -109,16 +109,6 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
 
   return (
     <div className="space-y-3 pt-4 pb-3 border-t border-neutral-800/60">
-      <FilterSection key="missing" label="Missing" active={filters.missing.length > 0}>
-        {MISSING_FIELDS.map(f => (
-          <button key={f.key} type="button"
-            onClick={() => toggle('missing', f.key)}
-            className={pill(filters.missing.includes(f.key), 'missing')}>
-            {f.label}
-          </button>
-        ))}
-      </FilterSection>
-
       {(formats.length > 0 || hasEmptyFormat) && (
         <FilterSection key="format" label="Format" active={filters.formats.length > 0}>
           {hasEmptyFormat && (
@@ -268,6 +258,18 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
           ))}
         </FilterSection>
       )}
+
+      {/* Missing-fields filter is curation/admin-style, not everyday
+          browsing — collapsed and tucked at the very bottom. */}
+      <FilterSection key="missing" label="Missing" defaultOpen={false} active={filters.missing.length > 0}>
+        {MISSING_FIELDS.map(f => (
+          <button key={f.key} type="button"
+            onClick={() => toggle('missing', f.key)}
+            className={pill(filters.missing.includes(f.key), 'missing')}>
+            {f.label}
+          </button>
+        ))}
+      </FilterSection>
     </div>
   );
 }
