@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import {
   DndContext,
@@ -181,6 +181,17 @@ export default function ShelfView() {
   const unitId     = parseIdParam(params, 'u');
   const shelfId    = parseIdParam(params, 's');
 
+  // Memoised so the books-fetch effect can depend on the boolean instead of
+  // the whole `tree` array. A refresh-tick refetch produces a new tree
+  // reference each time; without this, the books effect would fire twice
+  // per tick (once for refreshTick, again when setTree updates) even when
+  // the path's resolution hasn't changed. pathOk only flips when actual
+  // resolution changes, so primitive equality dedupes the no-op case.
+  const pathOk = useMemo(
+    () => pathResolves(tree, buildingId, roomId, unitId, shelfId),
+    [tree, buildingId, roomId, unitId, shelfId],
+  );
+
   useEffect(() => {
     // Two independent fetches: the shelf tree is load-bearing (no tree =
     // no shelves to browse), the unshelfed-books list is supplementary
@@ -264,7 +275,7 @@ export default function ShelfView() {
     // prune's setParams is queued for the NEXT render, so without the
     // pathResolves guard we'd fire one doomed getBuildingBooks(999)
     // before the URL gets rewritten.
-    if (!treeLoaded || !pathResolves(tree, buildingId, roomId, unitId, shelfId)) {
+    if (!treeLoaded || !pathOk) {
       setBooks([]);
       setBooksLoading(false);
       return;
@@ -279,7 +290,7 @@ export default function ShelfView() {
       .then(b => { if (gen === booksGenRef.current) setBooks(b); })
       .catch(() => { if (gen === booksGenRef.current) setError('Failed to load books at this location.'); })
       .finally(() => { if (gen === booksGenRef.current) setBooksLoading(false); });
-  }, [buildingId, roomId, unitId, shelfId, treeLoaded, tree, refreshTick]);
+  }, [buildingId, roomId, unitId, shelfId, treeLoaded, pathOk, refreshTick]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
