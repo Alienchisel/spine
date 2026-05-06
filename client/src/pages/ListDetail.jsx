@@ -291,8 +291,12 @@ export default function ListDetail() {
         owned_count:    Math.max(0, (l.owned_count    ?? 0) - ownedDelta),
         finished_count: Math.max(0, (l.finished_count ?? 0) - finishedDelta),
       }));
-      setTotal(t => t - 1);
-      loadedRef.current -= 1;
+      // Defensive clamps: a duplicate remove or a state desync would
+       // otherwise let total / loadedRef go negative, which feeds a bad
+       // offset into the next paginated getList and yields nonsense
+       // percentages on the header counters.
+      setTotal(t => Math.max(0, t - 1));
+      loadedRef.current = Math.max(0, loadedRef.current - 1);
     } catch {
       // actionError, not error: this fails inline with the list intact.
       // The page-replacing `error` is reserved for load failures where
