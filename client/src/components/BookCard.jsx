@@ -62,8 +62,9 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
     return b.current_minutes;
   }
 
-  function openEditor(e) {
+  function toggleEditor(e) {
     e.preventDefault();
+    if (open) { setOpen(false); return; }
     setError(null);
     if (mode === 'pct') {
       setInputVal(pct !== null ? String(pct) : '');
@@ -358,7 +359,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
       {!compact && (book.status === 'reading' || book.status === 'paused') && (
         <div className="mt-2">
           <button
-            onClick={openEditor}
+            onClick={toggleEditor}
             className="flex items-center gap-1 text-xs text-neutral-600 hover:text-neutral-300 transition-colors"
           >
             <span>{progressLabel ?? 'Set progress…'}</span>
