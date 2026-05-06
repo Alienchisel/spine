@@ -547,7 +547,7 @@ export default function Stats() {
         const maxCount = Math.max(...buckets.map(b => b.count), 1);
         const decadeLabel = (d) => d > 0 ? `${d}s` : `${-d - 9}–${-d} BCE`;
         return (
-          <Section title="Editions by decade published">
+          <Section title="First published by decade">
             <div>
               <div className="flex items-end gap-px h-24">
                 {buckets.map(b => (
