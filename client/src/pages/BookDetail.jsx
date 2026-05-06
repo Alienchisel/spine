@@ -9,6 +9,7 @@ import { realTagNames } from '../utils.js';
 import ProgressSection from '../components/bookDetail/ProgressSection.jsx';
 import ReadsSection from '../components/bookDetail/ReadsSection.jsx';
 import MetadataList from '../components/bookDetail/MetadataList.jsx';
+import EditionsSection from '../components/bookDetail/EditionsSection.jsx';
 import ReadingLog from '../components/bookDetail/ReadingLog.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 
@@ -491,6 +492,15 @@ export default function BookDetail() {
               ))}
             </div>
           )}
+
+          <EditionsSection book={book} onChange={(updated) => {
+            // Same stale-navigation guard as ProgressSection — the
+            // edition link/unlink calls are async; if the user has
+            // navigated to another book in the meantime, drop the result
+            // instead of writing it onto the new book's view.
+            if (String(updated.id) !== String(latestIdRef.current)) return;
+            setBook(updated);
+          }} />
 
           {(book.status !== 'unread' || reads.length > 0 || readsError) && (
             <>
