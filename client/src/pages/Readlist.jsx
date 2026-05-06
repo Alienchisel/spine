@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
   DndContext,
@@ -112,6 +112,11 @@ export default function Readlist() {
   // above the DnD context.
   const [actionError, setActionError] = useState(null);
   const [tab, setTab] = useState('physical');
+  // Tracks book ids whose remove call is still in flight. Without this,
+  // a fast double-click on the ✕ would fire two api.patchBook calls
+  // before setBooks has filtered the row out — wasted work, and the
+  // shape mirrors ListDetail's removingIdsRef.
+  const removingIdsRef = useRef(new Set());
   const refreshTick = useRefreshTick();
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
@@ -165,12 +170,16 @@ export default function Readlist() {
   }
 
   async function handleRemove(id) {
+    if (removingIdsRef.current.has(id)) return;
+    removingIdsRef.current.add(id);
     setActionError(null);
     try {
       await api.patchBook(id, { on_readlist: 0 });
       setBooks(bs => bs.filter(b => b.id !== id));
     } catch {
       setActionError('Failed to remove book from readlist.');
+    } finally {
+      removingIdsRef.current.delete(id);
     }
   }
 
