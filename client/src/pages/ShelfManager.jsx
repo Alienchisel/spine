@@ -50,6 +50,7 @@ export default function ShelfManager() {
       const t = await api.getShelfTree();
       if (gen !== treeGenRef.current) return;
       setTree(t);
+      setError(null);
     } catch {
       if (gen !== treeGenRef.current) return;
       setError('Failed to load shelves.');

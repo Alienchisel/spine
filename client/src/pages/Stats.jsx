@@ -176,11 +176,11 @@ export default function Stats() {
     let stale = false;
 
     api.getStats()
-      .then(s => { if (!stale) setStats(s); })
+      .then(s => { if (!stale) { setStats(s); setError(null); } })
       .catch(() => { if (!stale) setError('Failed to load stats'); });
 
     api.getSettings()
-      .then(g => { if (!stale) setSettings(g); })
+      .then(g => { if (!stale) { setSettings(g); setSettingsError(null); } })
       .catch(() => { if (!stale) setSettingsError('Failed to load goals.'); });
 
     return () => { stale = true; };

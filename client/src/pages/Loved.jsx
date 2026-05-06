@@ -13,7 +13,7 @@ export default function Loved() {
   useEffect(() => {
     let stale = false;
     api.getBooks({ tab: 'loved' })
-      .then(({ books }) => { if (!stale) setBooks(books); })
+      .then(({ books }) => { if (!stale) { setBooks(books); setError(null); } })
       .catch(() => { if (!stale) setError('Failed to load loved books.'); })
       .finally(() => { if (!stale) setLoading(false); });
     return () => { stale = true; };

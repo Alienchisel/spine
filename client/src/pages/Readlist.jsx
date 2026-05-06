@@ -122,7 +122,7 @@ export default function Readlist() {
     // fire on an unmounted component.
     let stale = false;
     api.getReadlist()
-      .then(b => { if (!stale) setBooks(b); })
+      .then(b => { if (!stale) { setBooks(b); setError(null); } })
       .catch(() => { if (!stale) setError('Failed to load readlist.'); })
       .finally(() => { if (!stale) setLoading(false); });
     return () => { stale = true; };

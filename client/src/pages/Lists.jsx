@@ -22,7 +22,7 @@ export default function Lists() {
     // on an unmounted component.
     let stale = false;
     api.getLists()
-      .then(ls => { if (!stale) setLists(ls); })
+      .then(ls => { if (!stale) { setLists(ls); setError(null); } })
       .catch(() => { if (!stale) setError('Failed to load lists.'); })
       .finally(() => { if (!stale) setLoading(false); });
     return () => { stale = true; };
