@@ -59,6 +59,16 @@ function SortableShelfCover({ book }) {
 
 const PROXIMITY_LABEL = { home: 'Home', nearby: 'Nearby', remote: 'Remote' };
 
+// Parse a ?b=/?r=/?u=/?s= URL param. Anything that isn't a positive
+// integer (missing, "abc", "0", "-1", "1.5") becomes null so callers
+// don't fan out NaN into find() lookups and API calls.
+function parseIdParam(params, key) {
+  const raw = params.get(key);
+  if (!raw) return null;
+  const n = Number(raw);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
 function LevelCard({ primary, secondary, onClick }) {
   return (
     <button
@@ -119,6 +129,12 @@ function ShelfRow({ shelf, books, onReorder, onLabelClick }) {
 export default function ShelfView() {
   const [params, setParams] = useSearchParams();
   const [tree, setTree] = useState([]);
+  // treeLoaded gates the URL-pruning effect: we only consider the tree
+  // canonical (and therefore safe to use as a basis for stripping stale
+  // ids out of the URL) once getShelfTree has actually succeeded. On a
+  // failed fetch the tree stays [] but treeLoaded stays false, so a
+  // bookmarked deep link survives a transient network error.
+  const [treeLoaded, setTreeLoaded] = useState(false);
   const [books, setBooks] = useState([]);
   const [unshelfed, setUnshelfed] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -133,10 +149,10 @@ export default function ShelfView() {
   // request from a prior location can't setBooks after navigation.
   const booksGenRef = useRef(0);
 
-  const buildingId = params.get('b') ? Number(params.get('b')) : null;
-  const roomId     = params.get('r') ? Number(params.get('r')) : null;
-  const unitId     = params.get('u') ? Number(params.get('u')) : null;
-  const shelfId    = params.get('s') ? Number(params.get('s')) : null;
+  const buildingId = parseIdParam(params, 'b');
+  const roomId     = parseIdParam(params, 'r');
+  const unitId     = parseIdParam(params, 'u');
+  const shelfId    = parseIdParam(params, 's');
 
   useEffect(() => {
     // Two independent fetches: the shelf tree is load-bearing (no tree =
@@ -149,7 +165,7 @@ export default function ShelfView() {
     let stale = false;
 
     api.getShelfTree()
-      .then(t => { if (!stale) setTree(t); })
+      .then(t => { if (!stale) { setTree(t); setTreeLoaded(true); } })
       .catch(() => { if (!stale) setError('Failed to load shelves.'); })
       .finally(() => { if (!stale) setLoading(false); });
 
@@ -159,6 +175,43 @@ export default function ShelfView() {
 
     return () => { stale = true; };
   }, []);
+
+  useEffect(() => {
+    // Once the tree is canonical, walk b → r → u → s and prune anything
+    // past the first level that doesn't resolve. Covers stale bookmarks
+    // (a shelf that's since been deleted) AND junk values that slipped
+    // past parseIdParam-as-positive-integer but aren't actual ids. Uses
+    // replace: true so the cleanup doesn't pollute browser history.
+    if (!treeLoaded) return;
+    const next = {};
+    if (buildingId) {
+      const building = tree.find(b => b.id === buildingId);
+      if (building) {
+        next.b = String(buildingId);
+        if (roomId) {
+          const room = building.rooms.find(r => r.id === roomId);
+          if (room) {
+            next.r = String(roomId);
+            if (unitId) {
+              const unit = room.units.find(u => u.id === unitId);
+              if (unit) {
+                next.u = String(unitId);
+                if (shelfId && unit.shelves.find(s => s.id === shelfId)) {
+                  next.s = String(shelfId);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    // Compare against raw params (not the parsed ids) so that "?b=abc"
+    // — which yields buildingId=null but isn't an empty URL — gets
+    // rewritten too. Without the diff check this effect would loop on
+    // every render that already matches.
+    const diff = ['b', 'r', 'u', 's'].some(k => (params.get(k) ?? '') !== (next[k] ?? ''));
+    if (diff) setParams(next, { replace: true });
+  }, [treeLoaded, tree, buildingId, roomId, unitId, shelfId, params, setParams]);
 
   useEffect(() => {
     // Bump the gen unconditionally — also on the root-view branch — so any
