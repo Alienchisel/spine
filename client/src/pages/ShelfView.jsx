@@ -202,13 +202,16 @@ export default function ShelfView() {
     // it resolves; on failure the smaller-scope warning replaces it.
     let stale = false;
 
+    // Each .then clears its own scoped error so a refresh-tick retry that
+    // succeeds drops a stale banner from the previous attempt; otherwise
+    // the warning lingers above a freshly loaded tree / unshelfed list.
     api.getShelfTree()
-      .then(t => { if (!stale) { setTree(t); setTreeLoaded(true); } })
+      .then(t => { if (!stale) { setTree(t); setTreeLoaded(true); setError(null); } })
       .catch(() => { if (!stale) setError('Failed to load shelves.'); })
       .finally(() => { if (!stale) setLoading(false); });
 
     api.getUnshelfedBooks()
-      .then(u => { if (!stale) setUnshelfed(u); })
+      .then(u => { if (!stale) { setUnshelfed(u); setUnshelfedError(null); } })
       .catch(() => { if (!stale) setUnshelfedError('Failed to load unshelfed books.'); });
 
     return () => { stale = true; };
