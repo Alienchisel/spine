@@ -395,9 +395,27 @@ export default function BookDetail() {
           )}
           {(() => {
             if (seriesSiblings.length < 2) return null;
-            const idx = seriesSiblings.findIndex(b => b.id === book.id);
-            const prev = idx > 0 ? seriesSiblings[idx - 1] : null;
-            const next = idx >= 0 && idx < seriesSiblings.length - 1 ? seriesSiblings[idx + 1] : null;
+            // Series nav means "next volume", not "next sibling row." When two
+            // books share the same series_number (e.g. M&C in two narrator
+            // recordings) the array-index approach would point "next" at the
+            // duplicate edition instead of advancing to volume N+1. Compute
+            // prev/next directly from series_number, skipping any sibling at
+            // the same volume slot. Cross-edition switching belongs in the
+            // EditionsSection below, not in this nav.
+            const cur = book.series_number;
+            const numbered = seriesSiblings.filter(b => b.series_number != null);
+            let prev = null, next = null;
+            if (cur != null) {
+              const lower  = numbered.filter(b => b.series_number < cur);
+              const higher = numbered.filter(b => b.series_number > cur);
+              // Tie-break ties at the same series_number by lower id so the
+              // chosen sibling is stable across reloads regardless of fetch
+              // order.
+              const cmpAsc  = (a, b) => a.series_number - b.series_number || a.id - b.id;
+              const cmpDesc = (a, b) => b.series_number - a.series_number || a.id - b.id;
+              prev = lower.sort(cmpDesc)[0]  ?? null;
+              next = higher.sort(cmpAsc)[0]  ?? null;
+            }
             if (!prev && !next) return null;
             return (
               <div className="flex items-center justify-between text-xs text-neutral-600 mb-5 -mt-2">
