@@ -24,6 +24,11 @@ export default function Lists() {
 
   useEffect(() => {
     genRef.current += 1;
+    // Drop any lingering create/delete banner at the start of a fresh
+    // load so a refresh-tick reload doesn't leave a stale "Failed to …"
+    // sitting in the strip below the create form.
+    setCreateError(null);
+    setDeleteError(null);
     // Stale flag drops the response if the user navigates away before
     // getLists resolves — setLists / setError / setLoading otherwise fire
     // on an unmounted component.
