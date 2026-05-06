@@ -545,7 +545,9 @@ export default function Stats() {
           buckets.push({ decade: d, count: counts.get(d) ?? 0 });
         }
         const maxCount = Math.max(...buckets.map(b => b.count), 1);
-        const decadeLabel = (d) => d > 0 ? `${d}s` : `${-d - 9}–${-d} BCE`;
+        // 0 belongs on the CE side ("0s" = years 0–9 CE), not BCE — only
+        // strictly negative bucket ids are pre-Common-Era.
+        const decadeLabel = (d) => d >= 0 ? `${d}s` : `${-d - 9}–${-d} BCE`;
         return (
           <Section title="First published by decade">
             <div>

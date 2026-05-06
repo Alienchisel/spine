@@ -403,9 +403,9 @@ export default function BookDetail() {
             // the same volume slot. Cross-edition switching belongs in the
             // EditionsSection below, not in this nav.
             const cur = book.series_number;
-            const numbered = seriesSiblings.filter(b => b.series_number != null);
             let prev = null, next = null;
             if (cur != null) {
+              const numbered = seriesSiblings.filter(b => b.series_number != null);
               const lower  = numbered.filter(b => b.series_number < cur);
               const higher = numbered.filter(b => b.series_number > cur);
               // Tie-break ties at the same series_number by lower id so the
@@ -415,6 +415,14 @@ export default function BookDetail() {
               const cmpDesc = (a, b) => b.series_number - a.series_number || a.id - b.id;
               prev = lower.sort(cmpDesc)[0]  ?? null;
               next = higher.sort(cmpAsc)[0]  ?? null;
+            } else {
+              // Unnumbered current book: fall back to the original
+              // array-index nav so we still surface SOME prev/next instead
+              // of nothing. Order is whatever the backend's series query
+              // returned (no clean canonical order without numbers).
+              const idx = seriesSiblings.findIndex(b => b.id === book.id);
+              prev = idx > 0 ? seriesSiblings[idx - 1] : null;
+              next = idx >= 0 && idx < seriesSiblings.length - 1 ? seriesSiblings[idx + 1] : null;
             }
             if (!prev && !next) return null;
             return (

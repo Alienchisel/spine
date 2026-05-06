@@ -2947,6 +2947,16 @@ describe('books', () => {
       assert.equal(ligHit.books.length, 1);
     });
 
+    it('rejects literals that fold to empty so they do not match every book', async () => {
+      // A literal that's pure combining diacritics ("´", U+00B4) collapses
+      // to '' under nrm. Without the guard in atomSql/qatomSql, the LIKE
+      // pattern becomes '%%' and the search returns the entire library.
+      // We expect zero matches against a fresh stem, asserting via total.
+      await req('POST', '/api/books', { title: 'pure-diacritic-test ' + Math.random().toString(36).slice(2, 8) });
+      const { body } = await req('GET', '/api/books?q=%C2%B4');
+      assert.equal(body.total, 0);
+    });
+
     it('folds across people surfaces (author / narrator)', async () => {
       const stem = 'people' + Math.random().toString(36).slice(2, 8);
       await req('POST', '/api/books', {
