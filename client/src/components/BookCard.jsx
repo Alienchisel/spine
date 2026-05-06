@@ -267,11 +267,6 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
               ✦
             </div>
           )}
-          {book.rating && (
-            <div className="absolute top-1.5 right-1.5 bg-black/75 text-oak text-xs font-bold px-1.5 py-0.5 rounded backdrop-blur-sm">
-              {'★'.repeat(Math.floor(book.rating))}{book.rating % 1 !== 0 ? '½' : ''}
-            </div>
-          )}
           {(book.status === 'reading' || book.status === 'paused') && pct !== null ? (
             <div className="absolute bottom-0 left-0 right-0 h-1 bg-neutral-700">
               <div className={`h-full transition-all duration-300 ${book.status === 'paused' ? 'bg-neutral-500' : 'bg-oak'}`} style={{ width: `${pct}%` }} />
