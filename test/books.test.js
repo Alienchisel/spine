@@ -2802,6 +2802,128 @@ describe('books', () => {
     });
   });
 
+  describe('cross-edition links (work_id)', () => {
+    // Two books that share a non-NULL work_id are alternate editions of the
+    // same underlying work — different format / translation / printing. The
+    // relationship is set-based via the shared id, so symmetry and
+    // transitivity fall out for free, and any member's `editions` array
+    // lists every other member.
+
+    async function mkBook(title) {
+      const { body } = await req('POST', '/api/books', { title });
+      return body;
+    }
+
+    it('linking two unlinked books mints a shared work_id and surfaces siblings', async () => {
+      const a = await mkBook('Edition Test A1');
+      const b = await mkBook('Edition Test B1');
+      const { status, body } = await req('POST', `/api/books/${a.id}/work-link`, { other_id: b.id });
+      assert.equal(status, 200);
+      assert.ok(body.work_id != null, 'expected work_id to be set on returned book');
+      assert.equal(body.editions.length, 1);
+      assert.equal(body.editions[0].id, b.id);
+
+      // Symmetry: B's detail page sees A.
+      const { body: bRefetched } = await req('GET', `/api/books/${b.id}`);
+      assert.equal(bRefetched.work_id, body.work_id);
+      assert.equal(bRefetched.editions.length, 1);
+      assert.equal(bRefetched.editions[0].id, a.id);
+    });
+
+    it('linking a third book joins the existing group transitively', async () => {
+      const a = await mkBook('Edition Test A2');
+      const b = await mkBook('Edition Test B2');
+      const c = await mkBook('Edition Test C2');
+      await req('POST', `/api/books/${a.id}/work-link`, { other_id: b.id });
+      await req('POST', `/api/books/${b.id}/work-link`, { other_id: c.id });
+
+      const { body: aGet } = await req('GET', `/api/books/${a.id}`);
+      const editionIds = aGet.editions.map(e => e.id).sort((x, y) => x - y);
+      assert.deepEqual(editionIds, [b.id, c.id].sort((x, y) => x - y));
+    });
+
+    it('linking two existing groups merges them into the lower work_id', async () => {
+      const a = await mkBook('Edition Test A3');
+      const b = await mkBook('Edition Test B3');
+      const c = await mkBook('Edition Test C3');
+      const d = await mkBook('Edition Test D3');
+      await req('POST', `/api/books/${a.id}/work-link`, { other_id: b.id });
+      await req('POST', `/api/books/${c.id}/work-link`, { other_id: d.id });
+      const { body: aBefore } = await req('GET', `/api/books/${a.id}`);
+      const { body: cBefore } = await req('GET', `/api/books/${c.id}`);
+      const lower = Math.min(aBefore.work_id, cBefore.work_id);
+
+      await req('POST', `/api/books/${a.id}/work-link`, { other_id: c.id });
+      for (const id of [a.id, b.id, c.id, d.id]) {
+        const { body } = await req('GET', `/api/books/${id}`);
+        assert.equal(body.work_id, lower, `book ${id} should land on the lower work_id`);
+        assert.equal(body.editions.length, 3);
+      }
+    });
+
+    it('unlinking removes a book from the group and dissolves singletons', async () => {
+      const a = await mkBook('Edition Test A4');
+      const b = await mkBook('Edition Test B4');
+      await req('POST', `/api/books/${a.id}/work-link`, { other_id: b.id });
+
+      const { status, body } = await req('DELETE', `/api/books/${a.id}/work-link`);
+      assert.equal(status, 200);
+      assert.equal(body.work_id, null);
+      assert.equal(body.editions.length, 0);
+
+      // The lone survivor B also drops its work_id — a stamped id on a
+      // single book is a phantom group and shouldn't leak through.
+      const { body: bGet } = await req('GET', `/api/books/${b.id}`);
+      assert.equal(bGet.work_id, null);
+      assert.equal(bGet.editions.length, 0);
+    });
+
+    it('unlinking from a group of three leaves the other two linked', async () => {
+      const a = await mkBook('Edition Test A5');
+      const b = await mkBook('Edition Test B5');
+      const c = await mkBook('Edition Test C5');
+      await req('POST', `/api/books/${a.id}/work-link`, { other_id: b.id });
+      await req('POST', `/api/books/${a.id}/work-link`, { other_id: c.id });
+
+      await req('DELETE', `/api/books/${a.id}/work-link`);
+      const { body: bGet } = await req('GET', `/api/books/${b.id}`);
+      const { body: cGet } = await req('GET', `/api/books/${c.id}`);
+      assert.ok(bGet.work_id != null, 'B should still be in the group');
+      assert.equal(bGet.work_id, cGet.work_id);
+      assert.equal(bGet.editions.length, 1);
+      assert.equal(bGet.editions[0].id, c.id);
+    });
+
+    it('rejects linking a book to itself', async () => {
+      const a = await mkBook('Edition Test Self');
+      const { status, body } = await req('POST', `/api/books/${a.id}/work-link`, { other_id: a.id });
+      assert.equal(status, 400);
+      assert.match(body.error, /itself/i);
+    });
+
+    it('returns 404 when either book does not exist', async () => {
+      const a = await mkBook('Edition Test Missing');
+      const { status } = await req('POST', `/api/books/${a.id}/work-link`, { other_id: 999999 });
+      assert.equal(status, 404);
+    });
+
+    it('re-linking books already in the same group is a no-op', async () => {
+      const a = await mkBook('Edition Test Idem A');
+      const b = await mkBook('Edition Test Idem B');
+      const { body: first } = await req('POST', `/api/books/${a.id}/work-link`, { other_id: b.id });
+      const { status, body: second } = await req('POST', `/api/books/${a.id}/work-link`, { other_id: b.id });
+      assert.equal(status, 200);
+      assert.equal(second.work_id, first.work_id);
+    });
+
+    it('unlinking a book that is not in any group is a no-op', async () => {
+      const a = await mkBook('Edition Test Unlinked');
+      const { status, body } = await req('DELETE', `/api/books/${a.id}/work-link`);
+      assert.equal(status, 200);
+      assert.equal(body.work_id, null);
+    });
+  });
+
   describe('search qualifiers', () => {
     // `qualifier:value` pins a search atom to a single surface (title /
     // series / tag / author / narrator / translator / publisher) instead

@@ -41,6 +41,8 @@ export const api = {
   deleteRead: (bookId, readId) => request(`/books/${bookId}/reads/${readId}`, { method: 'DELETE' }),
   deleteBook: (id) => request(`/books/${id}`, { method: 'DELETE' }),
   fetchBookCover: (id) => request(`/books/${id}/fetch-cover`, { method: 'POST' }),
+  linkEdition: (id, otherId) => request(`/books/${id}/work-link`, { method: 'POST', body: JSON.stringify({ other_id: otherId }) }),
+  unlinkEdition: (id) => request(`/books/${id}/work-link`, { method: 'DELETE' }),
   uploadCover: (file) => {
     const fd = new FormData();
     fd.append('cover', file);

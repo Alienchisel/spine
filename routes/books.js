@@ -1,7 +1,7 @@
 import express from 'express';
 import db from '../db.js';
 import { validateBook, isValidPartialDate, partialDateBefore } from '../lib/books/validation.js';
-import { getBook, getBookCounts, getBookFacets, listBooks, createBook, updateBook, patchBook, deleteBook, updateBookCover } from '../lib/books/repository.js';
+import { getBook, getBookCounts, getBookFacets, listBooks, createBook, updateBook, patchBook, deleteBook, updateBookCover, linkEditions, unlinkEdition } from '../lib/books/repository.js';
 
 const router = express.Router();
 
@@ -136,6 +136,34 @@ router.post('/:id/reread', (req, res) => {
       .run(id, date_started || null, date_finished || null);
   })();
   res.json(getBook(id));
+});
+
+// Cross-edition linking. Two books that share a non-NULL work_id are
+// alternate editions of the same underlying work; the relationship is
+// symmetric (every member sees every other) and transitive (linking a
+// new edition into an existing group joins them all). Linking two books
+// already in different groups merges into the lower-id group.
+router.post('/:id/work-link', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
+  const otherId = Number(req.body?.other_id);
+  if (!Number.isInteger(otherId) || otherId < 1) return res.status(400).json({ error: 'Invalid other_id' });
+  if (id === otherId) return res.status(400).json({ error: 'Cannot link a book to itself' });
+  const book = linkEditions(id, otherId);
+  if (!book) return res.status(404).json({ error: 'Not found' });
+  res.json(book);
+});
+
+// Remove this book from its edition group. The UI ✕-on-sibling action
+// also routes through here, called against the sibling's id — clearer
+// than a paired endpoint, and the visible effect is the same since the
+// row vanishes from every group member's detail page.
+router.delete('/:id/work-link', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
+  const book = unlinkEdition(id);
+  if (!book) return res.status(404).json({ error: 'Not found' });
+  res.json(book);
 });
 
 router.post('/:id/fetch-cover', async (req, res) => {
