@@ -160,6 +160,33 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
         </FilterSection>
       )}
 
+      <FilterSection key="owned" label="Owned" active={filters.owned !== null || filters.previouslyOwned !== null}>
+        <button type="button" onClick={() => toggleOwned(true)}
+          className={pill(filters.owned === true)}>Owned</button>
+        <button type="button" onClick={() => toggleOwned(false)}
+          className={pill(filters.owned === false)}>Not owned</button>
+        <button type="button" onClick={() => togglePreviouslyOwned(true)}
+          className={pill(filters.previouslyOwned === true)}>Previously owned</button>
+      </FilterSection>
+
+      <FilterSection key="type" label="Type" active={filters.custom !== null}>
+        <button type="button" onClick={() => toggleCustom(true)}
+          className={pill(filters.custom === true)}>✦ Custom</button>
+        <button type="button" onClick={() => toggleCustom(false)}
+          className={pill(filters.custom === false)}>Standard</button>
+      </FilterSection>
+
+      <FilterSection key="loved" label="Loved" active={filters.loved !== null}>
+        <button type="button" onClick={() => toggleLoved(true)}
+          className={pill(filters.loved === true)}>♥ Loved</button>
+        <button type="button" onClick={() => toggleLoved(false)}
+          className={pill(filters.loved === false)}>Not loved</button>
+      </FilterSection>
+
+      {/* Long-list filters live at the bottom so their length when opened
+          doesn't shove the compact toggle filters off-screen. Tags is
+          open by default (heavily used); Publisher / Source / Series
+          stay collapsed. */}
       {tags.length > 0 && (
         <FilterSection key="tags" label="Tags" active={filters.tags.length > 0}>
           {(() => {
@@ -197,32 +224,6 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
         </FilterSection>
       )}
 
-      <FilterSection key="owned" label="Owned" active={filters.owned !== null || filters.previouslyOwned !== null}>
-        <button type="button" onClick={() => toggleOwned(true)}
-          className={pill(filters.owned === true)}>Owned</button>
-        <button type="button" onClick={() => toggleOwned(false)}
-          className={pill(filters.owned === false)}>Not owned</button>
-        <button type="button" onClick={() => togglePreviouslyOwned(true)}
-          className={pill(filters.previouslyOwned === true)}>Previously owned</button>
-      </FilterSection>
-
-      <FilterSection key="type" label="Type" active={filters.custom !== null}>
-        <button type="button" onClick={() => toggleCustom(true)}
-          className={pill(filters.custom === true)}>✦ Custom</button>
-        <button type="button" onClick={() => toggleCustom(false)}
-          className={pill(filters.custom === false)}>Standard</button>
-      </FilterSection>
-
-      <FilterSection key="loved" label="Loved" active={filters.loved !== null}>
-        <button type="button" onClick={() => toggleLoved(true)}
-          className={pill(filters.loved === true)}>♥ Loved</button>
-        <button type="button" onClick={() => toggleLoved(false)}
-          className={pill(filters.loved === false)}>Not loved</button>
-      </FilterSection>
-
-      {/* Deprioritised long-list filters live at the bottom: collapsed by
-          default, and pushed past the expanded sections so their length
-          when opened doesn't shove the rest off-screen. */}
       {(publishers.length > 0 || hasEmptyPublisher) && (
         <FilterSection key="publisher" label="Publisher" defaultOpen={false} active={filters.publishers.length > 0}>
           {hasEmptyPublisher && (
