@@ -2924,6 +2924,43 @@ describe('books', () => {
     });
   });
 
+  describe('diacritic-insensitive search', () => {
+    // The `q` LIKE clauses pass both the stored value and the literal
+    // through nrm() so accents and a handful of non-decomposing ligatures
+    // (æ → ae, etc.) don't block matches in either direction.
+
+    it('plain-ASCII query matches accented stored title', async () => {
+      const stem = 'diac' + Math.random().toString(36).slice(2, 8);
+      await req('POST', '/api/books', { title: `Café ${stem} Naïve` });
+      const { body } = await req('GET', `/api/books?q=cafe%20${stem}%20naive`);
+      assert.equal(body.books.length, 1);
+    });
+
+    it('æ ligature folds to ae in both directions', async () => {
+      const stem = 'lig' + Math.random().toString(36).slice(2, 8);
+      await req('POST', '/api/books', { title: `Thermæ ${stem} Rōmæ` });
+      // Plain query against ligature-stored title.
+      const { body: plainHit } = await req('GET', `/api/books?q=thermae%20${stem}%20romae`);
+      assert.equal(plainHit.books.length, 1);
+      // Ligature query against ligature-stored title (sanity).
+      const { body: ligHit } = await req('GET', `/api/books?q=therm%C3%A6%20${stem}`);
+      assert.equal(ligHit.books.length, 1);
+    });
+
+    it('folds across people surfaces (author / narrator)', async () => {
+      const stem = 'people' + Math.random().toString(36).slice(2, 8);
+      await req('POST', '/api/books', {
+        title: `Untitled ${stem}`,
+        authors: [`Renée ${stem}eau`],
+        narrators: [`Søren ${stem}sen`],
+      });
+      const { body: byAuth } = await req('GET', `/api/books?q=renee%20${stem}eau`);
+      assert.equal(byAuth.books.length, 1);
+      const { body: byNarr } = await req('GET', `/api/books?q=soren%20${stem}sen`);
+      assert.equal(byNarr.books.length, 1);
+    });
+  });
+
   describe('search qualifiers', () => {
     // `qualifier:value` pins a search atom to a single surface (title /
     // series / tag / author / narrator / translator / publisher) instead
