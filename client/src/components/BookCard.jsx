@@ -263,7 +263,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
             </div>
           )}
           {Boolean(book.is_custom) && (
-            <div className="absolute top-1.5 left-1.5 bg-black/75 text-leather text-xs font-bold px-1.5 py-0.5 rounded backdrop-blur-sm leading-none">
+            <div className="absolute top-1.5 left-1.5 bg-black/75 text-leather text-xs font-bold px-1.5 py-0.5 rounded backdrop-blur-sm leading-none opacity-0 group-hover:opacity-100 transition-opacity">
               ✦
             </div>
           )}
