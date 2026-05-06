@@ -257,7 +257,19 @@ export default function ListDetail() {
   }, [id, sort, total, loadingMore, loadingAll]);
 
   function handleAdded(book) {
-    setList(l => ({ ...l, books: [{ ...book, added_at: new Date().toLocaleString('sv-SE') }, ...l.books] }));
+    // Mirror handleRemove's counter handling: today QuickAdd always
+    // creates a stub with owned=0 / status='unread' so both deltas resolve
+    // to 0, but if the create defaults ever shift (or QuickAdd grows an
+    // owned toggle) we'd silently leave the header percentages stale.
+    // Cheap insurance against a future regression.
+    const ownedDelta    = book.owned                 ? 1 : 0;
+    const finishedDelta = book.status === 'finished' ? 1 : 0;
+    setList(l => ({
+      ...l,
+      books: [{ ...book, added_at: new Date().toLocaleString('sv-SE') }, ...l.books],
+      owned_count:    (l.owned_count    ?? 0) + ownedDelta,
+      finished_count: (l.finished_count ?? 0) + finishedDelta,
+    }));
     setTotal(t => t + 1);
     loadedRef.current += 1;
   }
