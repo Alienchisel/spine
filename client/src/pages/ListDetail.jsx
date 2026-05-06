@@ -342,17 +342,23 @@ export default function ListDetail() {
     const oldIndex = list.books.findIndex(b => b.id === active.id);
     const newIndex = list.books.findIndex(b => b.id === over.id);
     if (oldIndex < 0 || newIndex < 0) return;
-    const reordered = arrayMove(list.books, oldIndex, newIndex);
+    // Snapshot the pre-move array so a failed PUT restores known-good state.
+    // The previous invert-move (arrayMove(l.books, newIndex, oldIndex)) only
+    // produced the right result if l.books still equalled the post-move state
+    // — any intervening mutation (a second drag, a remove) would scramble the
+    // order on rollback.
+    const previousBooks = list.books;
+    const reordered = arrayMove(previousBooks, oldIndex, newIndex);
     setActionError(null);
     setList(l => ({ ...l, books: reordered }));
     // Capture the load gen so the rollback + error message are dropped if
     // the user has navigated to a different list by the time the reorder
     // PUT resolves. Without this, a failed PUT for list A would apply a
-    // stale arrayMove to list B's books and surface A's error on B.
+    // stale snapshot to list B's books and surface A's error on B.
     const gen = genRef.current;
     api.reorderList(id, reordered.map(b => b.id)).catch(() => {
       if (gen !== genRef.current) return;
-      setList(l => ({ ...l, books: arrayMove(l.books, newIndex, oldIndex) }));
+      setList(l => ({ ...l, books: previousBooks }));
       setActionError('Failed to save list order.');
     });
   }
