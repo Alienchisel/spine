@@ -191,6 +191,13 @@ export default function ListDetail() {
     genRef.current += 1;
     setLoading(true);
     setError(null);
+    // Drop any lingering action banner (load-more / reorder / remove
+    // failures) at the start of a fresh load so a refresh-tick reload
+    // doesn't leave a stale "Failed to …" sitting above an updated list.
+    // Start-clear (vs success-clear) closes the race where a quick user
+    // action fires between effect-start and effect-success — its fresh
+    // actionError is preserved instead of getting wiped by the .then.
+    setActionError(null);
     loadedRef.current = 0;
     const params = sort === 'added' ? { sort } : { sort, limit: PAGE_SIZE, offset: 0 };
     api.getList(id, params)
