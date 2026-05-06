@@ -17,6 +17,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { api } from '../api.js';
 import BookCard from '../components/BookCard.jsx';
 import CompletionIndicator from '../components/CompletionIndicator.jsx';
+import { useRefreshTick } from '../hooks/useRefreshTick.js';
 
 const PAGE_SIZE = 48;
 
@@ -176,6 +177,7 @@ export default function ListDetail() {
   const [editMode, setEditMode] = useState(false);
   const loadedRef = useRef(0);
   const genRef = useRef(0);
+  const refreshTick = useRefreshTick();
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -201,7 +203,7 @@ export default function ListDetail() {
       .catch(() => { if (!stale) setError('Failed to load list.'); })
       .finally(() => { if (!stale) setLoading(false); });
     return () => { stale = true; };
-  }, [id, sort]);
+  }, [id, sort, refreshTick]);
 
   const loadMore = useCallback(async () => {
     if (loadingMore || loadingAll) return;

@@ -9,6 +9,7 @@ import SeriesCard from '../components/library/SeriesCard.jsx';
 import { EMPTY_FILTERS, countFilters, pruneFilters, buildApiParams } from '../components/library/filters.js';
 import { buildDisplayItems, sortVolumes } from '../components/library/grouping.js';
 import { useGridCols, COMFORTABLE_BPS, COMPACT_BPS } from '../hooks/useGridCols.js';
+import { useRefreshTick } from '../hooks/useRefreshTick.js';
 
 const TABS = [
   { key: 'reading',   label: 'Reading' },
@@ -95,6 +96,10 @@ export default function Library() {
   const prevTabRef = useRef(null);
   const searchRef  = useRef(null);
 
+  // Refetch counter — bumps when the tab regains focus so newly-added
+  // books from another window/process appear without a manual reload.
+  const refreshTick = useRefreshTick();
+
   // '/' focuses search
   useEffect(() => {
     function onKeyDown(e) {
@@ -127,7 +132,7 @@ export default function Library() {
       .then(c => { if (!stale) setCounts(c); })
       .catch(() => { if (!stale) setCountsError(true); });
     return () => { stale = true; };
-  }, []);
+  }, [refreshTick]);
 
   // Fetch facets on tab / filter / query change; prune only on tab change
   useEffect(() => {
@@ -143,7 +148,7 @@ export default function Library() {
       })
       .catch(() => { if (!stale) setFacetsError(true); });
     return () => { stale = true; };
-  }, [tab, filters, query]);
+  }, [tab, filters, query, refreshTick]);
 
   // Fetch books on tab / sort / filter / query change — always reset to page 1
   useEffect(() => {
@@ -160,7 +165,7 @@ export default function Library() {
       loadedRef.current = b.length;
     }).catch(() => { if (!stale) setFetchError(true); }).finally(() => { if (!stale) setLoading(false); });
     return () => { stale = true; };
-  }, [tab, sort, filters, query]);
+  }, [tab, sort, filters, query, refreshTick]);
 
   function handleLoadMore() {
     // Mirror the disabled button. React batches state updates, so two

@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import BookCard from '../components/BookCard.jsx';
+import { useRefreshTick } from '../hooks/useRefreshTick.js';
 
 export default function Loved() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const refreshTick = useRefreshTick();
 
   useEffect(() => {
     let stale = false;
@@ -15,7 +17,7 @@ export default function Loved() {
       .catch(() => { if (!stale) setError('Failed to load loved books.'); })
       .finally(() => { if (!stale) setLoading(false); });
     return () => { stale = true; };
-  }, []);
+  }, [refreshTick]);
 
   function handleUpdate(updated) {
     // Loved sorts by updated_at DESC (no UI selector). Splice the updated book

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { formatAuthors, fmtShortDate } from '../utils.js';
 import { useConfirm } from '../components/ConfirmModal.jsx';
+import { useRefreshTick } from '../hooks/useRefreshTick.js';
 
 function formatDate(dateStr) {
   const today = new Date().toLocaleDateString('en-CA');
@@ -229,6 +230,7 @@ export default function Diary() {
   // the displayed days/years/stats for a newly-selected year.
   const yearGenRef = useRef(0);
   const confirm = useConfirm();
+  const refreshTick = useRefreshTick();
 
   useEffect(() => {
     const gen = ++yearGenRef.current;
@@ -246,7 +248,7 @@ export default function Diary() {
       })
       .catch(() => { if (gen === yearGenRef.current) setError('Failed to load diary.'); })
       .finally(() => { if (gen === yearGenRef.current) setLoading(false); });
-  }, [year]);
+  }, [year, refreshTick]);
 
   async function handleDelete(entryId, title) {
     if (!await confirm(`Remove "${title}" from diary?`)) return;

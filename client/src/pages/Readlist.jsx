@@ -16,6 +16,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { api } from '../api.js';
 import { formatAuthors } from '../utils.js';
+import { useRefreshTick } from '../hooks/useRefreshTick.js';
 
 const TABS = [
   { key: 'physical',  label: 'Physical', formats: ['physical'] },
@@ -111,6 +112,7 @@ export default function Readlist() {
   // above the DnD context.
   const [actionError, setActionError] = useState(null);
   const [tab, setTab] = useState('physical');
+  const refreshTick = useRefreshTick();
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -124,7 +126,7 @@ export default function Readlist() {
       .catch(() => { if (!stale) setError('Failed to load readlist.'); })
       .finally(() => { if (!stale) setLoading(false); });
     return () => { stale = true; };
-  }, []);
+  }, [refreshTick]);
 
   const counts = useMemo(() => {
     const c = { physical: 0, digital: 0, audiobook: 0 };

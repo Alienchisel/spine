@@ -16,6 +16,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { api } from '../api.js';
 import BookCard from '../components/BookCard.jsx';
+import { useRefreshTick } from '../hooks/useRefreshTick.js';
 
 function SortableShelfCover({ book }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: book.id });
@@ -166,6 +167,7 @@ export default function ShelfView() {
   // location change AND on returns to the root view so an in-flight
   // request from a prior location can't setBooks after navigation.
   const booksGenRef = useRef(0);
+  const refreshTick = useRefreshTick();
 
   const buildingId = parseIdParam(params, 'b');
   const roomId     = parseIdParam(params, 'r');
@@ -192,7 +194,7 @@ export default function ShelfView() {
       .catch(() => { if (!stale) setUnshelfedError('Failed to load unshelfed books.'); });
 
     return () => { stale = true; };
-  }, []);
+  }, [refreshTick]);
 
   useEffect(() => {
     // Once the tree is canonical, walk b → r → u → s and prune anything
@@ -270,7 +272,7 @@ export default function ShelfView() {
       .then(b => { if (gen === booksGenRef.current) setBooks(b); })
       .catch(() => { if (gen === booksGenRef.current) setError('Failed to load books at this location.'); })
       .finally(() => { if (gen === booksGenRef.current) setBooksLoading(false); });
-  }, [buildingId, roomId, unitId, shelfId, treeLoaded, tree]);
+  }, [buildingId, roomId, unitId, shelfId, treeLoaded, tree, refreshTick]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 

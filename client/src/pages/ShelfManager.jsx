@@ -10,6 +10,7 @@ import { api } from '../api.js';
 import SortableBuilding from '../components/shelfManager/BuildingSection.jsx';
 import { PROXIMITY_LABEL, PROXIMITY_OPTIONS } from '../components/shelfManager/proximity.js';
 import { useConfirm } from '../components/ConfirmModal.jsx';
+import { useRefreshTick } from '../hooks/useRefreshTick.js';
 
 export default function ShelfManager() {
   const [tree, setTree] = useState([]);
@@ -25,6 +26,7 @@ export default function ShelfManager() {
   // added vanished"). Each reload captures its gen and drops setTree if a
   // newer reload has bumped the ref.
   const treeGenRef = useRef(0);
+  const refreshTick = useRefreshTick();
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -54,7 +56,7 @@ export default function ShelfManager() {
     }
   }
 
-  useEffect(() => { reload(); }, []);
+  useEffect(() => { reload(); }, [refreshTick]);
 
   async function addBuilding() {
     if (!newBuildingName.trim()) return;

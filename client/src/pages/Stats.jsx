@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { api } from '../api.js';
 import { fmtShortDate, fmtShortMonth, fmtIsoWeekMonday, formatYear } from '../utils.js';
+import { useRefreshTick } from '../hooks/useRefreshTick.js';
 
 function DonutChart({ title, data }) {
   const total = data.reduce((s, d) => s + d.value, 0);
@@ -163,6 +164,7 @@ export default function Stats() {
   // Distinct from `error` so a flaky settings fetch doesn't blank out
   // the entire stats page (settings only feed the three Goal cards).
   const [settingsError, setSettingsError] = useState(null);
+  const refreshTick = useRefreshTick();
 
   useEffect(() => {
     // Two independent fetches: stats is load-bearing (no stats = nothing
@@ -182,7 +184,7 @@ export default function Stats() {
       .catch(() => { if (!stale) setSettingsError('Failed to load goals.'); });
 
     return () => { stale = true; };
-  }, []);
+  }, [refreshTick]);
 
   async function saveGoal(key, value) {
     const prev = settings[key];

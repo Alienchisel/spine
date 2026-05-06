@@ -10,6 +10,7 @@ import ProgressSection from '../components/bookDetail/ProgressSection.jsx';
 import ReadsSection from '../components/bookDetail/ReadsSection.jsx';
 import MetadataList from '../components/bookDetail/MetadataList.jsx';
 import ReadingLog from '../components/bookDetail/ReadingLog.jsx';
+import { useRefreshTick } from '../hooks/useRefreshTick.js';
 
 const STATUS_LABEL = { reading: 'Reading', paused: 'Paused', finished: 'Finished', unread: 'Unread' };
 const STATUS_COLOR = {
@@ -72,6 +73,7 @@ export default function BookDetail() {
   const latestIdRef = useRef(id);
   latestIdRef.current = id;
   const [seriesSiblings, setSeriesSiblings] = useState([]);
+  const refreshTick = useRefreshTick();
 
   function loadReads() {
     // Capture the current id-generation so a slow response can't clobber
@@ -117,7 +119,7 @@ export default function BookDetail() {
       .then(l => { if (gen === idGenRef.current) setLog(l); })
       .catch(() => { if (gen === idGenRef.current) setLogError('Failed to load reading log.'); });
     loadReads();
-  }, [id]);
+  }, [id, refreshTick]);
 
   useEffect(() => {
     if (!book?.id) return;

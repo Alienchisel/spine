@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { useConfirm } from '../components/ConfirmModal.jsx';
+import { useRefreshTick } from '../hooks/useRefreshTick.js';
 
 export default function Lists() {
   const [lists, setLists] = useState([]);
@@ -13,6 +14,7 @@ export default function Lists() {
   const [deleteError, setDeleteError] = useState(null);
   const inputRef = useRef(null);
   const confirm = useConfirm();
+  const refreshTick = useRefreshTick();
 
   useEffect(() => {
     // Stale flag drops the response if the user navigates away before
@@ -24,7 +26,7 @@ export default function Lists() {
       .catch(() => { if (!stale) setError('Failed to load lists.'); })
       .finally(() => { if (!stale) setLoading(false); });
     return () => { stale = true; };
-  }, []);
+  }, [refreshTick]);
 
   async function handleCreate(e) {
     e.preventDefault();

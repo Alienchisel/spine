@@ -3,6 +3,7 @@ import { useParams, Link, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
 import BookCard from '../components/BookCard.jsx';
 import { useGridCols, BROWSE_BPS } from '../hooks/useGridCols.js';
+import { useRefreshTick } from '../hooks/useRefreshTick.js';
 
 const FIELD_LABEL = {
   author: 'Author', translator: 'Translator', publisher: 'Publisher',
@@ -45,6 +46,7 @@ export default function BrowsePage() {
   const loadedRef = useRef(0);
   const genRef    = useRef(0);
   const gridCols  = useGridCols(BROWSE_BPS);
+  const refreshTick = useRefreshTick();
 
   useEffect(() => {
     // Capture this navigation's generation. If the user navigates to a
@@ -65,7 +67,7 @@ export default function BrowsePage() {
       })
       .catch(() => { if (gen === genRef.current) setFetchError(true); })
       .finally(() => { if (gen === genRef.current) setLoading(false); });
-  }, [field, decoded]);
+  }, [field, decoded, refreshTick]);
 
   function handleLoadMore() {
     if (loadingMore || loadingAll) return;
