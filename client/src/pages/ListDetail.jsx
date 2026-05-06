@@ -210,6 +210,14 @@ export default function ListDetail() {
     // sort change can't strand them.
     setLoadingMore(false);
     setLoadingAll(false);
+    // Also drop any open rename UI: navigating between lists while the
+    // rename input is open would otherwise leave the form rendered on the
+    // new list with the previous list's value (and any error message) still
+    // visible. The handleRename gen-guard handles the in-flight PUT response
+    // separately.
+    setRenaming(false);
+    setRenameError(null);
+    setRenameValue('');
     loadedRef.current = 0;
     const params = sort === 'added' ? { sort } : { sort, limit: PAGE_SIZE, offset: 0 };
     api.getList(id, params)
@@ -327,11 +335,17 @@ export default function ListDetail() {
     const name = renameValue.trim();
     if (!name || name === list.name) { setRenaming(false); return; }
     setRenameError(null);
+    // Capture gen so a rename for list A whose PUT resolves after the user
+    // has navigated to list B doesn't slam A's new name onto B's display
+    // (or surface A's error on B's view).
+    const gen = genRef.current;
     try {
       const updated = await api.renameList(id, name);
+      if (gen !== genRef.current) return;
       setList(l => ({ ...l, name: updated.name }));
       setRenaming(false);
     } catch (err) {
+      if (gen !== genRef.current) return;
       setRenameError(err.message);
     }
   }
