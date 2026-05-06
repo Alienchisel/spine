@@ -160,51 +160,6 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
         </FilterSection>
       )}
 
-      {(publishers.length > 0 || hasEmptyPublisher) && (
-        <FilterSection key="publisher" label="Publisher" defaultOpen={false} active={filters.publishers.length > 0}>
-          {hasEmptyPublisher && (
-            <button type="button" onClick={() => toggle('publishers', 'empty')}
-              className={pill(filters.publishers.includes('empty'))}>—</button>
-          )}
-          {publishers.map(p => (
-            <button key={p} type="button" onClick={() => toggle('publishers', p)}
-              className={pill(filters.publishers.includes(p))}>
-              {p}
-            </button>
-          ))}
-        </FilterSection>
-      )}
-
-      {(facets.sources?.length > 0 || facets.hasEmptySource) && (
-        <FilterSection key="source" label="Source" defaultOpen={false} active={(filters.sources || []).length > 0}>
-          {facets.hasEmptySource && (
-            <button type="button" onClick={() => toggle('sources', 'empty')}
-              className={pill((filters.sources || []).includes('empty'))}>—</button>
-          )}
-          {facets.sources.map(s => (
-            <button key={s} type="button" onClick={() => toggle('sources', s)}
-              className={pill((filters.sources || []).includes(s))}>
-              {s}
-            </button>
-          ))}
-        </FilterSection>
-      )}
-
-      {(seriesVals.length > 0 || hasEmptySeries) && (
-        <FilterSection key="series" label="Series" defaultOpen={false} active={filters.series.length > 0}>
-          {hasEmptySeries && (
-            <button type="button" onClick={() => toggle('series', 'empty')}
-              className={pill(filters.series.includes('empty'))}>—</button>
-          )}
-          {seriesVals.map(s => (
-            <button key={s} type="button" onClick={() => toggle('series', s)}
-              className={pill(filters.series.includes(s))}>
-              {s}
-            </button>
-          ))}
-        </FilterSection>
-      )}
-
       {tags.length > 0 && (
         <FilterSection key="tags" label="Tags" active={filters.tags.length > 0}>
           {(() => {
@@ -264,6 +219,54 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
         <button type="button" onClick={() => toggleLoved(false)}
           className={pill(filters.loved === false)}>Not loved</button>
       </FilterSection>
+
+      {/* Deprioritised long-list filters live at the bottom: collapsed by
+          default, and pushed past the expanded sections so their length
+          when opened doesn't shove the rest off-screen. */}
+      {(publishers.length > 0 || hasEmptyPublisher) && (
+        <FilterSection key="publisher" label="Publisher" defaultOpen={false} active={filters.publishers.length > 0}>
+          {hasEmptyPublisher && (
+            <button type="button" onClick={() => toggle('publishers', 'empty')}
+              className={pill(filters.publishers.includes('empty'))}>—</button>
+          )}
+          {publishers.map(p => (
+            <button key={p} type="button" onClick={() => toggle('publishers', p)}
+              className={pill(filters.publishers.includes(p))}>
+              {p}
+            </button>
+          ))}
+        </FilterSection>
+      )}
+
+      {(facets.sources?.length > 0 || facets.hasEmptySource) && (
+        <FilterSection key="source" label="Source" defaultOpen={false} active={(filters.sources || []).length > 0}>
+          {facets.hasEmptySource && (
+            <button type="button" onClick={() => toggle('sources', 'empty')}
+              className={pill((filters.sources || []).includes('empty'))}>—</button>
+          )}
+          {facets.sources.map(s => (
+            <button key={s} type="button" onClick={() => toggle('sources', s)}
+              className={pill((filters.sources || []).includes(s))}>
+              {s}
+            </button>
+          ))}
+        </FilterSection>
+      )}
+
+      {(seriesVals.length > 0 || hasEmptySeries) && (
+        <FilterSection key="series" label="Series" defaultOpen={false} active={filters.series.length > 0}>
+          {hasEmptySeries && (
+            <button type="button" onClick={() => toggle('series', 'empty')}
+              className={pill(filters.series.includes('empty'))}>—</button>
+          )}
+          {seriesVals.map(s => (
+            <button key={s} type="button" onClick={() => toggle('series', s)}
+              className={pill(filters.series.includes(s))}>
+              {s}
+            </button>
+          ))}
+        </FilterSection>
+      )}
     </div>
   );
 }
