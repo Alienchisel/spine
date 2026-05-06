@@ -57,6 +57,14 @@ export default function BrowsePage() {
     setLoading(true);
     setFetchError(false);
     setBooks([]);
+    // Reset pagination flags + action banner: a refresh-tick / nav between
+    // browse targets that fires while loadMore/loadAll is in flight would
+    // otherwise strand the flags at true (their finally clauses are gated
+    // on gen match) and leave the previous failure banner sitting above
+    // the new browse view.
+    setLoadingMore(false);
+    setLoadingAll(false);
+    setActionError(null);
     loadedRef.current = 0;
     api.getBooks({ field, value: decoded, sort: browseSort(field), limit: PAGE_SIZE, offset: 0 })
       .then(({ books: b, total: t }) => {

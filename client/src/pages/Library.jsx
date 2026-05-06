@@ -157,6 +157,14 @@ export default function Library() {
     setLoading(true);
     setFetchError(false);
     setBooks([]);
+    // Reset pagination flags + action banner: a refresh-tick / sort / tab
+    // / filter / query change that fires while loadMore/loadAll is in
+    // flight would otherwise strand the flags at true (their finally
+    // clauses are gated on gen match) and leave the previous failure
+    // banner sitting above the freshly-loaded list.
+    setLoadingMore(false);
+    setLoadingAll(false);
+    setActionError(null);
     loadedRef.current = 0;
     api.getBooks(buildApiParams(tab, sort, filters, query, 0)).then(({ books: b, total: t }) => {
       if (stale) return;
