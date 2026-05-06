@@ -117,11 +117,17 @@ export default function Readlist() {
   // before setBooks has filtered the row out — wasted work, and the
   // shape mirrors ListDetail's removingIdsRef.
   const removingIdsRef = useRef(new Set());
+  // Bumped on every load so an in-flight reorder PUT whose .catch resolves
+  // *after* a refresh-tick reload can detect that books has been replaced
+  // with fresh server state — without this, the rollback to `previous`
+  // would clobber the just-loaded readlist with a stale snapshot.
+  const genRef = useRef(0);
   const refreshTick = useRefreshTick();
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   useEffect(() => {
+    genRef.current += 1;
     // Stale flag drops the response if the user navigates away before
     // getReadlist resolves — setBooks / setError / setLoading otherwise
     // fire on an unmounted component.
@@ -163,7 +169,13 @@ export default function Readlist() {
     const previous = books;  // snapshot for rollback if save fails
     setActionError(null);
     setBooks(reorderedAll);
+    // Capture the load gen so a refresh-tick reload that lands between the
+    // optimistic setBooks above and the .catch below isn't overwritten by
+    // a stale rollback. Also gates the actionError so a failed-old-order
+    // banner doesn't appear above an already-fresh readlist.
+    const gen = genRef.current;
     api.reorderReadlist(reorderedAll.map(b => b.id)).catch(() => {
+      if (gen !== genRef.current) return;
       setBooks(previous);
       setActionError('Failed to save readlist order.');
     });
