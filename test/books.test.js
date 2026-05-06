@@ -694,6 +694,18 @@ describe('books', () => {
       assert.equal(status, 404);
       assert.equal(body.error, 'Not found');
     });
+
+    it('does not bump updated_at when re-submitting the same current_page', async () => {
+      // SQLite datetime('now', 'localtime') is second-precision, so we sleep
+      // past the second boundary to make any spurious bump observable. With
+      // the no-op guard in patchBook, second.updated_at must equal first's.
+      const { body: created } = await req('POST', '/api/books', { title: 'Idempotent Progress' });
+      const { body: first }   = await req('PATCH', `/api/books/${created.id}`, { current_page: 50 });
+      await new Promise(r => setTimeout(r, 1100));
+      const { body: second }  = await req('PATCH', `/api/books/${created.id}`, { current_page: 50 });
+      assert.equal(second.current_page, 50);
+      assert.equal(second.updated_at, first.updated_at);
+    });
   });
 
   describe('DELETE /api/books/:id', () => {
