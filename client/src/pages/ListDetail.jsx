@@ -281,8 +281,13 @@ export default function ListDetail() {
     // was being decremented before; the percentages would keep showing the
     // pre-remove ratio until a full refetch.
     const removed = list.books.find(b => b.id === bookId);
-    const ownedDelta    = removed?.owned                  ? 1 : 0;
-    const finishedDelta = removed?.status === 'finished'  ? 1 : 0;
+    // Bail if the book is no longer in local state — a stale double-click
+    // (or a row event that fired after a previous remove already filtered
+    // it out) would otherwise hit the API for a book that's gone, and
+    // decrement total/loadedRef even though there's nothing to decrement.
+    if (!removed) return;
+    const ownedDelta    = removed.owned                  ? 1 : 0;
+    const finishedDelta = removed.status === 'finished'  ? 1 : 0;
     try {
       await api.removeFromList(id, bookId);
       setList(l => ({
