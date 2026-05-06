@@ -75,6 +75,13 @@ function parseIdParam(params, key) {
 // location-books fetch so a stale ?b=999 doesn't briefly fire a doomed
 // API call in the same render that the prune effect rewrites the URL.
 function pathResolves(tree, buildingId, roomId, unitId, shelfId) {
+  // Reject orphaned child ids before any tree work — a hand-typed or
+  // stale URL like ?r=123 with no ?b= would otherwise short-circuit on
+  // !buildingId and let getRoomBooks(123) fire one render before the
+  // prune effect rewrites to root.
+  if (roomId && !buildingId) return false;
+  if (unitId && (!buildingId || !roomId)) return false;
+  if (shelfId && (!buildingId || !roomId || !unitId)) return false;
   if (!buildingId) return true;
   const building = tree.find(b => b.id === buildingId);
   if (!building) return false;
