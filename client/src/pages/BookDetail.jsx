@@ -65,6 +65,11 @@ export default function BookDetail() {
   // re-fires on book?.id, which is downstream of the first effect's setBook.
   const idGenRef = useRef(0);
   const bookGenRef = useRef(0);
+  // Bumped on every rating click so a slower-resolving earlier PUT can't
+  // setBook over a faster-resolving later PUT (e.g. user clicks 5 then 3
+  // and the 5 response lands last). Local-UI scoped — server-side last-
+  // write-wins is unaffected and could still differ in edge cases.
+  const ratingSeqRef = useRef(0);
   // Tracks the URL's current id every render so callbacks fired by child
   // components (e.g. ProgressSection.onChange after an async save) can
   // tell whether their result still belongs to the page being viewed.
@@ -231,17 +236,18 @@ export default function BookDetail() {
     const reqId = book.id;
     setActionError(null);
     setFinishError(null);
+    const seq = ++ratingSeqRef.current;
     try {
       const updated = await api.updateBook(reqId, {
         ...book,
         rating,
         tags: realTagNames(book.tags),
       });
-      if (!isStillCurrent(reqId)) return;
+      if (!isStillCurrent(reqId) || seq !== ratingSeqRef.current) return;
       setBook(updated);
       setRatingPrompt(false);
     } catch {
-      if (!isStillCurrent(reqId)) return;
+      if (!isStillCurrent(reqId) || seq !== ratingSeqRef.current) return;
       setActionError('Failed to save rating');
     }
   }

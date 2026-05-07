@@ -38,6 +38,11 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
   const [ratingPrompt, setRatingPrompt] = useState(false);
   const inputRef = useRef(null);
   const formRef = useRef(null);
+  // Bumped on every rating click so a slower-resolving earlier PUT can't
+  // setBook over a faster-resolving later PUT (e.g. user clicks 5 then 3
+  // and the 5 response lands last). Local-UI scoped — server-side last-
+  // write-wins is unaffected and could still differ in edge cases.
+  const ratingSeqRef = useRef(0);
 
   useEffect(() => { setBook(initialBook); }, [initialBook]);
 
@@ -200,6 +205,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
 
   async function handleRate(rating) {
     setError(null);
+    const seq = ++ratingSeqRef.current;
     try {
       // Only forward `tags` if the parent actually loaded them onto the book
       // prop. Sending `tags: []` when we don't know the real tags would wipe
@@ -207,10 +213,12 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
       const payload = { ...book, rating };
       if (book.tags !== undefined) payload.tags = realTagNames(book.tags);
       const rated = await api.updateBook(book.id, payload);
+      if (seq !== ratingSeqRef.current) return;
       setBook(rated);
       onProgressUpdate?.(rated);
       setRatingPrompt(false);
     } catch {
+      if (seq !== ratingSeqRef.current) return;
       setError('Failed to save rating');
     }
   }
