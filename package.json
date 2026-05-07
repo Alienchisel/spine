@@ -4,13 +4,12 @@
   "type": "module",
   "scripts": {
     "setup": "npm install && cd client && npm install && npm run build",
-    "dev:server": "node --watch server.js",
+    "dev:server": "scripts/with-toolchain.sh node --watch server.js",
     "dev:client": "cd client && npm run dev",
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "build": "cd client && npm run build",
-    "start": "NODE_ENV=production node server.js",
-    "test": "node --test test/**/*.test.js",
-    "test:codex": "PATH=$PWD/.tools/node-v20.20.2-linux-x64/bin:$PWD/node_modules/.bin:$PATH npm_config_cache=$PWD/.tools/npm-cache npm_config_nodedir=$PWD/.tools/node-v20.20.2-linux-x64 node --test test/**/*.test.js"
+    "start": "NODE_ENV=production scripts/with-toolchain.sh node server.js",
+    "test": "scripts/with-toolchain.sh node --test test/*.test.js"
   },
   "dependencies": {
     "better-sqlite3": "^9.4.3",
