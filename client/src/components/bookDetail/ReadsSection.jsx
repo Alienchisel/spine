@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { api } from '../../api.js';
 import PartialDateInput from '../PartialDateInput.jsx';
 import { useConfirm } from '../ConfirmModal.jsx';
@@ -10,6 +10,14 @@ export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBo
   const [form, setForm] = useState({ date_started: '', date_finished: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  // Tracks read ids whose delete is in flight. The ConfirmModal cancels
+  // an overlapping confirm() so a rapid double-click on the same ✕ won't
+  // fire two deletes — but a *re-click* after confirming (while the API
+  // call is still pending and the row is still visibly listed) can,
+  // producing a 404 on the second call and a misleading "Failed to
+  // delete read" banner above a row that did delete. Mirrors the shape
+  // of Readlist's removingIdsRef.
+  const deletingIdsRef = useRef(new Set());
   const confirm = useConfirm();
 
   // On a finished book, "log a read" means re-read: bump read_count + add row
@@ -90,13 +98,18 @@ export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBo
   }
 
   async function handleDelete(readId) {
+    if (deletingIdsRef.current.has(readId)) return;
     if (!await confirm('Remove this read entry?')) return;
+    if (deletingIdsRef.current.has(readId)) return;
+    deletingIdsRef.current.add(readId);
     setError(null);
     try {
       await api.deleteRead(bookId, readId);
       onUpdate();
     } catch {
       setError('Failed to delete read');
+    } finally {
+      deletingIdsRef.current.delete(readId);
     }
   }
 
