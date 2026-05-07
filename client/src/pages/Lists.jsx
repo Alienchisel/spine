@@ -20,6 +20,13 @@ export default function Lists() {
   // the success-path setLists would graft `created` onto a fresh list that
   // already contains it, producing a duplicate row until the next reload.
   const genRef = useRef(0);
+  // Tracks list ids whose delete is in flight. The confirm modal cancels
+  // overlapping confirms, but a re-click *after* confirming — while the
+  // API call is pending and setLists hasn't yet filtered the row out —
+  // fires a duplicate deleteList that 404s and surfaces "Failed to delete
+  // list." on a list that did delete. Mirrors the pattern in ReadsSection
+  // and Diary.
+  const deletingIdsRef = useRef(new Set());
   const refreshTick = useRefreshTick();
 
   useEffect(() => {
@@ -77,10 +84,13 @@ export default function Lists() {
   }
 
   async function handleDelete(list) {
+    if (deletingIdsRef.current.has(list.id)) return;
     const msg = list.book_count > 0
       ? `Delete "${list.name}"? It contains ${list.book_count} ${list.book_count === 1 ? 'book' : 'books'}.`
       : `Delete "${list.name}"?`;
     if (!await confirm(msg)) return;
+    if (deletingIdsRef.current.has(list.id)) return;
+    deletingIdsRef.current.add(list.id);
     setDeleteError(null);
     setCreateError(null);
     try {
@@ -88,6 +98,8 @@ export default function Lists() {
       setLists(ls => ls.filter(l => l.id !== list.id));
     } catch {
       setDeleteError('Failed to delete list.');
+    } finally {
+      deletingIdsRef.current.delete(list.id);
     }
   }
 

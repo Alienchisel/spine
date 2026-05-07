@@ -34,6 +34,17 @@ export default function ShelfManager() {
   // bumps gen, so the stale reorder's reload IS "the latest" by gen.
   // Mirrors the seq guard in Readlist / ListDetail / ShelfView.
   const reorderSeqRef = useRef(0);
+  // Tracks ids whose delete is in flight, per kind. The confirm modal
+  // cancels overlapping confirms, but a re-click *after* confirming —
+  // while the API call is pending and reload() hasn't yet refreshed the
+  // tree — fires a duplicate delete that 404s and surfaces a stale
+  // "Failed to delete …" banner on a row that did delete. Four refs
+  // because building/room/unit/shelf id namespaces are independent.
+  // Mirrors the pattern in ReadsSection / Diary / Lists.
+  const deletingBuildingIdsRef = useRef(new Set());
+  const deletingRoomIdsRef     = useRef(new Set());
+  const deletingUnitIdsRef     = useRef(new Set());
+  const deletingShelfIdsRef    = useRef(new Set());
   const refreshTick = useRefreshTick();
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
@@ -95,13 +106,18 @@ export default function ShelfManager() {
   }
 
   async function deleteBuilding(id) {
+    if (deletingBuildingIdsRef.current.has(id)) return;
     if (!await confirm('Delete this building and all its rooms, units, and shelves?')) return;
+    if (deletingBuildingIdsRef.current.has(id)) return;
+    deletingBuildingIdsRef.current.add(id);
     setError(null);
     try {
       await api.deleteBuilding(id);
       reload();
     } catch {
       setError('Failed to delete building.');
+    } finally {
+      deletingBuildingIdsRef.current.delete(id);
     }
   }
 
@@ -139,13 +155,18 @@ export default function ShelfManager() {
   }
 
   async function deleteRoom(id) {
+    if (deletingRoomIdsRef.current.has(id)) return;
     if (!await confirm('Delete this room and all its units and shelves?')) return;
+    if (deletingRoomIdsRef.current.has(id)) return;
+    deletingRoomIdsRef.current.add(id);
     setError(null);
     try {
       await api.deleteRoom(id);
       reload();
     } catch {
       setError('Failed to delete room.');
+    } finally {
+      deletingRoomIdsRef.current.delete(id);
     }
   }
 
@@ -183,13 +204,18 @@ export default function ShelfManager() {
   }
 
   async function deleteUnit(id) {
+    if (deletingUnitIdsRef.current.has(id)) return;
     if (!await confirm('Delete this unit and all its shelves?')) return;
+    if (deletingUnitIdsRef.current.has(id)) return;
+    deletingUnitIdsRef.current.add(id);
     setError(null);
     try {
       await api.deleteUnit(id);
       reload();
     } catch {
       setError('Failed to delete unit.');
+    } finally {
+      deletingUnitIdsRef.current.delete(id);
     }
   }
 
@@ -227,13 +253,18 @@ export default function ShelfManager() {
   }
 
   async function deleteShelf(id) {
+    if (deletingShelfIdsRef.current.has(id)) return;
     if (!await confirm('Delete this shelf? Books assigned here will lose their location.')) return;
+    if (deletingShelfIdsRef.current.has(id)) return;
+    deletingShelfIdsRef.current.add(id);
     setError(null);
     try {
       await api.deleteShelf(id);
       reload();
     } catch {
       setError('Failed to delete shelf.');
+    } finally {
+      deletingShelfIdsRef.current.delete(id);
     }
   }
 
