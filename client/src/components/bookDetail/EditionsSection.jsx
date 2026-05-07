@@ -13,7 +13,7 @@ function statusBadge(e) {
   return 'Unread';
 }
 
-function EditionRow({ edition, onUnlink }) {
+function EditionRow({ edition, onUnlink, disabled }) {
   return (
     <div className="flex items-center gap-3 py-2">
       <Link
@@ -34,7 +34,8 @@ function EditionRow({ edition, onUnlink }) {
       </Link>
       <button
         onClick={onUnlink}
-        className="text-neutral-700 hover:text-warn text-lg leading-none flex-shrink-0 transition-colors"
+        disabled={disabled}
+        className="text-neutral-700 hover:text-warn disabled:opacity-40 disabled:cursor-wait text-lg leading-none flex-shrink-0 transition-colors"
         title="Unlink this edition"
       >
         ×
@@ -54,6 +55,16 @@ export default function EditionsSection({ book, onChange }) {
   // Bumped on every search dispatch — late responses for stale terms are
   // dropped instead of clobbering the visible list with old matches.
   const searchGenRef = useRef(0);
+  // Bumped on every link/unlink dispatch so an earlier mutation's onChange
+  // (or the second-leg getBook in handleUnlink) can be dropped if a newer
+  // mutation has already applied — without this, A's stale `updated`
+  // snapshot can clobber B's already-applied edition list. Mirrors the
+  // seq guard pattern used across Spine's async actions.
+  const mutationSeqRef = useRef(0);
+  // Visual lockout for the row whose mutation is in flight; lets us
+  // disable that button so a fast double-click can't re-fire the same
+  // PUT before the first resolves.
+  const [mutatingId, setMutatingId] = useState(null);
 
   useEffect(() => {
     if (picking) setTimeout(() => inputRef.current?.focus(), 0);
@@ -81,29 +92,47 @@ export default function EditionsSection({ book, onChange }) {
   }, [query, picking, book.id, editions]);
 
   async function handlePick(otherId) {
+    if (mutatingId === otherId) return;
     setError(null);
+    setMutatingId(otherId);
+    const seq = ++mutationSeqRef.current;
     try {
       const updated = await api.linkEdition(book.id, otherId);
+      if (seq !== mutationSeqRef.current) return;
       onChange(updated);
       setPicking(false);
       setQuery('');
       setResults([]);
     } catch {
+      if (seq !== mutationSeqRef.current) return;
       setError('Failed to link edition.');
+    } finally {
+      // Only clear the visual lock if THIS mutation is still the latest;
+      // otherwise a newer mutation has already overwritten mutatingId for
+      // its own row and we'd un-disable the wrong button.
+      if (seq === mutationSeqRef.current) setMutatingId(null);
     }
   }
 
   async function handleUnlink(otherId) {
+    if (mutatingId === otherId) return;
     setError(null);
+    setMutatingId(otherId);
+    const seq = ++mutationSeqRef.current;
     try {
       // Unlink the SIBLING, not self — the visible effect (sibling row
       // disappears from this book's list) is what the ✕ click implies.
       // Self stays in the group if other siblings remain.
       await api.unlinkEdition(otherId);
+      if (seq !== mutationSeqRef.current) return;
       const refreshed = await api.getBook(book.id);
+      if (seq !== mutationSeqRef.current) return;
       onChange(refreshed);
     } catch {
+      if (seq !== mutationSeqRef.current) return;
       setError('Failed to unlink edition.');
+    } finally {
+      if (seq === mutationSeqRef.current) setMutatingId(null);
     }
   }
 
@@ -128,7 +157,7 @@ export default function EditionsSection({ book, onChange }) {
       {error && <p className="text-xs text-warn mb-2">{error}</p>}
       <div className="divide-y divide-neutral-800/60">
         {editions.map(e => (
-          <EditionRow key={e.id} edition={e} onUnlink={() => handleUnlink(e.id)} />
+          <EditionRow key={e.id} edition={e} onUnlink={() => handleUnlink(e.id)} disabled={mutatingId === e.id} />
         ))}
       </div>
 
@@ -153,7 +182,8 @@ export default function EditionsSection({ book, onChange }) {
                 <button
                   key={r.id}
                   onClick={() => handlePick(r.id)}
-                  className="w-full text-left flex items-center gap-3 px-2 py-1.5 hover:bg-neutral-800/60 transition-colors"
+                  disabled={mutatingId === r.id}
+                  className="w-full text-left flex items-center gap-3 px-2 py-1.5 hover:bg-neutral-800/60 disabled:opacity-50 disabled:cursor-wait transition-colors"
                 >
                   <div className="w-7 h-[42px] flex-shrink-0 rounded overflow-hidden bg-neutral-800">
                     {r.cover_path
