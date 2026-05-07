@@ -41,6 +41,11 @@ export default function BookDetail() {
   const [loving, setLoving] = useState(false);
   const [listing, setListing] = useState(false);
   const [archiving, setArchiving] = useState(false);
+  // Lockout for the Delete button. The navigate('/') on success makes the
+  // re-click window small but non-zero — without this, a second click
+  // between "confirm OK" and "navigate fires" produces a brief
+  // "Failed to delete book" flash on a book that did delete.
+  const [deleting, setDeleting] = useState(false);
   const [finishError, setFinishError] = useState(null);
   const [loadError, setLoadError] = useState(false);
   // Surfaces failures from the three quick actions in the action column
@@ -273,8 +278,11 @@ export default function BookDetail() {
   }
 
   async function handleDelete() {
+    if (deleting) return;
     if (!await confirm(`Delete "${book.title}"?`)) return;
+    if (deleting) return;
     const reqId = id;
+    setDeleting(true);
     setDeleteError(null);
     try {
       await api.deleteBook(reqId);
@@ -282,6 +290,9 @@ export default function BookDetail() {
     } catch {
       if (!isStillCurrent(reqId)) return;
       setDeleteError('Failed to delete book. Please try again.');
+      // Only reset on failure — on success the component unmounts via
+      // navigate, so leaving the flag latched is moot.
+      setDeleting(false);
     }
   }
 
@@ -600,9 +611,10 @@ export default function BookDetail() {
           <div className="mt-8 pt-6 border-t border-neutral-800/60">
             <button
               onClick={handleDelete}
-              className="text-sm text-neutral-600 hover:text-warn transition-colors"
+              disabled={deleting}
+              className="text-sm text-neutral-600 hover:text-warn disabled:opacity-50 disabled:cursor-wait transition-colors"
             >
-              Delete
+              {deleting ? 'Deleting…' : 'Delete'}
             </button>
             {deleteError && <p className="text-xs text-warn mt-2">{deleteError}</p>}
           </div>
