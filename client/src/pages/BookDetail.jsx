@@ -33,6 +33,14 @@ export default function BookDetail() {
   const [descExpanded, setDescExpanded] = useState(false);
   const [ratingPrompt, setRatingPrompt] = useState(false);
   const [finishing, setFinishing] = useState(false);
+  // In-flight lockouts for the three quick toggles. Without these a fast
+  // double-click reads stale `book.loved` (etc.) before the first PUT's
+  // response has landed, so both intents resolve to the same target value
+  // and the toggle effectively no-ops the second click. Mirrors the
+  // pattern already used in BookCard.
+  const [loving, setLoving] = useState(false);
+  const [listing, setListing] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const [finishError, setFinishError] = useState(null);
   const [loadError, setLoadError] = useState(false);
   // Surfaces failures from the three quick actions in the action column
@@ -162,7 +170,9 @@ export default function BookDetail() {
   // another. Each handler clears both on entry so the visible state always
   // reflects the most recent action — same shape as the Lists.jsx fix.
   async function toggleLoved() {
+    if (loving) return;
     const reqId = book.id;
+    setLoving(true);
     setActionError(null);
     setFinishError(null);
     try {
@@ -172,11 +182,15 @@ export default function BookDetail() {
     } catch {
       if (!isStillCurrent(reqId)) return;
       setActionError('Failed to update loved');
+    } finally {
+      setLoving(false);
     }
   }
 
   async function toggleReadlist() {
+    if (listing) return;
     const reqId = book.id;
+    setListing(true);
     setActionError(null);
     setFinishError(null);
     try {
@@ -186,11 +200,15 @@ export default function BookDetail() {
     } catch {
       if (!isStillCurrent(reqId)) return;
       setActionError('Failed to update readlist');
+    } finally {
+      setListing(false);
     }
   }
 
   async function toggleArchived() {
+    if (archiving) return;
     const reqId = book.id;
+    setArchiving(true);
     setActionError(null);
     setFinishError(null);
     try {
@@ -200,6 +218,8 @@ export default function BookDetail() {
     } catch {
       if (!isStillCurrent(reqId)) return;
       setActionError('Failed to update archive state');
+    } finally {
+      setArchiving(false);
     }
   }
 
