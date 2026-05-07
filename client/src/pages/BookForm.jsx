@@ -165,6 +165,13 @@ export default function BookForm() {
   // edit, so back-out without saving should be guarded.
   const onDurationH = (v) => { setDurationH(v); setDirty(true); };
   const onDurationM = (v) => { setDurationM(v); setDirty(true); };
+  // Wrapped setForm passed to children that need multi-field updates the
+  // single-field set() can't express (format select with its
+  // dependent-field clearing, owned/is_custom checkboxes that cascade,
+  // shelf-location cascade). Without dirty-tracking on these, the user
+  // could change format → audiobook, back out, and lose the edit
+  // silently — guard inactive for that path.
+  const setFormDirty = (updater) => { setForm(updater); setDirty(true); };
 
   // Guard 1: SPA navigation — clicking ← Library, the breadcrumb, or any
   // in-app navigation while there are unsaved edits. The cover-orphan
@@ -173,8 +180,15 @@ export default function BookForm() {
   // out mid-edit silently leaks the file and discards other field edits.
   // Requires the data router defined in main.jsx (useBlocker only works
   // under createBrowserRouter / RouterProvider, not <BrowserRouter>).
+  // Gate on savingRef: handleSubmit does `setDirty(false); navigate(...)`
+  // in the same tick, but state updates are batched — when navigate fires
+  // the blocker callback's closure still sees dirty=true and the discard
+  // prompt would fire on a *successful* save. savingRef is mutated
+  // synchronously at the top of handleSubmit, so it's already true when
+  // the blocker callback evaluates and bypasses cleanly. Cleared on
+  // failure so a stuck-saving state can't permanently disable the guard.
   const blocker = useBlocker(({ currentLocation, nextLocation }) =>
-    dirty && currentLocation.pathname !== nextLocation.pathname
+    dirty && !savingRef.current && currentLocation.pathname !== nextLocation.pathname
   );
   useEffect(() => {
     if (blocker.state !== 'blocked') return;
@@ -436,7 +450,7 @@ export default function BookForm() {
           <form id="book-form" onSubmit={handleSubmit} className="pb-20">
             {activeTab === 'core' && (
               <CoreFields
-                form={form} setForm={setForm} set={set} ic={ic} isEdit={isEdit}
+                form={form} setForm={setFormDirty} set={set} ic={ic} isEdit={isEdit}
                 pastAuthors={pastAuthors} pastSeries={pastSeries} pastNarrators={pastNarrators}
                 authorInput={authorInput}     setAuthorInput={setAuthorInput}
                 narratorInput={narratorInput} setNarratorInput={setNarratorInput}
@@ -455,7 +469,7 @@ export default function BookForm() {
             )}
             {activeTab === 'acquisition' && (
               <AcquisitionFields
-                form={form} setForm={setForm} set={set}
+                form={form} setForm={setFormDirty} set={set}
                 pastSources={pastSources} shelfTree={shelfTree}
               />
             )}
