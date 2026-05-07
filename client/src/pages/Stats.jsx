@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { api } from '../api.js';
@@ -164,6 +164,15 @@ export default function Stats() {
   // Distinct from `error` so a flaky settings fetch doesn't blank out
   // the entire stats page (settings only feed the three Goal cards).
   const [settingsError, setSettingsError] = useState(null);
+  // Bumped per goal-key on every saveGoal so an earlier failed save's
+  // rollback can detect that a later edit on the same key has already
+  // applied — without this, A's catch restores `prev` (A's pre-A value)
+  // over B's newer optimistic value. Object keyed by goal name because
+  // the three goals are independent, and a stale rollback on one
+  // shouldn't drop a valid rollback on another. Mirrors the seq guard
+  // used in Readlist / ListDetail / ShelfView / ShelfManager / rating
+  // saves.
+  const goalSaveSeqRef = useRef({});
   const refreshTick = useRefreshTick();
 
   useEffect(() => {
@@ -190,9 +199,11 @@ export default function Stats() {
     const prev = settings[key];
     setActionError(null);
     setSettings(s => ({ ...s, [key]: String(value) }));
+    const seq = goalSaveSeqRef.current[key] = (goalSaveSeqRef.current[key] ?? 0) + 1;
     try {
       await api.setSetting(key, value);
     } catch {
+      if (seq !== goalSaveSeqRef.current[key]) return;
       setSettings(s => ({ ...s, [key]: prev }));
       setActionError('Failed to save goal.');
     }
