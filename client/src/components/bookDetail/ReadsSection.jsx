@@ -91,8 +91,9 @@ export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBo
 
   async function handleUpdate(e, readId) {
     e.preventDefault();
-    if (saving) return;
+    if (savingRef.current || saving) return;
     if (!validateDates()) return;
+    savingRef.current = true;
     setSaving(true);
     setError(null);
     try {
@@ -102,6 +103,7 @@ export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBo
     } catch {
       setError('Failed to save');
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   }
