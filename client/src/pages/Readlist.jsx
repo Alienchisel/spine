@@ -122,6 +122,11 @@ export default function Readlist() {
   // with fresh server state — without this, the rollback to `previous`
   // would clobber the just-loaded readlist with a stale snapshot.
   const genRef = useRef(0);
+  // Bumped on every drag so an earlier failed reorder whose .catch lands
+  // *after* a later drag has already applied optimistically can detect
+  // that it's stale — without this, A's rollback to its pre-A snapshot
+  // would clobber B's newer optimistic order.
+  const reorderSeqRef = useRef(0);
   const refreshTick = useRefreshTick();
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
@@ -182,8 +187,12 @@ export default function Readlist() {
     // a stale rollback. Also gates the actionError so a failed-old-order
     // banner doesn't appear above an already-fresh readlist.
     const gen = genRef.current;
+    // Capture the reorder seq so an earlier failed PUT whose .catch lands
+    // after a later drag's optimistic apply doesn't restore a now-stale
+    // pre-A snapshot over B's newer order.
+    const reorderSeq = ++reorderSeqRef.current;
     api.reorderReadlist(reorderedAll.map(b => b.id)).catch(() => {
-      if (gen !== genRef.current) return;
+      if (gen !== genRef.current || reorderSeq !== reorderSeqRef.current) return;
       setBooks(previous);
       setActionError('Failed to save readlist order.');
     });

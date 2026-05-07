@@ -189,6 +189,11 @@ export default function ListDetail() {
   const [editMode, setEditMode] = useState(false);
   const loadedRef = useRef(0);
   const genRef = useRef(0);
+  // Bumped on every drag so an earlier failed reorder whose .catch lands
+  // *after* a later drag has already applied optimistically can detect
+  // that it's stale — without this, A's rollback to its pre-A snapshot
+  // would clobber B's newer optimistic order.
+  const reorderSeqRef = useRef(0);
   // Tracks book ids whose remove call is still in flight. Prevents a fast
   // double-click from firing a second api.removeFromList before the first
   // resolves — that's the only window where local state still contains
@@ -382,8 +387,12 @@ export default function ListDetail() {
     // PUT resolves. Without this, a failed PUT for list A would apply a
     // stale snapshot to list B's books and surface A's error on B.
     const gen = genRef.current;
+    // Capture the reorder seq so an earlier failed PUT whose .catch lands
+    // after a later drag's optimistic apply doesn't restore a now-stale
+    // pre-A snapshot over B's newer order.
+    const reorderSeq = ++reorderSeqRef.current;
     api.reorderList(id, reordered.map(b => b.id)).catch(() => {
-      if (gen !== genRef.current) return;
+      if (gen !== genRef.current || reorderSeq !== reorderSeqRef.current) return;
       setList(l => ({ ...l, books: previousBooks }));
       setActionError('Failed to save list order.');
     });
