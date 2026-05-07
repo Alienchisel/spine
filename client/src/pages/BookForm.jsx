@@ -72,6 +72,14 @@ export default function BookForm() {
   // branch. Shared across all four so any combo (paste-then-upload,
   // ISBN-then-pick, etc.) drops the slower one's writes and finally.
   const coverActionGenRef = useRef(0);
+  // `saving` (React state) drives the disabled UI but doesn't commit until
+  // the next render — so two synchronous submit calls in the same tick
+  // (Enter-key autorepeat, programmatic dispatch, double-click on Save)
+  // both see saving === false and fire duplicate POSTs on /books/new,
+  // creating two identical book records. Ref mutates synchronously so the
+  // second call sees the first's marker. Mirrors the savingRef pattern in
+  // BookCard / ProgressSection.
+  const savingRef = useRef(false);
   const [durationH, setDurationH] = useState('');
   const [durationM, setDurationM] = useState('');
 
@@ -295,8 +303,9 @@ export default function BookForm() {
     // loadError / loadingBook cases are load-bearing: submitting during the
     // edit-load gap PUTs FORM_DEFAULTS over the real book, which is the
     // data-loss path we already plugged at the button level.
-    if (saving || uploading || loadingBook || loadError) return;
+    if (savingRef.current || saving || uploading || loadingBook || loadError) return;
     if (!form.title.trim()) { setActiveTab('core'); return; }
+    savingRef.current = true;
     setSaving(true);
     setError(null);
     try {
@@ -310,6 +319,9 @@ export default function BookForm() {
       }
     } catch (err) {
       setError(err.message);
+      // Clear only on failure — on success the component unmounts via
+      // navigate, so leaving the ref latched is moot.
+      savingRef.current = false;
       setSaving(false);
     }
   }
