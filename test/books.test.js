@@ -2922,6 +2922,66 @@ describe('books', () => {
       assert.equal(status, 200);
       assert.equal(body.work_id, null);
     });
+
+    it('rating change propagates to linked editions', async () => {
+      // Linked editions stay in sync on rating/review/read_count — same
+      // user-facing intent as the old title+firstAuthor heuristic, but
+      // gated on an explicit work_id link so unrelated books that happen
+      // to share metadata aren't dragged along.
+      const a = await mkBook('Propagate Rating A');
+      const b = await mkBook('Propagate Rating B');
+      await req('POST', `/api/books/${a.id}/work-link`, { other_id: b.id });
+      const { body: aLinked } = await req('GET', `/api/books/${a.id}`);
+      await req('PUT', `/api/books/${a.id}`, { ...aLinked, rating: 4.5, tags: [] });
+      const { body: bAfter } = await req('GET', `/api/books/${b.id}`);
+      assert.equal(bAfter.rating, 4.5);
+    });
+
+    it('review change propagates to linked editions', async () => {
+      const a = await mkBook('Propagate Review A');
+      const b = await mkBook('Propagate Review B');
+      await req('POST', `/api/books/${a.id}/work-link`, { other_id: b.id });
+      const { body: aLinked } = await req('GET', `/api/books/${a.id}`);
+      await req('PUT', `/api/books/${a.id}`, { ...aLinked, review: 'Excellent.', tags: [] });
+      const { body: bAfter } = await req('GET', `/api/books/${b.id}`);
+      assert.equal(bAfter.review, 'Excellent.');
+    });
+
+    it('non-rating edits on linked editions do not clobber existing ratings', async () => {
+      // Regression for the legacy title+firstAuthor sync, which fired on
+      // every updateBook — editing a description with `rating: null` in
+      // the spread payload silently nulled rating on every book sharing
+      // the title and first-author. Now propagation is gated on actual
+      // change in rating/review/read_count, so editing other fields is
+      // a no-op for the sibling's rating.
+      const a = await mkBook('No-Clobber A');
+      const b = await mkBook('No-Clobber B');
+      await req('POST', `/api/books/${a.id}/work-link`, { other_id: b.id });
+      // Set a rating on B independently.
+      const { body: bLinked } = await req('GET', `/api/books/${b.id}`);
+      await req('PUT', `/api/books/${b.id}`, { ...bLinked, rating: 5, tags: [] });
+      // Now edit A's description — A still has no rating.
+      const { body: aLinked } = await req('GET', `/api/books/${a.id}`);
+      await req('PUT', `/api/books/${a.id}`, { ...aLinked, description: 'Some notes', tags: [] });
+      // B's rating should survive.
+      const { body: bAfter } = await req('GET', `/api/books/${b.id}`);
+      assert.equal(bAfter.rating, 5);
+    });
+
+    it('unlinked books sharing title and first-author do not cross-propagate', async () => {
+      // Defect from the legacy heuristic: any two books with the same title
+      // and first-author name were silently treated as linked editions and
+      // shared rating/review writes. This wrongly affected unrelated books
+      // (e.g. anthologies under "Various Authors", duplicate placeholder
+      // names like "Anonymous"). With work_id gating, no link → no sync.
+      const stem = 'unlinked-share-' + Math.random().toString(36).slice(2, 6);
+      const { body: a } = await req('POST', '/api/books', { title: stem, authors: ['Shared Name'] });
+      const { body: b } = await req('POST', '/api/books', { title: stem, authors: ['Shared Name'] });
+      const { body: aFull } = await req('GET', `/api/books/${a.id}`);
+      await req('PUT', `/api/books/${a.id}`, { ...aFull, rating: 5, tags: [] });
+      const { body: bAfter } = await req('GET', `/api/books/${b.id}`);
+      assert.equal(bAfter.rating, null, 'unlinked sibling must not receive A’s rating');
+    });
   });
 
   describe('diacritic-insensitive search', () => {
