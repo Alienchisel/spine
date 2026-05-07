@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useBlocker } from 'react-router-dom';
 import { api } from '../api.js';
 import { FORM_DEFAULTS, VIRTUAL_TAG_NAMES } from '../../../shared/bookFields.js';
 import { bookToFormState, formStateToPayload } from '../components/bookForm/mapping.js';
@@ -10,6 +10,7 @@ import CoreFields from '../components/bookForm/CoreFields.jsx';
 import DetailsFields from '../components/bookForm/DetailsFields.jsx';
 import AcquisitionFields from '../components/bookForm/AcquisitionFields.jsx';
 import PersonalFields from '../components/bookForm/PersonalFields.jsx';
+import { useConfirm } from '../components/ConfirmModal.jsx';
 
 const TABS = [
   { key: 'core',        label: 'Core' },
@@ -82,6 +83,12 @@ export default function BookForm() {
   const savingRef = useRef(false);
   const [durationH, setDurationH] = useState('');
   const [durationM, setDurationM] = useState('');
+  // Tracks whether the form has unsaved user edits since mount or last
+  // successful save. Drives two guards below (browser-back / SPA-nav and
+  // beforeunload). Edit-load and FORM_DEFAULTS reset don't go through the
+  // wrapped setters, so loading a book doesn't taint dirty.
+  const [dirty, setDirty] = useState(false);
+  const confirm = useConfirm();
 
   useEffect(() => {
     let stale = false;
@@ -150,7 +157,51 @@ export default function BookForm() {
   function set(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
     setFilledByLookup(s => { if (!s.has(field)) return s; const n = new Set(s); n.delete(field); return n; });
+    setDirty(true);
   }
+
+  // Wrapped duration setters passed to children. Auxiliary state that
+  // doesn't flow through `set()` directly but still represents a user
+  // edit, so back-out without saving should be guarded.
+  const onDurationH = (v) => { setDurationH(v); setDirty(true); };
+  const onDurationM = (v) => { setDurationM(v); setDirty(true); };
+
+  // Guard 1: SPA navigation (clicking ← Library, breadcrumb, anything via
+  // react-router) when there are unsaved edits. The cover-orphan path is
+  // the load-bearing case: a drag-uploaded cover writes a file to /uploads/
+  // immediately, but only attaches to a book record on Save — backing out
+  // mid-edit silently leaks the file AND throws away the user's other
+  // changes.
+  const blocker = useBlocker(({ currentLocation, nextLocation }) =>
+    dirty && currentLocation.pathname !== nextLocation.pathname
+  );
+  useEffect(() => {
+    if (blocker.state !== 'blocked') return;
+    let cancelled = false;
+    confirm({
+      message: 'Discard unsaved changes?',
+      confirmLabel: 'Discard',
+    }).then(ok => {
+      if (cancelled) return;
+      if (ok) blocker.proceed();
+      else blocker.reset();
+    });
+    return () => { cancelled = true; };
+  }, [blocker, confirm]);
+
+  // Guard 2: hard browser navigation (close tab, refresh, address-bar URL).
+  // beforeunload doesn't fire for SPA route changes — that's why we also
+  // need the useBlocker above. Browser shows its generic "Changes you made
+  // may not be saved" dialog; we don't get to customize the message.
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (e) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [dirty]);
 
   async function applyResult(result) {
     const gen = ++lookupApplyGenRef.current;
@@ -175,6 +226,7 @@ export default function BookForm() {
       isbn_13: result.isbn_13 || f.isbn_13,
       description: description || f.description,
     }));
+    setDirty(true);
     if (result.cover_url) {
       const coverGen = ++coverActionGenRef.current;
       setCoverError(null);
@@ -312,9 +364,11 @@ export default function BookForm() {
       const payload = formStateToPayload(form, { tagInput, narratorInput, authorInput, translatorInput });
       if (isEdit) {
         await api.updateBook(id, payload);
+        setDirty(false);  // clear before navigate so the blocker doesn't fire
         navigate(`/books/${id}`);
       } else {
         const book = await api.createBook(payload);
+        setDirty(false);
         navigate(`/books/${book.id}`);
       }
     } catch (err) {
@@ -385,8 +439,8 @@ export default function BookForm() {
                 pastAuthors={pastAuthors} pastSeries={pastSeries} pastNarrators={pastNarrators}
                 authorInput={authorInput}     setAuthorInput={setAuthorInput}
                 narratorInput={narratorInput} setNarratorInput={setNarratorInput}
-                durationH={durationH} setDurationH={setDurationH}
-                durationM={durationM} setDurationM={setDurationM}
+                durationH={durationH} setDurationH={onDurationH}
+                durationM={durationM} setDurationM={onDurationM}
               />
             )}
             {activeTab === 'details' && (
