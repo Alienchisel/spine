@@ -229,6 +229,13 @@ export default function Diary() {
   // through years could otherwise let an older year's response clobber
   // the displayed days/years/stats for a newly-selected year.
   const yearGenRef = useRef(0);
+  // Tracks diary entry ids whose delete is in flight. The confirm modal
+  // cancels overlapping confirms, but a re-click *after* confirming —
+  // while the API call is pending and setDays hasn't yet removed the row
+  // — fires a duplicate deleteDiaryEntry that 404s on the second attempt
+  // and surfaces "Failed to remove entry." over a row that did delete.
+  // Mirrors the deletingIdsRef pattern in ReadsSection.
+  const deletingEntryIdsRef = useRef(new Set());
   const confirm = useConfirm();
   const refreshTick = useRefreshTick();
 
@@ -251,13 +258,18 @@ export default function Diary() {
   }, [year, refreshTick]);
 
   async function handleDelete(entryId, title) {
+    if (deletingEntryIdsRef.current.has(entryId)) return;
     if (!await confirm(`Remove "${title}" from diary?`)) return;
+    if (deletingEntryIdsRef.current.has(entryId)) return;
+    deletingEntryIdsRef.current.add(entryId);
     setDeleteError(null);
     try {
       await api.deleteDiaryEntry(entryId);
       setDays(ds => ds.map(d => ({ ...d, entries: d.entries.filter(e => e.id !== entryId) })).filter(d => d.entries.length > 0));
     } catch {
       setDeleteError('Failed to remove entry.');
+    } finally {
+      deletingEntryIdsRef.current.delete(entryId);
     }
   }
 
