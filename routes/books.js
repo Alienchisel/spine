@@ -97,14 +97,30 @@ router.patch('/:id', (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
   const { current_page, current_minutes } = req.body;
+  // Fetch the book's bounds upfront so progress saves can't claim 110% of a
+  // 240-page book — common finger-fumble (typing pages-remaining instead of
+  // pages-read; pasting from a different book's note). Only bound when the
+  // book has a known page_count / duration_minutes; null means unknown and
+  // any non-negative value is accepted.
+  let bounds = null;
+  if (current_page != null || current_minutes != null) {
+    bounds = db.prepare('SELECT page_count, duration_minutes FROM books WHERE id = ?').get(id);
+    if (!bounds) return res.status(404).json({ error: 'Not found' });
+  }
   if (current_page != null) {
     const n = Number(current_page);
     if (current_page === '' || !Number.isInteger(n) || n < 0) return res.status(400).json({ error: 'Invalid page number' });
+    if (bounds.page_count != null && n > bounds.page_count) {
+      return res.status(400).json({ error: `current_page cannot exceed page_count (${bounds.page_count})` });
+    }
     req.body.current_page = n;
   }
   if (current_minutes != null) {
     const n = Number(current_minutes);
     if (current_minutes === '' || !Number.isInteger(n) || n < 0) return res.status(400).json({ error: 'Invalid minutes' });
+    if (bounds.duration_minutes != null && n > bounds.duration_minutes) {
+      return res.status(400).json({ error: `current_minutes cannot exceed duration_minutes (${bounds.duration_minutes})` });
+    }
     req.body.current_minutes = n;
   }
   const book = patchBook(id, req.body);

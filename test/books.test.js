@@ -672,6 +672,33 @@ describe('books', () => {
       assert.equal(status, 400);
     });
 
+    it('rejects current_page above page_count', async () => {
+      // Common finger-fumble: typing pages-remaining instead of pages-read,
+      // pasting from another book's note. Bound at the route layer so 110%
+      // progress can't land in the DB.
+      const { body: created } = await req('POST', '/api/books', { title: 'Bounded Page', page_count: 240 });
+      const over = await req('PATCH', `/api/books/${created.id}`, { current_page: 241 });
+      assert.equal(over.status, 400);
+      const equal = await req('PATCH', `/api/books/${created.id}`, { current_page: 240 });
+      assert.equal(equal.status, 200, 'current_page == page_count is finished, not over');
+    });
+
+    it('rejects current_minutes above duration_minutes', async () => {
+      const { body: created } = await req('POST', '/api/books', { title: 'Bounded Audio', format: 'audiobook', duration_minutes: 600 });
+      const over = await req('PATCH', `/api/books/${created.id}`, { current_minutes: 601 });
+      assert.equal(over.status, 400);
+      const equal = await req('PATCH', `/api/books/${created.id}`, { current_minutes: 600 });
+      assert.equal(equal.status, 200);
+    });
+
+    it('accepts any non-negative current_page when page_count is unknown', async () => {
+      // null page_count means "we don't know the bound" — accept any value
+      // rather than blocking progress on an unknowable upper limit.
+      const { body: created } = await req('POST', '/api/books', { title: 'Unknown Length' });
+      const { status } = await req('PATCH', `/api/books/${created.id}`, { current_page: 9999 });
+      assert.equal(status, 200);
+    });
+
     it('rejects blank progress values', async () => {
       const { body: created } = await req('POST', '/api/books', { title: 'Blank Progress' });
       const page = await req('PATCH', `/api/books/${created.id}`, { current_page: '' });
