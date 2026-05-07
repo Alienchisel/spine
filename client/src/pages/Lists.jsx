@@ -27,6 +27,11 @@ export default function Lists() {
   // list." on a list that did delete. Mirrors the pattern in ReadsSection
   // and Diary.
   const deletingIdsRef = useRef(new Set());
+  // Synchronous mirror of `creating` — state doesn't commit until next
+  // render, so two same-tick Enter submits both see creating === false
+  // and fire duplicate POST /lists, creating two lists with the same
+  // name. Ref mutates synchronously so the second call sees the marker.
+  const creatingRef = useRef(false);
   const refreshTick = useRefreshTick();
 
   useEffect(() => {
@@ -51,9 +56,10 @@ export default function Lists() {
     e.preventDefault();
     // Mirror the disabled button so an Enter-key submit while a create
     // is in flight can't race a duplicate POST.
-    if (creating) return;
+    if (creatingRef.current || creating) return;
     const name = newName.trim();
     if (!name) return;
+    creatingRef.current = true;
     setCreating(true);
     setCreateError(null);
     // createError and deleteError both render in the strip just below the
@@ -79,6 +85,7 @@ export default function Lists() {
       if (gen !== genRef.current) return;
       setCreateError(err.message);
     } finally {
+      creatingRef.current = false;
       setCreating(false);
     }
   }

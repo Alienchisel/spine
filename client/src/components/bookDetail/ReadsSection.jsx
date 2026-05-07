@@ -18,6 +18,13 @@ export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBo
   // delete read" banner above a row that did delete. Mirrors the shape
   // of Readlist's removingIdsRef.
   const deletingIdsRef = useRef(new Set());
+  // Synchronous mirror of `saving` for handleAdd — `saving` (state) doesn't
+  // commit until the next render, so two same-tick Enter submits both see
+  // saving === false and fire duplicate addRead/rereadBook calls. /reads
+  // INSERT has no idempotency check, so duplicates land in the DB. The
+  // /reread path is even worse: a duplicate bumps read_count by 2 and
+  // inserts two reads rows. Mirrors the savingRef in BookCard / BookForm.
+  const savingRef = useRef(false);
   const confirm = useConfirm();
 
   // On a finished book, "log a read" means re-read: bump read_count + add row
@@ -58,8 +65,9 @@ export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBo
     e.preventDefault();
     // Mirror the disabled button. The re-read path is the load-bearing case:
     // a double-fire would bump read_count by 2 and insert two reads rows.
-    if (saving) return;
+    if (savingRef.current || saving) return;
     if (!validateDates()) return;
+    savingRef.current = true;
     setSaving(true);
     setError(null);
     try {
@@ -76,6 +84,7 @@ export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBo
     } catch {
       setError(isReread ? 'Failed to log re-read' : 'Failed to add read');
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   }

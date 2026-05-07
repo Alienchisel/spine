@@ -45,6 +45,15 @@ export default function ShelfManager() {
   const deletingRoomIdsRef     = useRef(new Set());
   const deletingUnitIdsRef     = useRef(new Set());
   const deletingShelfIdsRef    = useRef(new Set());
+  // Synchronous in-flight guards for the add* handlers. Same-tick double
+  // submit (Enter-key autorepeat in the name field) would otherwise pass
+  // any state-only `if (creating) return` and create two identical rows.
+  // Per-kind because a user could legitimately expand and submit different
+  // forms concurrently.
+  const addingBuildingRef = useRef(false);
+  const addingRoomRef     = useRef(false);
+  const addingUnitRef     = useRef(false);
+  const addingShelfRef    = useRef(false);
   const refreshTick = useRefreshTick();
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
@@ -81,7 +90,9 @@ export default function ShelfManager() {
   useEffect(() => { reload(); }, [refreshTick]);
 
   async function addBuilding() {
+    if (addingBuildingRef.current) return;
     if (!newBuildingName.trim()) return;
+    addingBuildingRef.current = true;
     setError(null);
     try {
       await api.createBuilding({ name: newBuildingName.trim(), proximity: newBuildingProximity });
@@ -91,6 +102,8 @@ export default function ShelfManager() {
       reload();
     } catch {
       setError('Failed to add building.');
+    } finally {
+      addingBuildingRef.current = false;
     }
   }
 
@@ -122,12 +135,16 @@ export default function ShelfManager() {
   }
 
   async function addRoom(buildingId, name) {
+    if (addingRoomRef.current) return;
+    addingRoomRef.current = true;
     setError(null);
     try {
       await api.createRoom({ building_id: buildingId, name });
       reload();
     } catch {
       setError('Failed to add room.');
+    } finally {
+      addingRoomRef.current = false;
     }
   }
 
@@ -183,12 +200,16 @@ export default function ShelfManager() {
   }
 
   async function addUnit(roomId, name) {
+    if (addingUnitRef.current) return;
+    addingUnitRef.current = true;
     setError(null);
     try {
       await api.createUnit({ room_id: roomId, name });
       reload();
     } catch {
       setError('Failed to add unit.');
+    } finally {
+      addingUnitRef.current = false;
     }
   }
 
@@ -232,12 +253,16 @@ export default function ShelfManager() {
   }
 
   async function addShelf(unitId, label) {
+    if (addingShelfRef.current) return;
+    addingShelfRef.current = true;
     setError(null);
     try {
       await api.createShelf({ unit_id: unitId, label });
       reload();
     } catch {
       setError('Failed to add shelf.');
+    } finally {
+      addingShelfRef.current = false;
     }
   }
 
