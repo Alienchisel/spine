@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useBlocker } from 'react-router-dom';
 import { api } from '../api.js';
 import { FORM_DEFAULTS, VIRTUAL_TAG_NAMES } from '../../../shared/bookFields.js';
 import { bookToFormState, formStateToPayload } from '../components/bookForm/mapping.js';
@@ -10,6 +10,7 @@ import CoreFields from '../components/bookForm/CoreFields.jsx';
 import DetailsFields from '../components/bookForm/DetailsFields.jsx';
 import AcquisitionFields from '../components/bookForm/AcquisitionFields.jsx';
 import PersonalFields from '../components/bookForm/PersonalFields.jsx';
+import { useConfirm } from '../components/ConfirmModal.jsx';
 
 const TABS = [
   { key: 'core',        label: 'Core' },
@@ -87,6 +88,7 @@ export default function BookForm() {
   // beforeunload). Edit-load and FORM_DEFAULTS reset don't go through the
   // wrapped setters, so loading a book doesn't taint dirty.
   const [dirty, setDirty] = useState(false);
+  const confirm = useConfirm();
 
   useEffect(() => {
     let stale = false;
@@ -164,13 +166,34 @@ export default function BookForm() {
   const onDurationH = (v) => { setDurationH(v); setDirty(true); };
   const onDurationM = (v) => { setDurationM(v); setDirty(true); };
 
-  // Hard browser navigation guard (close tab, refresh, address-bar URL).
-  // Browser shows its generic "Changes you made may not be saved" dialog;
-  // we don't get to customize the message. Note this DOESN'T catch SPA
-  // route changes — the in-app `← Library` link, breadcrumb, etc. — which
-  // would need react-router's useBlocker, which in turn requires migrating
-  // the app to a data router (createBrowserRouter / RouterProvider). Kept
-  // out of scope for now; deferred until that migration happens.
+  // Guard 1: SPA navigation — clicking ← Library, the breadcrumb, or any
+  // in-app navigation while there are unsaved edits. The cover-orphan
+  // path is the load-bearing case: a drag-uploaded cover writes a file
+  // to /uploads/ immediately but only attaches to a book on Save. Backing
+  // out mid-edit silently leaks the file and discards other field edits.
+  // Requires the data router defined in main.jsx (useBlocker only works
+  // under createBrowserRouter / RouterProvider, not <BrowserRouter>).
+  const blocker = useBlocker(({ currentLocation, nextLocation }) =>
+    dirty && currentLocation.pathname !== nextLocation.pathname
+  );
+  useEffect(() => {
+    if (blocker.state !== 'blocked') return;
+    let cancelled = false;
+    confirm({
+      message: 'Discard unsaved changes?',
+      confirmLabel: 'Discard',
+    }).then(ok => {
+      if (cancelled) return;
+      if (ok) blocker.proceed();
+      else blocker.reset();
+    });
+    return () => { cancelled = true; };
+  }, [blocker, confirm]);
+
+  // Guard 2: hard browser navigation — close tab, refresh, address-bar
+  // URL change. beforeunload doesn't fire for SPA route changes, hence
+  // the useBlocker above. Browser shows its generic "Changes you made
+  // may not be saved" dialog; the message isn't customizable.
   useEffect(() => {
     if (!dirty) return;
     const handler = (e) => {
