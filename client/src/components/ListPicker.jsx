@@ -26,6 +26,14 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
   // lists/memberIds for a now-stale open. Each handleOpen bumps the ref
   // and captures its gen; earlier in-flight calls drop their state writes.
   const openGenRef = useRef(0);
+  // `busy` (React state) drives the disabled UI but doesn't commit until
+  // the next render — so two synchronous handleToggle calls in the same
+  // tick (mobile touch+click pair, programmatic dispatch, repeated event
+  // misfires) both see the pre-commit busy and fire duplicate add/remove
+  // PUTs. The ref mutates synchronously so the second call sees the
+  // first's marker immediately. Mirrors the deletingIdsRef pattern in
+  // ReadsSection.
+  const busyIdsRef = useRef(new Set());
 
   useEffect(() => {
     if (!open) return;
@@ -94,7 +102,8 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
   async function handleToggle(e, listId) {
     e.preventDefault();
     e.stopPropagation();
-    if (busy.has(listId)) return;
+    if (busyIdsRef.current.has(listId)) return;
+    busyIdsRef.current.add(listId);
     setBusy(s => new Set([...s, listId]));
     setError(null);
     try {
@@ -108,6 +117,7 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
     } catch {
       setError('Failed to update list');
     } finally {
+      busyIdsRef.current.delete(listId);
       setBusy(s => { const n = new Set(s); n.delete(listId); return n; });
     }
   }
