@@ -26,6 +26,14 @@ export default function ShelfManager() {
   // added vanished"). Each reload captures its gen and drops setTree if a
   // newer reload has bumped the ref.
   const treeGenRef = useRef(0);
+  // Bumped on every reorder drag (buildings, rooms, units, shelves) so an
+  // earlier failed reorder's recovery reload() can detect that a later
+  // drag has already applied — without this, the recovery reload would
+  // fetch canonical server state and snap the tree back over the newer
+  // drag's optimistic UI. treeGenRef alone doesn't help here: each reload
+  // bumps gen, so the stale reorder's reload IS "the latest" by gen.
+  // Mirrors the seq guard in Readlist / ListDetail / ShelfView.
+  const reorderSeqRef = useRef(0);
   const refreshTick = useRefreshTick();
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
@@ -38,7 +46,9 @@ export default function ShelfManager() {
     const reordered = arrayMove(tree, oldIdx, newIdx);
     setTree(reordered);
     setError(null);
+    const seq = ++reorderSeqRef.current;
     api.reorderBuildings(reordered.map(b => b.id)).catch(() => {
+      if (seq !== reorderSeqRef.current) return;
       setError('Failed to save reorder.');
       reload();  // refetches the canonical tree (may overwrite error if reload also fails)
     });
@@ -107,9 +117,11 @@ export default function ShelfManager() {
 
   async function reorderRooms(buildingId, ids) {
     setError(null);
+    const seq = ++reorderSeqRef.current;
     try {
       await api.reorderRooms(buildingId, ids);
     } catch {
+      if (seq !== reorderSeqRef.current) return;
       setError('Failed to save reorder.');
       reload();
     }
@@ -139,9 +151,11 @@ export default function ShelfManager() {
 
   async function reorderUnits(roomId, ids) {
     setError(null);
+    const seq = ++reorderSeqRef.current;
     try {
       await api.reorderUnits(roomId, ids);
     } catch {
+      if (seq !== reorderSeqRef.current) return;
       setError('Failed to save reorder.');
       reload();
     }
@@ -181,9 +195,11 @@ export default function ShelfManager() {
 
   async function reorderShelves(unitId, ids) {
     setError(null);
+    const seq = ++reorderSeqRef.current;
     try {
       await api.reorderShelves(unitId, ids);
     } catch {
+      if (seq !== reorderSeqRef.current) return;
       setError('Failed to save reorder.');
       reload();
     }

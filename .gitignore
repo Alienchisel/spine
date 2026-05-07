@@ -6,3 +6,5 @@ spine.db
 *.db-shm
 *.db-wal
 backups/
+.tools/
+npm-cache/
