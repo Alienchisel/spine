@@ -43,6 +43,16 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
   // and the 5 response lands last). Local-UI scoped — server-side last-
   // write-wins is unaffected and could still differ in edge cases.
   const ratingSeqRef = useRef(0);
+  // `saving` (React state) drives the disabled UI but doesn't commit until
+  // the next render — so two synchronous submit calls in the same tick
+  // (Enter-key autorepeat, programmatic dispatch) both see saving === false
+  // and fire duplicate patchBook calls. At the page_count boundary the
+  // duplicate also fires a second updateBook(status='finished'); the
+  // server-side isFinishTransition check gates the second reads-row INSERT,
+  // but the duplicate setBook/onProgressUpdate still runs. Ref mutates
+  // synchronously so the second call sees the first's marker. Mirrors
+  // the busyIdsRef pattern in ListPicker.
+  const savingRef = useRef(false);
 
   useEffect(() => { setBook(initialBook); }, [initialBook]);
 
@@ -112,7 +122,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
     e.preventDefault();
     // Mirror the disabled button. Double-fire near the page_count boundary
     // could double-trigger the auto-finish reads-row insert.
-    if (saving || isEmpty) return;
+    if (savingRef.current || saving || isEmpty) return;
 
     // Build and validate the patch BEFORE arming the spinner. Validation
     // returns inside try { } would still hit finally and reset `saving`
@@ -141,6 +151,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
     }
 
     setError(null);
+    savingRef.current = true;
     setSaving(true);
     try {
       const updated = await api.patchBook(book.id, patchData);
@@ -167,6 +178,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
     } catch {
       setError('Failed to save');
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   }

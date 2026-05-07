@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { api } from '../../api.js';
 import { computeEta } from './eta.js';
 
@@ -8,6 +8,13 @@ export default function ProgressSection({ book, onChange, log }) {
   const [mode, setMode] = useState(() => localStorage.getItem(modeKey) || (isAudiobook ? 'min' : 'page'));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  // `saving` (React state) drives the disabled UI but doesn't commit until
+  // the next render — so two synchronous submit calls in the same tick
+  // (Enter-key autorepeat, programmatic dispatch) both see saving === false
+  // and fire duplicate patchBook calls. Ref mutates synchronously so the
+  // second call sees the first's marker. Mirrors the busyIdsRef pattern in
+  // ListPicker.
+  const savingRef = useRef(false);
 
   const pct = isAudiobook
     ? (book.duration_minutes && book.current_minutes != null
@@ -73,7 +80,7 @@ export default function ProgressSection({ book, onChange, log }) {
     e.preventDefault();
     // Mirror the disabled button. Double-fire near the page_count boundary
     // could double-trigger the auto-finish reads-row insert.
-    if (saving || isEmpty) return;
+    if (savingRef.current || saving || isEmpty) return;
 
     // Build and validate the patch BEFORE arming the spinner. Validation
     // returns inside try { } would still hit finally and reset `saving`
@@ -102,6 +109,7 @@ export default function ProgressSection({ book, onChange, log }) {
     }
 
     setError(null);
+    savingRef.current = true;
     setSaving(true);
     try {
       const updated = await api.patchBook(book.id, patchData);
@@ -123,6 +131,7 @@ export default function ProgressSection({ book, onChange, log }) {
     } catch {
       setError('Failed to save');
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   }
