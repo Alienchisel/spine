@@ -4,8 +4,10 @@ export function InlineInput({ placeholder, onSave, onCancel }) {
   const [val, setVal] = useState('');
   const ref = useRef(null);
   useEffect(() => ref.current?.focus(), []);
+  // Enter is handled by the form's onSubmit (browser default for a single
+  // input inside a form). Escape doesn't have a default behavior, so we
+  // wire it up here.
   function handleKey(e) {
-    if (e.key === 'Enter') { e.preventDefault(); if (val.trim()) onSave(val.trim()); }
     if (e.key === 'Escape') onCancel();
   }
   return (
@@ -28,8 +30,10 @@ export function InlineEdit({ value, onSave, onCancel }) {
   const [val, setVal] = useState(value);
   const ref = useRef(null);
   useEffect(() => { ref.current?.focus(); ref.current?.select(); }, []);
+  // Enter is handled by the form's onSubmit (browser default for a single
+  // input inside a form). Escape doesn't have a default behavior, so we
+  // wire it up here.
   function handleKey(e) {
-    if (e.key === 'Enter') { e.preventDefault(); if (val.trim()) onSave(val.trim()); }
     if (e.key === 'Escape') onCancel();
   }
   return (
