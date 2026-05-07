@@ -174,6 +174,13 @@ export default function ShelfView() {
   // location change AND on returns to the root view so an in-flight
   // request from a prior location can't setBooks after navigation.
   const booksGenRef = useRef(0);
+  // Bumped on every drag so an earlier failed reorder whose recovery
+  // refetch lands *after* a later drag has already applied optimistically
+  // can detect that it's stale — without this, A's getShelfBooks/
+  // getUnitBooks response would clobber B's newer optimistic order with
+  // the pre-A server state. Mirrors the seq guard in Readlist /
+  // ListDetail.
+  const reorderSeqRef = useRef(0);
   const refreshTick = useRefreshTick();
 
   const buildingId = parseIdParam(params, 'b');
@@ -312,9 +319,13 @@ export default function ShelfView() {
     // a stale `setBooks(...)` from the recovery would clobber the new
     // location's just-loaded books.
     const gen = booksGenRef.current;
+    // Capture the reorder seq so an earlier failed PUT whose recovery
+    // refetch lands after a later drag's optimistic apply doesn't snap
+    // pre-A server state over B's newer order.
+    const reorderSeq = ++reorderSeqRef.current;
     api.reorderShelf(shelfId, reordered.map(b => b.id))
       .catch(() => {
-        if (gen !== booksGenRef.current) return;
+        if (gen !== booksGenRef.current || reorderSeq !== reorderSeqRef.current) return;
         // Always tell the user their reorder didn't save — even when the
         // recovery refetch succeeds and the canonical order snaps back into
         // place, otherwise the snap-back looks like the drag never
@@ -322,8 +333,8 @@ export default function ShelfView() {
         // the user knows to refresh manually.
         setError('Failed to save reorder.');
         api.getShelfBooks(shelfId)
-          .then(b => { if (gen === booksGenRef.current) setBooks(b); })
-          .catch(() => { if (gen === booksGenRef.current) setError('Reorder failed and could not be reverted — refresh the page.'); });
+          .then(b => { if (gen === booksGenRef.current && reorderSeq === reorderSeqRef.current) setBooks(b); })
+          .catch(() => { if (gen === booksGenRef.current && reorderSeq === reorderSeqRef.current) setError('Reorder failed and could not be reverted — refresh the page.'); });
       });
   }
 
@@ -502,15 +513,19 @@ export default function ShelfView() {
                     // Same navigation guard as handleDragEnd above — drop
                     // the recovery refetch and its error setters if the
                     // user has moved to a different location while the
-                    // reorder was in flight.
+                    // reorder was in flight. The seq guard adds protection
+                    // against overlapping drags within this view (across
+                    // any shelf row): A's failure recovery shouldn't snap
+                    // pre-A unit-books over B's newer optimistic state.
                     const gen = booksGenRef.current;
+                    const reorderSeq = ++reorderSeqRef.current;
                     api.reorderShelf(shelfId, reordered.map(b => b.id))
                       .catch(() => {
-                        if (gen !== booksGenRef.current) return;
+                        if (gen !== booksGenRef.current || reorderSeq !== reorderSeqRef.current) return;
                         setError('Failed to save reorder.');
                         api.getUnitBooks(unitId)
-                          .then(b => { if (gen === booksGenRef.current) setBooks(b); })
-                          .catch(() => { if (gen === booksGenRef.current) setError('Reorder failed and could not be reverted — refresh the page.'); });
+                          .then(b => { if (gen === booksGenRef.current && reorderSeq === reorderSeqRef.current) setBooks(b); })
+                          .catch(() => { if (gen === booksGenRef.current && reorderSeq === reorderSeqRef.current) setError('Reorder failed and could not be reverted — refresh the page.'); });
                       });
                   }}
                 />
