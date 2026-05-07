@@ -18,12 +18,16 @@ router.get('/', (_req, res) => {
 
 router.put('/order', (req, res) => {
   const { ids } = req.body;
-  if (!Array.isArray(ids) || ids.some(id => !Number.isInteger(Number(id)))) {
-    return res.status(400).json({ error: 'ids must be an array of integers' });
+  // Match the shelf.js allPositiveInts pattern — `Number.isInteger(Number(id))`
+  // alone accepts 0 and negatives, both of which then silently fail to match
+  // the `WHERE id = ?` filter and leave readlist_position untouched. A bad
+  // payload should fail loudly, not no-op.
+  if (!Array.isArray(ids) || !ids.every(id => Number.isInteger(id) && id >= 1)) {
+    return res.status(400).json({ error: 'ids must be an array of positive integers' });
   }
   const update = db.prepare('UPDATE books SET readlist_position = ? WHERE id = ? AND on_readlist = 1');
   db.transaction(() => {
-    ids.forEach((id, i) => update.run(i, Number(id)));
+    ids.forEach((id, i) => update.run(i, id));
   })();
   res.json({ ok: true });
 });

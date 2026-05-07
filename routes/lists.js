@@ -149,7 +149,13 @@ router.put('/:id/order', (req, res) => {
   const list = getListOrFail(res, id);
   if (!list) return;
   const { ids } = req.body;
-  if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids must be an array' });
+  // Same pattern as shelf.js / readlist.js — without the per-element check,
+  // bad book ids (strings, floats, negatives) silently fail to match the
+  // `WHERE book_id = ?` filter and leave the list order untouched. Fail
+  // loudly instead.
+  if (!Array.isArray(ids) || !ids.every(bookId => Number.isInteger(bookId) && bookId >= 1)) {
+    return res.status(400).json({ error: 'ids must be an array of positive integers' });
+  }
   const update = db.prepare('UPDATE list_books SET position = ? WHERE list_id = ? AND book_id = ?');
   db.transaction(() => { ids.forEach((bookId, i) => update.run(i, id, bookId)); })();
   res.json({ ok: true });

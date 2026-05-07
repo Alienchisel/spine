@@ -93,6 +93,17 @@ describe('readlist', () => {
     assert.equal(status, 400);
   });
 
+  it('PUT /api/readlist/order rejects non-positive integer ids', async () => {
+    // Pre-fix the route accepted Number.isInteger(Number(id)), which lets
+    // 0 and negatives through; they then silently fail to match the
+    // `WHERE id = ?` filter and the reorder no-ops without surfacing the
+    // bad client. Reject up front instead.
+    for (const bad of [[0, 1], [-1, 2], [1.5, 2], ['1', 2]]) {
+      const { status } = await req('PUT', '/api/readlist/order', { ids: bad });
+      assert.equal(status, 400, `expected 400 for ids=${JSON.stringify(bad)}`);
+    }
+  });
+
   it('GET /api/readlist returns the BookCard row shape (cover_path normalized + joined fields)', async () => {
     // Pins the serveBookCardRows() refactor at the route boundary. If the
     // helper ever changes shape, this test catches it for /api/readlist

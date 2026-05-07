@@ -190,6 +190,16 @@ describe('lists', () => {
       assert.equal(ids[2], bookId2);
     });
 
+    it('PUT /api/lists/:id/order rejects malformed id arrays', async () => {
+      // Pre-fix the route only checked Array.isArray, so floats, strings,
+      // negatives, and zeros silently fell through and the position UPDATE
+      // matched no rows — bad client payloads went undetected.
+      for (const bad of ['nope', [0, 1], [-1, 2], [1.5, 2], ['1', 2]]) {
+        const { status } = await req('PUT', `/api/lists/${listId}/order`, { ids: bad });
+        assert.equal(status, 400, `expected 400 for ids=${JSON.stringify(bad)}`);
+      }
+    });
+
     it('removes a book from the list', async () => {
       await req('DELETE', `/api/lists/${listId}/books/${bookId2}`);
       const { body } = await req('GET', `/api/lists/${listId}`);
