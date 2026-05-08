@@ -208,6 +208,14 @@ export default function ListDetail() {
   // resolves — that's the only window where local state still contains
   // the book, so the in-state guard inside handleRemove can't catch it.
   const removingIdsRef = useRef(new Set());
+  // Synchronous in-flight guard for the rename PUT. The form has both
+  // onSubmit={handleRename} and onBlur={handleRename}; the early-return on
+  // `name === list.name` only protects after the rename has *committed*
+  // (which doesn't happen until after the await). If the user presses
+  // Enter and then clicks outside before the PUT resolves, blur fires a
+  // second handleRename whose `renameValue === name` check still passes
+  // (list.name is still the old name), and a duplicate PUT lands.
+  const renamingInFlightRef = useRef(false);
   const refreshTick = useRefreshTick();
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
@@ -358,6 +366,7 @@ export default function ListDetail() {
 
   async function handleRename(e) {
     e.preventDefault();
+    if (renamingInFlightRef.current) return;
     const name = renameValue.trim();
     if (!name || name === list.name) { setRenaming(false); return; }
     setRenameError(null);
@@ -365,6 +374,7 @@ export default function ListDetail() {
     // has navigated to list B doesn't slam A's new name onto B's display
     // (or surface A's error on B's view).
     const gen = genRef.current;
+    renamingInFlightRef.current = true;
     try {
       const updated = await api.renameList(id, name);
       if (gen !== genRef.current) return;
@@ -373,6 +383,8 @@ export default function ListDetail() {
     } catch (err) {
       if (gen !== genRef.current) return;
       setRenameError(err.message);
+    } finally {
+      renamingInFlightRef.current = false;
     }
   }
 
