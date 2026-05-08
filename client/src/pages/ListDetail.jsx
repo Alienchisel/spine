@@ -105,13 +105,21 @@ function QuickAdd({ listId, onAdded }) {
   // text the user has started typing on List B's quick-add.
   const listIdRef = useRef(listId);
   useEffect(() => { listIdRef.current = listId; }, [listId]);
+  // Synchronous mirror of `saving` — `saving` (state) doesn't commit until
+  // the next render, so two same-tick Enter submits both see saving === false
+  // and fire duplicate createBook + addToList calls. createBook with
+  // is_stub:true has no title-idempotency, so a duplicate lands as a real
+  // second book row plus a second list entry. Mirrors the savingRef in
+  // ReadsSection / BookCard / BookForm.
+  const savingRef = useRef(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
     // Mirror the button's disabled predicate so an Enter-key submit while a
     // save is in flight can't race a duplicate createBook + addToList.
-    if (saving || !title.trim()) return;
+    if (savingRef.current || saving || !title.trim()) return;
     const submittedListId = listId;
+    savingRef.current = true;
     setSaving(true);
     setError(null);
     try {
@@ -127,6 +135,7 @@ function QuickAdd({ listId, onAdded }) {
       if (listIdRef.current !== submittedListId) return;
       setError(err.message);
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   }
