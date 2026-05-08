@@ -366,7 +366,13 @@ export default function Library() {
   }
 
   const activeCount   = countFilters(filters);
-  const allDisplayItems = buildDisplayItems(books, density === 'list' ? new Set() : expandedSeries);
+  // Custom sort is a flat per-volume rank: each book is an independent
+  // purchase decision, so series grouping is meaningless and would also
+  // make the non-edit and edit-mode views visually asymmetric (edit mode
+  // already renders flat). Flatten outside edit mode too.
+  const allDisplayItems = sort === 'custom'
+    ? books.map(book => ({ type: 'book', book }))
+    : buildDisplayItems(books, density === 'list' ? new Set() : expandedSeries);
   const gridCols        = useGridCols(density === 'compact' ? COMPACT_BPS : COMFORTABLE_BPS);
   const hasMore         = loadedRef.current < total;
   // Mid-pagination, hide a trailing partial row so the visible grid always
