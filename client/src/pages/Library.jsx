@@ -1,5 +1,19 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  useSortable,
+  rectSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { api } from '../api.js';
 import BookCard from '../components/BookCard.jsx';
 import FilterPanel from '../components/FilterPanel.jsx';
@@ -35,6 +49,11 @@ const SORTS = [
   { key: 'started',  label: 'Date started' },
   { key: 'finished', label: 'Date finished' },
   { key: 'length',   label: 'Length' },
+  // Custom (manual rank) sort is gated to the Never owned tab — that's the
+  // only surface where it's meaningful. The dropdown filters this entry
+  // out on every other tab, but a stale saved sort lands on a non-custom
+  // default in the load effect.
+  { key: 'custom',   label: 'Custom order', tabs: ['never_owned'] },
 ];
 
 const GRID = {
@@ -55,6 +74,42 @@ function FilterIcon() {
   );
 }
 
+function DragHandle() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
+      <path fillRule="evenodd" d="M2.75 4a.75.75 0 0 1 .75-.75h9a.75.75 0 0 1 0 1.5h-9A.75.75 0 0 1 2.75 4Zm0 4a.75.75 0 0 1 .75-.75h9a.75.75 0 0 1 0 1.5h-9A.75.75 0 0 1 2.75 8Zm.75 3.25a.75.75 0 0 0 0 1.5h9a.75.75 0 0 0 0-1.5h-9Z" clipRule="evenodd" />
+    </svg>
+  );
+}
+
+// Edit-mode wrapper around BookCard — adds drag-to-reorder without touching
+// BookCard. Mirrors ListDetail's SortableBookCard: drag listener on the
+// handle (not the wrapper) so a click on the cover still routes to detail.
+function SortableBookCard({ book, compact }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: book.id });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+  const overlay = (
+    <button
+      {...listeners}
+      onClick={(e) => e.preventDefault()}
+      className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/75 backdrop-blur-sm rounded px-2 py-1 text-neutral-300 hover:text-white transition-colors cursor-grab active:cursor-grabbing"
+      aria-label="Drag to reorder"
+    >
+      <DragHandle />
+    </button>
+  );
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      className={`relative select-none transition-opacity ring-2 ring-binding/40 rounded-lg ${isDragging ? 'opacity-40' : ''}`}
+    >
+      <BookCard book={book} coverOverlay={overlay} compact={compact} />
+    </div>
+  );
+}
+
 const VALID_TABS = new Set(['reading', 'paused', 'finished', 'unread', 'owned', 'prev_owned', 'never_owned', 'all', 'archived']);
 
 export default function Library() {
@@ -67,7 +122,14 @@ export default function Library() {
   const [query,       setQuery]       = useState(() => saved.query || '');
   const [filtersOpen, setFiltersOpen] = useState(() => saved.filtersOpen ?? false);
   const [filters,     setFilters]     = useState(() => saved.filters ? { ...EMPTY_FILTERS, ...saved.filters } : EMPTY_FILTERS);
-  const [sort,        setSort]        = useState(() => saved.sort || 'updated');
+  const [sort,        setSort]        = useState(() => {
+    // Coerce a stale saved 'custom' sort to 'updated' when re-hydrating on
+    // a non-Never-owned tab — the sort dropdown filters 'custom' out on
+    // other tabs, so a stuck value would be invisible to the user.
+    const s = saved.sort || 'updated';
+    const initialTab = (urlTab && VALID_TABS.has(urlTab)) ? urlTab : (saved.tab || 'reading');
+    return (s === 'custom' && initialTab !== 'never_owned') ? 'updated' : s;
+  });
   // Coerce a stale saved density of 'list' to 'comfortable' — the list view
   // is currently disabled (see commented-out toggle button and JSX below) and
   // GRID['list'] is undefined, which would break the className expression.
@@ -91,11 +153,21 @@ export default function Library() {
   const [counts,      setCounts]      = useState({});
   const [countsError, setCountsError] = useState(false);
   const [expandedSeries, setExpandedSeries] = useState(new Set());
+  // Edit mode toggles drag handles on cards for the Custom-order rank on the
+  // Never owned tab. Mirrors ListDetail.editMode. Only meaningful when
+  // tab='never_owned' && sort='custom' — entering edit mode coerces both.
+  const [editMode, setEditMode] = useState(false);
 
   const loadedRef  = useRef(0);
   const genRef     = useRef(0);
   const prevTabRef = useRef(null);
   const searchRef  = useRef(null);
+  // Bumped on every drag so a failed PUT whose .catch lands after a later
+  // drag's optimistic apply doesn't restore a stale snapshot. Same shape as
+  // ListDetail.reorderSeqRef.
+  const reorderSeqRef = useRef(0);
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   // Refetch counter — bumps when the tab regains focus so newly-added
   // books from another window/process appear without a manual reload.
@@ -248,6 +320,37 @@ export default function Library() {
     });
   }
 
+  function toggleEditMode() {
+    // Edit mode is only meaningful on the Never owned tab in Custom-order
+    // sort. Mirrors ListDetail.toggleEditMode: entering edit mode coerces
+    // the sort (and tab, here) so the drag-and-drop you're about to do
+    // matches the order being persisted.
+    if (!editMode) {
+      if (tab !== 'never_owned') setTab('never_owned');
+      if (sort !== 'custom')     setSort('custom');
+    }
+    setEditMode(m => !m);
+  }
+
+  function handleDragEnd(event) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = books.findIndex(b => b.id === active.id);
+    const newIndex = books.findIndex(b => b.id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+    const previousBooks = books;
+    const reordered = arrayMove(previousBooks, oldIndex, newIndex);
+    setActionError(null);
+    setBooks(reordered);
+    const gen = genRef.current;
+    const reorderSeq = ++reorderSeqRef.current;
+    api.setDesireOrder(reordered.map(b => b.id)).catch(() => {
+      if (gen !== genRef.current || reorderSeq !== reorderSeqRef.current) return;
+      setBooks(previousBooks);
+      setActionError('Failed to save order.');
+    });
+  }
+
   const activeCount   = countFilters(filters);
   const allDisplayItems = buildDisplayItems(books, density === 'list' ? new Set() : expandedSeries);
   const gridCols        = useGridCols(density === 'compact' ? COMPACT_BPS : COMFORTABLE_BPS);
@@ -278,7 +381,19 @@ export default function Library() {
               {TABS.map((t) => (
                 <button
                   key={t.key}
-                  onClick={() => { setTab(t.key); setExpandedSeries(new Set()); }}
+                  onClick={() => {
+                    setTab(t.key);
+                    setExpandedSeries(new Set());
+                    // Edit mode and Custom-order sort are scoped to the
+                    // Never owned tab — clearing them on tab switch keeps
+                    // the toolbar coherent (the sort dropdown filters
+                    // 'custom' out on other tabs, but the value would
+                    // otherwise stay invisibly stuck).
+                    if (t.key !== 'never_owned') {
+                      setEditMode(false);
+                      setSort(s => s === 'custom' ? 'updated' : s);
+                    }
+                  }}
                   className={`px-5 py-2 text-sm rounded-md whitespace-nowrap transition-[transform,background-color,color] ease-out duration-150 active:scale-[0.98] ${
                     tab === t.key
                       ? 'bg-binding/25 text-parchment font-semibold'
@@ -301,11 +416,32 @@ export default function Library() {
           <div className="flex items-center gap-2">
             <select
               value={sort}
+              // Disabled during edit mode so the sort that the drag order is
+              // persisting against can't drift mid-edit. Mirrors ListDetail's
+              // editMode-disabled select.
+              disabled={editMode}
+              title={editMode ? 'Sorting is locked to Custom order while editing' : ''}
               onChange={(e) => { setSort(e.target.value); setExpandedSeries(new Set()); }}
-              className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-300 focus:outline-none focus:border-oak/50 transition-colors duration-150"
+              className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-300 focus:outline-none focus:border-oak/50 transition-colors duration-150 disabled:opacity-50"
             >
-              {SORTS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+              {/* Filter sort options to those allowed on the active tab. The
+                  Custom-order sort is gated to Never owned via SORTS[].tabs. */}
+              {SORTS.filter(s => !s.tabs || s.tabs.includes(tab)).map(s => (
+                <option key={s.key} value={s.key}>{s.label}</option>
+              ))}
             </select>
+            {tab === 'never_owned' && (
+              <button
+                onClick={toggleEditMode}
+                className={`text-sm px-3 py-2 rounded-lg whitespace-nowrap transition-colors ${
+                  editMode
+                    ? 'bg-binding/25 text-parchment'
+                    : 'bg-neutral-800 text-neutral-400 hover:text-neutral-200'
+                }`}
+              >
+                {editMode ? 'Done' : 'Edit'}
+              </button>
+            )}
             <div className="relative w-full sm:w-80">
               <input
                 ref={searchRef}
@@ -436,27 +572,43 @@ export default function Library() {
               The toggle button that selected this view is also commented out
               up in the density toolbar. To revive: restore the ternary, the
               toggle button, and remove the 'list' coercion in getSaved(). */}
-          <div className={GRID[density]}>
-            {displayItems.map(item =>
-              item.type === 'series' ? (
-                <SeriesCard
-                  key={item.name}
-                  seriesName={item.name}
-                  books={item.books}
-                  expanded={expandedSeries.has(item.name)}
-                  onToggle={() => toggleSeries(item.name)}
-                  compact={density === 'compact'}
-                />
-              ) : (
-                <BookCard
-                  key={item.book.id}
-                  book={item.book}
-                  onProgressUpdate={handleProgressUpdate}
-                  compact={density === 'compact'}
-                />
-              )
-            )}
-          </div>
+          {editMode ? (
+            // Drag-to-rank UI for the Never owned tab. Bypasses series
+            // grouping (each volume is individually wished/purchased) and
+            // the trailing-row trim (a partial last row is fine in edit
+            // mode — the user is here to reorder, not to admire the grid).
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={books.map(b => b.id)} strategy={rectSortingStrategy}>
+                <div className={GRID[density]}>
+                  {books.map(book => (
+                    <SortableBookCard key={book.id} book={book} compact={density === 'compact'} />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          ) : (
+            <div className={GRID[density]}>
+              {displayItems.map(item =>
+                item.type === 'series' ? (
+                  <SeriesCard
+                    key={item.name}
+                    seriesName={item.name}
+                    books={item.books}
+                    expanded={expandedSeries.has(item.name)}
+                    onToggle={() => toggleSeries(item.name)}
+                    compact={density === 'compact'}
+                  />
+                ) : (
+                  <BookCard
+                    key={item.book.id}
+                    book={item.book}
+                    onProgressUpdate={handleProgressUpdate}
+                    compact={density === 'compact'}
+                  />
+                )
+              )}
+            </div>
+          )}
           {hasMore && (
             <div className="mt-10 flex flex-col items-center gap-2">
               <div className="flex justify-center gap-3">

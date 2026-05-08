@@ -17,6 +17,23 @@ router.get('/', (req, res) => {
   res.json(listBooks(req.query));
 });
 
+// Manual rank for the Library "Never owned" tab. Mirrors the readlist
+// reorder route's shape: caller sends ids in display order, server writes
+// the index back as desire_rank. We don't gate on "is never_owned" — a
+// stale rank on a book that's since become owned is harmless because the
+// 'custom' sort is only ever surfaced on the Never owned tab.
+router.put('/desire-order', (req, res) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids) || !ids.every(id => Number.isInteger(id) && id >= 1)) {
+    return res.status(400).json({ error: 'ids must be an array of positive integers' });
+  }
+  const update = db.prepare('UPDATE books SET desire_rank = ? WHERE id = ?');
+  db.transaction(() => {
+    ids.forEach((id, i) => update.run(i, id));
+  })();
+  res.json({ ok: true });
+});
+
 router.get('/:id', (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });

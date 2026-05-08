@@ -1,0 +1,1 @@
+ALTER TABLE books ADD COLUMN desire_rank INTEGER;
