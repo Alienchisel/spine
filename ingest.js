@@ -249,7 +249,7 @@ async function main() {
   console.log();
 
   // — Library —
-  const statusIn         = await ask(rl, 'Status ([u]nread/[r]eading/[f]inished/[p]aused)', 'unread');
+  const statusIn         = await ask(rl, 'Status ([u]nread/[r]eading/[f]inished)', 'unread');
   // ASIN input is almost always an Audible audiobook; ISBN ingest defaults to physical.
   const formatDefault    = meta.format === 'audiobook' ? 'a'
                          : meta.format === 'ebook'     ? 'd'
