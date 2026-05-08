@@ -33,6 +33,13 @@ export default function BookDetail() {
   const [descExpanded, setDescExpanded] = useState(false);
   const [ratingPrompt, setRatingPrompt] = useState(false);
   const [finishing, setFinishing] = useState(false);
+  // Synchronous mirror of `finishing` — `finishing` (state) doesn't commit
+  // until the next render, so two same-tick "Mark as finished" clicks both
+  // see finishing === false and fire duplicate updateBook PUTs. The finish
+  // transition can auto-insert a read row, so a duplicate could land two
+  // reads. Mirrors the savingRef pattern in ReadsSection / QuickAdd /
+  // BookForm / BookCard.
+  const finishingRef = useRef(false);
   // In-flight lockouts for the three quick toggles. Without these a fast
   // double-click reads stale `book.loved` (etc.) before the first PUT's
   // response has landed, so both intents resolve to the same target value
@@ -229,8 +236,9 @@ export default function BookDetail() {
   }
 
   async function handleFinish() {
-    if (finishing) return;
+    if (finishingRef.current || finishing) return;
     const reqId = book.id;
+    finishingRef.current = true;
     setFinishing(true);
     setFinishError(null);
     setActionError(null);
@@ -253,6 +261,7 @@ export default function BookDetail() {
     } finally {
       // setFinishing always resets — it's a button-state flag, leaving it
       // true after navigation just disables a button that's now unmounted.
+      finishingRef.current = false;
       setFinishing(false);
     }
   }
