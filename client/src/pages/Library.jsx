@@ -83,27 +83,28 @@ function DragHandle() {
 }
 
 // Edit-mode wrapper around BookCard — adds drag-to-reorder without touching
-// BookCard. Mirrors ListDetail's SortableBookCard: drag listener on the
-// handle (not the wrapper) so a click on the cover still routes to detail.
+// BookCard. Whole-cover drag: dnd-kit listeners attach to the wrapper so
+// the user can grab anywhere on the cover; the centered three-lines glyph
+// is purely decorative (pointer-events:none) and only appears on hover as
+// a "this is grabbable" cue. Cover navigation is already suppressed by
+// hideActions, so there's no competing click semantic to preserve.
 function SortableBookCard({ book, compact }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: book.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
   const overlay = (
-    <button
-      {...listeners}
-      onClick={(e) => e.preventDefault()}
-      className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/75 backdrop-blur-sm rounded px-2 py-1 text-neutral-300 hover:text-white transition-colors cursor-grab active:cursor-grabbing"
-      aria-label="Drag to reorder"
-    >
-      <DragHandle />
-    </button>
+    <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="bg-black/75 backdrop-blur-sm rounded px-2 py-1 text-neutral-300">
+        <DragHandle />
+      </div>
+    </div>
   );
   return (
     <div
       ref={setNodeRef}
       style={style}
       {...attributes}
-      className={`relative select-none transition-opacity ring-2 ring-binding/40 rounded-lg ${isDragging ? 'opacity-40' : ''}`}
+      {...listeners}
+      className={`group relative select-none transition-opacity ring-2 ring-binding/40 rounded-lg cursor-grab active:cursor-grabbing ${isDragging ? 'opacity-40' : ''}`}
     >
       <BookCard book={book} coverOverlay={overlay} compact={compact} hideActions />
     </div>

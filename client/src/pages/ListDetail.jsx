@@ -46,29 +46,27 @@ function SortableBookCard({ book, onRemove, draggable }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: book.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
 
-  // Drag handle and remove × are passed into BookCard's `coverOverlay` so
-  // they anchor inside the cover frame (which is the right reference for
-  // bottom/top positioning) rather than the outer wrapper, which extends
-  // past the cover to include the title/author block. The drag-handle
-  // button calls preventDefault so a plain click doesn't navigate to the
-  // detail page via BookCard's enclosing Link; a real drag is suppressed
-  // by dnd-kit before click fires anyway.
+  // Whole-cover drag: listeners attach to the wrapper div, not a small
+  // handle button, so the user can grab anywhere on the cover. The
+  // centered three-lines glyph stays as a purely decorative "this is
+  // grabbable" cue — pointer-events:none keeps it from intercepting the
+  // drag pointerdown. Remove × stays as a real button (top-right corner)
+  // and gets pointer-events:auto so it remains clickable above the
+  // wrapper-level listeners; PointerSensor activationConstraint keeps a
+  // click on × from accidentally arming a drag.
   const overlay = (
     <>
       {draggable && (
-        <button
-          {...listeners}
-          onClick={(e) => e.preventDefault()}
-          className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/75 backdrop-blur-sm rounded px-2 py-1 text-neutral-300 hover:text-white transition-colors cursor-grab active:cursor-grabbing"
-          aria-label="Drag to reorder"
-        >
-          <DragHandle />
-        </button>
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="bg-black/75 backdrop-blur-sm rounded px-2 py-1 text-neutral-300">
+            <DragHandle />
+          </div>
+        </div>
       )}
       {onRemove && (
         <button
           onClick={(e) => { e.preventDefault(); onRemove(book.id); }}
-          className="absolute top-1 right-1 bg-neutral-900/90 hover:bg-red-900 border border-neutral-700 rounded-full w-6 h-6 flex items-center justify-center text-neutral-400 hover:text-white transition-colors text-base leading-none shadow-lg"
+          className="pointer-events-auto absolute top-1 right-1 bg-neutral-900/90 hover:bg-red-900 border border-neutral-700 rounded-full w-6 h-6 flex items-center justify-center text-neutral-400 hover:text-white transition-colors text-base leading-none shadow-lg"
           title="Remove from list"
         >
           ×
@@ -82,7 +80,8 @@ function SortableBookCard({ book, onRemove, draggable }) {
       ref={setNodeRef}
       style={style}
       {...attributes}
-      className={`relative select-none transition-opacity ring-2 ring-binding/40 rounded-lg ${isDragging ? 'opacity-40' : ''}`}
+      {...(draggable ? listeners : {})}
+      className={`group relative select-none transition-opacity ring-2 ring-binding/40 rounded-lg ${isDragging ? 'opacity-40' : ''} ${draggable ? 'cursor-grab active:cursor-grabbing' : ''}`}
     >
       <BookCard book={book} coverOverlay={overlay} hideActions />
     </div>
