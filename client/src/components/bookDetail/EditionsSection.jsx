@@ -9,7 +9,6 @@ function statusBadge(e) {
     return e.date_finished ? `Finished · ${e.date_finished}` : 'Finished';
   }
   if (e.status === 'reading') return 'Reading';
-  if (e.status === 'paused')  return 'Paused';
   return 'Unread';
 }
 

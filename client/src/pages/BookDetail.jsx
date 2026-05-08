@@ -13,10 +13,9 @@ import EditionsSection from '../components/bookDetail/EditionsSection.jsx';
 import ReadingLog from '../components/bookDetail/ReadingLog.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 
-const STATUS_LABEL = { reading: 'Reading', paused: 'Paused', finished: 'Finished', unread: 'Unread' };
+const STATUS_LABEL = { reading: 'Reading', finished: 'Finished', unread: 'Unread' };
 const STATUS_COLOR = {
   reading:  'text-parchment bg-oak/30',
-  paused:   'text-neutral-300 bg-neutral-800',
   finished: 'text-leather bg-binding/30',
   unread:   'text-neutral-400 bg-neutral-800',
 };
@@ -368,7 +367,7 @@ export default function BookDetail() {
                 <span className="text-[10px] uppercase tracking-wider">{book.archived ? 'Archived' : 'Archive'}</span>
               </button>
             </div>
-            {(book.status === 'reading' || book.status === 'paused') && (
+            {book.status === 'reading' && (
               <div className="border-t border-neutral-800 py-2.5 px-3">
                 <button
                   onClick={handleFinish}
@@ -510,7 +509,7 @@ export default function BookDetail() {
             )}
           </div>
 
-          {(book.status === 'reading' || book.status === 'paused') && (
+          {book.status === 'reading' && (
             <ProgressSection book={book} log={log} onChange={(updated) => {
               // ProgressSection's save resolved — but the user may have
               // navigated to another book in the meantime. Drop the

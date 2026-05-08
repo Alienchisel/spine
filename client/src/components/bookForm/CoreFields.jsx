@@ -121,12 +121,11 @@ export default function CoreFields({
           }}>
           <option value="unread">Unread</option>
           <option value="reading">Reading</option>
-          <option value="paused">Paused</option>
           <option value="finished">Finished</option>
         </select>
       </div>
 
-      {(form.status === 'reading' || form.status === 'paused' || form.status === 'finished') && (
+      {(form.status === 'reading' || form.status === 'finished') && (
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className={label}>Date started</label>

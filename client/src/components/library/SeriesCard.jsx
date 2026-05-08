@@ -8,7 +8,6 @@ export default function SeriesCard({ seriesName, books, expanded, onToggle, comp
   }, {});
   const statusParts = [
     statusCounts.reading  && `${statusCounts.reading} reading`,
-    statusCounts.paused   && `${statusCounts.paused} paused`,
     statusCounts.finished && `${statusCounts.finished} finished`,
     statusCounts.unread   && `${statusCounts.unread} unread`,
   ].filter(Boolean);

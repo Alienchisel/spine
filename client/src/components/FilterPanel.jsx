@@ -62,11 +62,10 @@ function FilterSection({ label, children, defaultOpen = true, active = false }) 
 // chip) or contradictory ("Reading" tab + Finished chip → empty result
 // because the conditions AND together). On owned / prev_owned / loved /
 // all, status is orthogonal and the chips are useful.
-const STATUS_TABS_HIDING_STATUS_FILTER = new Set(['reading', 'paused', 'finished', 'unread']);
+const STATUS_TABS_HIDING_STATUS_FILTER = new Set(['reading', 'finished', 'unread']);
 
 const STATUSES = [
   { key: 'reading',  label: 'Reading' },
-  { key: 'paused',   label: 'Paused' },
   { key: 'finished', label: 'Finished' },
   { key: 'unread',   label: 'Unread' },
 ];

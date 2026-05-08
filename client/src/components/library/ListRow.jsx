@@ -1,10 +1,9 @@
 import { Link } from 'react-router-dom';
 import { formatAuthors } from '../../utils.js';
 
-const STATUS_LABEL = { reading: 'Reading', paused: 'Paused', finished: 'Finished', unread: 'Unread' };
+const STATUS_LABEL = { reading: 'Reading', finished: 'Finished', unread: 'Unread' };
 const STATUS_COLOR = {
   reading:  'text-parchment bg-oak/30',
-  paused:   'text-neutral-300 bg-neutral-800',
   finished: 'text-leather bg-binding/30',
   unread:   'text-neutral-500 bg-neutral-800',
 };
@@ -14,7 +13,7 @@ export default function ListRow({ book }) {
   const pct = isAudiobook
     ? (book.duration_minutes > 0 && book.current_minutes != null ? Math.min(100, Math.round((book.current_minutes / book.duration_minutes) * 100)) : null)
     : (book.page_count > 0 && book.current_page != null ? Math.min(100, Math.round((book.current_page / book.page_count) * 100)) : null);
-  const showProgress = (book.status === 'reading' || book.status === 'paused') && pct !== null;
+  const showProgress = book.status === 'reading' && pct !== null;
 
   return (
     <Link

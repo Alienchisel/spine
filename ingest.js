@@ -97,7 +97,7 @@ async function downloadCover(url) {
   }
 }
 
-const STATUS_EXPAND   = { u: 'unread', r: 'reading', f: 'finished', p: 'paused' };
+const STATUS_EXPAND   = { u: 'unread', r: 'reading', f: 'finished' };
 const FORMAT_EXPAND   = { p: 'physical', d: 'digital', a: 'audiobook' };
 const BINDING_EXPAND  = { h: 'hardcover', p: 'paperback' };
 const CONDITION_EXPAND = { n: 'new', f: 'fine', v: 'very good', g: 'good', a: 'fair', po: 'poor', p: 'poor' };
@@ -349,7 +349,7 @@ async function main() {
     series:            series || undefined,
     series_number:     series_numberStr ? parseFloat(series_numberStr) : undefined,
     tags,
-    status:            ['reading', 'paused', 'finished', 'unread'].includes(statusVal) ? statusVal : 'unread',
+    status:            ['reading', 'finished', 'unread'].includes(statusVal) ? statusVal : 'unread',
     format:            ['physical', 'ebook', 'audiobook'].includes(formatVal) ? formatVal : undefined,
     owned:             ownedIn.toLowerCase() === 'y' ? 1 : 0,
     previously_owned:  prevOwnedIn.toLowerCase() === 'y' ? 1 : 0,

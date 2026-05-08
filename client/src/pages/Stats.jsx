@@ -266,7 +266,6 @@ export default function Stats() {
           <StatCard label="Prev. owned" value={totals.previously_owned?.toLocaleString()} href="/?tab=prev_owned" />
           <StatCard label="Finished" value={totals.finished?.toLocaleString()} href="/?tab=finished" />
           <StatCard label="Reading" value={totals.reading?.toLocaleString()} href="/?tab=reading" />
-          <StatCard label="Paused" value={totals.paused?.toLocaleString()} href="/?tab=paused" />
           <StatCard label="Unread" value={totals.unread?.toLocaleString()} href="/?tab=unread" />
           {totals.loved > 0 && <StatCard label="Loved" value={totals.loved?.toLocaleString()} href="/?tab=loved" />}
         </div>
@@ -295,7 +294,6 @@ export default function Stats() {
             data={[
               { name: 'Finished', value: ownedStatus?.finished ?? 0, color: '#a97954' },
               { name: 'Reading',  value: ownedStatus?.reading  ?? 0, color: '#c29b87' },
-              { name: 'Paused',   value: ownedStatus?.paused   ?? 0, color: '#532c2e' },
               { name: 'Unread',   value: ownedStatus?.unread   ?? 0, color: '#404040' },
             ].filter(d => d.value > 0)}
           />

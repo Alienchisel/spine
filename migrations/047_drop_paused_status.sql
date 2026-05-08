@@ -1,0 +1,11 @@
+-- The 'paused' status is being retired in favour of a "Recently logged" sort
+-- that surfaces stale Reading books naturally (1.29.0). Convert any extant
+-- paused rows to 'reading' so they remain visible on the Reading tab.
+--
+-- The CHECK(status IN (...)) constraint from migration 010 still lists
+-- 'paused' as a valid value. Recreating the table to tighten the CHECK
+-- would require enumerating every column added since 010 (~10 since), which
+-- is fragile. Application-level validation (shared/bookFields.js,
+-- ingest.js, filters.js) is the source of truth for valid statuses now;
+-- the CHECK stays as a permissive belt-and-suspenders.
+UPDATE books SET status = 'reading' WHERE status = 'paused';

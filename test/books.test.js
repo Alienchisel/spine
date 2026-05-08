@@ -221,6 +221,15 @@ describe('books', () => {
       assert.equal(status, 400);
     });
 
+    it('rejects retired "paused" status (1.29.0)', async () => {
+      // Paused was retired in favour of the "Recently logged" sort. The
+      // ENUM check should now reject it like any other unknown value —
+      // ingest scripts and old client builds that POST status:'paused'
+      // should fail loudly, not silently insert.
+      const { status } = await req('POST', '/api/books', { title: 'Old paused', status: 'paused' });
+      assert.equal(status, 400);
+    });
+
     it('rejects invalid ISBN-10', async () => {
       const { status } = await req('POST', '/api/books', { title: 'X', isbn_10: '123' });
       assert.equal(status, 400);
@@ -1203,10 +1212,9 @@ describe('books', () => {
       // statuses[] is the multi-select that lives in FilterPanel for use on
       // the owned/prev_owned/loved/all tabs where status is orthogonal.
       const stem = 'statuses-' + Math.random().toString(36).slice(2, 7);
-      const { body: rd } = await req('POST', '/api/books', { title: `${stem} reading`, status: 'reading' });
-      const { body: pd } = await req('POST', '/api/books', { title: `${stem} paused`,  status: 'paused' });
+      const { body: rd } = await req('POST', '/api/books', { title: `${stem} reading`,  status: 'reading' });
       const { body: fd } = await req('POST', '/api/books', { title: `${stem} finished`, status: 'finished' });
-      const { body: ud } = await req('POST', '/api/books', { title: `${stem} unread`,  status: 'unread' });
+      const { body: ud } = await req('POST', '/api/books', { title: `${stem} unread`,   status: 'unread' });
 
       const enc = encodeURIComponent;
       const collect = async (q) => {
@@ -1217,20 +1225,18 @@ describe('books', () => {
       // Single status: just that status.
       const oneOnly = await collect('statuses=reading');
       assert.ok(oneOnly.has(rd.id));
-      assert.ok(!oneOnly.has(pd.id));
       assert.ok(!oneOnly.has(fd.id));
       assert.ok(!oneOnly.has(ud.id));
 
-      // Multi: in-progress shortcut (reading OR paused).
-      const inProgress = await collect('statuses=reading&statuses=paused');
-      assert.ok(inProgress.has(rd.id));
-      assert.ok(inProgress.has(pd.id));
-      assert.ok(!inProgress.has(fd.id));
-      assert.ok(!inProgress.has(ud.id));
+      // Multi: queue shortcut (reading OR unread — books to start or continue).
+      const queue = await collect('statuses=reading&statuses=unread');
+      assert.ok(queue.has(rd.id));
+      assert.ok(queue.has(ud.id));
+      assert.ok(!queue.has(fd.id));
 
-      // No statuses param → no status restriction (all four match the stem).
+      // No statuses param → no status restriction (all three match the stem).
       const all = await collect('');
-      assert.ok(all.has(rd.id) && all.has(pd.id) && all.has(fd.id) && all.has(ud.id));
+      assert.ok(all.has(rd.id) && all.has(fd.id) && all.has(ud.id));
     });
 
     it('tag filter defaults to AND across multiple tags; tagsMode=any opts back into OR', async () => {
@@ -1441,13 +1447,12 @@ describe('books', () => {
       assert.equal(after.all,    after.total,       'all should always equal total');
     });
 
-    it('GET /api/books/counts increments reading, paused, finished counters', async () => {
+    it('GET /api/books/counts increments reading and finished counters', async () => {
       // Mirrors the unread-default test above for the remaining statuses, which
       // back the tab badges on Library and would silently break if their SUM
       // expression in repository.js were typo'd.
       const cases = [
         { status: 'reading' },
-        { status: 'paused' },
         { status: 'finished', date_finished: '2024-01-01' },
       ];
       for (const { status, ...rest } of cases) {
@@ -2491,6 +2496,24 @@ describe('books', () => {
       assert.ok(log.length > 0);
       const entry = log.find(e => e.pages_read >= 50);
       assert.ok(entry, 'expected a log entry with 50 pages');
+    });
+
+    it('sort=last_logged places books with reading_log entries above books without', async () => {
+      // Stem-scoped fixtures: a logged book gets a PATCH that creates a
+      // reading_log row; a never-logged book is just created. Under
+      // sort=last_logged the logged book should sort first because the
+      // MAX(date) subquery returns today's date for it vs. the empty-string
+      // fallback for the never-logged one.
+      const stem = 'lastlog-' + Math.random().toString(36).slice(2, 6);
+      const { body: never }  = await req('POST', '/api/books', { title: `${stem} never`,  page_count: 100 });
+      const { body: logged } = await req('POST', '/api/books', { title: `${stem} logged`, page_count: 100 });
+      await req('PATCH', `/api/books/${logged.id}`, { current_page: 30 });
+      const { body } = await req('GET', `/api/books?q=${encodeURIComponent(stem)}&sort=last_logged&limit=50`);
+      const ids = body.books.map(b => b.id);
+      const idxLogged = ids.indexOf(logged.id);
+      const idxNever  = ids.indexOf(never.id);
+      assert.ok(idxLogged >= 0 && idxNever >= 0);
+      assert.ok(idxLogged < idxNever, 'logged book should sort before never-logged book');
     });
 
     it('does not log when current_page does not increase', async () => {

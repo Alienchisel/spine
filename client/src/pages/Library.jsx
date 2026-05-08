@@ -27,7 +27,6 @@ import { useRefreshTick } from '../hooks/useRefreshTick.js';
 
 const TABS = [
   { key: 'reading',     label: 'Reading' },
-  { key: 'paused',      label: 'Paused' },
   { key: 'finished',    label: 'Finished' },
   { key: 'unread',      label: 'Unread' },
   { key: 'owned',       label: 'Owned' },
@@ -40,20 +39,21 @@ const TABS = [
 const SESSION_KEY = 'spine-library-state';
 
 const SORTS = [
-  { key: 'updated',  label: 'Recently updated' },
-  { key: 'added',    label: 'Recently added' },
-  { key: 'title',    label: 'Title A–Z' },
-  { key: 'author',   label: 'Author A–Z' },
-  { key: 'rating',   label: 'Rating' },
-  { key: 'progress', label: 'Progress' },
-  { key: 'started',  label: 'Date started' },
-  { key: 'finished', label: 'Date finished' },
-  { key: 'length',   label: 'Length' },
+  { key: 'updated',     label: 'Recently updated' },
+  { key: 'last_logged', label: 'Recently logged' },
+  { key: 'added',       label: 'Recently added' },
+  { key: 'title',       label: 'Title A–Z' },
+  { key: 'author',      label: 'Author A–Z' },
+  { key: 'rating',      label: 'Rating' },
+  { key: 'progress',    label: 'Progress' },
+  { key: 'started',     label: 'Date started' },
+  { key: 'finished',    label: 'Date finished' },
+  { key: 'length',      label: 'Length' },
   // Custom (manual rank) sort is gated to the Never owned tab — that's the
   // only surface where it's meaningful. The dropdown filters this entry
   // out on every other tab, but a stale saved sort lands on a non-custom
   // default in the load effect.
-  { key: 'custom',   label: 'Custom order', tabs: ['never_owned'] },
+  { key: 'custom',      label: 'Custom order', tabs: ['never_owned'] },
 ];
 
 const GRID = {
@@ -110,7 +110,7 @@ function SortableBookCard({ book, compact }) {
   );
 }
 
-const VALID_TABS = new Set(['reading', 'paused', 'finished', 'unread', 'owned', 'prev_owned', 'never_owned', 'all', 'archived']);
+const VALID_TABS = new Set(['reading', 'finished', 'unread', 'owned', 'prev_owned', 'never_owned', 'all', 'archived']);
 
 export default function Library() {
   const [searchParams] = useSearchParams();
@@ -291,7 +291,7 @@ export default function Library() {
   }
 
   function handleProgressUpdate(updated) {
-    const statusTabs = ['reading', 'paused', 'finished', 'unread'];
+    const statusTabs = ['reading', 'finished', 'unread'];
     const removing = statusTabs.includes(tab) && updated.status !== tab;
     if (removing) {
       // Bail if the book is no longer in local state — back-to-back

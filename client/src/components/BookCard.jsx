@@ -7,7 +7,6 @@ import StarRating from './StarRating.jsx';
 
 const STATUS_BAR = {
   reading:  'bg-oak',
-  paused:   'bg-neutral-500',
   finished: 'bg-leather',
   unread:   'bg-neutral-600',
 };
@@ -158,7 +157,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
       const isComplete = isAudiobook
         ? (updated.duration_minutes > 0 && updated.current_minutes >= updated.duration_minutes)
         : (updated.page_count > 0 && updated.current_page >= updated.page_count);
-      if (isComplete && (updated.status === 'reading' || updated.status === 'paused')) {
+      if (isComplete && updated.status === 'reading') {
         const finished = await api.updateBook(book.id, {
           ...updated,
           status: 'finished',
@@ -287,9 +286,9 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
               ✦
             </div>
           )}
-          {(book.status === 'reading' || book.status === 'paused') && pct !== null ? (
+          {book.status === 'reading' && pct !== null ? (
             <div className="absolute bottom-0 left-0 right-0 h-1 bg-neutral-700">
-              <div className={`h-full transition-all duration-300 ${book.status === 'paused' ? 'bg-neutral-500' : 'bg-oak'}`} style={{ width: `${pct}%` }} />
+              <div className="h-full bg-oak transition-all duration-300" style={{ width: `${pct}%` }} />
             </div>
           ) : (
             <div className={`absolute bottom-0 left-0 right-0 h-0.5 ${STATUS_BAR[book.status]}`} />
@@ -371,7 +370,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
         </div>
       )}
 
-      {!compact && (book.status === 'reading' || book.status === 'paused') && (
+      {!compact && book.status === 'reading' && (
         <div className="mt-2">
           <button
             onClick={toggleEditor}

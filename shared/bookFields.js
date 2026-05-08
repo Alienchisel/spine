@@ -103,7 +103,7 @@ export const VIRTUAL_TAG_NAMES = ['Antique', 'Vintage', 'Translated', 'Re-read',
 // Valid values for each enum field. Single source of truth for both backend
 // validation and the form's <select> options.
 export const ENUM_VALUES = Object.freeze({
-  status:      ['reading', 'paused', 'finished', 'unread'],
+  status:      ['reading', 'finished', 'unread'],
   format:      ['physical', 'ebook', 'audiobook'],
   binding:     ['paperback', 'hardcover'],
   condition:   ['new', 'fine', 'very good', 'good', 'fair', 'poor'],
