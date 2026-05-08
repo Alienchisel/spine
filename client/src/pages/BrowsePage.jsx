@@ -45,6 +45,12 @@ export default function BrowsePage() {
   const [actionError, setActionError] = useState(null);
   const loadedRef = useRef(0);
   const genRef    = useRef(0);
+  // Synchronous mirror of the loadingMore/loadingAll *pair*. State setters
+  // don't commit until next render — so two same-tick clicks (or Load
+  // more + Load all together) all pass the `loadingMore || loadingAll`
+  // check, fire duplicate getBooks at the same offset, and double-bump
+  // loadedRef.current. Mirrors Library.pagingRef.
+  const pagingRef = useRef(false);
   const gridCols  = useGridCols(BROWSE_BPS);
   const refreshTick = useRefreshTick();
 
@@ -78,8 +84,9 @@ export default function BrowsePage() {
   }, [field, decoded, refreshTick]);
 
   function handleLoadMore() {
-    if (loadingMore || loadingAll) return;
+    if (pagingRef.current || loadingMore || loadingAll) return;
     const gen = genRef.current;
+    pagingRef.current = true;
     setLoadingMore(true);
     setActionError(null);
     api.getBooks({ field, value: decoded, sort: browseSort(field), limit: PAGE_SIZE, offset: loadedRef.current })
@@ -92,12 +99,19 @@ export default function BrowsePage() {
       .catch(() => {
         if (gen === genRef.current) setActionError('Failed to load more books.');
       })
-      .finally(() => { if (gen === genRef.current) setLoadingMore(false); });
+      .finally(() => {
+        // Clear unconditionally — a nav between browse targets bumps gen
+        // and resets loadingMore via setState; a stranded ref would
+        // block all future paging on the new view.
+        pagingRef.current = false;
+        if (gen === genRef.current) setLoadingMore(false);
+      });
   }
 
   async function handleLoadAll() {
-    if (loadingMore || loadingAll) return;
+    if (pagingRef.current || loadingMore || loadingAll) return;
     const gen = genRef.current;
+    pagingRef.current = true;
     setLoadingAll(true);
     setActionError(null);
     try {
@@ -114,6 +128,7 @@ export default function BrowsePage() {
     } catch {
       if (gen === genRef.current) setActionError('Failed to load more books.');
     } finally {
+      pagingRef.current = false;
       if (gen === genRef.current) setLoadingAll(false);
     }
   }

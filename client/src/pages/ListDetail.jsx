@@ -197,6 +197,13 @@ export default function ListDetail() {
   const [editMode, setEditMode] = useState(false);
   const loadedRef = useRef(0);
   const genRef = useRef(0);
+  // Synchronous mirror of the loadingMore/loadingAll *pair*. The button
+  // disabled props gate user clicks but the state setters don't commit
+  // until next render — so two same-tick clicks (or Load more + Load all
+  // together) all pass the `loadingMore || loadingAll` check, fire
+  // duplicate getList calls at the same offset, and double-bump
+  // loadedRef.current. Mirrors Library.pagingRef.
+  const pagingRef = useRef(false);
   // Bumped on every drag so an earlier failed reorder whose .catch lands
   // *after* a later drag has already applied optimistically can detect
   // that it's stale — without this, A's rollback to its pre-A snapshot
@@ -266,8 +273,9 @@ export default function ListDetail() {
   }, [id, sort, refreshTick]);
 
   const loadMore = useCallback(async () => {
-    if (loadingMore || loadingAll) return;
+    if (pagingRef.current || loadingMore || loadingAll) return;
     const gen = genRef.current;
+    pagingRef.current = true;
     setLoadingMore(true);
     setActionError(null);
     try {
@@ -278,13 +286,18 @@ export default function ListDetail() {
     } catch {
       if (gen === genRef.current) setActionError('Failed to load more books.');
     } finally {
+      // Clear unconditionally — if gen has bumped, the new load effect
+      // already reset loadingMore via setState, so leaving the ref stuck
+      // would block all future paging on the new list.
+      pagingRef.current = false;
       if (gen === genRef.current) setLoadingMore(false);
     }
   }, [id, sort, loadingMore, loadingAll]);
 
   const loadAll = useCallback(async () => {
-    if (loadingMore || loadingAll) return;
+    if (pagingRef.current || loadingMore || loadingAll) return;
     const gen = genRef.current;
+    pagingRef.current = true;
     setLoadingAll(true);
     setActionError(null);
     try {
@@ -298,6 +311,7 @@ export default function ListDetail() {
     } catch {
       if (gen === genRef.current) setActionError('Failed to load more books.');
     } finally {
+      pagingRef.current = false;
       if (gen === genRef.current) setLoadingAll(false);
     }
   }, [id, sort, total, loadingMore, loadingAll]);
