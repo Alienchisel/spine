@@ -1480,6 +1480,34 @@ describe('books', () => {
       assert.equal(after.prev_owned, before.prev_owned + 1, 'prev_owned should increment by 1');
     });
 
+    it('GET /api/books/counts.never_owned counts books that are neither owned nor previously owned', async () => {
+      // Three POSTs covering the trichotomy: only the never_owned fixture
+      // should increment never_owned. The owned fixture lands in `owned`,
+      // the prev_owned fixture lands in `prev_owned`, and the never_owned
+      // fixture (owned=false, previously_owned=false) must land here.
+      const { body: before } = await req('GET', '/api/books/counts');
+      await req('POST', '/api/books', { title: 'no-owned '  + Math.random().toString(36).slice(2, 8), owned: true });
+      await req('POST', '/api/books', { title: 'no-prev '   + Math.random().toString(36).slice(2, 8), owned: false, previously_owned: true });
+      await req('POST', '/api/books', { title: 'no-never '  + Math.random().toString(36).slice(2, 8), owned: false, previously_owned: false });
+      const { body: after } = await req('GET', '/api/books/counts');
+
+      assert.equal(after.never_owned, before.never_owned + 1, 'never_owned should increment by 1');
+    });
+
+    it('tab=never_owned returns only books with owned=0 and previously_owned=0', async () => {
+      const { body: ownedBook }    = await req('POST', '/api/books', { title: 'Owned never-owned-test',    owned: true });
+      const { body: prevBook }     = await req('POST', '/api/books', { title: 'Prev never-owned-test',     owned: false, previously_owned: true });
+      const { body: neverBook }    = await req('POST', '/api/books', { title: 'Never never-owned-test',    owned: false, previously_owned: false });
+      const { body: archivedNever } = await req('POST', '/api/books', { title: 'Archived never-owned-test', owned: false, previously_owned: false, archived: true });
+
+      const { body: list } = await req('GET', '/api/books?tab=never_owned&limit=200');
+      const ids = list.books.map(b => b.id);
+      assert.ok( ids.includes(neverBook.id),     'never-owned book should appear');
+      assert.ok(!ids.includes(ownedBook.id),     'owned book should NOT appear');
+      assert.ok(!ids.includes(prevBook.id),      'prev-owned book should NOT appear');
+      assert.ok(!ids.includes(archivedNever.id), 'archived never-owned book should NOT appear (archived excluded by default)');
+    });
+
     it('POST /api/books/:id/fetch-cover returns 400 when book has no ISBN', async () => {
       // The route short-circuits with "No ISBN on this book" before any network
       // lookup, so this stays hermetic.

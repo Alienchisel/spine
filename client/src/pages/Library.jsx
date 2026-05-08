@@ -12,14 +12,15 @@ import { useGridCols, COMFORTABLE_BPS, COMPACT_BPS } from '../hooks/useGridCols.
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 
 const TABS = [
-  { key: 'reading',   label: 'Reading' },
-  { key: 'paused',    label: 'Paused' },
-  { key: 'finished',  label: 'Finished' },
-  { key: 'unread',    label: 'Unread' },
-  { key: 'owned',     label: 'Owned' },
-  { key: 'prev_owned', label: 'Prev. owned' },
-  { key: 'all',       label: 'All' },
-  { key: 'archived',  label: 'Archived' },
+  { key: 'reading',     label: 'Reading' },
+  { key: 'paused',      label: 'Paused' },
+  { key: 'finished',    label: 'Finished' },
+  { key: 'unread',      label: 'Unread' },
+  { key: 'owned',       label: 'Owned' },
+  { key: 'prev_owned',  label: 'Prev. owned' },
+  { key: 'never_owned', label: 'Never owned' },
+  { key: 'all',         label: 'All' },
+  { key: 'archived',    label: 'Archived' },
 ];
 
 const SESSION_KEY = 'spine-library-state';
@@ -54,7 +55,7 @@ function FilterIcon() {
   );
 }
 
-const VALID_TABS = new Set(['reading', 'paused', 'finished', 'unread', 'owned', 'prev_owned', 'all', 'archived']);
+const VALID_TABS = new Set(['reading', 'paused', 'finished', 'unread', 'owned', 'prev_owned', 'never_owned', 'all', 'archived']);
 
 export default function Library() {
   const [searchParams] = useSearchParams();
