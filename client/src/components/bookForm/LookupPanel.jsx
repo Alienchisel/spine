@@ -15,6 +15,11 @@ export default function LookupPanel({ onApply }) {
   // or already picked from. Each runSearch captures its gen and drops its
   // own state writes if a newer call (or a clear/pick) has bumped the ref.
   const searchGenRef = useRef(0);
+  // Synchronous in-flight guard: handlePick is async (awaits onApply), and the
+  // setResults([]) that hides the dropdown doesn't take effect until after the
+  // handler returns. A same-tick double-click on a result would otherwise fire
+  // onApply twice and race two description-fetch / form-fill passes.
+  const pickingRef = useRef(false);
 
   async function runSearch(q) {
     if (!q.trim()) return;
@@ -61,13 +66,19 @@ export default function LookupPanel({ onApply }) {
   }
 
   async function handlePick(result) {
+    if (pickingRef.current) return;
+    pickingRef.current = true;
     // Same gen-bump rationale: an earlier in-flight search must not pop the
     // dropdown back open after the user has already chosen a result.
     searchGenRef.current++;
     setQuery('');
     setResults([]);
     setSearching(false);
-    await onApply(result);
+    try {
+      await onApply(result);
+    } finally {
+      pickingRef.current = false;
+    }
   }
 
   return (
