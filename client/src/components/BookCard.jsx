@@ -52,6 +52,14 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
   // synchronously so the second call sees the first's marker. Mirrors
   // the busyIdsRef pattern in ListPicker.
   const savingRef = useRef(false);
+  // Synchronous mirrors of `loving` and `listing` — same shape as
+  // savingRef. The buttons inside the hover tray have no disabled prop
+  // (they live behind a fade-in tray and the user can mash them), so two
+  // same-tick clicks both read state=false and fire duplicate PATCHes
+  // against stale book.loved / book.on_readlist. Idempotent end state
+  // but bumps updated_at twice and pollutes Recently updated.
+  const lovingRef = useRef(false);
+  const listingRef = useRef(false);
 
   useEffect(() => { setBook(initialBook); }, [initialBook]);
 
@@ -184,7 +192,8 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
 
   async function toggleLoved(e) {
     e.preventDefault();
-    if (loving) return;
+    if (lovingRef.current || loving) return;
+    lovingRef.current = true;
     setLoving(true);
     setError(null);
     try {
@@ -194,13 +203,15 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
     } catch {
       setError('Failed to update loved');
     } finally {
+      lovingRef.current = false;
       setLoving(false);
     }
   }
 
   async function toggleReadlist(e) {
     e.preventDefault();
-    if (listing) return;
+    if (listingRef.current || listing) return;
+    listingRef.current = true;
     setListing(true);
     setError(null);
     try {
@@ -210,6 +221,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
     } catch {
       setError('Failed to update readlist');
     } finally {
+      listingRef.current = false;
       setListing(false);
     }
   }

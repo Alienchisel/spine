@@ -47,6 +47,12 @@ export default function BookDetail() {
   const [loving, setLoving] = useState(false);
   const [listing, setListing] = useState(false);
   const [archiving, setArchiving] = useState(false);
+  // Synchronous mirrors — same shape as archivingRef. Without these, two
+  // same-tick clicks both read state=false and book.loved=stale, both fire
+  // duplicate PATCHes resolving to the same target value (idempotent end
+  // state but bumps updated_at twice and pollutes Recently updated).
+  const lovingRef = useRef(false);
+  const listingRef = useRef(false);
   // Synchronous mirror of `archiving` — `archiving` (state) doesn't commit
   // until the next render, and the Archive icon button isn't disabled
   // mid-flight, so two same-tick clicks both see archiving === false and
@@ -189,8 +195,9 @@ export default function BookDetail() {
   // another. Each handler clears both on entry so the visible state always
   // reflects the most recent action — same shape as the Lists.jsx fix.
   async function toggleLoved() {
-    if (loving) return;
+    if (lovingRef.current || loving) return;
     const reqId = book.id;
+    lovingRef.current = true;
     setLoving(true);
     setActionError(null);
     setFinishError(null);
@@ -202,13 +209,15 @@ export default function BookDetail() {
       if (!isStillCurrent(reqId)) return;
       setActionError('Failed to update loved');
     } finally {
+      lovingRef.current = false;
       setLoving(false);
     }
   }
 
   async function toggleReadlist() {
-    if (listing) return;
+    if (listingRef.current || listing) return;
     const reqId = book.id;
+    listingRef.current = true;
     setListing(true);
     setActionError(null);
     setFinishError(null);
@@ -220,6 +229,7 @@ export default function BookDetail() {
       if (!isStillCurrent(reqId)) return;
       setActionError('Failed to update readlist');
     } finally {
+      listingRef.current = false;
       setListing(false);
     }
   }
@@ -345,7 +355,8 @@ export default function BookDetail() {
             <div className="flex justify-around items-start py-3 px-2">
               <button
                 onClick={toggleLoved}
-                className={`flex flex-col items-center gap-1.5 transition-colors ${book.loved ? 'text-red-400' : 'text-neutral-600 hover:text-neutral-300'}`}
+                disabled={loving}
+                className={`flex flex-col items-center gap-1.5 transition-colors disabled:opacity-50 ${book.loved ? 'text-red-400' : 'text-neutral-600 hover:text-neutral-300'}`}
                 title={book.loved ? 'Remove from loved' : 'Mark as loved'}
               >
                 <span className="text-2xl leading-none">{book.loved ? '♥' : '♡'}</span>
@@ -353,7 +364,8 @@ export default function BookDetail() {
               </button>
               <button
                 onClick={toggleReadlist}
-                className={`flex flex-col items-center gap-1.5 transition-colors ${book.on_readlist ? 'text-sky-400' : 'text-neutral-600 hover:text-neutral-300'}`}
+                disabled={listing}
+                className={`flex flex-col items-center gap-1.5 transition-colors disabled:opacity-50 ${book.on_readlist ? 'text-sky-400' : 'text-neutral-600 hover:text-neutral-300'}`}
                 title={book.on_readlist ? 'Remove from readlist' : 'Add to readlist'}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-5 h-5">
