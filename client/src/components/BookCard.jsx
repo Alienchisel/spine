@@ -249,17 +249,25 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
   // surfaces archived items so users can find them to un-archive).
   const archivedDim = book.archived ? 'opacity-60 saturate-50' : '';
 
+  // In edit-mode contexts (hideActions=true) the cover should not be a
+  // navigation target — the tap/click semantics are owned by the drag
+  // handle. Without this, a click on the handle still bubbles to the
+  // wrapping <Link> (button.preventDefault stops the button default but
+  // doesn't stop propagation), and after a real drag-and-release the
+  // browser fires a click on the drop target's link too, both routing
+  // away from the edit screen. Swap to a non-navigating <div> instead.
+  const CoverWrapper      = hideActions ? 'div' : Link;
+  const coverWrapperProps = hideActions
+    ? { className: 'group block' }
+    : { to: `/books/${book.id}`, className: 'group block' };
+  const coverTitle = [
+    book.title,
+    book.authors?.map(a => a.name).join(', '),
+    isAudiobook && book.narrators?.length > 0 ? `read by ${book.narrators.map(n => n.name).join(', ')}` : null,
+  ].filter(Boolean).join(' — ');
   return (
     <div onKeyDown={handleKeyDown} className={`transition-[background-color] ease-out duration-150 ${compact ? '' : 'bg-card rounded-lg p-1.5'} ${archivedDim}`}>
-      <Link
-        to={`/books/${book.id}`}
-        className="group block"
-        title={[
-          book.title,
-          book.authors?.map(a => a.name).join(', '),
-          isAudiobook && book.narrators?.length > 0 ? `read by ${book.narrators.map(n => n.name).join(', ')}` : null,
-        ].filter(Boolean).join(' — ')}
-      >
+      <CoverWrapper {...coverWrapperProps} title={coverTitle}>
         {/* Hover signal: a 2px white inset frame on the cover. Implemented
             via an absolute-positioned overlay sibling AFTER the img so the
             box-shadow paints above the image content — `box-shadow: inset`
@@ -343,7 +351,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
               wrapper's bounding box would otherwise place a `bottom-*`). */}
           {coverOverlay}
         </div>
-      </Link>
+      </CoverWrapper>
 
       {/* Card-level error surface for quick actions (loved / readlist toggles)
           when neither the rating prompt nor the progress editor is open —
