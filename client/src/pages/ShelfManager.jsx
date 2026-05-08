@@ -26,14 +26,16 @@ export default function ShelfManager() {
   // added vanished"). Each reload captures its gen and drops setTree if a
   // newer reload has bumped the ref.
   const treeGenRef = useRef(0);
-  // Bumped on every reorder drag (buildings, rooms, units, shelves) so an
-  // earlier failed reorder's recovery reload() can detect that a later
-  // drag has already applied — without this, the recovery reload would
-  // fetch canonical server state and snap the tree back over the newer
-  // drag's optimistic UI. treeGenRef alone doesn't help here: each reload
-  // bumps gen, so the stale reorder's reload IS "the latest" by gen.
-  // Mirrors the seq guard in Readlist / ListDetail / ShelfView.
-  const reorderSeqRef = useRef(0);
+  // Per-namespace reorder seq counters. Each drag's .catch checks "is my
+  // seq still the latest?" — if not, the drag has been superseded and
+  // the catch returns silently. Was previously a single shared counter,
+  // but building / room / unit / shelf reorders target independent server
+  // resources: a later room drag bumping the counter would silently
+  // suppress an earlier *building* reorder's failure banner, leaving the
+  // tree desynced from the server with no surfaced error. Per-namespace
+  // counters keep each reorder gated only by its own sibling reorders.
+  // Mirrors the seq guard in Readlist / ListDetail / ShelfView, scoped.
+  const reorderSeqRef = useRef({ building: 0, room: 0, unit: 0, shelf: 0 });
   // Tracks ids whose delete is in flight, per kind. The confirm modal
   // cancels overlapping confirms, but a re-click *after* confirming —
   // while the API call is pending and reload() hasn't yet refreshed the
@@ -66,9 +68,9 @@ export default function ShelfManager() {
     const reordered = arrayMove(tree, oldIdx, newIdx);
     setTree(reordered);
     setError(null);
-    const seq = ++reorderSeqRef.current;
+    const seq = ++reorderSeqRef.current.building;
     api.reorderBuildings(reordered.map(b => b.id)).catch(() => {
-      if (seq !== reorderSeqRef.current) return;
+      if (seq !== reorderSeqRef.current.building) return;
       setError('Failed to save reorder.');
       reload();  // refetches the canonical tree (may overwrite error if reload also fails)
     });
@@ -150,11 +152,11 @@ export default function ShelfManager() {
 
   async function reorderRooms(buildingId, ids) {
     setError(null);
-    const seq = ++reorderSeqRef.current;
+    const seq = ++reorderSeqRef.current.room;
     try {
       await api.reorderRooms(buildingId, ids);
     } catch {
-      if (seq !== reorderSeqRef.current) return;
+      if (seq !== reorderSeqRef.current.room) return;
       setError('Failed to save reorder.');
       reload();
     }
@@ -189,11 +191,11 @@ export default function ShelfManager() {
 
   async function reorderUnits(roomId, ids) {
     setError(null);
-    const seq = ++reorderSeqRef.current;
+    const seq = ++reorderSeqRef.current.unit;
     try {
       await api.reorderUnits(roomId, ids);
     } catch {
-      if (seq !== reorderSeqRef.current) return;
+      if (seq !== reorderSeqRef.current.unit) return;
       setError('Failed to save reorder.');
       reload();
     }
@@ -242,11 +244,11 @@ export default function ShelfManager() {
 
   async function reorderShelves(unitId, ids) {
     setError(null);
-    const seq = ++reorderSeqRef.current;
+    const seq = ++reorderSeqRef.current.shelf;
     try {
       await api.reorderShelves(unitId, ids);
     } catch {
-      if (seq !== reorderSeqRef.current) return;
+      if (seq !== reorderSeqRef.current.shelf) return;
       setError('Failed to save reorder.');
       reload();
     }
