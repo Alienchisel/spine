@@ -8,3 +8,4 @@ spine.db
 backups/
 .tools/
 npm-cache/
+.claude/
