@@ -84,7 +84,7 @@ function SortableBookCard({ book, onRemove, draggable }) {
       {...attributes}
       className={`relative select-none transition-opacity ring-2 ring-binding/40 rounded-lg ${isDragging ? 'opacity-40' : ''}`}
     >
-      <BookCard book={book} coverOverlay={overlay} />
+      <BookCard book={book} coverOverlay={overlay} hideActions />
     </div>
   );
 }

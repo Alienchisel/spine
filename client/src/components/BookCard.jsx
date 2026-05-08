@@ -23,7 +23,7 @@ function PencilIcon() {
   );
 }
 
-export default function BookCard({ book: initialBook, onProgressUpdate, compact, coverOverlay }) {
+export default function BookCard({ book: initialBook, onProgressUpdate, compact, coverOverlay, hideActions }) {
   const [book, setBook] = useState(initialBook);
   const [open, setOpen] = useState(false);
   const [loving, setLoving] = useState(false);
@@ -293,12 +293,14 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
           ) : (
             <div className={`absolute bottom-0 left-0 right-0 h-0.5 ${STATUS_BAR[book.status]}`} />
           )}
-          {!compact && (
+          {!compact && !hideActions && (
             // Self-contained dark tray that holds the action icons. The
             // whole tray (rectangle + contents) fades in together on hover
             // — at rest the cover is fully uncluttered. Active state
             // (loved, on_readlist) still expresses via colour once the tray
-            // is visible.
+            // is visible. Hidden in edit-mode contexts (hideActions=true)
+            // where the drag handle is the only intended affordance and
+            // these buttons would compete with it for the same anchor.
             <div className="absolute inset-x-3 bottom-3 flex justify-center items-center gap-4 px-3 py-1.5 bg-black/65 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
               <button
                 onClick={toggleReadlist}
