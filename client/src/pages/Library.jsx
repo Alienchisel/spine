@@ -122,7 +122,18 @@ export default function Library() {
   const [queryRaw,    setQueryRaw]    = useState(() => saved.query || '');
   const [query,       setQuery]       = useState(() => saved.query || '');
   const [filtersOpen, setFiltersOpen] = useState(() => saved.filtersOpen ?? false);
-  const [filters,     setFilters]     = useState(() => saved.filters ? { ...EMPTY_FILTERS, ...saved.filters } : EMPTY_FILTERS);
+  const [filters,     setFilters]     = useState(() => {
+    const base = saved.filters ? { ...EMPTY_FILTERS, ...saved.filters } : EMPTY_FILTERS;
+    // Deep-link support: `?custom=true` (used by the Stats Custom tile)
+    // hydrates the FilterPanel's custom chip on initial mount so the user
+    // lands on a Custom-filtered Library view directly. Tab/query don't
+    // need this override because the URL `tab` param is already read
+    // independently above.
+    const customParam = searchParams.get('custom');
+    if (customParam === 'true')  return { ...base, custom: true };
+    if (customParam === 'false') return { ...base, custom: false };
+    return base;
+  });
   // Per-tab sort memory: each tab earns its own preferred sort. Reading might
   // sit on 'last_logged' while All sits on 'updated' — switching tabs swaps
   // the dropdown to that tab's last choice instead of dragging one global

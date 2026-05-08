@@ -269,6 +269,7 @@ export default function Stats() {
           <StatCard label="Reading" value={totals.reading?.toLocaleString()} href="/?tab=reading" />
           <StatCard label="Unread" value={totals.unread?.toLocaleString()} href="/?tab=unread" />
           {totals.loved > 0 && <StatCard label="Loved" value={totals.loved?.toLocaleString()} href="/loved" />}
+          {totals.custom > 0 && <StatCard label="Custom" value={totals.custom?.toLocaleString()} href="/?custom=true" />}
         </div>
       </Section>
 
@@ -291,7 +292,12 @@ export default function Stats() {
             }))}
           />
           <DonutChart
-            title="Status"
+            // "Owned status" rather than just "Status" — the slices are over
+            // owned-purchased media (custom + Internet excluded) while the
+            // Library "Reading" tile above counts every status='reading'
+            // row regardless of ownership. Same word, different scope; the
+            // qualifier makes the relationship explicit at a glance.
+            title="Owned status"
             data={[
               { name: 'Finished', value: ownedStatus?.finished ?? 0, color: '#a97954' },
               { name: 'Reading',  value: ownedStatus?.reading  ?? 0, color: '#c29b87' },

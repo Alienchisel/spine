@@ -39,7 +39,7 @@ describe('stats', () => {
 
     it('totals has required fields', async () => {
       const { body } = await req('GET', '/api/stats');
-      for (const key of ['books', 'owned', 'previously_owned', 'never_owned', 'reading', 'finished', 'unread', 'loved']) {
+      for (const key of ['books', 'owned', 'previously_owned', 'never_owned', 'custom', 'reading', 'finished', 'unread', 'loved']) {
         assert.ok(key in body.totals, `totals missing: ${key}`);
       }
     });
