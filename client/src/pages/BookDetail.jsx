@@ -47,6 +47,14 @@ export default function BookDetail() {
   const [loving, setLoving] = useState(false);
   const [listing, setListing] = useState(false);
   const [archiving, setArchiving] = useState(false);
+  // Synchronous mirror of `archiving` — `archiving` (state) doesn't commit
+  // until the next render, and the Archive icon button isn't disabled
+  // mid-flight, so two same-tick clicks both see archiving === false and
+  // both fire `archived: book.archived ? 0 : 1` against the same stale
+  // `book.archived`. The PATCH is idempotent at the DB level but bumps
+  // updated_at twice and adds noise to Recently updated. Mirrors the
+  // savingRef / finishingRef pattern.
+  const archivingRef = useRef(false);
   // Lockout for the Delete button. The navigate('/') on success makes the
   // re-click window small but non-zero — without this, a second click
   // between "confirm OK" and "navigate fires" produces a brief
@@ -217,8 +225,9 @@ export default function BookDetail() {
   }
 
   async function toggleArchived() {
-    if (archiving) return;
+    if (archivingRef.current || archiving) return;
     const reqId = book.id;
+    archivingRef.current = true;
     setArchiving(true);
     setActionError(null);
     setFinishError(null);
@@ -230,6 +239,7 @@ export default function BookDetail() {
       if (!isStillCurrent(reqId)) return;
       setActionError('Failed to update archive state');
     } finally {
+      archivingRef.current = false;
       setArchiving(false);
     }
   }
@@ -357,7 +367,8 @@ export default function BookDetail() {
               </div>
               <button
                 onClick={toggleArchived}
-                className={`flex flex-col items-center gap-1.5 transition-colors ${book.archived ? 'text-amber-500' : 'text-neutral-600 hover:text-neutral-300'}`}
+                disabled={archiving}
+                className={`flex flex-col items-center gap-1.5 transition-colors disabled:opacity-50 ${book.archived ? 'text-amber-500' : 'text-neutral-600 hover:text-neutral-300'}`}
                 title={book.archived ? 'Restore from archive' : 'Archive — hide from active library'}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-5 h-5">
