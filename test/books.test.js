@@ -1470,7 +1470,10 @@ describe('books', () => {
     it('GET /api/books/counts increments owned and prev_owned counters', async () => {
       // The counts row also exposes ownership totals (repository.js:46-47).
       // previously_owned is forced to 0 when owned=true (repository.js:141),
-      // so the prev_owned fixture must explicitly send owned: false.
+      // so the prev_owned fixture must explicitly send owned: false. A
+      // custom-owned fixture is sent too as a regression check: Owned
+      // means "owned media" (excludes is_custom=1) so the counter must
+      // not bump for it.
       const { body: before } = await req('GET', '/api/books/counts');
       await req('POST', '/api/books', {
         title: 'counts-owned ' + Math.random().toString(36).slice(2, 8), owned: true,
@@ -1479,10 +1482,29 @@ describe('books', () => {
         title: 'counts-prev '  + Math.random().toString(36).slice(2, 8),
         owned: false, previously_owned: true,
       });
+      await req('POST', '/api/books', {
+        title: 'counts-cstm ' + Math.random().toString(36).slice(2, 8),
+        owned: true, is_custom: true,
+      });
       const { body: after } = await req('GET', '/api/books/counts');
 
-      assert.equal(after.owned,      before.owned      + 1, 'owned should increment by 1');
+      assert.equal(after.owned,      before.owned      + 1, 'owned should increment by 1 (custom excluded)');
       assert.equal(after.prev_owned, before.prev_owned + 1, 'prev_owned should increment by 1');
+    });
+
+    it('tab=owned excludes custom books even when owned=1', async () => {
+      // The Owned tab represents "owned media" — Custom rows (personal
+      // projects/notes) live outside that frame and have their own
+      // is_custom=1 surface. Mirrors the never_owned tab's custom
+      // exclusion, kept symmetric so Owned and Never owned never both
+      // include or both exclude the same row.
+      const { body: ownedReal }   = await req('POST', '/api/books', { title: 'Owned real owned-test',   owned: true });
+      const { body: ownedCustom } = await req('POST', '/api/books', { title: 'Owned custom owned-test', owned: true, is_custom: true });
+
+      const { body: list } = await req('GET', '/api/books?tab=owned&limit=200');
+      const ids = list.books.map(b => b.id);
+      assert.ok( ids.includes(ownedReal.id),    'owned real book should appear');
+      assert.ok(!ids.includes(ownedCustom.id), 'owned custom book should NOT appear on Owned tab');
     });
 
     it('GET /api/books/counts.never_owned counts only real books that are neither owned nor previously owned', async () => {
