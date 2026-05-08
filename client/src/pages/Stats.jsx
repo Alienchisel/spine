@@ -212,7 +212,7 @@ export default function Stats() {
   if (error) return <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-warn text-sm">{error}</div>;
   if (!stats) return null;
 
-  const { totals, formats, fiction, ownedStatus, ratings, pagesRead, minutesListened, byYear, byMonth = [], topAuthors, topNarrators, languages, streaks, todayPages, thisYearBooks, thisYearPages, topTags, topSeries, avgPagesPerDay, avgDaysToFinish, inProgressPace = [], decadesPublished = [], records } = stats;
+  const { totals, formats, fiction, ownedStatus, ratings, acquisitionSources, pagesRead, minutesListened, byYear, byMonth = [], topAuthors, topNarrators, languages, streaks, todayPages, thisYearBooks, thisYearPages, topTags, topSeries, avgPagesPerDay, avgDaysToFinish, inProgressPace = [], decadesPublished = [], records } = stats;
 
   const maxRating = Math.max(...ratings.map(r => r.count), 1);
   const maxYear   = Math.max(...byYear.map(y => y.count), 1);
@@ -264,15 +264,16 @@ export default function Stats() {
           <StatCard label="Total books" value={totals.books?.toLocaleString()} href="/?tab=all" />
           <StatCard label="Owned" value={totals.owned?.toLocaleString()} href="/?tab=owned" />
           <StatCard label="Prev. owned" value={totals.previously_owned?.toLocaleString()} href="/?tab=prev_owned" />
+          <StatCard label="Never owned" value={totals.never_owned?.toLocaleString()} href="/?tab=never_owned" />
           <StatCard label="Finished" value={totals.finished?.toLocaleString()} href="/?tab=finished" />
           <StatCard label="Reading" value={totals.reading?.toLocaleString()} href="/?tab=reading" />
           <StatCard label="Unread" value={totals.unread?.toLocaleString()} href="/?tab=unread" />
-          {totals.loved > 0 && <StatCard label="Loved" value={totals.loved?.toLocaleString()} href="/?tab=loved" />}
+          {totals.loved > 0 && <StatCard label="Loved" value={totals.loved?.toLocaleString()} href="/loved" />}
         </div>
       </Section>
 
       <Section title="Breakdown">
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <DonutChart
             title="Fiction"
             data={[
@@ -297,6 +298,21 @@ export default function Stats() {
               { name: 'Unread',   value: ownedStatus?.unread   ?? 0, color: '#404040' },
             ].filter(d => d.value > 0)}
           />
+          {acquisitionSources && (
+            // Where does my library come from? Includes Internet-sourced
+            // even though the Owned tab/count excludes them — this chart's
+            // explicit purpose is the purchased-vs-downloaded distinction.
+            <DonutChart
+              title="Source"
+              data={[
+                { name: 'Kindle',   value: acquisitionSources.kindle   ?? 0, color: '#a97954' },
+                { name: 'Audible',  value: acquisitionSources.audible  ?? 0, color: '#c29b87' },
+                { name: 'Physical', value: acquisitionSources.physical ?? 0, color: '#532c2e' },
+                { name: 'Internet', value: acquisitionSources.internet ?? 0, color: '#5a7a8a' },
+                { name: 'Unknown',  value: acquisitionSources.unknown  ?? 0, color: '#404040' },
+              ].filter(d => d.value > 0)}
+            />
+          )}
         </div>
       </Section>
 

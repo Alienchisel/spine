@@ -39,8 +39,19 @@ describe('stats', () => {
 
     it('totals has required fields', async () => {
       const { body } = await req('GET', '/api/stats');
-      for (const key of ['books', 'owned', 'previously_owned', 'reading', 'finished', 'unread', 'loved']) {
+      for (const key of ['books', 'owned', 'previously_owned', 'never_owned', 'reading', 'finished', 'unread', 'loved']) {
         assert.ok(key in body.totals, `totals missing: ${key}`);
+      }
+    });
+
+    it('acquisitionSources buckets cover the expected lanes', async () => {
+      // The donut on the Stats page is gated on this object existing and
+      // having the five fixed bucket keys. Adding/renaming a bucket would
+      // silently swallow a slice of the chart, so lock the contract.
+      const { body } = await req('GET', '/api/stats');
+      assert.ok(body.acquisitionSources, 'acquisitionSources missing');
+      for (const key of ['kindle', 'audible', 'internet', 'physical', 'unknown']) {
+        assert.ok(key in body.acquisitionSources, `acquisitionSources missing: ${key}`);
       }
     });
 
