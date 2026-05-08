@@ -180,6 +180,15 @@ export default function Library() {
   // drag's optimistic apply doesn't restore a stale snapshot. Same shape as
   // ListDetail.reorderSeqRef.
   const reorderSeqRef = useRef(0);
+  // Synchronous mirror of the loadingMore/loadingAll *pair*. The button
+  // disabled props gate user clicks but `setLoadingMore`/`setLoadingAll`
+  // (state) don't commit until the next render — so two same-tick clicks
+  // (or one click each on Load more + Load all) both pass the
+  // `loadingMore || loadingAll` check, both fire getBooks at the same
+  // offset, both append the same books, and loadedRef.current ends up
+  // double-bumped (next page request lands at the wrong offset). Shared
+  // between handlers so cross-handler races are caught too.
+  const pagingRef = useRef(false);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -266,9 +275,12 @@ export default function Library() {
     // Mirror the disabled button. React batches state updates, so two
     // rapid clicks before the next render both see loadingMore=false and
     // would otherwise fire duplicate requests at the same offset, then
-    // each appends the same books and bumps loadedRef twice.
-    if (loadingMore || loadingAll) return;
+    // each appends the same books and bumps loadedRef twice. pagingRef
+    // (synchronous) closes that gap and also catches the cross-handler
+    // race (Load more + Load all in the same tick).
+    if (pagingRef.current || loadingMore || loadingAll) return;
     const gen = genRef.current;
+    pagingRef.current = true;
     setLoadingMore(true);
     setActionError(null);
     api.getBooks(buildApiParams(tab, sort, filters, query, loadedRef.current)).then(({ books: b, total: t }) => {
@@ -278,12 +290,19 @@ export default function Library() {
       loadedRef.current += b.length;
     }).catch(() => {
       if (gen === genRef.current) setActionError('Failed to load more books.');
-    }).finally(() => { if (gen === genRef.current) setLoadingMore(false); });
+    }).finally(() => {
+      // Clear the ref unconditionally — if the gen has bumped, the new
+      // load effect already reset loadingMore via setState, so leaving
+      // the ref stuck would block all future paging on the new tab.
+      pagingRef.current = false;
+      if (gen === genRef.current) setLoadingMore(false);
+    });
   }
 
   async function handleLoadAll() {
-    if (loadingMore || loadingAll) return;
+    if (pagingRef.current || loadingMore || loadingAll) return;
     const gen = genRef.current;
+    pagingRef.current = true;
     setLoadingAll(true);
     setActionError(null);
     try {
@@ -300,6 +319,7 @@ export default function Library() {
     } catch {
       if (gen === genRef.current) setActionError('Failed to load more books.');
     } finally {
+      pagingRef.current = false;
       if (gen === genRef.current) setLoadingAll(false);
     }
   }
