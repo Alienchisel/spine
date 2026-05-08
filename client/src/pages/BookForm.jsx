@@ -73,6 +73,16 @@ export default function BookForm() {
   // branch. Shared across all four so any combo (paste-then-upload,
   // ISBN-then-pick, etc.) drops the slower one's writes and finally.
   const coverActionGenRef = useRef(0);
+  // Synchronous in-flight lock shared by every cover-mutating action
+  // above. The genRef handles late-resolution races (latest writer wins),
+  // but doesn't dedupe in-flight calls — two same-tick clicks on the
+  // ISBN fetch button, or a click on Upload File while a fetch is
+  // already running, both pass the React state checks and both POST.
+  // The fetch endpoint hits an external cover provider and writes the
+  // file; one shared ref closes the whole family of duplicates without
+  // needing four parallel locks. Mirrors Library.pagingRef's shared-
+  // boolean pattern.
+  const coverActionRef = useRef(false);
   // `saving` (React state) drives the disabled UI but doesn't commit until
   // the next render — so two synchronous submit calls in the same tick
   // (Enter-key autorepeat, programmatic dispatch, double-click on Save)
@@ -242,7 +252,8 @@ export default function BookForm() {
       description: description || f.description,
     }));
     setDirty(true);
-    if (result.cover_url) {
+    if (result.cover_url && !coverActionRef.current) {
+      coverActionRef.current = true;
       const coverGen = ++coverActionGenRef.current;
       setCoverError(null);
       setCoverPreview(result.cover_url);
@@ -259,11 +270,15 @@ export default function BookForm() {
         if (gen !== lookupApplyGenRef.current || coverGen !== coverActionGenRef.current) return;
         setCoverPreview(null);
         setCoverError('Could not save lookup cover. Choose or paste another image.');
+      } finally {
+        coverActionRef.current = false;
       }
     }
   }
 
   async function fetchCoverFromIsbn() {
+    if (coverActionRef.current) return;
+    coverActionRef.current = true;
     const gen = ++coverActionGenRef.current;
     setCoverError(null);
     setFetchingCover(true);
@@ -276,6 +291,9 @@ export default function BookForm() {
       if (gen !== coverActionGenRef.current) return;
       setCoverError(e.message || 'Failed to fetch cover');
     } finally {
+      // Clear the lock unconditionally so a stranded ref can't block
+      // future cover ops if this gen has been superseded.
+      coverActionRef.current = false;
       // Only clear the spinner if this action is still current — otherwise
       // we'd kill a newer action's in-flight indicator.
       if (gen === coverActionGenRef.current) setFetchingCover(false);
@@ -283,6 +301,8 @@ export default function BookForm() {
   }
 
   async function uploadFile(file) {
+    if (coverActionRef.current) return;
+    coverActionRef.current = true;
     const gen = ++coverActionGenRef.current;
     setCoverPreview(URL.createObjectURL(file));
     setCoverError(null);
@@ -296,12 +316,15 @@ export default function BookForm() {
       setCoverPreview(null);
       setCoverError(e.message || 'Upload failed');
     } finally {
+      coverActionRef.current = false;
       if (gen === coverActionGenRef.current) setUploading(false);
     }
   }
 
   useEffect(() => {
     async function fetchAndSetCover(url) {
+      if (coverActionRef.current) return;
+      coverActionRef.current = true;
       const gen = ++coverActionGenRef.current;
       setCoverPreview(url);
       setCoverError(null);
@@ -316,6 +339,7 @@ export default function BookForm() {
         setCoverPreview(null);
         setCoverError(e.message || 'Failed to fetch cover');
       } finally {
+        coverActionRef.current = false;
         if (gen === coverActionGenRef.current) setUploading(false);
       }
     }
