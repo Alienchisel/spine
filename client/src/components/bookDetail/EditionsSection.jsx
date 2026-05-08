@@ -64,6 +64,12 @@ export default function EditionsSection({ book, onChange }) {
   // disable that button so a fast double-click can't re-fire the same
   // PUT before the first resolves.
   const [mutatingId, setMutatingId] = useState(null);
+  // Synchronous mirror of `mutatingId` keyed per row. The mutationSeqRef
+  // protects state cleanup from stale .then() effects, but `mutatingId ===
+  // otherId` reads stale state — two same-tick clicks on the same row
+  // both pass the guard and fire duplicate linkEdition / unlinkEdition
+  // calls before setMutatingId commits. Mirrors ListDetail.removingIdsRef.
+  const mutatingIdsRef = useRef(new Set());
 
   useEffect(() => {
     if (picking) setTimeout(() => inputRef.current?.focus(), 0);
@@ -91,7 +97,8 @@ export default function EditionsSection({ book, onChange }) {
   }, [query, picking, book.id, editions]);
 
   async function handlePick(otherId) {
-    if (mutatingId === otherId) return;
+    if (mutatingIdsRef.current.has(otherId) || mutatingId === otherId) return;
+    mutatingIdsRef.current.add(otherId);
     setError(null);
     setMutatingId(otherId);
     const seq = ++mutationSeqRef.current;
@@ -106,6 +113,7 @@ export default function EditionsSection({ book, onChange }) {
       if (seq !== mutationSeqRef.current) return;
       setError('Failed to link edition.');
     } finally {
+      mutatingIdsRef.current.delete(otherId);
       // Only clear the visual lock if THIS mutation is still the latest;
       // otherwise a newer mutation has already overwritten mutatingId for
       // its own row and we'd un-disable the wrong button.
@@ -114,7 +122,8 @@ export default function EditionsSection({ book, onChange }) {
   }
 
   async function handleUnlink(otherId) {
-    if (mutatingId === otherId) return;
+    if (mutatingIdsRef.current.has(otherId) || mutatingId === otherId) return;
+    mutatingIdsRef.current.add(otherId);
     setError(null);
     setMutatingId(otherId);
     const seq = ++mutationSeqRef.current;
@@ -131,6 +140,7 @@ export default function EditionsSection({ book, onChange }) {
       if (seq !== mutationSeqRef.current) return;
       setError('Failed to unlink edition.');
     } finally {
+      mutatingIdsRef.current.delete(otherId);
       if (seq === mutationSeqRef.current) setMutatingId(null);
     }
   }

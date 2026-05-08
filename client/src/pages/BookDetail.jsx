@@ -66,6 +66,11 @@ export default function BookDetail() {
   // between "confirm OK" and "navigate fires" produces a brief
   // "Failed to delete book" flash on a book that did delete.
   const [deleting, setDeleting] = useState(false);
+  // Synchronous mirror — same shape as the other refs. The button is
+  // disabled={deleting} and confirm() serialises modal input, so the
+  // practical race window is tiny (between "confirm OK resolved" and
+  // "setDeleting commit"), but the cost of closing it is one ref.
+  const deletingRef = useRef(false);
   const [finishError, setFinishError] = useState(null);
   const [loadError, setLoadError] = useState(false);
   // Surfaces failures from the three quick actions in the action column
@@ -306,10 +311,11 @@ export default function BookDetail() {
   }
 
   async function handleDelete() {
-    if (deleting) return;
+    if (deletingRef.current || deleting) return;
     if (!await confirm(`Delete "${book.title}"?`)) return;
-    if (deleting) return;
+    if (deletingRef.current || deleting) return;
     const reqId = id;
+    deletingRef.current = true;
     setDeleting(true);
     setDeleteError(null);
     try {
@@ -320,6 +326,7 @@ export default function BookDetail() {
       setDeleteError('Failed to delete book. Please try again.');
       // Only reset on failure — on success the component unmounts via
       // navigate, so leaving the flag latched is moot.
+      deletingRef.current = false;
       setDeleting(false);
     }
   }
