@@ -122,13 +122,17 @@ export default function Library() {
   const [query,       setQuery]       = useState(() => saved.query || '');
   const [filtersOpen, setFiltersOpen] = useState(() => saved.filtersOpen ?? false);
   const [filters,     setFilters]     = useState(() => saved.filters ? { ...EMPTY_FILTERS, ...saved.filters } : EMPTY_FILTERS);
-  const [sort,        setSort]        = useState(() => {
-    // Coerce a stale saved 'custom' sort to 'updated' when re-hydrating on
-    // a non-Never-owned tab — the sort dropdown filters 'custom' out on
-    // other tabs, so a stuck value would be invisible to the user.
-    const s = saved.sort || 'updated';
+  // Per-tab sort memory: each tab earns its own preferred sort. Reading might
+  // sit on 'last_logged' while All sits on 'updated' — switching tabs swaps
+  // the dropdown to that tab's last choice instead of dragging one global
+  // sort across the whole library.
+  const [sortByTab, setSortByTab] = useState(() => {
+    if (saved.sortByTab && typeof saved.sortByTab === 'object') return saved.sortByTab;
+    // Migrate from the legacy single-sort key so the user's last selection
+    // survives the upgrade. Lands under whichever tab they were on; other
+    // tabs default to 'updated' lazily on first visit.
     const initialTab = (urlTab && VALID_TABS.has(urlTab)) ? urlTab : (saved.tab || 'reading');
-    return (s === 'custom' && initialTab !== 'never_owned') ? 'updated' : s;
+    return saved.sort ? { [initialTab]: saved.sort } : {};
   });
   // Coerce a stale saved density of 'list' to 'comfortable' — the list view
   // is currently disabled (see commented-out toggle button and JSX below) and
@@ -137,6 +141,16 @@ export default function Library() {
     const d = saved.density || 'comfortable';
     return d === 'list' ? 'comfortable' : d;
   });
+
+  // Read/write the per-tab sort as if it were a single piece of state. The
+  // setter always keys by the *current* tab — switching tabs first then
+  // calling setSort would write to the new tab, which is the right behaviour
+  // since the only call sites set sort *for the tab the user is on*.
+  const sort = sortByTab[tab] || 'updated';
+  function setSort(value) {
+    const resolved = typeof value === 'function' ? value(sortByTab[tab] || 'updated') : value;
+    setSortByTab(prev => ({ ...prev, [tab]: resolved }));
+  }
 
   const [books,       setBooks]       = useState([]);
   const [total,       setTotal]       = useState(0);
@@ -194,8 +208,8 @@ export default function Library() {
 
   // Persist UI state
   useEffect(() => {
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ tab, query: queryRaw, filtersOpen, filters, sort, density }));
-  }, [tab, queryRaw, filtersOpen, filters, sort, density]);
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ tab, query: queryRaw, filtersOpen, filters, sortByTab, density }));
+  }, [tab, queryRaw, filtersOpen, filters, sortByTab, density]);
 
   // Tab counts badge
   useEffect(() => {
@@ -384,15 +398,13 @@ export default function Library() {
                   onClick={() => {
                     setTab(t.key);
                     setExpandedSeries(new Set());
-                    // Edit mode and Custom-order sort are scoped to the
-                    // Never owned tab — clearing them on tab switch keeps
-                    // the toolbar coherent (the sort dropdown filters
-                    // 'custom' out on other tabs, but the value would
-                    // otherwise stay invisibly stuck).
-                    if (t.key !== 'never_owned') {
-                      setEditMode(false);
-                      setSort(s => s === 'custom' ? 'updated' : s);
-                    }
+                    // Edit mode is scoped to the Never owned tab — clear it
+                    // on tab switch so the drag handles don't bleed onto
+                    // tabs where reordering isn't a thing. Per-tab sort
+                    // memory means we no longer need to coerce a 'custom'
+                    // sort here: each tab carries its own sort, so 'custom'
+                    // only ever lives in the never_owned slot.
+                    if (t.key !== 'never_owned') setEditMode(false);
                   }}
                   className={`px-5 py-2 text-sm rounded-md whitespace-nowrap transition-[transform,background-color,color] ease-out duration-150 active:scale-[0.98] ${
                     tab === t.key
