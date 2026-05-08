@@ -294,6 +294,18 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
               ✦
             </div>
           )}
+          {book.acquisition_source === 'Internet' && (
+            // Provenance glyph for free/downloaded copies (Internet-sourced
+            // ebooks and online manga). Mirrors the ✦ custom badge in shape
+            // and visibility (hover-only, top corner) but anchors right so
+            // it doesn't collide if a book is both custom and Internet.
+            <div
+              title="Internet-sourced"
+              className="absolute top-1.5 right-1.5 bg-black/75 text-neutral-300 text-xs font-bold px-1.5 py-0.5 rounded backdrop-blur-sm leading-none opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              ↓
+            </div>
+          )}
           {book.status === 'reading' && pct !== null ? (
             <div className="absolute bottom-0 left-0 right-0 h-1 bg-neutral-700">
               <div className="h-full bg-oak transition-all duration-300" style={{ width: `${pct}%` }} />
