@@ -370,6 +370,16 @@ export default function Library() {
   function handleDragEnd(event) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
+    // Guard against drag-then-PUT against a paginated subset. The Edit
+    // button is disabled until all are loaded, but a refresh-tick or a
+    // filter change while editing can reset `books` to a fresh first
+    // page; without this check the resulting PUT would stamp ranks on
+    // those 48 only and leave stale ranks on the rest. Same root cause
+    // the button gate addresses, second line of defence.
+    if (loadedRef.current < total) {
+      setActionError('Books reloaded mid-edit — click Done and Load all again before reordering.');
+      return;
+    }
     const oldIndex = books.findIndex(b => b.id === active.id);
     const newIndex = books.findIndex(b => b.id === over.id);
     if (oldIndex < 0 || newIndex < 0) return;
@@ -472,7 +482,19 @@ export default function Library() {
             {tab === 'never_owned' && (
               <button
                 onClick={toggleEditMode}
-                className={`text-sm px-3 py-2 rounded-lg whitespace-nowrap transition-colors ${
+                // Edit is gated on the full corpus being loaded. The PUT
+                // /books/desire-order route stamps `desire_rank = i` on
+                // exactly the ids it receives and leaves all other rows
+                // untouched, so a reorder against a paginated subset (the
+                // 48-book first page) leaves stale ranks on un-loaded
+                // books to collide with the freshly-stamped 0..47 — books
+                // the user just dragged to the top can be silently
+                // outranked by a higher-id book holding an old rank.
+                // Forcing Load all first keeps every rank in one
+                // consistent batch.
+                disabled={!editMode && loadedRef.current < total}
+                title={!editMode && loadedRef.current < total ? 'Load all books first to rank' : ''}
+                className={`text-sm px-3 py-2 rounded-lg whitespace-nowrap transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                   editMode
                     ? 'bg-binding/25 text-parchment'
                     : 'bg-neutral-800 text-neutral-400 hover:text-neutral-200'
