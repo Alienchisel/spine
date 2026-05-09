@@ -271,7 +271,11 @@ export default function BookDetail() {
     setActionError(null);
     try {
       const today = new Date().toLocaleDateString('en-CA');
-      const dateFinished = book.date_finished || today;
+      // Previously-owned books are typically a historical read with an
+      // unknown finish date — defaulting to today would silently fabricate
+      // one. Leave null so the user can fill it in if they remember.
+      const dateFinished = book.date_finished
+        || (book.previously_owned ? null : today);
       const updated = await api.updateBook(reqId, {
         ...book,
         status: 'finished',

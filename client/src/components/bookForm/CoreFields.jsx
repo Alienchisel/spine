@@ -116,7 +116,10 @@ export default function CoreFields({
               status: s,
               read_count: s === 'finished' && f.read_count === 0 ? 1 : f.read_count,
               date_started: s === 'reading' && !f.date_started ? today : f.date_started,
-              date_finished: s === 'finished' && !f.date_finished ? today : f.date_finished,
+              // Skip the today-default on previously-owned books — typically
+              // a historical read with an unknown date; auto-filling today
+              // silently fabricates one. Leaves the date blank instead.
+              date_finished: s === 'finished' && !f.date_finished && !f.previously_owned ? today : f.date_finished,
             }));
           }}>
           <option value="unread">Unread</option>
