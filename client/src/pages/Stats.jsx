@@ -13,7 +13,14 @@ function DonutChart({ title, data }) {
   // doesn't render them meaningfully anyway. Threshold at 1% so a slice
   // small but identifiable still shows; anything below is structural
   // noise (e.g. Owned status Reading at ~3 of ~460 → 0.6%).
-  const visible = data.filter(d => d.value > 0 && d.value / total >= 0.01);
+  // Sort largest → smallest so every donut on the page reads the same
+  // way: dominant slice at the top of the legend, clockwise sweep from
+  // big to small. Without this the four donuts mixed size-sorted (when
+  // the source data happened to be) with taxonomy-sorted, which looked
+  // arbitrary side-by-side.
+  const visible = data
+    .filter(d => d.value > 0 && d.value / total >= 0.01)
+    .sort((a, b) => b.value - a.value);
   return (
     <div className="bg-card rounded-lg p-4 flex flex-col items-center gap-3">
       <p className="text-xs font-semibold text-neutral-600 uppercase tracking-wider self-start">{title}</p>
