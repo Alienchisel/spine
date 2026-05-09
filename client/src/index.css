@@ -39,6 +39,17 @@
   input[type='date']::-webkit-calendar-picker-indicator {
     filter: invert(0.5);
   }
+
+  /* Keyboard focus indicator for interactive elements that don't define
+     their own focus style. `:focus-visible` only fires on keyboard focus,
+     so mouse-click focus stays unmarked. `:where()` keeps specificity at
+     zero (just the :focus-visible pseudo) so any component-level focus:*
+     Tailwind class still wins. Inputs / selects already have their own
+     focus styling and aren't included. */
+  :where(button, a, [role="button"], [tabindex="0"]):focus-visible {
+    outline: 2px solid rgb(var(--color-oak) / 0.6);
+    outline-offset: 2px;
+  }
 }
 
 @layer components {
