@@ -23,7 +23,7 @@ function PencilIcon() {
   );
 }
 
-export default function BookCard({ book: initialBook, onProgressUpdate, compact, coverOverlay, hideActions }) {
+export default function BookCard({ book: initialBook, onProgressUpdate, compact, coverOverlay, hideActions, fadeUnowned }) {
   const [book, setBook] = useState(initialBook);
   const [open, setOpen] = useState(false);
   const [loving, setLoving] = useState(false);
@@ -259,7 +259,14 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
   // Archived books are dimmed and slightly desaturated so the state reads at
   // a glance — used on the Archived tab and on search-result cards (search
   // surfaces archived items so users can find them to un-archive).
-  const archivedDim = book.archived ? 'opacity-60 saturate-50' : '';
+  // Card-level dimming. Archived takes precedence (stronger statement);
+  // otherwise, on wishlist surfaces (fadeUnowned=true) unowned copies fade
+  // so a mixed list communicates ownership at a glance without on-cover
+  // text or chrome. Custom and Internet provenance are left to the corner
+  // glyphs — the boolean here is just `book.owned`.
+  const dimming = book.archived
+    ? 'opacity-60 saturate-50'
+    : (fadeUnowned && !book.owned ? 'opacity-55 saturate-50' : '');
 
   // In edit-mode contexts (hideActions=true) the cover should not be a
   // navigation target — the tap/click semantics are owned by the drag
@@ -278,7 +285,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
     isAudiobook && book.narrators?.length > 0 ? `read by ${book.narrators.map(n => n.name).join(', ')}` : null,
   ].filter(Boolean).join(' — ');
   return (
-    <div onKeyDown={handleKeyDown} className={`transition-[background-color] ease-out duration-150 ${compact ? '' : 'bg-card rounded-lg p-1.5'} ${archivedDim}`}>
+    <div onKeyDown={handleKeyDown} className={`transition-[background-color] ease-out duration-150 ${compact ? '' : 'bg-card rounded-lg p-1.5'} ${dimming}`}>
       <CoverWrapper {...coverWrapperProps} title={coverTitle}>
         {/* Hover signal: a 2px white inset frame on the cover. Implemented
             via an absolute-positioned overlay sibling AFTER the img so the

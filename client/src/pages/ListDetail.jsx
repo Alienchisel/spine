@@ -83,7 +83,7 @@ function SortableBookCard({ book, onRemove, draggable }) {
       {...(draggable ? listeners : {})}
       className={`group relative select-none transition-opacity ring-2 ring-binding/40 rounded-lg ${isDragging ? 'opacity-40' : ''} ${draggable ? 'cursor-grab active:cursor-grabbing' : ''}`}
     >
-      <BookCard book={book} coverOverlay={overlay} hideActions />
+      <BookCard book={book} coverOverlay={overlay} hideActions fadeUnowned />
     </div>
   );
 }
@@ -521,7 +521,7 @@ export default function ListDetail() {
           ) : (
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-x-3 gap-y-5 items-start">
               {list.books.map(book => (
-                <BookCard key={book.id} book={book} />
+                <BookCard key={book.id} book={book} fadeUnowned />
               ))}
             </div>
           )}
