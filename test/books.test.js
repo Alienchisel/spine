@@ -1329,6 +1329,27 @@ describe('books', () => {
       assert.equal(full.stories[0].title, 'S1');
     });
 
+    it('missing=stories surfaces Stories/Anthology-tagged books with no contents', async () => {
+      const stem = 'storiesfilter' + Math.random().toString(36).slice(2, 6);
+      // Tagged Stories, no contents yet — should appear.
+      const { body: a } = await req('POST', '/api/books', { title: `${stem}-Stories empty`, tags: ['Stories'] });
+      // Tagged Anthology, no contents yet — should appear.
+      const { body: b } = await req('POST', '/api/books', { title: `${stem}-Anthology empty`, tags: ['Anthology'] });
+      // Tagged Stories WITH contents — should NOT appear.
+      const { body: c } = await req('POST', '/api/books', { title: `${stem}-Stories full`, tags: ['Stories'] });
+      await req('POST', `/api/books/${c.id}/stories`, { title: 'has at least one' });
+      // No relevant tag — should NOT appear regardless of empty contents.
+      const { body: d } = await req('POST', '/api/books', { title: `${stem}-untagged` });
+
+      const { status, body: list } = await req('GET', `/api/books?missing=stories&q=${stem}&limit=200`);
+      assert.equal(status, 200);
+      const ids = new Set(list.books.map(b => b.id));
+      assert.ok(ids.has(a.id), 'Stories-tagged empty collection should appear');
+      assert.ok(ids.has(b.id), 'Anthology-tagged empty collection should appear');
+      assert.ok(!ids.has(c.id), 'Stories-tagged collection with contents must NOT appear');
+      assert.ok(!ids.has(d.id), 'Untagged book must NOT appear');
+    });
+
     it('cascade-deletes stories when the parent book is deleted', async () => {
       const { body: b } = await req('POST', '/api/books', { title: 'Parent To Delete' });
       const { body: created } = await req('POST', `/api/books/${b.id}/stories`, { title: 'Orphan-To-Be' });

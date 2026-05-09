@@ -17,6 +17,7 @@ const MISSING_FIELDS = [
   { key: 'rating',      label: 'Rating' },
   { key: 'source',      label: 'Source' },
   { key: 'acquired',    label: 'Acquired' },
+  { key: 'stories',     label: 'Contents' },
 ];
 
 const FORMAT_LABEL = { physical: 'Physical', ebook: 'Digital', audiobook: 'Audiobook' };
