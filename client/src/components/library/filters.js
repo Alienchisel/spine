@@ -1,5 +1,12 @@
 export const PAGE_SIZE = 48;
 
+// Valid book statuses after migration 047 retired 'paused'. Used by
+// pruneFilters to drop a stale 'paused' that an old sessionStorage may
+// still carry — without this, the filter would persist invisibly (no
+// matching chip in FilterPanel) and ship `status IN ('paused')` into
+// the API, yielding an empty result with no clearable filter UI.
+const VALID_STATUSES = new Set(['reading', 'finished', 'unread']);
+
 export const EMPTY_FILTERS = {
   missing:         [],
   formats:         [],
@@ -45,6 +52,7 @@ export function pruneFilters(filters, facets) {
     series:     filters.series.filter(s => s === 'empty' ? facets.hasEmptySeries    : serSet.has(s)),
     ratings:    filters.ratings.filter(r => r === 'empty' ? facets.hasEmptyRating    : rtSet.has(String(r))),
     tags:       filters.tags.filter(t => tagSet.has(t)),
+    statuses:   (filters.statuses || []).filter(s => VALID_STATUSES.has(s)),
   };
 }
 
