@@ -309,7 +309,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
             </div>
           )}
           {Boolean(book.is_custom) && (
-            <div className="absolute top-1.5 left-1.5 bg-black/75 text-leather text-xs font-bold px-1.5 py-0.5 rounded backdrop-blur-sm leading-none opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="absolute top-1.5 left-1.5 bg-black/75 text-leather text-xs font-bold px-1.5 py-0.5 rounded backdrop-blur-sm leading-none opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
               ✦
             </div>
           )}
@@ -320,7 +320,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
             // it doesn't collide if a book is both custom and Internet.
             <div
               title="Internet-sourced"
-              className="absolute top-1.5 right-1.5 bg-black/75 text-neutral-300 text-xs font-bold px-1.5 py-0.5 rounded backdrop-blur-sm leading-none opacity-0 group-hover:opacity-100 transition-opacity"
+              className="absolute top-1.5 right-1.5 bg-black/75 text-neutral-300 text-xs font-bold px-1.5 py-0.5 rounded backdrop-blur-sm leading-none opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity"
             >
               ↓
             </div>
@@ -340,7 +340,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
             // is visible. Hidden in edit-mode contexts (hideActions=true)
             // where the drag handle is the only intended affordance and
             // these buttons would compete with it for the same anchor.
-            <div className="absolute inset-x-3 bottom-3 flex justify-center items-center gap-4 px-3 py-1.5 bg-black/65 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="absolute inset-x-3 bottom-3 flex justify-center items-center gap-4 px-3 py-1.5 bg-black/65 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
               <button
                 onClick={toggleReadlist}
                 disabled={listing}

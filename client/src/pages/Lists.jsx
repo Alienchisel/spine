@@ -160,7 +160,7 @@ export default function Lists() {
               </span>
               <button
                 onClick={() => handleDelete(list)}
-                className="text-neutral-700 hover:text-red-400 transition-colors text-lg leading-none flex-shrink-0 opacity-30 group-hover:opacity-100"
+                className="text-neutral-700 hover:text-red-400 transition-colors text-lg leading-none flex-shrink-0 opacity-30 group-hover:opacity-100 group-focus-within:opacity-100"
                 title="Delete list"
               >
                 ×

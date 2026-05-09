@@ -103,7 +103,7 @@ function SortableBookCard({ book, compact }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: book.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
   const overlay = (
-    <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+    <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
       <div className="bg-black/75 backdrop-blur-sm rounded px-2 py-1 text-neutral-300">
         <DragHandle />
       </div>
