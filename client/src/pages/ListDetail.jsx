@@ -173,6 +173,7 @@ function QuickAdd({ listId, onAdded }) {
 
 export default function ListDetail() {
   const { id } = useParams();
+  const fromState = { from: 'List', fromPath: `/lists/${id}` };
   const [list, setList] = useState(null);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -521,7 +522,7 @@ export default function ListDetail() {
           ) : (
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-x-3 gap-y-5 items-start">
               {list.books.map(book => (
-                <BookCard key={book.id} book={book} fadeUnowned />
+                <BookCard key={book.id} book={book} fadeUnowned linkState={fromState} />
               ))}
             </div>
           )}

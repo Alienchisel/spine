@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, Link, useBlocker } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link, useBlocker } from 'react-router-dom';
 import { api } from '../api.js';
 import { FORM_DEFAULTS, VIRTUAL_TAG_NAMES } from '../../../shared/bookFields.js';
 import { bookToFormState, formStateToPayload } from '../components/bookForm/mapping.js';
@@ -22,6 +22,7 @@ const TABS = [
 export default function BookForm() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { state: navState } = useLocation();
   const isEdit = Boolean(id);
   const [form, setForm] = useState(FORM_DEFAULTS);
   const [activeTab, setActiveTab] = useState('core');
@@ -404,11 +405,11 @@ export default function BookForm() {
       if (isEdit) {
         await api.updateBook(id, payload);
         setDirty(false);  // clear before navigate so the blocker doesn't fire
-        navigate(`/books/${id}`);
+        navigate(`/books/${id}`, { state: navState });
       } else {
         const book = await api.createBook(payload);
         setDirty(false);
-        navigate(`/books/${book.id}`);
+        navigate(`/books/${book.id}`, { state: navState });
       }
     } catch (err) {
       setError(err.message);

@@ -12,11 +12,12 @@ function statusBadge(e) {
   return 'Unread';
 }
 
-function EditionRow({ edition, onUnlink, disabled }) {
+function EditionRow({ edition, onUnlink, disabled, linkState }) {
   return (
     <div className="flex items-center gap-3 py-2">
       <Link
         to={`/books/${edition.id}`}
+        state={linkState}
         className="flex items-center gap-3 flex-1 min-w-0 group"
       >
         <div className="w-9 h-[54px] flex-shrink-0 rounded overflow-hidden bg-neutral-800">
@@ -43,7 +44,7 @@ function EditionRow({ edition, onUnlink, disabled }) {
   );
 }
 
-export default function EditionsSection({ book, onChange }) {
+export default function EditionsSection({ book, onChange, linkState }) {
   const editions = book.editions ?? [];
   const [picking, setPicking]   = useState(false);
   const [query, setQuery]       = useState('');
@@ -166,7 +167,7 @@ export default function EditionsSection({ book, onChange }) {
       {error && <p className="text-xs text-warn mb-2">{error}</p>}
       <div className="divide-y divide-neutral-800/60">
         {editions.map(e => (
-          <EditionRow key={e.id} edition={e} onUnlink={() => handleUnlink(e.id)} disabled={mutatingId === e.id} />
+          <EditionRow key={e.id} edition={e} onUnlink={() => handleUnlink(e.id)} disabled={mutatingId === e.id} linkState={linkState} />
         ))}
       </div>
 

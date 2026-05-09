@@ -30,9 +30,11 @@ const PAGE_SIZE = 48;
 export default function BrowsePage() {
   const { field, value } = useParams();
   const decoded = decodeURIComponent(value);
-  const { state } = useLocation();
+  const { state, pathname } = useLocation();
   const backLabel = state?.from ? `← ${state.from}` : '← Library';
   const backPath  = state?.fromPath ?? '/';
+  // BookDetail back-link state: returning lands on this same browse view.
+  const fromState = { from: decoded, fromPath: pathname };
 
   const [books,       setBooks]       = useState([]);
   const [total,       setTotal]       = useState(0);
@@ -169,7 +171,7 @@ export default function BrowsePage() {
         const visible = trim > 0 ? books.slice(0, -trim) : books;
         return (
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-3 gap-y-5 items-start">
-            {visible.map(book => <BookCard key={book.id} book={book} />)}
+            {visible.map(book => <BookCard key={book.id} book={book} linkState={fromState} />)}
           </div>
         );
       })()}

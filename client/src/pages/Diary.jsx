@@ -5,6 +5,8 @@ import { formatAuthors, fmtShortDate } from '../utils.js';
 import { useConfirm } from '../components/ConfirmModal.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 
+const FROM_DIARY = { from: 'Diary', fromPath: '/diary' };
+
 function formatDate(dateStr) {
   const today = new Date().toLocaleDateString('en-CA');
   const y = new Date();
@@ -193,7 +195,7 @@ function DiaryEntry({ entry, onDelete }) {
           : <div className="w-full h-full bg-gradient-to-br from-neutral-700 to-neutral-900" />}
       </div>
       <div className="flex-1 min-w-0">
-        <Link to={`/books/${entry.book_id}`} className="text-sm font-medium text-neutral-200 hover:text-white transition-colors truncate block" title={entry.title}>
+        <Link to={`/books/${entry.book_id}`} state={FROM_DIARY} className="text-sm font-medium text-neutral-200 hover:text-white transition-colors truncate block" title={entry.title}>
           {entry.title}
         </Link>
         {entry.authors?.length > 0 && <p className="text-xs text-neutral-500 truncate mt-0.5">{formatAuthors(entry.authors)}</p>}

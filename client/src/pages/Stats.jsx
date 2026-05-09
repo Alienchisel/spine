@@ -45,7 +45,7 @@ function DonutChart({ title, data }) {
 function RecordCard({ label, book, value }) {
   if (!book) return null;
   return (
-    <Link to={`/books/${book.id}`} className="bg-card rounded-lg p-3 flex items-center gap-3 hover:ring-1 hover:ring-neutral-600 transition-shadow">
+    <Link to={`/books/${book.id}`} state={FROM_STATS} className="bg-card rounded-lg p-3 flex items-center gap-3 hover:ring-1 hover:ring-neutral-600 transition-shadow">
       <div className="w-8 h-12 flex-shrink-0 rounded overflow-hidden bg-neutral-800">
         {book.cover_path
           ? <img src={book.cover_path} alt={book.title} className="w-full h-full object-cover object-top" />
@@ -345,7 +345,7 @@ export default function Stats() {
         <Section title="Currently reading">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {inProgressPace.map(b => (
-              <Link key={b.id} to={`/books/${b.id}`} className="bg-card rounded-lg p-3 flex items-center gap-3 hover:ring-1 hover:ring-neutral-600 transition-shadow">
+              <Link key={b.id} to={`/books/${b.id}`} state={FROM_STATS} className="bg-card rounded-lg p-3 flex items-center gap-3 hover:ring-1 hover:ring-neutral-600 transition-shadow">
                 <div className="w-8 h-12 flex-shrink-0 rounded overflow-hidden bg-neutral-800">
                   {b.cover_path
                     ? <img src={b.cover_path} alt={b.title} className="w-full h-full object-cover object-top" />

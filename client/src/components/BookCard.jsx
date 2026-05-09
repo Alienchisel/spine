@@ -23,7 +23,7 @@ function PencilIcon() {
   );
 }
 
-export default function BookCard({ book: initialBook, onProgressUpdate, compact, coverOverlay, hideActions, fadeUnowned }) {
+export default function BookCard({ book: initialBook, onProgressUpdate, compact, coverOverlay, hideActions, fadeUnowned, linkState }) {
   const [book, setBook] = useState(initialBook);
   const [open, setOpen] = useState(false);
   const [loving, setLoving] = useState(false);
@@ -278,7 +278,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
   const CoverWrapper      = hideActions ? 'div' : Link;
   const coverWrapperProps = hideActions
     ? { className: 'group block' }
-    : { to: `/books/${book.id}`, className: 'group block' };
+    : { to: `/books/${book.id}`, state: linkState, className: 'group block' };
   const coverTitle = [
     book.title,
     book.authors?.map(a => a.name).join(', '),

@@ -18,7 +18,7 @@ import { api } from '../api.js';
 import BookCard from '../components/BookCard.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 
-function SortableShelfCover({ book }) {
+function SortableShelfCover({ book, linkState }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: book.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
 
@@ -30,7 +30,7 @@ function SortableShelfCover({ book }) {
       className={`flex-shrink-0 select-none transition-opacity ${isDragging ? 'opacity-40' : ''}`}
     >
       <div className="relative group">
-        <Link to={`/books/${book.id}`} draggable={false} className="block">
+        <Link to={`/books/${book.id}`} state={linkState} draggable={false} className="block">
           {/* Hover treatment matches BookCard: 2px white inset frame on
               the cover via a sibling overlay (the inset shadow on the
               frame itself would be hidden behind the img per CSS painting
@@ -111,7 +111,7 @@ function plural(n, word, plural) {
   return `${n} ${n === 1 ? word : (plural ?? word + 's')}`;
 }
 
-function ShelfRow({ shelf, books, onReorder, onLabelClick }) {
+function ShelfRow({ shelf, books, onReorder, onLabelClick, linkState }) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   function handleDragEnd(event) {
@@ -143,7 +143,7 @@ function ShelfRow({ shelf, books, onReorder, onLabelClick }) {
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={books.map(b => b.id)} strategy={horizontalListSortingStrategy}>
             <div className="flex gap-4 overflow-x-auto pb-4 px-4 sm:px-6 lg:px-8 [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-track]:bg-neutral-800 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-neutral-600 [&::-webkit-scrollbar-thumb]:rounded-full">
-              {books.map(book => <SortableShelfCover key={book.id} book={book} />)}
+              {books.map(book => <SortableShelfCover key={book.id} book={book} linkState={linkState} />)}
             </div>
           </SortableContext>
         </DndContext>
@@ -187,6 +187,14 @@ export default function ShelfView() {
   const roomId     = parseIdParam(params, 'r');
   const unitId     = parseIdParam(params, 'u');
   const shelfId    = parseIdParam(params, 's');
+
+  // Back-link state for BookDetail: returning to /shelf-view restores the
+  // current search params so the user lands on the same building/room/unit/
+  // shelf they came from, not the root view.
+  const fromState = useMemo(() => {
+    const qs = params.toString();
+    return { from: 'Shelves', fromPath: qs ? `/shelf-view?${qs}` : '/shelf-view' };
+  }, [params]);
 
   // Memoised so the books-fetch effect can depend on the boolean instead of
   // the whole `tree` array. A refresh-tick refetch produces a new tree
@@ -430,7 +438,7 @@ export default function ShelfView() {
                 </h2>
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-3 gap-y-5">
                   {unshelfed.map(book => (
-                    <BookCard key={book.id} book={book} />
+                    <BookCard key={book.id} book={book} linkState={fromState} />
                   ))}
                 </div>
               </div>
@@ -457,7 +465,7 @@ export default function ShelfView() {
           <div className="text-neutral-700 text-sm mt-6">Loading…</div>
         ) : books.length > 0 && (
           <div className={`grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-3 gap-y-5 ${rooms.length > 0 ? 'mt-8' : ''}`}>
-            {books.map(book => <BookCard key={book.id} book={book} />)}
+            {books.map(book => <BookCard key={book.id} book={book} linkState={fromState} />)}
           </div>
         )}
         {!booksLoading && rooms.length === 0 && books.length === 0 && (
@@ -483,7 +491,7 @@ export default function ShelfView() {
           <div className="text-neutral-700 text-sm mt-6">Loading…</div>
         ) : books.length > 0 && (
           <div className={`grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-3 gap-y-5 ${units.length > 0 ? 'mt-8' : ''}`}>
-            {books.map(book => <BookCard key={book.id} book={book} />)}
+            {books.map(book => <BookCard key={book.id} book={book} linkState={fromState} />)}
           </div>
         )}
         {!booksLoading && units.length === 0 && books.length === 0 && (
@@ -503,6 +511,7 @@ export default function ShelfView() {
                   key={s.id}
                   shelf={s}
                   books={books.filter(b => b.shelf_id === s.id)}
+                  linkState={fromState}
                   onLabelClick={() => nav({ b: buildingId, r: roomId, u: unitId, s: s.id })}
                   onReorder={(shelfId, reordered) => {
                     setBooks(prev => {
@@ -541,7 +550,7 @@ export default function ShelfView() {
                   <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-4">Not on a shelf</h2>
                 )}
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-3 gap-y-5">
-                  {unitOnly.map(book => <BookCard key={book.id} book={book} />)}
+                  {unitOnly.map(book => <BookCard key={book.id} book={book} linkState={fromState} />)}
                 </div>
               </div>
             );
@@ -566,7 +575,7 @@ export default function ShelfView() {
                     cover bottoms visibly cover the plank's top edge — that's
                     what makes them read as "standing on" the surface. */}
                 <div className="relative z-10 flex gap-4 overflow-x-auto pb-7 px-4 sm:px-6 lg:px-8 [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-track]:bg-neutral-800 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-neutral-600 [&::-webkit-scrollbar-thumb]:rounded-full">
-                  {books.map(book => <SortableShelfCover key={book.id} book={book} />)}
+                  {books.map(book => <SortableShelfCover key={book.id} book={book} linkState={fromState} />)}
                 </div>
                 {/* Skeuomorphic wood plank — disabled while we evaluate whether
                     the bookish surface earns its visual weight. To re-enable,

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { api } from '../api.js';
 import StarRating from '../components/StarRating.jsx';
@@ -23,6 +23,9 @@ const STATUS_COLOR = {
 export default function BookDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { state: navState } = useLocation();
+  const backLabel = navState?.from ?? 'Library';
+  const backPath  = navState?.fromPath ?? '/';
   const confirm = useConfirm();
   const [book, setBook] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -336,8 +339,8 @@ export default function BookDetail() {
 
   return (
     <div className="max-w-2xl">
-      <Link to="/" className="text-sm text-neutral-600 hover:text-neutral-300 mb-8 inline-block transition-colors">
-        ← Library
+      <Link to={backPath} className="text-sm text-neutral-600 hover:text-neutral-300 mb-8 inline-block transition-colors">
+        ← {backLabel}
       </Link>
 
       <div className="flex gap-8 sm:gap-10">
@@ -447,6 +450,7 @@ export default function BookDetail() {
             </h1>
             <Link
               to={`/books/${book.id}/edit`}
+              state={navState}
               className="text-sm text-neutral-500 hover:text-neutral-200 transition-colors flex-shrink-0 pt-1"
             >
               Edit
@@ -503,13 +507,13 @@ export default function BookDetail() {
             return (
               <div className="flex items-center justify-between text-xs text-neutral-600 mb-5 -mt-2">
                 {prev ? (
-                  <Link to={`/books/${prev.id}`} className="hover:text-neutral-400 transition-colors flex items-center gap-1 min-w-0">
+                  <Link to={`/books/${prev.id}`} state={navState} className="hover:text-neutral-400 transition-colors flex items-center gap-1 min-w-0">
                     <span className="flex-shrink-0">←</span>
                     <span className="truncate">{prev.series_number != null ? `#${prev.series_number} ` : ''}{prev.title}</span>
                   </Link>
                 ) : <span />}
                 {next && (
-                  <Link to={`/books/${next.id}`} className="hover:text-neutral-400 transition-colors flex items-center gap-1 min-w-0 ml-4">
+                  <Link to={`/books/${next.id}`} state={navState} className="hover:text-neutral-400 transition-colors flex items-center gap-1 min-w-0 ml-4">
                     <span className="truncate text-right">{next.series_number != null ? `#${next.series_number} ` : ''}{next.title}</span>
                     <span className="flex-shrink-0">→</span>
                   </Link>
@@ -594,7 +598,7 @@ export default function BookDetail() {
             </div>
           )}
 
-          <EditionsSection book={book} onChange={(updated) => {
+          <EditionsSection book={book} linkState={navState} onChange={(updated) => {
             // Same stale-navigation guard as ProgressSection — the
             // edition link/unlink calls are async; if the user has
             // navigated to another book in the meantime, drop the result

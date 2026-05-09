@@ -4,6 +4,8 @@ import { api } from '../api.js';
 import BookCard from '../components/BookCard.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 
+const FROM_LOVED = { from: 'Loved', fromPath: '/loved' };
+
 export default function Loved() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -48,7 +50,7 @@ export default function Loved() {
       ) : (
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-3 gap-y-5">
           {books.map(book => (
-            <BookCard key={book.id} book={book} onProgressUpdate={handleUpdate} />
+            <BookCard key={book.id} book={book} onProgressUpdate={handleUpdate} linkState={FROM_LOVED} />
           ))}
         </div>
       )}

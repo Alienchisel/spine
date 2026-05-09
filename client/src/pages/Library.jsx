@@ -432,6 +432,11 @@ export default function Library() {
   const allDisplayItems = sort === 'custom'
     ? books.map(book => ({ type: 'book', book }))
     : buildDisplayItems(books, expandedSeries);
+  // Back-link state for BookDetail: returning preserves the current Library
+  // search params (filters / tab / sort) so the user lands on the same
+  // filtered view they came from rather than the default Library root.
+  const _qs = searchParams.toString();
+  const fromState = { from: 'Library', fromPath: _qs ? `/?${_qs}` : '/' };
   const gridCols        = useGridCols(density === 'compact' ? COMPACT_BPS : COMFORTABLE_BPS);
   const hasMore         = loadedRef.current < total;
   // Mid-pagination, hide a trailing partial row so the visible grid always
@@ -659,6 +664,7 @@ export default function Library() {
                     book={item.book}
                     onProgressUpdate={handleProgressUpdate}
                     compact={density === 'compact'}
+                    linkState={fromState}
                   />
                 )
               )}
