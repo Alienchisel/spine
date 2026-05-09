@@ -50,7 +50,7 @@ describe('stats', () => {
       // silently swallow a slice of the chart, so lock the contract.
       const { body } = await req('GET', '/api/stats');
       assert.ok(body.acquisitionSources, 'acquisitionSources missing');
-      for (const key of ['kindle', 'audible', 'internet', 'physical', 'unknown']) {
+      for (const key of ['kindle', 'audible', 'internet', 'amazon', 'other', 'unknown']) {
         assert.ok(key in body.acquisitionSources, `acquisitionSources missing: ${key}`);
       }
     });

@@ -318,7 +318,8 @@ export default function Stats() {
               data={[
                 { name: 'Kindle',   value: acquisitionSources.kindle   ?? 0, color: '#a97954' },
                 { name: 'Audible',  value: acquisitionSources.audible  ?? 0, color: '#c29b87' },
-                { name: 'Physical', value: acquisitionSources.physical ?? 0, color: '#532c2e' },
+                { name: 'Amazon',   value: acquisitionSources.amazon   ?? 0, color: '#532c2e' },
+                { name: 'Other',    value: acquisitionSources.other    ?? 0, color: '#6a5d4f' },
                 { name: 'Internet', value: acquisitionSources.internet ?? 0, color: '#5a7a8a' },
                 { name: 'Unknown',  value: acquisitionSources.unknown  ?? 0, color: '#404040' },
               ].filter(d => d.value > 0)}
