@@ -163,21 +163,32 @@ function ReadingCalendar({ days, selectedYear, totals, onDayClick }) {
                             : prevIsRead       ? 'rounded-r'
                             : nextIsRead       ? 'rounded-l'
                             :                    'rounded';
-          return (
-            <div
+          // Read days render as buttons so keyboard users can Tab to them
+          // and Enter to jump to the diary entry. Non-read days stay as
+          // plain divs — they're date labels with no action attached, so
+          // adding them to the tab order would just be noise.
+          const cellClass = [
+            'flex items-center justify-center text-xs h-7 select-none',
+            radiusClass,
+            isFuture ? 'text-neutral-800' : hasEntry ? `${READ_DAY_CLASS} cursor-pointer hover:ring-1 hover:ring-oak/50` : 'text-neutral-700',
+          ].join(' ');
+          const inner = (
+            <span className={isToday ? 'underline underline-offset-2' : ''}>
+              {parseInt(dateStr.slice(-2))}
+            </span>
+          );
+          return hasEntry ? (
+            <button
               key={dateStr}
-              onClick={() => hasEntry && onDayClick(dateStr)}
-              title={hasEntry ? tipParts.join(' · ') : undefined}
-              className={[
-                'flex items-center justify-center text-xs h-7 select-none',
-                radiusClass,
-                isFuture ? 'text-neutral-800' : hasEntry ? `${READ_DAY_CLASS} cursor-pointer hover:ring-1 hover:ring-oak/50` : 'text-neutral-700',
-              ].join(' ')}
+              type="button"
+              onClick={() => onDayClick(dateStr)}
+              title={tipParts.join(' · ')}
+              className={cellClass}
             >
-              <span className={isToday ? 'underline underline-offset-2' : ''}>
-                {parseInt(dateStr.slice(-2))}
-              </span>
-            </div>
+              {inner}
+            </button>
+          ) : (
+            <div key={dateStr} className={cellClass}>{inner}</div>
           );
         })}
       </div>
