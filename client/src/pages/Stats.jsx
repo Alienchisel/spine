@@ -282,7 +282,7 @@ export default function Stats() {
       <Section title="Breakdown">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <DonutChart
-            title="Fiction"
+            title="Fiction / Non-fiction"
             data={[
               { name: 'Fiction',     value: fiction.fiction    ?? 0, color: '#a97954' },
               { name: 'Non-fiction', value: fiction.nonfiction ?? 0, color: '#c29b87' },
