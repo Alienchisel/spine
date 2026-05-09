@@ -303,7 +303,7 @@ export default function Stats() {
             // Library "Reading" tile above counts every status='reading'
             // row regardless of ownership. Same word, different scope; the
             // qualifier makes the relationship explicit at a glance.
-            title="Owned status"
+            title="Reading status (Owned)"
             data={[
               { name: 'Finished', value: ownedStatus?.finished ?? 0, color: '#a97954' },
               { name: 'Reading',  value: ownedStatus?.reading  ?? 0, color: '#c29b87' },
