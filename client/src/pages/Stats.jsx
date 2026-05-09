@@ -8,12 +8,14 @@ import { useRefreshTick } from '../hooks/useRefreshTick.js';
 function DonutChart({ title, data }) {
   const total = data.reduce((s, d) => s + d.value, 0);
   if (!total) return null;
+  // Drop empty buckets so a 0-count slice doesn't waste a legend row.
+  const visible = data.filter(d => d.value > 0);
   return (
     <div className="bg-card rounded-lg p-4 flex flex-col items-center gap-3">
       <p className="text-xs font-semibold text-neutral-600 uppercase tracking-wider self-start">{title}</p>
       <PieChart width={120} height={120}>
-        <Pie data={data} cx={55} cy={55} innerRadius={36} outerRadius={54} dataKey="value" strokeWidth={0}>
-          {data.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+        <Pie data={visible} cx={55} cy={55} innerRadius={36} outerRadius={54} dataKey="value" strokeWidth={0}>
+          {visible.map((entry, i) => <Cell key={i} fill={entry.color} />)}
         </Pie>
         <Tooltip
           contentStyle={{ background: '#1c1c1c', border: '1px solid #333', borderRadius: 6, fontSize: 11 }}
@@ -22,7 +24,7 @@ function DonutChart({ title, data }) {
         />
       </PieChart>
       <div className="space-y-1.5 w-full">
-        {data.map((d, i) => (
+        {visible.map((d, i) => (
           <div key={i} className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: d.color }} />
