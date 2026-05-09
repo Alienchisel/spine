@@ -34,6 +34,7 @@ function normalize(input) {
 export function ConfirmModalProvider({ children }) {
   const [state, setState] = useState(null);
   const cancelRef = useRef(null);
+  const confirmRef = useRef(null);
 
   const confirm = useCallback((input) => {
     const opts = normalize(input);
@@ -57,7 +58,28 @@ export function ConfirmModalProvider({ children }) {
   useEffect(() => {
     if (!state) return;
     function onKey(e) {
-      if (e.key === 'Escape') { e.preventDefault(); close(false); }
+      if (e.key === 'Escape') { e.preventDefault(); close(false); return; }
+      // Focus trap: keep Tab / Shift-Tab cycling between Cancel and Confirm
+      // so keyboard users can't accidentally land focus on the page behind
+      // the modal. Two buttons → one wrap forward, one wrap back.
+      if (e.key !== 'Tab') return;
+      const buttons = [cancelRef.current, confirmRef.current].filter(Boolean);
+      if (buttons.length === 0) return;
+      const idx = buttons.indexOf(document.activeElement);
+      if (idx === -1) {
+        // Focus has escaped the pair (e.g. user clicked into the page
+        // behind via mouse-then-keyboard). Yank it back to Cancel.
+        e.preventDefault();
+        cancelRef.current?.focus();
+        return;
+      }
+      if (e.shiftKey && idx === 0) {
+        e.preventDefault();
+        buttons[buttons.length - 1].focus();
+      } else if (!e.shiftKey && idx === buttons.length - 1) {
+        e.preventDefault();
+        buttons[0].focus();
+      }
     }
     document.addEventListener('keydown', onKey);
     // Defer focus by one tick so the button is mounted.
@@ -92,6 +114,7 @@ export function ConfirmModalProvider({ children }) {
                 {state.cancelLabel || 'Cancel'}
               </button>
               <button
+                ref={confirmRef}
                 onClick={() => close(true)}
                 className="px-3 py-1.5 text-sm rounded-md bg-warn/15 text-warn hover:bg-warn/25 transition-colors"
               >
