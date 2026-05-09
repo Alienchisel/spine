@@ -372,14 +372,17 @@ export default function Stats() {
       {Object.values(records).some(Boolean) && (
         <Section title="Records">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            <RecordCard label="Longest read" book={records.longestRead} value={records.longestRead?.page_count ? `${records.longestRead.page_count.toLocaleString()} pages` : null} />
-            <RecordCard label="Shortest read" book={records.shortestRead} value={records.shortestRead?.page_count ? `${records.shortestRead.page_count.toLocaleString()} pages` : null} />
-            {records.longestAudiobook && <RecordCard label="Longest audiobook" book={records.longestAudiobook} value={formatHours(records.longestAudiobook.duration_minutes)} />}
+            {records.longestReadPhysical   && <RecordCard label="Longest read (physical)"   book={records.longestReadPhysical}   value={`${records.longestReadPhysical.page_count.toLocaleString()} pages`} />}
+            {records.shortestReadPhysical  && <RecordCard label="Shortest read (physical)"  book={records.shortestReadPhysical}  value={`${records.shortestReadPhysical.page_count.toLocaleString()} pages`} />}
+            {records.longestReadDigital    && <RecordCard label="Longest read (digital)"    book={records.longestReadDigital}    value={`${records.longestReadDigital.page_count.toLocaleString()} pages`} />}
+            {records.shortestReadDigital   && <RecordCard label="Shortest read (digital)"   book={records.shortestReadDigital}   value={`${records.shortestReadDigital.page_count.toLocaleString()} pages`} />}
+            {records.longestReadAudiobook  && <RecordCard label="Longest read (audiobook)"  book={records.longestReadAudiobook}  value={formatHours(records.longestReadAudiobook.duration_minutes)} />}
+            {records.shortestReadAudiobook && <RecordCard label="Shortest read (audiobook)" book={records.shortestReadAudiobook} value={formatHours(records.shortestReadAudiobook.duration_minutes)} />}
             <RecordCard label="Oldest edition" book={records.oldestEdition} value={records.oldestEdition?.year_published != null ? `Published ${formatYear(records.oldestEdition.year_published)}` : null} />
             <RecordCard label="Newest edition" book={records.newestEdition} value={records.newestEdition?.year_published != null ? `Published ${formatYear(records.newestEdition.year_published)}` : null} />
             <RecordCard label="First finished" book={records.firstFinished} value={records.firstFinished?.date_finished ? new Date(records.firstFinished.date_finished + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : null} />
             <RecordCard label="Last finished" book={records.lastFinished} value={records.lastFinished?.date_finished ? new Date(records.lastFinished.date_finished + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : null} />
-            {records.mostReread && <RecordCard label="Most re-read" book={records.mostReread} value={`${records.mostReread.read_count} times`} />}
+            {records.mostReread && <RecordCard label="Most re-read" book={records.mostReread} value={records.mostReread.read_count ? `${records.mostReread.read_count} times` : null} />}
           </div>
         </Section>
       )}

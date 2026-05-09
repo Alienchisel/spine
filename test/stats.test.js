@@ -57,7 +57,7 @@ describe('stats', () => {
 
     it('records has required book-record fields', async () => {
       const { body } = await req('GET', '/api/stats');
-      for (const key of ['longestRead', 'shortestRead', 'longestAudiobook', 'oldestEdition', 'newestEdition', 'firstFinished', 'lastFinished', 'mostReread']) {
+      for (const key of ['longestReadPhysical', 'shortestReadPhysical', 'longestReadDigital', 'shortestReadDigital', 'longestReadAudiobook', 'shortestReadAudiobook', 'oldestEdition', 'newestEdition', 'firstFinished', 'lastFinished', 'mostReread']) {
         assert.ok(key in body.records, `records missing: ${key}`);
       }
     });
@@ -72,12 +72,15 @@ describe('stats', () => {
 
   describe('GET /api/stats counts reflect data', () => {
     before(async () => {
-      await req('POST', '/api/books', { title: 'Stats Finished A', status: 'finished', date_finished: '2024-06-01', page_count: 300, owned: true });
-      await req('POST', '/api/books', { title: 'Stats Finished B', status: 'finished', date_finished: '2024-07-01', page_count: 100, owned: true });
+      // format='physical' on the page-count fixtures so the format-split
+      // longest/shortest read records pick them up — production data is
+      // always format-set, the tests should mirror that shape.
+      await req('POST', '/api/books', { title: 'Stats Finished A', status: 'finished', date_finished: '2024-06-01', page_count: 300, owned: true, format: 'physical' });
+      await req('POST', '/api/books', { title: 'Stats Finished B', status: 'finished', date_finished: '2024-07-01', page_count: 100, owned: true, format: 'physical' });
       await req('POST', '/api/books', { title: 'Stats Reading',  status: 'reading', owned: true });
       await req('POST', '/api/books', { title: 'Stats Unread',   status: 'unread' });
-      await req('POST', '/api/books', { title: 'Stats Author Book', status: 'finished', date_finished: '2023-01-01', authors: ['Test Stat Author'] });
-      await req('POST', '/api/books', { title: 'Stats Author Book 2', status: 'finished', date_finished: '2023-02-01', authors: ['Test Stat Author'] });
+      await req('POST', '/api/books', { title: 'Stats Author Book', status: 'finished', date_finished: '2023-01-01', authors: ['Test Stat Author'], format: 'physical', page_count: 250 });
+      await req('POST', '/api/books', { title: 'Stats Author Book 2', status: 'finished', date_finished: '2023-02-01', authors: ['Test Stat Author'], format: 'physical', page_count: 200 });
     });
 
     it('totals.books counts all books', async () => {
@@ -122,10 +125,16 @@ describe('stats', () => {
       assert.ok(entry && entry.count >= 2, 'expected Test Stat Author with count >= 2');
     });
 
-    it('records.firstFinished and records.longestRead are non-null', async () => {
+    it('records.firstFinished and at least one longestRead variant are non-null', async () => {
       const { body } = await req('GET', '/api/stats');
       assert.notEqual(body.records.firstFinished, null);
-      assert.notEqual(body.records.longestRead, null);
+      // The format-split records: at least one should be populated given
+      // the test fixtures finish books without a format set (defaults to
+      // physical via validation), so longestReadPhysical takes the slot.
+      const anyLongest = body.records.longestReadPhysical
+                      || body.records.longestReadDigital
+                      || body.records.longestReadAudiobook;
+      assert.notEqual(anyLongest, null, 'expected at least one longestRead* to be non-null');
     });
 
     it('avgDaysToFinish reflects date_started → date_finished spans', async () => {
