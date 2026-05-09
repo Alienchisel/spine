@@ -2,6 +2,7 @@ import express from 'express';
 import db from '../db.js';
 import { validateBook, isValidPartialDate, partialDateBefore } from '../lib/books/validation.js';
 import { getBook, getBookCounts, getBookFacets, listBooks, createBook, updateBook, patchBook, deleteBook, updateBookCover, linkEditions, unlinkEdition } from '../lib/books/repository.js';
+import { syncStoryAuthors } from '../lib/books/people.js';
 
 const router = express.Router();
 
@@ -114,19 +115,36 @@ function validateStory(body) {
   if (body.rating != null && (Number(body.rating) < 0.5 || Number(body.rating) > 5 || (Number(body.rating) * 2) % 1 !== 0)) errors.push('Rating must be 0.5–5 in half-star increments');
   if (body.date_finished && !isValidPartialDate(String(body.date_finished).trim())) errors.push('Invalid date_finished');
   if (body.position != null && !Number.isInteger(Number(body.position))) errors.push('Position must be an integer');
+  if (body.page_start != null && (!Number.isInteger(Number(body.page_start)) || Number(body.page_start) < 1)) errors.push('page_start must be a positive integer');
+  if (body.page_end   != null && (!Number.isInteger(Number(body.page_end))   || Number(body.page_end)   < 1)) errors.push('page_end must be a positive integer');
+  if (body.page_start != null && body.page_end != null && Number(body.page_end) < Number(body.page_start)) errors.push('page_end cannot be before page_start');
   return errors;
 }
 
 function storyValues(body) {
   return {
     title:          body.title.trim(),
-    position:       body.position != null ? Number(body.position) : null,
+    position:       body.position   != null ? Number(body.position)   : null,
     status:         body.status?.trim() || 'unread',
     date_finished:  body.date_finished?.trim() || null,
-    rating:         body.rating != null ? Number(body.rating) : null,
+    rating:         body.rating     != null ? Number(body.rating)     : null,
     did_not_finish: body.did_not_finish ? 1 : 0,
     notes:          body.notes?.trim() || null,
+    page_start:     body.page_start != null && body.page_start !== '' ? Number(body.page_start) : null,
+    page_end:       body.page_end   != null && body.page_end   !== '' ? Number(body.page_end)   : null,
   };
+}
+
+function getStoryWithAuthors(storyId) {
+  const s = db.prepare('SELECT * FROM stories WHERE id = ?').get(storyId);
+  if (!s) return null;
+  s.authors = db.prepare(`
+    SELECT a.id, a.name FROM authors a
+    JOIN story_authors sa ON sa.author_id = a.id
+    WHERE sa.story_id = ?
+    ORDER BY sa.position
+  `).all(storyId);
+  return s;
 }
 
 router.get('/:id/stories', (req, res) => {
@@ -134,9 +152,23 @@ router.get('/:id/stories', (req, res) => {
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
   // NULL position sorts last so unpositioned stories collect at the end of
   // the contents list instead of mixing into the middle.
-  res.json(db.prepare(
+  const rows = db.prepare(
     'SELECT * FROM stories WHERE book_id = ? ORDER BY COALESCE(position, 9999999) ASC, id ASC'
-  ).all(id));
+  ).all(id);
+  // Per-story authors (Layer 2). Empty array means "no override" — the
+  // caller renders the parent book's authors as fallback.
+  const ids = rows.map(r => r.id);
+  const authorMap = new Map(ids.map(id => [id, []]));
+  if (ids.length) {
+    const ph = ids.map(() => '?').join(',');
+    db.prepare(`
+      SELECT sa.story_id, a.id, a.name FROM authors a
+      JOIN story_authors sa ON sa.author_id = a.id
+      WHERE sa.story_id IN (${ph})
+      ORDER BY sa.position
+    `).all(...ids).forEach(({ story_id, id, name }) => authorMap.get(story_id)?.push({ id, name }));
+  }
+  res.json(rows.map(r => ({ ...r, authors: authorMap.get(r.id) })));
 });
 
 router.post('/:id/stories', (req, res) => {
@@ -146,11 +178,15 @@ router.post('/:id/stories', (req, res) => {
   const errors = validateStory(req.body);
   if (errors.length) return res.status(400).json({ error: errors[0] });
   const v = storyValues(req.body);
-  const result = db.prepare(`
-    INSERT INTO stories (book_id, title, position, status, date_finished, rating, did_not_finish, notes, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'), datetime('now', 'localtime'))
-  `).run(id, v.title, v.position, v.status, v.date_finished, v.rating, v.did_not_finish, v.notes);
-  res.status(201).json(db.prepare('SELECT * FROM stories WHERE id = ?').get(result.lastInsertRowid));
+  const storyId = db.transaction(() => {
+    const r = db.prepare(`
+      INSERT INTO stories (book_id, title, position, status, date_finished, rating, did_not_finish, notes, page_start, page_end, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'), datetime('now', 'localtime'))
+    `).run(id, v.title, v.position, v.status, v.date_finished, v.rating, v.did_not_finish, v.notes, v.page_start, v.page_end);
+    if (req.body.authors !== undefined) syncStoryAuthors(r.lastInsertRowid, req.body.authors);
+    return r.lastInsertRowid;
+  })();
+  res.status(201).json(getStoryWithAuthors(storyId));
 });
 
 router.put('/:id/stories/:storyId', (req, res) => {
@@ -161,12 +197,15 @@ router.put('/:id/stories/:storyId', (req, res) => {
   const errors = validateStory(req.body);
   if (errors.length) return res.status(400).json({ error: errors[0] });
   const v = storyValues(req.body);
-  db.prepare(`
-    UPDATE stories
-       SET title = ?, position = ?, status = ?, date_finished = ?, rating = ?, did_not_finish = ?, notes = ?, updated_at = datetime('now', 'localtime')
-     WHERE id = ?
-  `).run(v.title, v.position, v.status, v.date_finished, v.rating, v.did_not_finish, v.notes, storyId);
-  res.json(db.prepare('SELECT * FROM stories WHERE id = ?').get(storyId));
+  db.transaction(() => {
+    db.prepare(`
+      UPDATE stories
+         SET title = ?, position = ?, status = ?, date_finished = ?, rating = ?, did_not_finish = ?, notes = ?, page_start = ?, page_end = ?, updated_at = datetime('now', 'localtime')
+       WHERE id = ?
+    `).run(v.title, v.position, v.status, v.date_finished, v.rating, v.did_not_finish, v.notes, v.page_start, v.page_end, storyId);
+    if (req.body.authors !== undefined) syncStoryAuthors(storyId, req.body.authors);
+  })();
+  res.json(getStoryWithAuthors(storyId));
 });
 
 router.delete('/:id/stories/:storyId', (req, res) => {

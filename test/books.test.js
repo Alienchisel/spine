@@ -1329,6 +1329,55 @@ describe('books', () => {
       assert.equal(full.stories[0].title, 'S1');
     });
 
+    it('persists page_start, page_end, and story authors (Layer 2)', async () => {
+      const { body: created } = await req('POST', `/api/books/${bookId}/stories`, {
+        title: 'Layer 2 Story', position: 99,
+        page_start: 195, page_end: 226,
+        authors: ['Edogawa Ranpo', 'Junji Ito'],
+      });
+      assert.equal(created.page_start, 195);
+      assert.equal(created.page_end, 226);
+      assert.deepEqual(created.authors.map(a => a.name), ['Edogawa Ranpo', 'Junji Ito']);
+
+      // GET round-trips them.
+      const { body: list } = await req('GET', `/api/books/${bookId}/stories`);
+      const fetched = list.find(s => s.id === created.id);
+      assert.equal(fetched.page_start, 195);
+      assert.equal(fetched.page_end, 226);
+      assert.equal(fetched.authors.length, 2);
+
+      // PUT clears authors when [] is sent, and updates page range.
+      const { body: cleared } = await req('PUT', `/api/books/${bookId}/stories/${created.id}`, {
+        title: 'Layer 2 Story', page_start: 100, page_end: null, authors: [],
+      });
+      assert.equal(cleared.page_start, 100);
+      assert.equal(cleared.page_end, null);
+      assert.deepEqual(cleared.authors, []);
+    });
+
+    it('rejects non-positive page_start / page_end and reversed range', async () => {
+      const r1 = await req('POST', `/api/books/${bookId}/stories`, { title: 'x', page_start: 0 });
+      assert.equal(r1.status, 400);
+      const r2 = await req('POST', `/api/books/${bookId}/stories`, { title: 'x', page_start: 'abc' });
+      assert.equal(r2.status, 400);
+      const r3 = await req('POST', `/api/books/${bookId}/stories`, { title: 'x', page_start: 50, page_end: 10 });
+      assert.equal(r3.status, 400);
+    });
+
+    it('GET /api/books/:id includes per-story authors with stories array', async () => {
+      const { body: b } = await req('POST', '/api/books', { title: 'Anthology', authors: ['House Author'] });
+      await req('POST', `/api/books/${b.id}/stories`, {
+        title: 'Adapted', authors: ['Original Writer'],
+      });
+      await req('POST', `/api/books/${b.id}/stories`, { title: 'Default attribution' });
+      const { body: full } = await req('GET', `/api/books/${b.id}`);
+      assert.equal(full.stories.length, 2);
+      const adapted = full.stories.find(s => s.title === 'Adapted');
+      assert.equal(adapted.authors[0].name, 'Original Writer');
+      const defaulted = full.stories.find(s => s.title === 'Default attribution');
+      assert.deepEqual(defaulted.authors, []);
+    });
+
     it('missing=stories surfaces Stories/Anthology-tagged books with no contents', async () => {
       const stem = 'storiesfilter' + Math.random().toString(36).slice(2, 6);
       // Tagged Stories, no contents yet — should appear.

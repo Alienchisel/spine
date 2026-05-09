@@ -5,15 +5,31 @@ import StarRating from '../StarRating.jsx';
 import { useConfirm } from '../ConfirmModal.jsx';
 import { formatPartialDate } from './dates.js';
 
-// Phase 1 of the short-story-collection model. Each story belongs to a
+// Layer 2 of the short-story-collection model. Each story belongs to a
 // parent book; the user marks individual stories finished / DNF / rates
-// them without touching the collection's own status. Page ranges,
-// per-story authors, and reading_log integration are deferred.
+// them without touching the collection's own status. Layer 2 adds page
+// ranges (page_start / page_end) and per-story authors that override the
+// book's authors when set (anthologies, adaptations like Junji Ito's
+// versions of Edogawa Ranpo / Robert Hichens stories).
 //
 // Visible only when the parent book has the Stories or Anthology tag, or
 // when at least one story is already attached (so a user can populate
 // then hide if they retag, without losing the data).
 const STATUS_LABEL = { unread: 'Unread', reading: 'Reading', finished: 'Finished' };
+
+function pageRangeText(s) {
+  if (s.page_start == null && s.page_end == null) return null;
+  if (s.page_start != null && s.page_end != null && s.page_end > s.page_start) {
+    return `p. ${s.page_start}–${s.page_end}`;
+  }
+  return `p. ${s.page_start ?? s.page_end}`;
+}
+
+function authorText(s, fallbackAuthors) {
+  const list = s.authors?.length ? s.authors : fallbackAuthors;
+  if (!list?.length) return null;
+  return list.map(a => a.name).join(', ');
+}
 
 function emptyForm() {
   return {
@@ -24,6 +40,9 @@ function emptyForm() {
     rating: null,
     did_not_finish: false,
     notes: '',
+    page_start: '',
+    page_end: '',
+    authorsText: '',
   };
 }
 
@@ -36,10 +55,21 @@ function toForm(s) {
     rating: s.rating ?? null,
     did_not_finish: !!s.did_not_finish,
     notes: s.notes || '',
+    page_start: s.page_start != null ? String(s.page_start) : '',
+    page_end:   s.page_end   != null ? String(s.page_end)   : '',
+    // Authors live in a comma-separated text input on the form; the
+    // canonical structure (authors[]) only emerges on save. Empty string
+    // means "use parent book's authors as fallback" — matches the
+    // backend's empty-array semantics.
+    authorsText: (s.authors || []).map(a => a.name).join(', '),
   };
 }
 
 function toPayload(form) {
+  const authors = form.authorsText
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
   return {
     title: form.title.trim(),
     position: form.position === '' ? null : Number(form.position),
@@ -48,10 +78,13 @@ function toPayload(form) {
     rating: form.rating,
     did_not_finish: form.did_not_finish,
     notes: form.notes.trim() || null,
+    page_start: form.page_start === '' ? null : Number(form.page_start),
+    page_end:   form.page_end   === '' ? null : Number(form.page_end),
+    authors,
   };
 }
 
-export default function StoriesSection({ bookId, stories, onUpdate }) {
+export default function StoriesSection({ bookId, stories, bookAuthors = [], onUpdate }) {
   const [adding, setAdding] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState(emptyForm);
@@ -173,6 +206,30 @@ export default function StoriesSection({ bookId, stories, onUpdate }) {
         placeholder="#"
         className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-300 focus:outline-none focus:border-oak/50 w-14"
       />
+      <input
+        type="number"
+        value={form.page_start}
+        onChange={e => setForm(f => ({ ...f, page_start: e.target.value }))}
+        placeholder="p."
+        title="Starting page"
+        className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-300 focus:outline-none focus:border-oak/50 w-16"
+      />
+      <input
+        type="number"
+        value={form.page_end}
+        onChange={e => setForm(f => ({ ...f, page_end: e.target.value }))}
+        placeholder="end"
+        title="Ending page (optional)"
+        className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-300 focus:outline-none focus:border-oak/50 w-16"
+      />
+      <input
+        type="text"
+        value={form.authorsText}
+        onChange={e => setForm(f => ({ ...f, authorsText: e.target.value }))}
+        placeholder="Authors (override)"
+        title="Comma-separated. Empty = use the book's authors."
+        className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-300 placeholder-neutral-600 focus:outline-none focus:border-oak/50 flex-1 min-w-[10rem]"
+      />
       <select
         value={form.status}
         onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
@@ -226,9 +283,17 @@ export default function StoriesSection({ bookId, stories, onUpdate }) {
               </button>
               <div className="flex-1 min-w-0">
                 <p className="text-neutral-300 truncate" title={s.title}>{s.title}</p>
-                {s.notes && (
-                  <p className="text-neutral-600 text-[10px] truncate" title={s.notes}>{s.notes}</p>
-                )}
+                {(() => {
+                  // Compose a single dim subline: page range, then explicit
+                  // story authors when they differ from the book's, then
+                  // freeform notes. Each piece is optional; pieces are
+                  // joined with " · " so the layout reads naturally.
+                  const overrideAuthors = s.authors?.length ? authorText(s, []) : null;
+                  const parts = [pageRangeText(s), overrideAuthors, s.notes].filter(Boolean);
+                  if (!parts.length) return null;
+                  const text = parts.join(' · ');
+                  return <p className="text-neutral-600 text-[10px] truncate" title={text}>{text}</p>;
+                })()}
               </div>
               {s.rating != null && (
                 <span className="text-oak/70 flex-shrink-0">{'★'.repeat(Math.floor(s.rating))}{s.rating % 1 ? '½' : ''}</span>

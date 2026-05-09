@@ -664,6 +664,7 @@ export default function BookDetail() {
               <StoriesSection
                 bookId={book.id}
                 stories={stories}
+                bookAuthors={book.authors || []}
                 onUpdate={() => api.getBook(book.id).then(b => {
                   if (String(b.id) !== String(latestIdRef.current)) return;
                   setBook(b);
