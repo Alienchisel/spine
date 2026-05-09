@@ -57,7 +57,7 @@ describe('stats', () => {
 
     it('records has required book-record fields', async () => {
       const { body } = await req('GET', '/api/stats');
-      for (const key of ['longestReadPhysical', 'shortestReadPhysical', 'longestReadDigital', 'shortestReadDigital', 'longestReadAudiobook', 'shortestReadAudiobook', 'oldestEdition', 'newestEdition', 'firstFinished', 'lastFinished', 'mostReread']) {
+      for (const key of ['longestReadPhysical', 'shortestReadPhysical', 'longestReadDigital', 'shortestReadDigital', 'longestReadAudiobook', 'shortestReadAudiobook', 'longestLibraryPhysical', 'shortestLibraryPhysical', 'longestLibraryDigital', 'shortestLibraryDigital', 'longestLibraryAudiobook', 'shortestLibraryAudiobook', 'oldestEdition', 'newestEdition', 'firstFinished', 'lastFinished', 'mostReread']) {
         assert.ok(key in body.records, `records missing: ${key}`);
       }
     });
