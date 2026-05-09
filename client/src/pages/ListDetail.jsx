@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   DndContext,
@@ -173,7 +173,7 @@ function QuickAdd({ listId, onAdded }) {
 
 export default function ListDetail() {
   const { id } = useParams();
-  const fromState = { from: 'List', fromPath: `/lists/${id}` };
+  const fromState = useMemo(() => ({ from: 'List', fromPath: `/lists/${id}` }), [id]);
   const [list, setList] = useState(null);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);

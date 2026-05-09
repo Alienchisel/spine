@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
 import BookCard from '../components/BookCard.jsx';
@@ -42,7 +42,10 @@ export default function BrowsePage() {
     : field === 'format'        ? (FORMAT_LABEL[decoded] ?? decoded)
     : field === 'rating'        ? starsLabel(parseFloat(decoded))
     : decoded;
-  const fromState = { from: fromLabel, fromPath: pathname };
+  const fromState = useMemo(
+    () => ({ from: fromLabel, fromPath: pathname }),
+    [fromLabel, pathname],
+  );
 
   const [books,       setBooks]       = useState([]);
   const [total,       setTotal]       = useState(0);

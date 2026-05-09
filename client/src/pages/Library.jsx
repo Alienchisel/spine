@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   DndContext,
@@ -435,8 +435,12 @@ export default function Library() {
   // Back-link state for BookDetail: returning preserves the current Library
   // search params (filters / tab / sort) so the user lands on the same
   // filtered view they came from rather than the default Library root.
-  const _qs = searchParams.toString();
-  const fromState = { from: 'Library', fromPath: _qs ? `/?${_qs}` : '/' };
+  // Memoised so every BookCard in the grid receives the same reference
+  // until the URL actually changes.
+  const fromState = useMemo(() => {
+    const qs = searchParams.toString();
+    return { from: 'Library', fromPath: qs ? `/?${qs}` : '/' };
+  }, [searchParams]);
   const gridCols        = useGridCols(density === 'compact' ? COMPACT_BPS : COMFORTABLE_BPS);
   const hasMore         = loadedRef.current < total;
   // Mid-pagination, hide a trailing partial row so the visible grid always
