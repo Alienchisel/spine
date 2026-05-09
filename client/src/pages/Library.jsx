@@ -55,6 +55,18 @@ const SORTS = [
   { key: 'custom',      label: 'Custom order', tabs: ['never_owned'] },
 ];
 
+// Clamp sortByTab values that no longer make sense — either because the
+// sort was renamed/removed since the session was persisted, or because the
+// saved value lives under a tab where the sort isn't allowed (the dropdown
+// hides it but the underlying value would otherwise still ship to the API,
+// invisibly miscategorizing the result set).
+function sortAllowedForTab(sort, tab) {
+  const def = SORTS.find(s => s.key === sort);
+  if (!def) return 'updated';
+  if (def.tabs && !def.tabs.includes(tab)) return 'updated';
+  return sort;
+}
+
 const GRID = {
   comfortable: 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-x-3 gap-y-5 items-start',
   compact:     'grid grid-cols-6 sm:grid-cols-9 md:grid-cols-12 gap-0.5 items-start',
@@ -163,9 +175,9 @@ export default function Library() {
   // setter always keys by the *current* tab — switching tabs first then
   // calling setSort would write to the new tab, which is the right behaviour
   // since the only call sites set sort *for the tab the user is on*.
-  const sort = sortByTab[tab] || 'updated';
+  const sort = sortAllowedForTab(sortByTab[tab], tab);
   function setSort(value) {
-    const resolved = typeof value === 'function' ? value(sortByTab[tab] || 'updated') : value;
+    const resolved = typeof value === 'function' ? value(sort) : value;
     setSortByTab(prev => ({ ...prev, [tab]: resolved }));
   }
 
