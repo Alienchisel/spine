@@ -2,7 +2,7 @@ node_modules/
 client/node_modules/
 client/dist/
 uploads/
-spine.db
+*.db
 *.db-shm
 *.db-wal
 backups/
