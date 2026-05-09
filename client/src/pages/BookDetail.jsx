@@ -159,7 +159,16 @@ export default function BookDetail() {
     setDescExpanded(false);
 
     api.getBook(id)
-      .then(b => { if (gen === idGenRef.current) setBook(b); })
+      .then(b => {
+        if (gen !== idGenRef.current) return;
+        setBook(b);
+        // Auto-finish from Library's progress quick-edit navigates here
+        // with state.justFinished so the rating prompt — which would
+        // otherwise vanish along with the unmounting BookCard — surfaces
+        // on a surface that sticks. Only fire if we actually need a
+        // rating; revisits of the same already-rated book stay quiet.
+        if (navState?.justFinished && !b.rating) setRatingPrompt(true);
+      })
       .catch(() => { if (gen === idGenRef.current) setLoadError(true); })
       .finally(() => { if (gen === idGenRef.current) setLoading(false); });
     api.getBookLog(id)

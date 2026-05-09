@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { realTagNames, formatAuthors } from '../utils.js';
 import ListPicker from './ListPicker.jsx';
@@ -24,6 +24,7 @@ function PencilIcon() {
 }
 
 export default function BookCard({ book: initialBook, onProgressUpdate, compact, coverOverlay, hideActions, fadeUnowned, linkState }) {
+  const navigate = useNavigate();
   const [book, setBook] = useState(initialBook);
   const [open, setOpen] = useState(false);
   const [loving, setLoving] = useState(false);
@@ -166,14 +167,25 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
         ? (updated.duration_minutes > 0 && updated.current_minutes >= updated.duration_minutes)
         : (updated.page_count > 0 && updated.current_page >= updated.page_count);
       if (isComplete && updated.status === 'reading') {
+        // Mirror BookDetail.handleFinish's prev-owned-aware date default:
+        // owned-and-just-finished → today; previously-owned historical
+        // entries → leave null so the user can fill in if they remember.
+        const today = new Date().toLocaleDateString('en-CA');
+        const dateFinished = updated.date_finished
+          || (updated.previously_owned ? null : today);
         const finished = await api.updateBook(book.id, {
           ...updated,
           status: 'finished',
+          date_finished: dateFinished,
           tags: realTagNames(updated.tags),
         });
-        setBook(finished);
         onProgressUpdate?.(finished);
-        setRatingPrompt(true);
+        // The card unmounts the moment the parent (Library) re-filters
+        // the now-finished book off the Reading tab — so a local rating
+        // prompt would vanish before the user sees it. Send the user to
+        // BookDetail with a `justFinished` flag; that page reads it and
+        // shows the rating prompt there, on a surface that survives.
+        navigate(`/books/${book.id}`, { state: { ...(linkState || {}), justFinished: true } });
       } else {
         setBook(updated);
         onProgressUpdate?.(updated);
