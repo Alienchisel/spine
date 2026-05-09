@@ -224,7 +224,12 @@ export default function StoriesSection({ bookId, stories, onUpdate }) {
               >
                 {STATUS_LABEL[s.status]}
               </button>
-              <span className="text-neutral-300 flex-1 truncate" title={s.title}>{s.title}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-neutral-300 truncate" title={s.title}>{s.title}</p>
+                {s.notes && (
+                  <p className="text-neutral-600 text-[10px] truncate" title={s.notes}>{s.notes}</p>
+                )}
+              </div>
               {s.rating != null && (
                 <span className="text-oak/70 flex-shrink-0">{'★'.repeat(Math.floor(s.rating))}{s.rating % 1 ? '½' : ''}</span>
               )}
