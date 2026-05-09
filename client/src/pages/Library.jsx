@@ -18,7 +18,6 @@ import { api } from '../api.js';
 import BookCard from '../components/BookCard.jsx';
 import FilterPanel from '../components/FilterPanel.jsx';
 import SearchHelp from '../components/SearchHelp.jsx';
-import ListRow from '../components/library/ListRow.jsx';
 import SeriesCard from '../components/library/SeriesCard.jsx';
 import { EMPTY_FILTERS, countFilters, pruneFilters, buildApiParams } from '../components/library/filters.js';
 import { buildDisplayItems, sortVolumes } from '../components/library/grouping.js';
@@ -146,13 +145,7 @@ export default function Library() {
     const initialTab = (urlTab && VALID_TABS.has(urlTab)) ? urlTab : (saved.tab || 'reading');
     return saved.sort ? { [initialTab]: saved.sort } : {};
   });
-  // Coerce a stale saved density of 'list' to 'comfortable' — the list view
-  // is currently disabled (see commented-out toggle button and JSX below) and
-  // GRID['list'] is undefined, which would break the className expression.
-  const [density,     setDensity]     = useState(() => {
-    const d = saved.density || 'comfortable';
-    return d === 'list' ? 'comfortable' : d;
-  });
+  const [density,     setDensity]     = useState(() => saved.density || 'comfortable');
 
   // Read/write the per-tab sort as if it were a single piece of state. The
   // setter always keys by the *current* tab — switching tabs first then
@@ -414,7 +407,7 @@ export default function Library() {
   // already renders flat). Flatten outside edit mode too.
   const allDisplayItems = sort === 'custom'
     ? books.map(book => ({ type: 'book', book }))
-    : buildDisplayItems(books, density === 'list' ? new Set() : expandedSeries);
+    : buildDisplayItems(books, expandedSeries);
   const gridCols        = useGridCols(density === 'compact' ? COMPACT_BPS : COMFORTABLE_BPS);
   const hasMore         = loadedRef.current < total;
   // Mid-pagination, hide a trailing partial row so the visible grid always
@@ -425,7 +418,7 @@ export default function Library() {
   // Guard: only trim when there's at least one full row to keep — otherwise
   // pathologically small loads (e.g. heavy series collapse → 5 items) would
   // hide everything and the user would see an empty grid.
-  const trimTrailing  = hasMore && density !== 'list' && gridCols > 0 && allDisplayItems.length > gridCols
+  const trimTrailing  = hasMore && gridCols > 0 && allDisplayItems.length > gridCols
     ? allDisplayItems.length % gridCols
     : 0;
   const displayItems  = trimTrailing > 0 ? allDisplayItems.slice(0, -trimTrailing) : allDisplayItems;
@@ -573,13 +566,6 @@ export default function Library() {
                   <rect x="1" y="8.5" width="6.5" height="6.5" rx="0.5"/><rect x="8.5" y="8.5" width="6.5" height="6.5" rx="0.5"/>
                 </svg>
               </button>
-              {/* List view disabled — preserved here in case it's revived later.
-              <button onClick={() => setDensity('list')} title="List view" className={`transition-colors ${density === 'list' ? 'text-neutral-300' : 'text-neutral-700 hover:text-neutral-400'}`}>
-                <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4">
-                  <rect x="1" y="2" width="14" height="2" rx="0.5"/><rect x="1" y="7" width="14" height="2" rx="0.5"/><rect x="1" y="12" width="14" height="2" rx="0.5"/>
-                </svg>
-              </button>
-              */}
             </div>
           </div>
         </div>
@@ -617,33 +603,6 @@ export default function Library() {
         </div>
       ) : (
         <>
-          {/* List view disabled — preserved here in case it's revived later.
-              Original ternary wrapped this grid branch alongside:
-                density === 'list' ? (
-                  <div className="divide-y divide-neutral-800/50">
-                    {displayItems.map(item =>
-                      item.type === 'series' ? (
-                        <div key={item.name}>
-                          <button onClick={() => toggleSeries(item.name)} className="flex items-center gap-2 py-1.5 px-2 w-full hover:bg-neutral-800/50 rounded transition-colors text-left">
-                            <span className="text-xs text-neutral-600">{expandedSeries.has(item.name) ? '▾' : '▸'}</span>
-                            <span className="text-sm text-neutral-400 flex-1 truncate">{item.name}</span>
-                            <span className="text-xs text-neutral-600">{item.books.length} books</span>
-                          </button>
-                          {expandedSeries.has(item.name) && (
-                            <div className="pl-4">
-                              {sortVolumes(item.books).map(book => <ListRow key={book.id} book={book} />)}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <ListRow key={item.book.id} book={item.book} />
-                      )
-                    )}
-                  </div>
-                ) : ( ...the grid branch below... )
-              The toggle button that selected this view is also commented out
-              up in the density toolbar. To revive: restore the ternary, the
-              toggle button, and remove the 'list' coercion in getSaved(). */}
           {editMode ? (
             // Drag-to-rank UI for the Never owned tab. Bypasses series
             // grouping (each volume is individually wished/purchased) and
