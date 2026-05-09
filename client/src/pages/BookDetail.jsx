@@ -340,6 +340,11 @@ export default function BookDetail() {
   if (loading) return <div className="text-neutral-700 text-sm">Loading…</div>;
   if (!book) return <div className="text-neutral-600 text-sm">{loadError ? 'Failed to load book.' : 'Book not found.'}</div>;
 
+  // BrowsePage back-link state for outgoing tag/author/etc links — returning
+  // from /browse/<field>/<value> lands back on this book rather than the
+  // default Library. Title is the human label; pathname is the round-trip.
+  const bookFromState = { from: book.title, fromPath: `/books/${id}` };
+
   return (
     <div className="max-w-2xl">
       <Link to={backPath} className="text-sm text-neutral-600 hover:text-neutral-300 mb-8 inline-block transition-colors">
@@ -464,7 +469,7 @@ export default function BookDetail() {
               {book.authors.map((a, i) => (
                 <span key={a.id}>
                   {i > 0 && <span className="text-neutral-600">{i === book.authors.length - 1 ? ' & ' : ', '}</span>}
-                  <Link to={`/browse/author/${encodeURIComponent(a.name)}`} className="hover:text-neutral-200 transition-colors">
+                  <Link to={`/browse/author/${encodeURIComponent(a.name)}`} state={bookFromState} className="hover:text-neutral-200 transition-colors">
                     {a.name}
                   </Link>
                 </span>
@@ -583,7 +588,7 @@ export default function BookDetail() {
           })()}
 
           {locationError && <p className="text-xs text-warn mb-2">{locationError}</p>}
-          <MetadataList book={book} location={location} />
+          <MetadataList book={book} location={location} linkState={bookFromState} />
 
           {book.tags?.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mb-6">
@@ -591,6 +596,7 @@ export default function BookDetail() {
                 <Link
                   key={t.virtual ? `v:${t.name}` : t.id}
                   to={`/browse/tag/${encodeURIComponent(t.name)}`}
+                  state={bookFromState}
                   className={t.virtual
                     ? 'text-xs border border-neutral-700 text-neutral-500 px-2.5 py-1 rounded-full hover:border-neutral-500 hover:text-neutral-300 transition-colors'
                     : 'text-xs bg-neutral-800 text-neutral-400 px-2.5 py-1 rounded-full hover:bg-neutral-700 hover:text-neutral-200 transition-colors'}

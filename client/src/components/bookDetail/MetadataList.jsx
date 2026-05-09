@@ -18,7 +18,7 @@ function locationCrumb(loc) {
   return loc.building;
 }
 
-export default function MetadataList({ book, location }) {
+export default function MetadataList({ book, location, linkState }) {
   return (
     <dl className="space-y-2.5 text-sm mb-6">
       {book.fiction !== null && book.fiction !== undefined && (
@@ -41,7 +41,7 @@ export default function MetadataList({ book, location }) {
           {book.narrators.map((n, i) => (
             <span key={n.id}>
               {i > 0 && <span className="text-neutral-600">, </span>}
-              <Link to={`/browse/narrator/${encodeURIComponent(n.name)}`} className="hover:text-white transition-colors">
+              <Link to={`/browse/narrator/${encodeURIComponent(n.name)}`} state={linkState} className="hover:text-white transition-colors">
                 {n.name}
               </Link>
             </span>
@@ -81,7 +81,7 @@ export default function MetadataList({ book, location }) {
           {book.translators.map((t, i) => (
             <span key={t.id}>
               {i > 0 && <span className="text-neutral-600">, </span>}
-              <Link to={`/browse/translator/${encodeURIComponent(t.name)}`} className="hover:text-white transition-colors">
+              <Link to={`/browse/translator/${encodeURIComponent(t.name)}`} state={linkState} className="hover:text-white transition-colors">
                 {t.name}
               </Link>
             </span>
@@ -90,14 +90,14 @@ export default function MetadataList({ book, location }) {
       )}
       {book.publisher && (
         <Row label="Publisher">
-          <Link to={`/browse/publisher/${encodeURIComponent(book.publisher)}`} className="hover:text-white transition-colors">
+          <Link to={`/browse/publisher/${encodeURIComponent(book.publisher)}`} state={linkState} className="hover:text-white transition-colors">
             {book.publisher}
           </Link>
         </Row>
       )}
       {book.series && (
         <Row label="Series">
-          <Link to={`/browse/series/${encodeURIComponent(book.series)}`} className="hover:text-white transition-colors">
+          <Link to={`/browse/series/${encodeURIComponent(book.series)}`} state={linkState} className="hover:text-white transition-colors">
             {book.series}
           </Link>
           {book.series_number != null && (
