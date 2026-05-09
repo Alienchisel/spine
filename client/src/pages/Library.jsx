@@ -145,7 +145,9 @@ export default function Library() {
     const initialTab = (urlTab && VALID_TABS.has(urlTab)) ? urlTab : (saved.tab || 'reading');
     return saved.sort ? { [initialTab]: saved.sort } : {};
   });
-  const [density,     setDensity]     = useState(() => saved.density || 'comfortable');
+  // Whitelist-validate so stale sessionStorage (e.g. legacy 'list' from when
+  // a list view existed) can't yield an undefined GRID[density] className.
+  const [density,     setDensity]     = useState(() => saved.density === 'compact' ? 'compact' : 'comfortable');
 
   // Read/write the per-tab sort as if it were a single piece of state. The
   // setter always keys by the *current* tab — switching tabs first then
