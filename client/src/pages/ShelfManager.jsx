@@ -47,6 +47,15 @@ export default function ShelfManager() {
   const deletingRoomIdsRef     = useRef(new Set());
   const deletingUnitIdsRef     = useRef(new Set());
   const deletingShelfIdsRef    = useRef(new Set());
+  // Per-kind in-flight guards for inline-edit submits. Without these a
+  // keyboard-repeat Enter or a fast double-tap on Save fires the PUT
+  // twice and queues two reload() chases. Sets (per id) rather than
+  // booleans because the user can edit different rows concurrently —
+  // mirrors the deletingXxxIdsRef shape.
+  const editingBuildingIdsRef = useRef(new Set());
+  const editingRoomIdsRef     = useRef(new Set());
+  const editingUnitIdsRef     = useRef(new Set());
+  const editingShelfIdsRef    = useRef(new Set());
   // Synchronous in-flight guards for the add* handlers. Same-tick double
   // submit (Enter-key autorepeat in the name field) would otherwise pass
   // any state-only `if (creating) return` and create two identical rows.
@@ -110,6 +119,8 @@ export default function ShelfManager() {
   }
 
   async function editBuilding(id, name, proximity) {
+    if (editingBuildingIdsRef.current.has(id)) return;
+    editingBuildingIdsRef.current.add(id);
     const b = tree.find(x => x.id === id);
     setError(null);
     try {
@@ -117,6 +128,8 @@ export default function ShelfManager() {
       reload();
     } catch {
       setError('Failed to update building.');
+    } finally {
+      editingBuildingIdsRef.current.delete(id);
     }
   }
 
@@ -163,6 +176,8 @@ export default function ShelfManager() {
   }
 
   async function editRoom(id, name) {
+    if (editingRoomIdsRef.current.has(id)) return;
+    editingRoomIdsRef.current.add(id);
     const r = tree.flatMap(b => b.rooms).find(x => x.id === id);
     setError(null);
     try {
@@ -170,6 +185,8 @@ export default function ShelfManager() {
       reload();
     } catch {
       setError('Failed to update room.');
+    } finally {
+      editingRoomIdsRef.current.delete(id);
     }
   }
 
@@ -216,6 +233,8 @@ export default function ShelfManager() {
   }
 
   async function editUnit(id, name) {
+    if (editingUnitIdsRef.current.has(id)) return;
+    editingUnitIdsRef.current.add(id);
     const u = tree.flatMap(b => b.rooms).flatMap(r => r.units).find(x => x.id === id);
     setError(null);
     try {
@@ -223,6 +242,8 @@ export default function ShelfManager() {
       reload();
     } catch {
       setError('Failed to update unit.');
+    } finally {
+      editingUnitIdsRef.current.delete(id);
     }
   }
 
@@ -269,6 +290,8 @@ export default function ShelfManager() {
   }
 
   async function editShelf(id, label) {
+    if (editingShelfIdsRef.current.has(id)) return;
+    editingShelfIdsRef.current.add(id);
     const s = tree.flatMap(b => b.rooms).flatMap(r => r.units).flatMap(u => u.shelves).find(x => x.id === id);
     setError(null);
     try {
@@ -276,6 +299,8 @@ export default function ShelfManager() {
       reload();
     } catch {
       setError('Failed to update shelf.');
+    } finally {
+      editingShelfIdsRef.current.delete(id);
     }
   }
 
