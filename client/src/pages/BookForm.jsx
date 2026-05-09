@@ -426,6 +426,7 @@ export default function BookForm() {
     <div className="max-w-2xl">
       <Link
         to={isEdit ? `/books/${id}` : '/'}
+        state={navState}
         className="text-sm text-neutral-600 hover:text-neutral-300 mb-8 inline-block transition-colors"
       >
         ← Back

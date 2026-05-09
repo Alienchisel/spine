@@ -323,7 +323,10 @@ export default function BookDetail() {
     setDeleteError(null);
     try {
       await api.deleteBook(reqId);
-      navigate('/');
+      // Return to wherever the user came from — Shelves, Loved, etc. —
+      // not the default Library, since the deleted book is gone from
+      // every surface anyway.
+      navigate(backPath);
     } catch {
       if (!isStillCurrent(reqId)) return;
       setDeleteError('Failed to delete book. Please try again.');

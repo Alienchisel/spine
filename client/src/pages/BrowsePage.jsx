@@ -34,7 +34,15 @@ export default function BrowsePage() {
   const backLabel = state?.from ? `← ${state.from}` : '← Library';
   const backPath  = state?.fromPath ?? '/';
   // BookDetail back-link state: returning lands on this same browse view.
-  const fromState = { from: decoded, fromPath: pathname };
+  // Use the human-readable heading (e.g. "Fiction" / "★★★★½") rather than
+  // the raw URL value, which for fiction/format/rating fields is "0" / "1" /
+  // "physical" — fine for the URL, useless as a back-link label.
+  const fromLabel = field === 'fiction'
+    ? (decoded === 'fiction' ? 'Fiction' : decoded === 'nonfiction' ? 'Non-fiction' : 'Fiction / NF unset')
+    : field === 'format'        ? (FORMAT_LABEL[decoded] ?? decoded)
+    : field === 'rating'        ? starsLabel(parseFloat(decoded))
+    : decoded;
+  const fromState = { from: fromLabel, fromPath: pathname };
 
   const [books,       setBooks]       = useState([]);
   const [total,       setTotal]       = useState(0);
@@ -136,12 +144,7 @@ export default function BrowsePage() {
   }
 
   const label = FIELD_LABEL[field] ?? field;
-  const heading = field === 'fiction'
-    ? (decoded === 'fiction' ? 'Fiction' : decoded === 'nonfiction' ? 'Non-fiction' : 'Fiction / NF unset')
-    : field === 'format'        ? (FORMAT_LABEL[decoded] ?? decoded)
-    : field === 'rating'        ? starsLabel(parseFloat(decoded))
-    : field === 'year_finished' ? decoded
-    : decoded;
+  const heading = fromLabel;
 
   const hasMore = loadedRef.current < total;
 
