@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import {
-  DndContext, closestCenter, PointerSensor, useSensor, useSensors,
+  DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors,
 } from '@dnd-kit/core';
 import {
-  SortableContext, useSortable, verticalListSortingStrategy, arrayMove,
+  SortableContext, useSortable, verticalListSortingStrategy, sortableKeyboardCoordinates, arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import DragHandle from './DragHandle.jsx';
@@ -27,7 +27,10 @@ function UnitSection({ unit, dragHandle, onEdit, onDelete, onAddShelf, onEditShe
   const [shelves, setShelves] = useState(unit.shelves);
   useEffect(() => setShelves(unit.shelves), [unit.shelves]);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   function handleShelfDragEnd({ active, over }) {
     if (!over || active.id === over.id) return;

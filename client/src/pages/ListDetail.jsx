@@ -4,6 +4,7 @@ import {
   DndContext,
   closestCenter,
   PointerSensor,
+  KeyboardSensor,
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
@@ -11,6 +12,7 @@ import {
   SortableContext,
   useSortable,
   rectSortingStrategy,
+  sortableKeyboardCoordinates,
   arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -225,7 +227,13 @@ export default function ListDetail() {
   const renamingInFlightRef = useRef(false);
   const refreshTick = useRefreshTick();
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    // Keyboard drag: Space on a focused draggable starts a drag, arrow keys
+    // move, Enter drops, Escape cancels. WAI-ARIA pattern; runs alongside
+    // PointerSensor without affecting mouse interaction.
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   function toggleEditMode() {
     if (!editMode && sort !== 'added') setSort('added');

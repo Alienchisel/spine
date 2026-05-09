@@ -4,6 +4,7 @@ import {
   DndContext,
   closestCenter,
   PointerSensor,
+  KeyboardSensor,
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
@@ -11,6 +12,7 @@ import {
   SortableContext,
   useSortable,
   horizontalListSortingStrategy,
+  sortableKeyboardCoordinates,
   arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -112,7 +114,10 @@ function plural(n, word, plural) {
 }
 
 function ShelfRow({ shelf, books, onReorder, onLabelClick, linkState }) {
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   function handleDragEnd(event) {
     const { active, over } = event;
@@ -310,7 +315,10 @@ export default function ShelfView() {
       .finally(() => { if (gen === booksGenRef.current) setBooksLoading(false); });
   }, [buildingId, roomId, unitId, shelfId, treeLoaded, pathOk, refreshTick]);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   function handleDragEnd(event) {
     const { active, over } = event;

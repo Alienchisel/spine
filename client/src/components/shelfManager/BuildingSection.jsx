@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import {
-  DndContext, closestCenter, PointerSensor, useSensor, useSensors,
+  DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors,
 } from '@dnd-kit/core';
 import {
-  SortableContext, useSortable, verticalListSortingStrategy, arrayMove,
+  SortableContext, useSortable, verticalListSortingStrategy, sortableKeyboardCoordinates, arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import DragHandle from './DragHandle.jsx';
@@ -21,7 +21,10 @@ function BuildingSection({ building, dragHandle, onEdit, onDelete, onAddRoom, on
   const [rooms, setRooms] = useState(building.rooms);
   useEffect(() => setRooms(building.rooms), [building.rooms]);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   function handleRoomDragEnd({ active, over }) {
     if (!over || active.id === over.id) return;
