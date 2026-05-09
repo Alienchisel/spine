@@ -117,7 +117,15 @@ export default function Library() {
   const urlTab = searchParams.get('tab');
   const saved = getSaved();
 
-  const [tab,         setTab]         = useState(() => (urlTab && VALID_TABS.has(urlTab)) ? urlTab : (saved.tab || 'reading'));
+  // Validate saved.tab the same way as urlTab — stale sessionStorage from
+  // before a tab was retired (e.g. 'paused' after the status-taxonomy cleanup)
+  // would otherwise land in tab state, leave the tab strip with no item
+  // highlighted, and ship an invalid tab into buildApiParams.
+  const [tab,         setTab]         = useState(() => {
+    if (urlTab && VALID_TABS.has(urlTab)) return urlTab;
+    if (VALID_TABS.has(saved.tab))        return saved.tab;
+    return 'reading';
+  });
   const [queryRaw,    setQueryRaw]    = useState(() => saved.query || '');
   const [query,       setQuery]       = useState(() => saved.query || '');
   const [filtersOpen, setFiltersOpen] = useState(() => saved.filtersOpen ?? false);
@@ -142,7 +150,9 @@ export default function Library() {
     // Migrate from the legacy single-sort key so the user's last selection
     // survives the upgrade. Lands under whichever tab they were on; other
     // tabs default to 'updated' lazily on first visit.
-    const initialTab = (urlTab && VALID_TABS.has(urlTab)) ? urlTab : (saved.tab || 'reading');
+    const initialTab = (urlTab && VALID_TABS.has(urlTab)) ? urlTab
+                     : VALID_TABS.has(saved.tab)          ? saved.tab
+                     : 'reading';
     return saved.sort ? { [initialTab]: saved.sort } : {};
   });
   // Whitelist-validate so stale sessionStorage (e.g. legacy 'list' from when
