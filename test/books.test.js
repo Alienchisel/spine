@@ -3030,6 +3030,37 @@ describe('books', () => {
       assert.equal(bGet.editions[0].id, c.id);
     });
 
+    it('archived siblings hide from a non-archived book\'s editions list, but the archived book itself still sees them', async () => {
+      // Mirrors the Library default-view rule: archived rows surface only on
+      // tab=archived / when the user has explicitly opted into archive
+      // territory. The opt-in case here is "you're already on an archived
+      // book's detail page" — at that point siblings (archived or not) are
+      // all visible.
+      const a = await mkBook('Edition Archive Visible');
+      const b = await mkBook('Edition Archive Hidden');
+      await req('POST', `/api/books/${a.id}/work-link`, { other_id: b.id });
+
+      // Both visible before any archive.
+      const { body: aBefore } = await req('GET', `/api/books/${a.id}`);
+      assert.equal(aBefore.editions.length, 1);
+
+      // Archive B. From A's (non-archived) detail page, B should disappear.
+      await req('PATCH', `/api/books/${b.id}`, { archived: true });
+      const { body: aAfter } = await req('GET', `/api/books/${a.id}`);
+      assert.equal(aAfter.editions.length, 0,
+        'expected archived sibling to be hidden from non-archived book\'s editions list');
+
+      // From B's own (archived) detail page, A is still visible — opt-in.
+      const { body: bAfter } = await req('GET', `/api/books/${b.id}`);
+      assert.equal(bAfter.editions.length, 1);
+      assert.equal(bAfter.editions[0].id, a.id);
+
+      // Un-archive B and the symmetry returns.
+      await req('PATCH', `/api/books/${b.id}`, { archived: false });
+      const { body: aRestored } = await req('GET', `/api/books/${a.id}`);
+      assert.equal(aRestored.editions.length, 1);
+    });
+
     it('rejects linking a book to itself', async () => {
       const a = await mkBook('Edition Test Self');
       const { status, body } = await req('POST', `/api/books/${a.id}/work-link`, { other_id: a.id });
