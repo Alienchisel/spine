@@ -7,7 +7,7 @@ import { formatPartialDate } from './dates.js';
 export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBookUpdate }) {
   const [adding, setAdding] = useState(false);
   const [editId, setEditId] = useState(null);
-  const [form, setForm] = useState({ date_started: '', date_finished: '' });
+  const [form, setForm] = useState({ date_started: '', date_finished: '', did_not_finish: false });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   // Tracks read ids whose delete is in flight. The ConfirmModal cancels
@@ -36,14 +36,14 @@ export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBo
     setAdding(true);
     setEditId(null);
     setError(null);
-    setForm({ date_started: '', date_finished: '' });
+    setForm({ date_started: '', date_finished: '', did_not_finish: false });
   }
 
   function startEdit(r) {
     setEditId(r.id);
     setAdding(false);
     setError(null);
-    setForm({ date_started: r.date_started || '', date_finished: r.date_finished || '' });
+    setForm({ date_started: r.date_started || '', date_finished: r.date_finished || '', did_not_finish: !!r.did_not_finish });
   }
 
   function validateDates() {
@@ -71,15 +71,18 @@ export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBo
     setSaving(true);
     setError(null);
     try {
-      const payload = { date_started: form.date_started || null, date_finished: form.date_finished || null };
+      const payload = { date_started: form.date_started || null, date_finished: form.date_finished || null, did_not_finish: form.did_not_finish };
       if (isReread) {
+        // /reread is the "completing this attempt" endpoint — bumps read_count
+        // and inserts a row. A re-read attempt being marked DNF would be a
+        // contradiction, so the flag isn't sent on this path.
         const updated = await api.rereadBook(bookId, payload);
         onBookUpdate?.(updated);
       } else {
         await api.addRead(bookId, payload);
       }
       setAdding(false);
-      setForm({ date_started: '', date_finished: '' });
+      setForm({ date_started: '', date_finished: '', did_not_finish: false });
       onUpdate();
     } catch {
       setError(isReread ? 'Failed to log re-read' : 'Failed to add read');
@@ -97,7 +100,7 @@ export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBo
     setSaving(true);
     setError(null);
     try {
-      await api.updateRead(bookId, readId, { date_started: form.date_started || null, date_finished: form.date_finished || null });
+      await api.updateRead(bookId, readId, { date_started: form.date_started || null, date_finished: form.date_finished || null, did_not_finish: form.did_not_finish });
       setEditId(null);
       onUpdate();
     } catch {
@@ -134,6 +137,10 @@ export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBo
               <PartialDateInput size="sm" value={form.date_started}  onChange={v => setForm(f => ({ ...f, date_started: v }))}  />
               <span className="text-neutral-600 text-xs">→</span>
               <PartialDateInput size="sm" value={form.date_finished} onChange={v => setForm(f => ({ ...f, date_finished: v }))} />
+              <label className="flex items-center gap-1 text-xs text-neutral-500 select-none cursor-pointer">
+                <input type="checkbox" checked={form.did_not_finish} onChange={e => setForm(f => ({ ...f, did_not_finish: e.target.checked }))} className="accent-warn" />
+                DNF
+              </label>
               <button type="submit" disabled={saving} className="text-xs text-oak hover:text-oak/80 transition-colors disabled:opacity-40">Save</button>
               <button type="button" onClick={() => setEditId(null)} className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors">Cancel</button>
             </form>
@@ -143,6 +150,7 @@ export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBo
               <span className="text-xs text-neutral-400 flex-1">
                 {r.date_started ? formatPartialDate(r.date_started) : '—'}
                 {r.date_finished ? <> <span className="text-neutral-600">→</span> {formatPartialDate(r.date_finished)}</> : ''}
+                {r.did_not_finish ? <span className="ml-2 text-[10px] uppercase tracking-wider text-warn/80 border border-warn/30 rounded px-1 py-px">DNF</span> : ''}
               </span>
               <button onClick={() => startEdit(r)} className="text-xs text-neutral-700 hover:text-neutral-400 opacity-30 group-hover:opacity-100 transition-all">Edit</button>
               <button onClick={() => handleDelete(r.id)} className="text-xs text-neutral-700 hover:text-warn opacity-30 group-hover:opacity-100 transition-all ml-1">×</button>
@@ -157,6 +165,14 @@ export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBo
           <PartialDateInput size="sm" value={form.date_started}  onChange={v => setForm(f => ({ ...f, date_started: v }))}  />
           <span className="text-neutral-600 text-xs">→</span>
           <PartialDateInput size="sm" value={form.date_finished} onChange={v => setForm(f => ({ ...f, date_finished: v }))} />
+          {/* DNF checkbox is hidden on the re-read flow — completing a re-read
+              and marking it abandoned would be self-contradictory. */}
+          {!isReread && (
+            <label className="flex items-center gap-1 text-xs text-neutral-500 select-none cursor-pointer">
+              <input type="checkbox" checked={form.did_not_finish} onChange={e => setForm(f => ({ ...f, did_not_finish: e.target.checked }))} className="accent-warn" />
+              DNF
+            </label>
+          )}
           <button type="submit" disabled={saving} className="text-xs text-oak hover:text-oak/80 transition-colors disabled:opacity-40">Add</button>
           <button type="button" onClick={() => { setAdding(false); setError(null); }} className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors">Cancel</button>
         </form>

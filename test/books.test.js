@@ -947,6 +947,46 @@ describe('books', () => {
       assert.equal(body.date_finished, '2024-04-30');
     });
 
+    it('persists did_not_finish through POST and round-trips it on GET', async () => {
+      const { body: created } = await req('POST', `/api/books/${bookId}/reads`, {
+        date_started: '2024-07-01',
+        date_finished: '2024-07-15',
+        did_not_finish: true,
+      });
+      assert.equal(created.did_not_finish, 1);
+      const { body: list } = await req('GET', `/api/books/${bookId}/reads`);
+      const found = list.find(r => r.id === created.id);
+      assert.equal(found.did_not_finish, 1);
+    });
+
+    it('defaults did_not_finish to 0 when omitted on POST', async () => {
+      const { body: created } = await req('POST', `/api/books/${bookId}/reads`, {
+        date_finished: '2024-08-01',
+      });
+      assert.equal(created.did_not_finish, 0);
+    });
+
+    it('PUT toggles did_not_finish on an existing read', async () => {
+      const { body: created } = await req('POST', `/api/books/${bookId}/reads`, {
+        date_started: '2024-09-01',
+        date_finished: '2024-09-15',
+      });
+      assert.equal(created.did_not_finish, 0);
+      const { body: updated } = await req('PUT', `/api/books/${bookId}/reads/${created.id}`, {
+        date_started: '2024-09-01',
+        date_finished: '2024-09-15',
+        did_not_finish: true,
+      });
+      assert.equal(updated.did_not_finish, 1);
+      // And back off again — the field accepts toggling, not just setting.
+      const { body: cleared } = await req('PUT', `/api/books/${bookId}/reads/${created.id}`, {
+        date_started: '2024-09-01',
+        date_finished: '2024-09-15',
+        did_not_finish: false,
+      });
+      assert.equal(cleared.did_not_finish, 0);
+    });
+
     it('rejects date_finished before date_started on PUT', async () => {
       const { body: created } = await req('POST', `/api/books/${bookId}/reads`, {
         date_started: '2024-05-01',
