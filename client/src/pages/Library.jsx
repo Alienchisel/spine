@@ -55,7 +55,12 @@ const SORTS = [
   // out on every other tab, but a stale saved sort lands on a non-custom
   // default in the load effect.
   { key: 'custom',      label: 'Custom order', tabs: ['never_owned'] },
+  { key: 'random',      label: 'Random' },
 ];
+
+function rollSeed() {
+  return Math.floor(Math.random() * 1_000_000_000) + 1;
+}
 
 // Clamp sortByTab values that no longer make sense — either because the
 // sort was renamed/removed since the session was persisted, or because the
@@ -178,9 +183,17 @@ export default function Library() {
   // calling setSort would write to the new tab, which is the right behaviour
   // since the only call sites set sort *for the tab the user is on*.
   const sort = sortAllowedForTab(sortByTab[tab], tab);
+  // Random-sort seed lives only in component state — refresh re-rolls,
+  // which matches the user's mental model of "each session is a fresh
+  // shuffle". The die button explicitly re-rolls without reload.
+  const [randomSeed, setRandomSeed] = useState(rollSeed);
   function setSort(value) {
     const resolved = typeof value === 'function' ? value(sort) : value;
     setSortByTab(prev => ({ ...prev, [tab]: resolved }));
+    // Re-roll on switch INTO random so the user sees a fresh shuffle
+    // (otherwise the same seed would carry forward from a prior random
+    // tab, which feels stale).
+    if (resolved === 'random' && sort !== 'random') setRandomSeed(rollSeed());
   }
 
   const [books,       setBooks]       = useState([]);
@@ -270,7 +283,7 @@ export default function Library() {
     const isTabChange = prevTabRef.current !== tab;
     prevTabRef.current = tab;
     setFacetsError(false);
-    api.getBookFacets(buildApiParams(tab, sort, filters, query, 0))
+    api.getBookFacets(buildApiParams(tab, sort, filters, query, 0, randomSeed))
       .then(f => {
         if (stale) return;
         setFacets(f);
@@ -296,14 +309,14 @@ export default function Library() {
     setLoadingAll(false);
     setActionError(null);
     loadedRef.current = 0;
-    api.getBooks(buildApiParams(tab, sort, filters, query, 0)).then(({ books: b, total: t }) => {
+    api.getBooks(buildApiParams(tab, sort, filters, query, 0, randomSeed)).then(({ books: b, total: t }) => {
       if (stale) return;
       setBooks(b);
       setTotal(t);
       loadedRef.current = b.length;
     }).catch(() => { if (!stale) setFetchError(true); }).finally(() => { if (!stale) setLoading(false); });
     return () => { stale = true; };
-  }, [tab, sort, filters, query, refreshTick]);
+  }, [tab, sort, filters, query, refreshTick, randomSeed]);
 
   function handleLoadMore() {
     // Mirror the disabled button. React batches state updates, so two
@@ -317,7 +330,7 @@ export default function Library() {
     pagingRef.current = true;
     setLoadingMore(true);
     setActionError(null);
-    api.getBooks(buildApiParams(tab, sort, filters, query, loadedRef.current)).then(({ books: b, total: t }) => {
+    api.getBooks(buildApiParams(tab, sort, filters, query, loadedRef.current, randomSeed)).then(({ books: b, total: t }) => {
       if (gen !== genRef.current) return;
       setBooks(prev => [...prev, ...b]);
       setTotal(t);
@@ -342,7 +355,7 @@ export default function Library() {
     try {
       let serverTotal = total;
       while (gen === genRef.current && loadedRef.current < serverTotal) {
-        const { books: b, total: t } = await api.getBooks(buildApiParams(tab, sort, filters, query, loadedRef.current));
+        const { books: b, total: t } = await api.getBooks(buildApiParams(tab, sort, filters, query, loadedRef.current, randomSeed));
         if (gen !== genRef.current) break;
         setBooks(prev => [...prev, ...b]);
         setTotal(t);
@@ -521,6 +534,17 @@ export default function Library() {
                 <option key={s.key} value={s.key}>{s.label}</option>
               ))}
             </select>
+            {sort === 'random' && (
+              <button
+                type="button"
+                onClick={() => setRandomSeed(rollSeed())}
+                title="Reshuffle"
+                aria-label="Reshuffle random order"
+                className="text-neutral-500 hover:text-parchment text-base leading-none px-2 py-2 rounded-lg border border-neutral-800 hover:border-oak/50 transition-colors duration-150"
+              >
+                🎲
+              </button>
+            )}
             {tab === 'never_owned' && (
               <button
                 onClick={toggleEditMode}

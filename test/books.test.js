@@ -1891,6 +1891,28 @@ describe('books', () => {
       }
     });
 
+    it('sort=random returns the same order for the same seed (paginates stably)', async () => {
+      const { body: page1 } = await req('GET', '/api/books?sort=random&seed=42&limit=50&offset=0');
+      const { body: page2 } = await req('GET', '/api/books?sort=random&seed=42&limit=50&offset=50');
+      const { body: again } = await req('GET', '/api/books?sort=random&seed=42&limit=50&offset=0');
+      assert.deepEqual(page1.books.map(b => b.id), again.books.map(b => b.id),
+        'same seed + offset must yield identical ids');
+      // No overlap between consecutive pages of a stable shuffle.
+      const seen = new Set(page1.books.map(b => b.id));
+      const overlap = page2.books.map(b => b.id).filter(id => seen.has(id));
+      assert.equal(overlap.length, 0, `expected no overlap between paginated random pages, got ${overlap.length}`);
+    });
+
+    it('sort=random with different seeds returns different orders', async () => {
+      const { body: a } = await req('GET', '/api/books?sort=random&seed=7&limit=50');
+      const { body: b } = await req('GET', '/api/books?sort=random&seed=99&limit=50');
+      // Two seeds against the same dataset should land on different orders
+      // for at least one position; allow ties only if the dataset is tiny.
+      if (a.books.length < 5) return;
+      const sameOrder = a.books.every((bk, i) => b.books[i]?.id === bk.id);
+      assert.ok(!sameOrder, 'different seeds should produce different orderings');
+    });
+
     it('sort=progress branches by format and sorts highest ratio first', async () => {
       // The progress sort uses CASE WHEN format='audiobook' THEN current_minutes/duration_minutes
       // ELSE current_page/page_count, so the ratio is computed in the right unit per book.
