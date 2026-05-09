@@ -8,6 +8,7 @@ import { useConfirm } from '../components/ConfirmModal.jsx';
 import { realTagNames } from '../utils.js';
 import ProgressSection from '../components/bookDetail/ProgressSection.jsx';
 import ReadsSection from '../components/bookDetail/ReadsSection.jsx';
+import StoriesSection from '../components/bookDetail/StoriesSection.jsx';
 import MetadataList from '../components/bookDetail/MetadataList.jsx';
 import EditionsSection from '../components/bookDetail/EditionsSection.jsx';
 import ReadingLog from '../components/bookDetail/ReadingLog.jsx';
@@ -648,6 +649,28 @@ export default function BookDetail() {
               />
             </>
           )}
+
+          {/* Stories (collection table-of-contents). Surface only on
+              books tagged Stories or Anthology — or any book that
+              already has stories attached, so a user can still see/edit
+              them after retagging. Phase 1: per-story status, rating,
+              date_finished, DNF. */}
+          {(() => {
+            const tagNames = (book.tags || []).map(t => t.name);
+            const isCollection = tagNames.includes('Stories') || tagNames.includes('Anthology');
+            const stories = book.stories || [];
+            if (!isCollection && stories.length === 0) return null;
+            return (
+              <StoriesSection
+                bookId={book.id}
+                stories={stories}
+                onUpdate={() => api.getBook(book.id).then(b => {
+                  if (String(b.id) !== String(latestIdRef.current)) return;
+                  setBook(b);
+                })}
+              />
+            );
+          })()}
 
           {(book.status === 'finished' || book.read_count > 0) && book.review && (
             <div className="border-t border-neutral-800 pt-5">

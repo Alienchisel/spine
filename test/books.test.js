@@ -1179,6 +1179,175 @@ describe('books', () => {
     });
   });
 
+  describe('stories (collection table-of-contents)', () => {
+    let bookId;
+
+    before(async () => {
+      const { body } = await req('POST', '/api/books', { title: 'Story Collection' });
+      bookId = body.id;
+    });
+
+    it('GET returns empty list for a fresh book', async () => {
+      const { status, body } = await req('GET', `/api/books/${bookId}/stories`);
+      assert.equal(status, 200);
+      assert.deepEqual(body, []);
+    });
+
+    it('POST creates a story with default unread status', async () => {
+      const { status, body } = await req('POST', `/api/books/${bookId}/stories`, {
+        title: 'The First Story', position: 1,
+      });
+      assert.equal(status, 201);
+      assert.equal(body.title, 'The First Story');
+      assert.equal(body.position, 1);
+      assert.equal(body.status, 'unread');
+      assert.equal(body.did_not_finish, 0);
+      assert.equal(body.date_finished, null);
+      assert.equal(body.book_id, bookId);
+    });
+
+    it('POST persists status / rating / date_finished / DNF / notes', async () => {
+      const { status, body } = await req('POST', `/api/books/${bookId}/stories`, {
+        title: 'Loaded Story', status: 'finished',
+        date_finished: '2024-06-01', rating: 4.5, did_not_finish: false,
+        notes: 'Loved it', position: 2,
+      });
+      assert.equal(status, 201);
+      assert.equal(body.status, 'finished');
+      assert.equal(body.rating, 4.5);
+      assert.equal(body.date_finished, '2024-06-01');
+      assert.equal(body.notes, 'Loved it');
+    });
+
+    it('POST rejects missing title', async () => {
+      const { status, body } = await req('POST', `/api/books/${bookId}/stories`, { title: '' });
+      assert.equal(status, 400);
+      assert.ok(body.error);
+    });
+
+    it('POST rejects invalid status', async () => {
+      const { status } = await req('POST', `/api/books/${bookId}/stories`, {
+        title: 'Bad status', status: 'paused',
+      });
+      assert.equal(status, 400);
+    });
+
+    it('POST rejects rating outside 0.5–5 in half-step', async () => {
+      const { status: s1 } = await req('POST', `/api/books/${bookId}/stories`, { title: 'Low', rating: 0.25 });
+      assert.equal(s1, 400);
+      const { status: s2 } = await req('POST', `/api/books/${bookId}/stories`, { title: 'High', rating: 6 });
+      assert.equal(s2, 400);
+      const { status: s3 } = await req('POST', `/api/books/${bookId}/stories`, { title: 'Quarter', rating: 3.25 });
+      assert.equal(s3, 400);
+    });
+
+    it('POST rejects malformed date_finished', async () => {
+      const { status } = await req('POST', `/api/books/${bookId}/stories`, {
+        title: 'Bad date', date_finished: '2024-99-99',
+      });
+      assert.equal(status, 400);
+    });
+
+    it('POST accepts partial date (year-only) on date_finished', async () => {
+      const { status, body } = await req('POST', `/api/books/${bookId}/stories`, {
+        title: 'Year Only', date_finished: '2018',
+      });
+      assert.equal(status, 201);
+      assert.equal(body.date_finished, '2018');
+    });
+
+    it('POST returns 404 for unknown book id', async () => {
+      const { status } = await req('POST', '/api/books/999999/stories', { title: 'x' });
+      assert.equal(status, 404);
+    });
+
+    it('GET returns 200 with [] for an unknown book id (no existence check)', async () => {
+      const { status, body } = await req('GET', '/api/books/999999/stories');
+      assert.equal(status, 200);
+      assert.deepEqual(body, []);
+    });
+
+    it('GET orders by position ASC with NULL positions last', async () => {
+      const { body: b } = await req('POST', '/api/books', { title: 'Order Coll' });
+      await req('POST', `/api/books/${b.id}/stories`, { title: 'Third',  position: 3 });
+      await req('POST', `/api/books/${b.id}/stories`, { title: 'First',  position: 1 });
+      await req('POST', `/api/books/${b.id}/stories`, { title: 'Trailing' });  // no position
+      await req('POST', `/api/books/${b.id}/stories`, { title: 'Second', position: 2 });
+      const { body: list } = await req('GET', `/api/books/${b.id}/stories`);
+      assert.deepEqual(list.map(s => s.title), ['First', 'Second', 'Third', 'Trailing']);
+    });
+
+    it('PUT updates an existing story', async () => {
+      const { body: created } = await req('POST', `/api/books/${bookId}/stories`, {
+        title: 'Will Update', status: 'unread',
+      });
+      const { status, body } = await req('PUT', `/api/books/${bookId}/stories/${created.id}`, {
+        title: 'Will Update', status: 'finished', date_finished: '2024-07-01', rating: 5,
+      });
+      assert.equal(status, 200);
+      assert.equal(body.status, 'finished');
+      assert.equal(body.rating, 5);
+      assert.equal(body.date_finished, '2024-07-01');
+    });
+
+    it('DELETE removes the story', async () => {
+      const { body: created } = await req('POST', `/api/books/${bookId}/stories`, { title: 'Will Delete' });
+      const { status } = await req('DELETE', `/api/books/${bookId}/stories/${created.id}`);
+      assert.equal(status, 204);
+      const { body: list } = await req('GET', `/api/books/${bookId}/stories`);
+      assert.equal(list.find(s => s.id === created.id), undefined);
+    });
+
+    it('returns 404 for unknown story id on PUT and DELETE', async () => {
+      const put = await req('PUT', `/api/books/${bookId}/stories/99999`, { title: 'x' });
+      assert.equal(put.status, 404);
+      const del = await req('DELETE', `/api/books/${bookId}/stories/99999`);
+      assert.equal(del.status, 404);
+    });
+
+    it('400 for malformed ids', async () => {
+      const cases = [
+        { method: 'GET',    path: '/api/books/abc/stories' },
+        { method: 'POST',   path: '/api/books/abc/stories', body: { title: 'x' } },
+        { method: 'PUT',    path: '/api/books/abc/stories/1', body: { title: 'x' } },
+        { method: 'PUT',    path: '/api/books/1/stories/nope', body: { title: 'x' } },
+        { method: 'DELETE', path: '/api/books/abc/stories/1' },
+        { method: 'DELETE', path: '/api/books/1/stories/nope' },
+      ];
+      for (const { method, path, body } of cases) {
+        const r = await req(method, path, body);
+        assert.equal(r.status, 400, `${method} ${path}`);
+      }
+    });
+
+    it('GET /api/books/:id includes a stories array', async () => {
+      const { body: b } = await req('POST', '/api/books', { title: 'Has Stories' });
+      await req('POST', `/api/books/${b.id}/stories`, { title: 'S1', position: 1 });
+      await req('POST', `/api/books/${b.id}/stories`, { title: 'S2', position: 2 });
+      const { body: full } = await req('GET', `/api/books/${b.id}`);
+      assert.equal(full.stories.length, 2);
+      assert.equal(full.stories[0].title, 'S1');
+    });
+
+    it('cascade-deletes stories when the parent book is deleted', async () => {
+      const { body: b } = await req('POST', '/api/books', { title: 'Parent To Delete' });
+      const { body: created } = await req('POST', `/api/books/${b.id}/stories`, { title: 'Orphan-To-Be' });
+      await req('DELETE', `/api/books/${b.id}`);
+      // Re-creating the same book id is unlikely; the orphan check is via
+      // the stories table directly. We verify via raw DB shape: the parent
+      // is gone, so a fetch on its old id yields []; this is sufficient
+      // because the cascade is enforced by the FOREIGN KEY ... ON DELETE
+      // CASCADE in 049_add_stories.sql.
+      const { status } = await req('GET', `/api/books/${b.id}`);
+      assert.equal(status, 404);
+      // The story id should also no longer round-trip — re-issuing PUT on
+      // it would 404. Use any book id to scope the path; the route checks
+      // story existence within the book scope.
+      const reput = await req('PUT', `/api/books/${b.id}/stories/${created.id}`, { title: 'x' });
+      assert.equal(reput.status, 404);
+    });
+  });
+
   describe('field persistence', () => {
     it('saves and returns authors', async () => {
       const { status, body } = await req('POST', '/api/books', {

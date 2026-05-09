@@ -98,6 +98,86 @@ router.delete('/:id/reads/:readId', (req, res) => {
   res.status(204).send();
 });
 
+// ── Stories: per-collection table-of-contents tracking ──────────────────────
+// Phase 1 of the short-story-collection model. Each story belongs to a
+// parent book and carries its own status / rating / date_finished / DNF
+// flag, so the user can mark "I read 'Hour of the Dragon'" without touching
+// the rest of a Conan collection. Page ranges, per-story authors, and
+// reading_log integration are deferred to later phases.
+const STORY_STATUSES = new Set(['unread', 'reading', 'finished']);
+
+function validateStory(body) {
+  const errors = [];
+  if (!body.title?.trim()) errors.push('Title is required');
+  if (body.title && body.title.trim().length > 500) errors.push('Title too long');
+  if (body.status && !STORY_STATUSES.has(body.status.trim())) errors.push('Invalid status');
+  if (body.rating != null && (Number(body.rating) < 0.5 || Number(body.rating) > 5 || (Number(body.rating) * 2) % 1 !== 0)) errors.push('Rating must be 0.5–5 in half-star increments');
+  if (body.date_finished && !isValidPartialDate(String(body.date_finished).trim())) errors.push('Invalid date_finished');
+  if (body.position != null && !Number.isInteger(Number(body.position))) errors.push('Position must be an integer');
+  return errors;
+}
+
+function storyValues(body) {
+  return {
+    title:          body.title.trim(),
+    position:       body.position != null ? Number(body.position) : null,
+    status:         body.status?.trim() || 'unread',
+    date_finished:  body.date_finished?.trim() || null,
+    rating:         body.rating != null ? Number(body.rating) : null,
+    did_not_finish: body.did_not_finish ? 1 : 0,
+    notes:          body.notes?.trim() || null,
+  };
+}
+
+router.get('/:id/stories', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
+  // NULL position sorts last so unpositioned stories collect at the end of
+  // the contents list instead of mixing into the middle.
+  res.json(db.prepare(
+    'SELECT * FROM stories WHERE book_id = ? ORDER BY COALESCE(position, 9999999) ASC, id ASC'
+  ).all(id));
+});
+
+router.post('/:id/stories', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
+  if (!db.prepare('SELECT id FROM books WHERE id = ?').get(id)) return res.status(404).json({ error: 'Not found' });
+  const errors = validateStory(req.body);
+  if (errors.length) return res.status(400).json({ error: errors[0] });
+  const v = storyValues(req.body);
+  const result = db.prepare(`
+    INSERT INTO stories (book_id, title, position, status, date_finished, rating, did_not_finish, notes, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'), datetime('now', 'localtime'))
+  `).run(id, v.title, v.position, v.status, v.date_finished, v.rating, v.did_not_finish, v.notes);
+  res.status(201).json(db.prepare('SELECT * FROM stories WHERE id = ?').get(result.lastInsertRowid));
+});
+
+router.put('/:id/stories/:storyId', (req, res) => {
+  const id = Number(req.params.id);
+  const storyId = Number(req.params.storyId);
+  if (!Number.isInteger(id) || id < 1 || !Number.isInteger(storyId) || storyId < 1) return res.status(400).json({ error: 'Invalid id' });
+  if (!db.prepare('SELECT id FROM stories WHERE id = ? AND book_id = ?').get(storyId, id)) return res.status(404).json({ error: 'Not found' });
+  const errors = validateStory(req.body);
+  if (errors.length) return res.status(400).json({ error: errors[0] });
+  const v = storyValues(req.body);
+  db.prepare(`
+    UPDATE stories
+       SET title = ?, position = ?, status = ?, date_finished = ?, rating = ?, did_not_finish = ?, notes = ?, updated_at = datetime('now', 'localtime')
+     WHERE id = ?
+  `).run(v.title, v.position, v.status, v.date_finished, v.rating, v.did_not_finish, v.notes, storyId);
+  res.json(db.prepare('SELECT * FROM stories WHERE id = ?').get(storyId));
+});
+
+router.delete('/:id/stories/:storyId', (req, res) => {
+  const id = Number(req.params.id);
+  const storyId = Number(req.params.storyId);
+  if (!Number.isInteger(id) || id < 1 || !Number.isInteger(storyId) || storyId < 1) return res.status(400).json({ error: 'Invalid id' });
+  if (!db.prepare('SELECT id FROM stories WHERE id = ? AND book_id = ?').get(storyId, id)) return res.status(404).json({ error: 'Not found' });
+  db.prepare('DELETE FROM stories WHERE id = ?').run(storyId);
+  res.status(204).send();
+});
+
 router.post('/', (req, res) => {
   const errors = validateBook(req.body);
   if (errors.length) return res.status(400).json({ error: errors[0] });
