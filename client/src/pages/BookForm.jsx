@@ -84,6 +84,25 @@ export default function BookForm() {
   // needing four parallel locks. Mirrors Library.pagingRef's shared-
   // boolean pattern.
   const coverActionRef = useRef(false);
+  const tabRefs = useRef([]);
+
+  function handleTabKey(e, idx) {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      e.preventDefault();
+      const dir = e.key === 'ArrowRight' ? 1 : -1;
+      const next = (idx + dir + TABS.length) % TABS.length;
+      setActiveTab(TABS[next].key);
+      tabRefs.current[next]?.focus();
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      setActiveTab(TABS[0].key);
+      tabRefs.current[0]?.focus();
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      setActiveTab(TABS[TABS.length - 1].key);
+      tabRefs.current[TABS.length - 1]?.focus();
+    }
+  }
   // `saving` (React state) drives the disabled UI but doesn't commit until
   // the next render — so two synchronous submit calls in the same tick
   // (Enter-key autorepeat, programmatic dispatch, double-click on Save)
@@ -456,12 +475,19 @@ export default function BookForm() {
         />
 
         <div className="flex-1 min-w-0">
-          <div className="flex gap-6 border-b border-neutral-800 mb-7">
-            {TABS.map(t => (
+          <div role="tablist" aria-label="Form sections" className="flex gap-6 border-b border-neutral-800 mb-7">
+            {TABS.map((t, i) => (
               <button
                 key={t.key}
+                ref={el => { tabRefs.current[i] = el; }}
                 type="button"
+                role="tab"
+                id={`book-form-tab-${t.key}`}
+                aria-selected={activeTab === t.key}
+                aria-controls={`book-form-panel-${t.key}`}
+                tabIndex={activeTab === t.key ? 0 : -1}
                 onClick={() => setActiveTab(t.key)}
+                onKeyDown={e => handleTabKey(e, i)}
                 className={`pb-3 text-sm border-b-2 -mb-px transition-colors duration-150 ${
                   activeTab === t.key
                     ? 'border-oak text-parchment font-medium'
@@ -475,36 +501,44 @@ export default function BookForm() {
 
           <form id="book-form" onSubmit={handleSubmit} className="pb-20">
             {activeTab === 'core' && (
-              <CoreFields
-                form={form} setForm={setFormDirty} set={set} ic={ic} isEdit={isEdit}
-                pastAuthors={pastAuthors} pastSeries={pastSeries} pastNarrators={pastNarrators}
-                authorInput={authorInput}     setAuthorInput={setAuthorInput}
-                narratorInput={narratorInput} setNarratorInput={setNarratorInput}
-                durationH={durationH} setDurationH={onDurationH}
-                durationM={durationM} setDurationM={onDurationM}
-              />
+              <div role="tabpanel" id="book-form-panel-core" aria-labelledby="book-form-tab-core">
+                <CoreFields
+                  form={form} setForm={setFormDirty} set={set} ic={ic} isEdit={isEdit}
+                  pastAuthors={pastAuthors} pastSeries={pastSeries} pastNarrators={pastNarrators}
+                  authorInput={authorInput}     setAuthorInput={setAuthorInput}
+                  narratorInput={narratorInput} setNarratorInput={setNarratorInput}
+                  durationH={durationH} setDurationH={onDurationH}
+                  durationM={durationM} setDurationM={onDurationM}
+                />
+              </div>
             )}
             {activeTab === 'details' && (
-              <DetailsFields
-                form={form} set={set} ic={ic}
-                pastLanguages={pastLanguages}
-                pastTranslators={pastTranslators}
-                pastPublishers={pastPublishers}
-                translatorInput={translatorInput} setTranslatorInput={setTranslatorInput}
-              />
+              <div role="tabpanel" id="book-form-panel-details" aria-labelledby="book-form-tab-details">
+                <DetailsFields
+                  form={form} set={set} ic={ic}
+                  pastLanguages={pastLanguages}
+                  pastTranslators={pastTranslators}
+                  pastPublishers={pastPublishers}
+                  translatorInput={translatorInput} setTranslatorInput={setTranslatorInput}
+                />
+              </div>
             )}
             {activeTab === 'acquisition' && (
-              <AcquisitionFields
-                form={form} setForm={setFormDirty} set={set}
-                pastSources={pastSources} shelfTree={shelfTree}
-              />
+              <div role="tabpanel" id="book-form-panel-acquisition" aria-labelledby="book-form-tab-acquisition">
+                <AcquisitionFields
+                  form={form} setForm={setFormDirty} set={set}
+                  pastSources={pastSources} shelfTree={shelfTree}
+                />
+              </div>
             )}
             {activeTab === 'personal' && (
-              <PersonalFields
-                form={form} set={set}
-                pastTags={pastTags}
-                tagInput={tagInput} setTagInput={setTagInput}
-              />
+              <div role="tabpanel" id="book-form-panel-personal" aria-labelledby="book-form-tab-personal">
+                <PersonalFields
+                  form={form} set={set}
+                  pastTags={pastTags}
+                  tagInput={tagInput} setTagInput={setTagInput}
+                />
+              </div>
             )}
           </form>
         </div>
