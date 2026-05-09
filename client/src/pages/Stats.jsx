@@ -279,7 +279,7 @@ export default function Stats() {
         </div>
       </Section>
 
-      <Section title="Breakdown">
+      <Section title="Library breakdown">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <DonutChart
             title="Fiction / Non-fiction"
@@ -298,12 +298,11 @@ export default function Stats() {
             }))}
           />
           <DonutChart
-            // "Owned status" rather than just "Status" — the slices are over
-            // owned-purchased media (custom + Internet excluded) while the
-            // Library "Reading" tile above counts every status='reading'
-            // row regardless of ownership. Same word, different scope; the
-            // qualifier makes the relationship explicit at a glance.
-            title="Reading status (Owned)"
+            // Slices are over owned-purchased media (custom + Internet
+            // excluded) — same scope as every other donut in this section,
+            // captured once at the section title. The Library "Reading"
+            // tile above is corpus-wide and counts a different population.
+            title="Reading status"
             data={[
               { name: 'Finished', value: ownedStatus?.finished ?? 0, color: '#a97954' },
               { name: 'Reading',  value: ownedStatus?.reading  ?? 0, color: '#c29b87' },
