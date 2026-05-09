@@ -103,12 +103,49 @@ describe('stats', () => {
       assert.ok(y2023 && y2023.count >= 2, 'expected at least 2 books finished in 2023');
     });
 
-    it('pagesRead reflects reading_log', async () => {
-      const { body: b } = await req('POST', '/api/books', { title: 'Pages Log Book' });
+    it('pagesRead sums page_count of finished non-audiobooks', async () => {
       const { body: before } = await req('GET', '/api/stats');
-      await req('PATCH', `/api/books/${b.id}`, { current_page: 75 });
+      await req('POST', '/api/books', {
+        title: 'Pages Read Book',
+        page_count: 250,
+        format: 'physical',
+        status: 'finished',
+        date_finished: '2024-06-01',
+      });
       const { body: after } = await req('GET', '/api/stats');
-      assert.equal(after.pagesRead, before.pagesRead + 75);
+      assert.equal(after.pagesRead, before.pagesRead + 250);
+    });
+
+    it('pagesRead multiplies page_count by read_count for re-reads', async () => {
+      // read_count is owned by updateBook (POST ignores it, PATCH whitelist
+      // doesn't include it), so create the book finished first then bump
+      // read_count via PUT. A 100-page book read 3× contributes 300.
+      const { body: b } = await req('POST', '/api/books', {
+        title: 'Re-read Book',
+        page_count: 100,
+        format: 'physical',
+        status: 'finished',
+        date_finished: '2024-06-01',
+      });
+      const { body: before } = await req('GET', '/api/stats');
+      await req('PUT', `/api/books/${b.id}`, { ...b, read_count: 3 });
+      const { body: after } = await req('GET', '/api/stats');
+      // Initial create counted as 1 read (100); bumping to 3 adds 2 more
+      // reads' worth of pages → +200.
+      assert.equal(after.pagesRead, before.pagesRead + 200);
+    });
+
+    it('pagesRead excludes audiobooks even when finished', async () => {
+      const { body: before } = await req('GET', '/api/stats');
+      await req('POST', '/api/books', {
+        title: 'Finished Audiobook',
+        page_count: 400,
+        format: 'audiobook',
+        status: 'finished',
+        date_finished: '2024-06-01',
+      });
+      const { body: after } = await req('GET', '/api/stats');
+      assert.equal(after.pagesRead, before.pagesRead);
     });
 
     it('minutesListened reflects reading_log', async () => {
