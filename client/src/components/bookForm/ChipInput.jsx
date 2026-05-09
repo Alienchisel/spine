@@ -15,12 +15,16 @@ export default function ChipInput({
   placeholder,
   inputClassName,
 }) {
-  function add(e) {
-    if (e.key !== 'Enter' && e.key !== ',') return;
-    e.preventDefault();
+  function commit() {
     const value = inputValue.trim().replace(/,$/, '');
     if (value && !items.includes(value)) onItemsChange([...items, value]);
     onInputChange('');
+  }
+
+  function handleKey(e) {
+    if (e.key !== 'Enter' && e.key !== ',') return;
+    e.preventDefault();
+    commit();
   }
 
   function remove(item) {
@@ -41,14 +45,24 @@ export default function ChipInput({
           ))}
         </div>
       )}
-      <input
-        className={inputClassName}
-        list={datalistId}
-        value={inputValue}
-        onChange={(e) => onInputChange(e.target.value)}
-        onKeyDown={add}
-        placeholder={placeholder}
-      />
+      <div className="flex items-center gap-2">
+        <input
+          className={inputClassName}
+          list={datalistId}
+          value={inputValue}
+          onChange={(e) => onInputChange(e.target.value)}
+          onKeyDown={handleKey}
+          placeholder={placeholder}
+        />
+        <button
+          type="button"
+          onClick={commit}
+          disabled={!inputValue.trim()}
+          className="text-xs text-oak hover:text-leather disabled:opacity-40 transition-colors flex-shrink-0"
+        >
+          add
+        </button>
+      </div>
       <datalist id={datalistId}>
         {datalistOptions.filter(o => !items.includes(o)).map(o => <option key={o} value={o} />)}
       </datalist>
