@@ -1925,6 +1925,63 @@ describe('books', () => {
     });
   });
 
+  describe('missing= filters exclude custom books', () => {
+    // Custom (user-assembled) books don't have publishers, acquisition
+    // sources, or acquisition dates as a matter of model. Surfacing them
+    // in maintenance "missing X" filters is noise. Mirrors the existing
+    // is_custom guard on missing=isbn.
+
+    it('missing=publisher does not surface custom books', async () => {
+      const stem = 'misspub' + Math.random().toString(36).slice(2, 6);
+      // Custom + no publisher: must NOT appear.
+      const { body: c } = await req('POST', '/api/books', { title: `${stem}-custom`, is_custom: true });
+      // Real book + no publisher: SHOULD appear.
+      const { body: r } = await req('POST', '/api/books', { title: `${stem}-real-empty` });
+      // Real book + publisher set: must NOT appear.
+      const { body: p } = await req('POST', '/api/books', { title: `${stem}-real-pub`, publisher: 'Some Press' });
+
+      const { body: list } = await req('GET', `/api/books?missing=publisher&q=${stem}&limit=200`);
+      const ids = new Set(list.books.map(b => b.id));
+      assert.ok(!ids.has(c.id), 'custom book must not appear');
+      assert.ok(ids.has(r.id), 'real book without publisher should appear');
+      assert.ok(!ids.has(p.id), 'real book with publisher must not appear');
+    });
+
+    it('missing=source does not surface custom books', async () => {
+      const stem = 'misssrc' + Math.random().toString(36).slice(2, 6);
+      // Custom is always owned and acquisition_source is always nulled —
+      // would silently match without the is_custom guard.
+      const { body: c } = await req('POST', '/api/books', { title: `${stem}-custom`, is_custom: true });
+      // Owned + no acquisition_source: SHOULD appear.
+      const { body: r } = await req('POST', '/api/books', { title: `${stem}-real-owned`, owned: true });
+      // Owned + acquisition_source set: must NOT appear.
+      const { body: p } = await req('POST', '/api/books', {
+        title: `${stem}-real-sourced`, owned: true, acquisition_source: 'Kindle',
+      });
+
+      const { body: list } = await req('GET', `/api/books?missing=source&q=${stem}&limit=200`);
+      const ids = new Set(list.books.map(b => b.id));
+      assert.ok(!ids.has(c.id), 'custom book must not appear');
+      assert.ok(ids.has(r.id), 'owned book without source should appear');
+      assert.ok(!ids.has(p.id), 'owned book with source must not appear');
+    });
+
+    it('missing=acquired does not surface custom books', async () => {
+      const stem = 'missacq' + Math.random().toString(36).slice(2, 6);
+      const { body: c } = await req('POST', '/api/books', { title: `${stem}-custom`, is_custom: true });
+      const { body: r } = await req('POST', '/api/books', { title: `${stem}-real-owned`, owned: true });
+      const { body: p } = await req('POST', '/api/books', {
+        title: `${stem}-real-acquired`, owned: true, acquisition_date: '2024-05-01',
+      });
+
+      const { body: list } = await req('GET', `/api/books?missing=acquired&q=${stem}&limit=200`);
+      const ids = new Set(list.books.map(b => b.id));
+      assert.ok(!ids.has(c.id), 'custom book must not appear');
+      assert.ok(ids.has(r.id), 'owned book without acquisition_date should appear');
+      assert.ok(!ids.has(p.id), 'owned book with acquisition_date must not appear');
+    });
+  });
+
   describe('field persistence', () => {
     it('saves and returns authors', async () => {
       const { status, body } = await req('POST', '/api/books', {
