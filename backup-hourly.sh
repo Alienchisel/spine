@@ -18,7 +18,10 @@ RETAIN_MINUTES=2880  # 48 hours
 mkdir -p "$HOURLY_DIR"
 
 STAMP="$(date +%Y-%m-%d-%H)"
-DEST="$HOURLY_DIR/spine-$STAMP.db"
+# Filename prefixed with `hourly-` so it doesn't collide with any
+# `spine-*.db` glob a future cleanup script might run against the
+# backup tree.
+DEST="$HOURLY_DIR/hourly-spine-$STAMP.db"
 
 # Use sqlite3 .backup — handles WAL state correctly under concurrent
 # writes, unlike plain cp.
@@ -27,4 +30,4 @@ SIZE="$(du -h "$DEST" | cut -f1)"
 echo "Hourly snapshot: $DEST ($SIZE)"
 
 # Trim anything older than the retention window.
-find "$HOURLY_DIR" -name 'spine-*.db' -mmin +"$RETAIN_MINUTES" -delete
+find "$HOURLY_DIR" -name 'hourly-spine-*.db' -mmin +"$RETAIN_MINUTES" -delete
