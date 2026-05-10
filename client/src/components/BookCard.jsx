@@ -69,17 +69,6 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
   const isAudiobook = book.format === 'audiobook';
   const hasPct = isAudiobook ? Boolean(book.duration_minutes) : Boolean(book.page_count);
 
-  // Re-clamp the persisted mode when the book's format or totals change
-  // out from under us at runtime — e.g., format toggled physical→audiobook,
-  // or page_count cleared while mode was 'pct'. Mount-time hydration
-  // already runs initialProgressMode, but mount-time alone leaves a
-  // stale mode if the same component instance receives an updated book.
-  // Reads from localStorage so the user's last-selected preference is
-  // honoured if the current state can support it again later.
-  useEffect(() => {
-    setMode(prev => initialProgressMode(localStorage.getItem(getModeKey(book.id)) ?? prev, isAudiobook, hasPct));
-  }, [isAudiobook, hasPct, book.id]);
-
   const pct = isAudiobook
     ? (book.duration_minutes && book.current_minutes != null
         ? Math.min(100, Math.round((book.current_minutes / book.duration_minutes) * 100))
@@ -98,6 +87,34 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
     }
     return b.current_minutes;
   }
+
+  // Re-clamp the persisted mode when the book's format or totals change
+  // out from under us at runtime — e.g., format toggled physical→audiobook,
+  // or page_count cleared while mode was 'pct'. Mount-time hydration
+  // already runs initialProgressMode, but mount-time alone leaves a
+  // stale mode if the same component instance receives an updated book.
+  // Reads from localStorage so the user's last-selected preference is
+  // honoured if the current state can support it again later. When the
+  // resolved mode differs from current, also refresh the inputs so an
+  // already-open inline editor doesn't render with a value typed for
+  // the old mode. (Closed-editor case: this is harmless — inputs are
+  // off-screen, and toggleEditor re-syncs them on the next open.)
+  // mode/book/pct intentionally absent from deps; only fire on the
+  // invalidation triggers.
+  useEffect(() => {
+    const next = initialProgressMode(localStorage.getItem(getModeKey(book.id)) ?? mode, isAudiobook, hasPct);
+    if (next === mode) return;
+    setMode(next);
+    if (next === 'pct') {
+      setInputVal(pct !== null ? String(pct) : '');
+    } else if (isAudiobook) {
+      const mins = audioMinutesForMode(next, book);
+      setInputH(mins != null ? String(Math.floor(mins / 60)) : '');
+      setInputM(mins != null ? String(mins % 60) : '');
+    } else {
+      setInputVal(book.current_page != null ? String(book.current_page) : '');
+    }
+  }, [isAudiobook, hasPct, book.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function toggleEditor(e) {
     e.preventDefault();
