@@ -1416,6 +1416,134 @@ describe('books', () => {
       const reput = await req('PUT', `/api/books/${b.id}/stories/${created.id}`, { title: 'x' });
       assert.equal(reput.status, 404);
     });
+
+    // Layer 3 pass 1: a story-finish writes a reading_log row attributed
+    // to the story (surfaced in the diary as "Read 'Story' — Book") and
+    // bumps the parent book's current_page to page_end so progress
+    // indicators stay coherent for cherry-picked story reads.
+    describe('Layer 3 reading_log attribution', () => {
+      function diaryEntries(diary, predicate) {
+        return diary.days.flatMap(d => d.entries).filter(predicate);
+      }
+
+      it('finishing a story with a page range writes an attributed reading_log row', async () => {
+        const { body: b } = await req('POST', '/api/books', { title: 'L3 Page Range Coll' });
+        const { body: s } = await req('POST', `/api/books/${b.id}/stories`, {
+          title: 'Hour of the Dragon', position: 1,
+          status: 'finished', date_finished: '2025-04-15',
+          page_start: 234, page_end: 333,
+        });
+        const { body: diary } = await req('GET', '/api/diary?year=2025');
+        const matches = diaryEntries(diary, e => e.story_id === s.id);
+        assert.equal(matches.length, 1, 'one diary entry attributed to the story');
+        assert.equal(matches[0].story_title, 'Hour of the Dragon');
+        assert.equal(matches[0].story_position, 1);
+        assert.equal(matches[0].pages_read, 100);  // 333 - 234 + 1
+        assert.equal(matches[0].book_id, b.id);
+        assert.equal(matches[0].title, 'L3 Page Range Coll');
+      });
+
+      it('finishing a story without a page range writes a zero-page attributed row', async () => {
+        const { body: b } = await req('POST', '/api/books', { title: 'L3 Audio Coll', format: 'audiobook' });
+        const { body: s } = await req('POST', `/api/books/${b.id}/stories`, {
+          title: 'Track 7', position: 7,
+          status: 'finished', date_finished: '2025-04-16',
+        });
+        const { body: diary } = await req('GET', '/api/diary?year=2025');
+        const matches = diaryEntries(diary, e => e.story_id === s.id);
+        assert.equal(matches.length, 1);
+        assert.equal(matches[0].pages_read, 0);
+        assert.equal(matches[0].story_title, 'Track 7');
+      });
+
+      it('finishing a story bumps parent current_page to page_end', async () => {
+        const { body: b } = await req('POST', '/api/books', { title: 'L3 Progress Bump', page_count: 500 });
+        // current_page is PATCH-only; seed via PATCH after create.
+        await req('PATCH', `/api/books/${b.id}`, { current_page: 50 });
+        await req('POST', `/api/books/${b.id}/stories`, {
+          title: 'Late Story', status: 'finished', date_finished: '2025-04-17',
+          page_start: 200, page_end: 280,
+        });
+        const { body: full } = await req('GET', `/api/books/${b.id}`);
+        assert.equal(full.current_page, 280);
+      });
+
+      it('finishing a story does not lower current_page if already past page_end', async () => {
+        const { body: b } = await req('POST', '/api/books', { title: 'L3 No Regress', page_count: 500 });
+        await req('PATCH', `/api/books/${b.id}`, { current_page: 400 });
+        await req('POST', `/api/books/${b.id}/stories`, {
+          title: 'Earlier Story', status: 'finished', date_finished: '2025-04-18',
+          page_start: 50, page_end: 100,
+        });
+        const { body: full } = await req('GET', `/api/books/${b.id}`);
+        assert.equal(full.current_page, 400);
+      });
+
+      it('PUT to finished writes a log row; resaving an already-finished story does not duplicate', async () => {
+        const { body: b } = await req('POST', '/api/books', { title: 'L3 PUT Transition' });
+        const { body: s } = await req('POST', `/api/books/${b.id}/stories`, {
+          title: 'Transitioner', status: 'unread',
+          page_start: 1, page_end: 10,
+        });
+        await req('PUT', `/api/books/${b.id}/stories/${s.id}`, {
+          title: 'Transitioner', status: 'finished', date_finished: '2025-04-19',
+          page_start: 1, page_end: 10,
+        });
+        await req('PUT', `/api/books/${b.id}/stories/${s.id}`, {
+          title: 'Transitioner v2', status: 'finished', date_finished: '2025-04-19',
+          page_start: 1, page_end: 10, rating: 4,
+        });
+        const { body: diary } = await req('GET', '/api/diary?year=2025');
+        const matches = diaryEntries(diary, e => e.story_id === s.id);
+        assert.equal(matches.length, 1, 'second PUT must not write a duplicate row');
+      });
+
+      it('deleting a story keeps the reading_log row but nulls story_id', async () => {
+        const { body: b } = await req('POST', '/api/books', { title: 'L3 Story Delete' });
+        const { body: s } = await req('POST', `/api/books/${b.id}/stories`, {
+          title: 'Will Be Orphaned', status: 'finished', date_finished: '2025-04-20',
+          page_start: 1, page_end: 50,
+        });
+        await req('DELETE', `/api/books/${b.id}/stories/${s.id}`);
+        const { body: diary } = await req('GET', '/api/diary?year=2025');
+        // The row survives the story delete (ON DELETE SET NULL) but no
+        // longer carries a story_title — it appears as a book-level row.
+        const orphaned = diaryEntries(diary, e =>
+          e.book_id === b.id && e.pages_read === 50 && e.story_id == null
+        );
+        assert.equal(orphaned.length, 1);
+        assert.equal(orphaned[0].story_title, null);
+      });
+
+      it('book-level pages_read upsert still merges same-day deltas', async () => {
+        // Verifies the partial-index upsert continues to work on the
+        // (book_id, date) WHERE story_id IS NULL path.
+        const { body: b } = await req('POST', '/api/books', { title: 'L3 Book Upsert', page_count: 500 });
+        await req('PATCH', `/api/books/${b.id}`, { current_page: 30 });
+        await req('PATCH', `/api/books/${b.id}`, { current_page: 80 });
+        const { body: diary } = await req('GET', '/api/diary');
+        const matches = diaryEntries(diary, e =>
+          e.book_id === b.id && e.story_id == null
+        );
+        assert.equal(matches.length, 1, 'two same-day patches collapse to one row');
+        assert.equal(matches[0].pages_read, 80);
+      });
+
+      it('book-level and story-level rows can coexist for the same day on the same book', async () => {
+        const { body: b } = await req('POST', '/api/books', { title: 'L3 Coexist', page_count: 500 });
+        await req('PATCH', `/api/books/${b.id}`, { current_page: 25 });
+        const todayIso = new Date().toLocaleDateString('en-CA');
+        const { body: s } = await req('POST', `/api/books/${b.id}/stories`, {
+          title: 'Same-Day Story', status: 'finished', date_finished: todayIso,
+          page_start: 100, page_end: 110,
+        });
+        const { body: diary } = await req('GET', '/api/diary');
+        const bookRows = diaryEntries(diary, e => e.book_id === b.id && e.story_id == null);
+        const storyRows = diaryEntries(diary, e => e.story_id === s.id);
+        assert.equal(bookRows.length, 1);
+        assert.equal(storyRows.length, 1);
+      });
+    });
   });
 
   describe('field persistence', () => {

@@ -12,18 +12,27 @@ router.get('/', (req, res) => {
   const allDates = db.prepare('SELECT DISTINCT date FROM reading_log ORDER BY date ASC').all().map(r => r.date);
   const years = db.prepare("SELECT DISTINCT CAST(strftime('%Y', date) AS INTEGER) as y FROM reading_log ORDER BY y DESC").all().map(r => r.y);
 
+  // story_id may be NULL (book-level read) or set (story-level read).
+  // Layer 3: a non-NULL story_id surfaces the story's title and position
+  // in the diary entry as "Read 'Story' — Book Title".
   const rows = year
     ? db.prepare(`
-        SELECT rl.id, rl.book_id, rl.date, rl.pages_read, rl.minutes_read,
-               b.title, b.cover_path, b.format
-        FROM reading_log rl JOIN books b ON b.id = rl.book_id
+        SELECT rl.id, rl.book_id, rl.story_id, rl.date, rl.pages_read, rl.minutes_read,
+               b.title, b.cover_path, b.format,
+               s.title AS story_title, s.position AS story_position
+        FROM reading_log rl
+        JOIN books b ON b.id = rl.book_id
+        LEFT JOIN stories s ON s.id = rl.story_id
         WHERE rl.date LIKE ?
         ORDER BY rl.date DESC, rl.id DESC
       `).all(`${year}-%`)
     : db.prepare(`
-        SELECT rl.id, rl.book_id, rl.date, rl.pages_read, rl.minutes_read,
-               b.title, b.cover_path, b.format
-        FROM reading_log rl JOIN books b ON b.id = rl.book_id
+        SELECT rl.id, rl.book_id, rl.story_id, rl.date, rl.pages_read, rl.minutes_read,
+               b.title, b.cover_path, b.format,
+               s.title AS story_title, s.position AS story_position
+        FROM reading_log rl
+        JOIN books b ON b.id = rl.book_id
+        LEFT JOIN stories s ON s.id = rl.story_id
         ORDER BY rl.date DESC, rl.id DESC
       `).all();
 
@@ -49,6 +58,7 @@ router.get('/', (req, res) => {
       authors: authorMap.get(row.book_id) || [],
       cover_path: toCoverUrl(row.cover_path),
       format: row.format, pages_read: row.pages_read, minutes_read: row.minutes_read,
+      story_id: row.story_id, story_title: row.story_title, story_position: row.story_position,
     });
   }
 

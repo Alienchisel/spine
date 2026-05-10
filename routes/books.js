@@ -135,6 +135,29 @@ function storyValues(body) {
   };
 }
 
+// Story-finish writes a reading_log row attributed to the story, and bumps
+// books.current_page to MAX(current_page, page_end) so the parent book's
+// progress reflects cherry-picked story reads. Idempotent: same story
+// finished twice on the same day collapses to one row via the partial
+// unique index. pages_read derives from the page range when known; for
+// audiobook collections (no ranges) we still write a zero-page row so the
+// finish event surfaces in the diary and counts toward day streaks.
+function logStoryFinish(book_id, story) {
+  if (!story) return;
+  const pages = (story.page_start != null && story.page_end != null)
+    ? Math.max(0, story.page_end - story.page_start + 1)
+    : 0;
+  const date = story.date_finished?.trim() || db.prepare("SELECT date('now', 'localtime') AS d").get().d;
+  db.prepare(`
+    INSERT OR IGNORE INTO reading_log (book_id, story_id, date, pages_read, minutes_read)
+    VALUES (?, ?, ?, ?, 0)
+  `).run(book_id, story.id, date, pages);
+  if (story.page_end != null) {
+    db.prepare('UPDATE books SET current_page = MAX(COALESCE(current_page, 0), ?) WHERE id = ?')
+      .run(story.page_end, book_id);
+  }
+}
+
 function getStoryWithAuthors(storyId) {
   const s = db.prepare('SELECT * FROM stories WHERE id = ?').get(storyId);
   if (!s) return null;
@@ -184,6 +207,9 @@ router.post('/:id/stories', (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'), datetime('now', 'localtime'))
     `).run(id, v.title, v.position, v.status, v.date_finished, v.rating, v.did_not_finish, v.notes, v.page_start, v.page_end);
     if (req.body.authors !== undefined) syncStoryAuthors(r.lastInsertRowid, req.body.authors);
+    if (v.status === 'finished') {
+      logStoryFinish(id, { id: r.lastInsertRowid, page_start: v.page_start, page_end: v.page_end, date_finished: v.date_finished });
+    }
     return r.lastInsertRowid;
   })();
   res.status(201).json(getStoryWithAuthors(storyId));
@@ -193,10 +219,15 @@ router.put('/:id/stories/:storyId', (req, res) => {
   const id = Number(req.params.id);
   const storyId = Number(req.params.storyId);
   if (!Number.isInteger(id) || id < 1 || !Number.isInteger(storyId) || storyId < 1) return res.status(400).json({ error: 'Invalid id' });
-  if (!db.prepare('SELECT id FROM stories WHERE id = ? AND book_id = ?').get(storyId, id)) return res.status(404).json({ error: 'Not found' });
+  const existing = db.prepare('SELECT id, status FROM stories WHERE id = ? AND book_id = ?').get(storyId, id);
+  if (!existing) return res.status(404).json({ error: 'Not found' });
   const errors = validateStory(req.body);
   if (errors.length) return res.status(400).json({ error: errors[0] });
   const v = storyValues(req.body);
+  // Snapshot the transition once: a story going from anything-else to
+  // 'finished' triggers reading_log + current_page bump on the parent.
+  // Re-saving an already-finished story (e.g. fixing a typo) does not.
+  const finishing = v.status === 'finished' && existing.status !== 'finished';
   db.transaction(() => {
     db.prepare(`
       UPDATE stories
@@ -204,6 +235,9 @@ router.put('/:id/stories/:storyId', (req, res) => {
        WHERE id = ?
     `).run(v.title, v.position, v.status, v.date_finished, v.rating, v.did_not_finish, v.notes, v.page_start, v.page_end, storyId);
     if (req.body.authors !== undefined) syncStoryAuthors(storyId, req.body.authors);
+    if (finishing) {
+      logStoryFinish(id, { id: storyId, page_start: v.page_start, page_end: v.page_end, date_finished: v.date_finished });
+    }
   })();
   res.json(getStoryWithAuthors(storyId));
 });

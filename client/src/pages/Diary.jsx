@@ -198,6 +198,14 @@ function ReadingCalendar({ days, selectedYear, totals, onDayClick }) {
 
 function DiaryEntry({ entry, onDelete }) {
   const progress = formatProgress(entry);
+  // Story-attributed rows surface the story title in the primary slot
+  // and demote the parent book title into the subline beside the
+  // authors. Book-level rows render the book title as before.
+  const isStory = !!entry.story_title;
+  const primary = isStory ? entry.story_title : entry.title;
+  const subParts = [];
+  if (isStory) subParts.push(entry.title);
+  if (entry.authors?.length > 0) subParts.push(formatAuthors(entry.authors));
   return (
     <div className="flex items-center gap-4 py-2.5 group">
       <div className="w-8 h-[46px] flex-shrink-0 rounded overflow-hidden bg-neutral-800">
@@ -206,10 +214,10 @@ function DiaryEntry({ entry, onDelete }) {
           : <div className="w-full h-full bg-gradient-to-br from-neutral-700 to-neutral-900" />}
       </div>
       <div className="flex-1 min-w-0">
-        <Link to={`/books/${entry.book_id}`} state={FROM_DIARY} className="text-sm font-medium text-neutral-200 hover:text-white transition-colors truncate block" title={entry.title}>
-          {entry.title}
+        <Link to={`/books/${entry.book_id}`} state={FROM_DIARY} className="text-sm font-medium text-neutral-200 hover:text-white transition-colors truncate block" title={primary}>
+          {isStory ? <>&ldquo;{primary}&rdquo;</> : primary}
         </Link>
-        {entry.authors?.length > 0 && <p className="text-xs text-neutral-500 truncate mt-0.5">{formatAuthors(entry.authors)}</p>}
+        {subParts.length > 0 && <p className="text-xs text-neutral-500 truncate mt-0.5">{subParts.join(' · ')}</p>}
       </div>
       {progress && <span className="text-xs text-neutral-500 flex-shrink-0">{progress}</span>}
       <button
@@ -351,7 +359,7 @@ export default function Diary() {
                   </h2>
                   <div className="divide-y divide-neutral-800/50">
                     {day.entries.map(entry => (
-                      <DiaryEntry key={entry.id} entry={entry} onDelete={id => handleDelete(id, entry.title)} />
+                      <DiaryEntry key={entry.id} entry={entry} onDelete={id => handleDelete(id, entry.story_title || entry.title)} />
                     ))}
                   </div>
                 </div>
