@@ -4,7 +4,9 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const db = new Database(process.env.DB_PATH || path.join(__dirname, 'spine.db'));
+const dbPath = process.env.DB_PATH || path.join(__dirname, 'spine.db');
+const db = new Database(dbPath);
+const isInMemoryDb = dbPath === ':memory:';
 
 db.pragma('journal_mode = WAL');
 db.pragma('busy_timeout = 5000');
@@ -49,14 +51,45 @@ const applyMigration = (file, sql) => {
   }
 };
 
+// Pre-migration snapshot directory. Each pending migration writes a
+// VACUUM INTO snapshot named `spine-pre-<migration>-<ts>.db` before
+// being applied — so a destructive migration can be rolled back to the
+// exact state immediately preceding it. Cheap (DB is small, snapshots
+// are infrequent) and the naming makes forensics trivial. Retention is
+// handled out-of-band by a `find ... -mtime +N -delete` cron entry.
+// Skipped for in-memory DBs (tests) — there's no underlying file to
+// preserve and millisecond-tight test loops would collide on filenames.
+const preMigrationDir = path.join(__dirname, 'backups');
+const shouldSnapshotMigrations = !isInMemoryDb && files.some(f => !applied.has(f));
+if (shouldSnapshotMigrations && !fs.existsSync(preMigrationDir)) {
+  fs.mkdirSync(preMigrationDir, { recursive: true });
+}
+
 for (const file of files) {
   if (applied.has(file)) continue;
   const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+  let snapshotPath = null;
+  if (shouldSnapshotMigrations) {
+    // VACUUM INTO is the supported online-backup primitive: a consistent
+    // compact copy including WAL state, written via SQL (no shell-out).
+    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    snapshotPath = path.join(
+      preMigrationDir,
+      `spine-pre-${file.replace(/\.sql$/, '')}-${ts}.db`,
+    );
+    try {
+      db.exec(`VACUUM INTO '${snapshotPath.replace(/'/g, "''")}'`);
+      console.log(`Snapshot before ${file}: ${snapshotPath}`);
+    } catch (err) {
+      console.error(`Failed pre-migration snapshot for ${file}: ${err.message}`);
+      throw err;
+    }
+  }
   try {
     applyMigration(file, sql);
     console.log(`Applied migration: ${file}`);
   } catch (err) {
-    console.error(`Failed migration: ${file}`);
+    console.error(`Failed migration: ${file}${snapshotPath ? ` (pre-snapshot at ${snapshotPath})` : ''}`);
     throw err;
   }
 }
