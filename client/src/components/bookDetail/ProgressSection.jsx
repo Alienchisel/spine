@@ -127,7 +127,11 @@ export default function ProgressSection({ book, onChange, log }) {
         if (!book.duration_minutes) { setError('Duration unknown'); return; }
         current_minutes = Math.max(0, Math.min(book.duration_minutes, book.duration_minutes - enteredMinutes));
       } else {
-        current_minutes = enteredMinutes;
+        // Elapsed-time mode. Clamp to >= 0 to match the page input
+        // (Math.max(0, parseInt) below) — without it, a typo like
+        // "-1h" round-trips through the server as an Invalid-minutes
+        // error rather than getting silently fixed at the boundary.
+        current_minutes = Math.max(0, enteredMinutes);
       }
       if (isNaN(current_minutes)) { setError('Invalid value'); return; }
       patchData = { current_minutes };
