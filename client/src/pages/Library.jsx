@@ -21,7 +21,7 @@ import BookCard from '../components/BookCard.jsx';
 import FilterPanel from '../components/FilterPanel.jsx';
 import SearchHelp from '../components/SearchHelp.jsx';
 import SeriesCard from '../components/library/SeriesCard.jsx';
-import { EMPTY_FILTERS, countFilters, pruneFilters, buildApiParams } from '../components/library/filters.js';
+import { EMPTY_FILTERS, normalizeFilters, countFilters, pruneFilters, buildApiParams } from '../components/library/filters.js';
 import { buildDisplayItems, sortVolumes } from '../components/library/grouping.js';
 import { useGridCols, COMFORTABLE_BPS, COMPACT_BPS } from '../hooks/useGridCols.js';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
@@ -149,7 +149,10 @@ export default function Library() {
   const [query,       setQuery]       = useState(() => saved.query || '');
   const [filtersOpen, setFiltersOpen] = useState(() => saved.filtersOpen ?? false);
   const [filters,     setFilters]     = useState(() => {
-    const base = saved.filters ? { ...EMPTY_FILTERS, ...saved.filters } : EMPTY_FILTERS;
+    // normalizeFilters drops anything that isn't shaped like a filter
+    // value — guards against a stale sessionStorage blob from before a
+    // future schema change, and against hand-edited storage.
+    const base = normalizeFilters(saved.filters);
     // Deep-link support: `?custom=true` (used by the Stats Custom tile)
     // hydrates the FilterPanel's custom chip on initial mount so the user
     // lands on a Custom-filtered Library view directly. Tab/query don't

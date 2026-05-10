@@ -27,6 +27,29 @@ export const EMPTY_FILTERS = {
   loved:           null,
 };
 
+const FILTER_ARRAY_KEYS = ['missing', 'formats', 'ratings', 'publishers', 'sources', 'series', 'tags', 'statuses'];
+const TRISTATE_KEYS = ['owned', 'previouslyOwned', 'custom', 'loved'];
+
+// Hardens persisted filter shape against (a) future schema migrations
+// where a field type changes and the saved blob predates the change,
+// and (b) hand-edited sessionStorage. Spine itself never writes a
+// wrong-typed filter, but FilterPanel / pruneFilters / buildApiParams
+// all do array operations on these fields, and a string-where-array
+// would crash. Mirrors the VALID_TABS and pruneFilters defenses
+// elsewhere in this file. Fields not in the schema are dropped.
+export function normalizeFilters(saved) {
+  const out = { ...EMPTY_FILTERS };
+  if (!saved || typeof saved !== 'object') return out;
+  for (const key of FILTER_ARRAY_KEYS) {
+    if (Array.isArray(saved[key])) out[key] = saved[key];
+  }
+  if (saved.tagsMode === 'all' || saved.tagsMode === 'any') out.tagsMode = saved.tagsMode;
+  for (const key of TRISTATE_KEYS) {
+    if (saved[key] === true || saved[key] === false || saved[key] === null) out[key] = saved[key];
+  }
+  return out;
+}
+
 export function countFilters(f) {
   return f.missing.length + f.formats.length + f.ratings.length +
     f.publishers.length + f.sources.length + f.series.length + f.tags.length +
