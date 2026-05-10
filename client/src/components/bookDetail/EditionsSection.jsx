@@ -12,7 +12,24 @@ function statusBadge(e) {
   return 'Unread';
 }
 
+// Compact rating glyph: "5★" or "4½★" — null/0 ratings render nothing.
+function ratingGlyph(r) {
+  if (r == null || r <= 0) return null;
+  const whole = Math.floor(r);
+  const half  = (r % 1) ? '½' : '';
+  return `${whole}${half}★`;
+}
+
 function EditionRow({ edition, onUnlink, disabled, linkState }) {
+  // Editions track their own rating + read_count (no propagation across
+  // linked siblings, as of v1.49.0). Append both inline when set so the
+  // user can see at a glance what they've done in this edition.
+  const meta = [
+    FORMAT_LABEL[edition.format] ?? edition.format,
+    statusBadge(edition),
+    ratingGlyph(edition.rating),
+    edition.read_count > 0 ? `Read ${edition.read_count}×` : null,
+  ].filter(Boolean).join(' · ');
   return (
     <div className="flex items-center gap-3 py-2">
       <Link
@@ -27,9 +44,7 @@ function EditionRow({ edition, onUnlink, disabled, linkState }) {
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm text-neutral-200 group-hover:text-white truncate transition-colors">{edition.title}</p>
-          <p className="text-xs text-neutral-500 truncate">
-            {FORMAT_LABEL[edition.format] ?? edition.format} · {statusBadge(edition)}
-          </p>
+          <p className="text-xs text-neutral-500 truncate">{meta}</p>
         </div>
       </Link>
       <button

@@ -3839,49 +3839,61 @@ describe('books', () => {
       assert.equal(body.work_id, null);
     });
 
-    it('rating change propagates to linked editions', async () => {
-      // Linked editions stay in sync on rating/review/read_count — same
-      // user-facing intent as the old title+firstAuthor heuristic, but
-      // gated on an explicit work_id link so unrelated books that happen
-      // to share metadata aren't dragged along.
-      const a = await mkBook('Propagate Rating A');
-      const b = await mkBook('Propagate Rating B');
+    it('rating changes do NOT propagate to linked editions', async () => {
+      // As of v1.49.0, linked editions own their own rating, review, and
+      // read_count. Rating is a property of the edition (translation
+      // quality, narrator, the specific reading experience) — Emily
+      // Wilson's Odyssey can be 2★ while another translation is 5★ on
+      // the same work. Each edition stays where the user puts it.
+      const a = await mkBook('No-Propagate Rating A');
+      const b = await mkBook('No-Propagate Rating B');
       await req('POST', `/api/books/${a.id}/work-link`, { other_id: b.id });
       const { body: aLinked } = await req('GET', `/api/books/${a.id}`);
       await req('PUT', `/api/books/${a.id}`, { ...aLinked, rating: 4.5, tags: [] });
       const { body: bAfter } = await req('GET', `/api/books/${b.id}`);
-      assert.equal(bAfter.rating, 4.5);
+      assert.equal(bAfter.rating, null, 'sibling rating untouched');
     });
 
-    it('review change propagates to linked editions', async () => {
-      const a = await mkBook('Propagate Review A');
-      const b = await mkBook('Propagate Review B');
+    it('review changes do NOT propagate to linked editions', async () => {
+      const a = await mkBook('No-Propagate Review A');
+      const b = await mkBook('No-Propagate Review B');
       await req('POST', `/api/books/${a.id}/work-link`, { other_id: b.id });
       const { body: aLinked } = await req('GET', `/api/books/${a.id}`);
       await req('PUT', `/api/books/${a.id}`, { ...aLinked, review: 'Excellent.', tags: [] });
       const { body: bAfter } = await req('GET', `/api/books/${b.id}`);
-      assert.equal(bAfter.review, 'Excellent.');
+      assert.equal(bAfter.review, null, 'sibling review untouched');
     });
 
-    it('non-rating edits on linked editions do not clobber existing ratings', async () => {
-      // Regression for the legacy title+firstAuthor sync, which fired on
-      // every updateBook — editing a description with `rating: null` in
-      // the spread payload silently nulled rating on every book sharing
-      // the title and first-author. Now propagation is gated on actual
-      // change in rating/review/read_count, so editing other fields is
-      // a no-op for the sibling's rating.
-      const a = await mkBook('No-Clobber A');
-      const b = await mkBook('No-Clobber B');
+    it('finishing a linked edition does NOT bump siblings\' read_count', async () => {
+      const a = await mkBook('No-Propagate Read A');
+      const b = await mkBook('No-Propagate Read B');
       await req('POST', `/api/books/${a.id}/work-link`, { other_id: b.id });
-      // Set a rating on B independently.
-      const { body: bLinked } = await req('GET', `/api/books/${b.id}`);
-      await req('PUT', `/api/books/${b.id}`, { ...bLinked, rating: 5, tags: [] });
-      // Now edit A's description — A still has no rating.
       const { body: aLinked } = await req('GET', `/api/books/${a.id}`);
-      await req('PUT', `/api/books/${a.id}`, { ...aLinked, description: 'Some notes', tags: [] });
-      // B's rating should survive.
+      await req('PUT', `/api/books/${a.id}`, { ...aLinked, status: 'finished', date_finished: '2025-01-01', tags: [] });
+      const { body: aAfter } = await req('GET', `/api/books/${a.id}`);
       const { body: bAfter } = await req('GET', `/api/books/${b.id}`);
-      assert.equal(bAfter.rating, 5);
+      assert.equal(aAfter.read_count, 1, 'finished edition counts its own read');
+      assert.equal(bAfter.read_count, 0, 'sibling read_count untouched');
+    });
+
+    it('editions array surfaces sibling rating and read_count', async () => {
+      // EditionsSection renders these inline so the user can see at a
+      // glance "I've finished the audiobook 2× at 5★" without having to
+      // click into each sibling.
+      const a = await mkBook('Surface A');
+      const b = await mkBook('Surface B');
+      await req('POST', `/api/books/${a.id}/work-link`, { other_id: b.id });
+      // Independently set state on B.
+      const { body: bLinked } = await req('GET', `/api/books/${b.id}`);
+      await req('PUT', `/api/books/${b.id}`, {
+        ...bLinked, status: 'finished', date_finished: '2024-08-15', rating: 5, tags: [],
+      });
+      // A's editions[] entry for B should carry rating + read_count.
+      const { body: aAfter } = await req('GET', `/api/books/${a.id}`);
+      const sibling = aAfter.editions.find(e => e.id === b.id);
+      assert.ok(sibling, 'sibling present in editions array');
+      assert.equal(sibling.rating, 5);
+      assert.equal(sibling.read_count, 1);
     });
 
     it('unlinked books sharing title and first-author do not cross-propagate', async () => {
