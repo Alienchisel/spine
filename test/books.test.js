@@ -1658,6 +1658,54 @@ describe('books', () => {
         assert.equal(full.current_minutes, 600);
       });
     });
+
+    // Layer 3 pass 3: per-book current_story preview on listBooks. A
+    // collection with a 'reading' story surfaces it on the Library
+    // Reading tab as a subline under the progress label, so the user
+    // knows which story they're in without opening the book.
+    describe('Layer 3 pass 3 listBooks current_story', () => {
+      it('current_story surfaces the active reading story', async () => {
+        const stem = 'l3p3a' + Math.random().toString(36).slice(2, 6);
+        const { body: b } = await req('POST', '/api/books', { title: `${stem}-coll` });
+        await req('POST', `/api/books/${b.id}/stories`, { title: 'A', position: 1, status: 'unread' });
+        await req('POST', `/api/books/${b.id}/stories`, { title: 'B', position: 2, status: 'reading' });
+        await req('POST', `/api/books/${b.id}/stories`, { title: 'C', position: 3, status: 'unread' });
+        const { body: list } = await req('GET', `/api/books?q=${stem}`);
+        const found = list.books.find(x => x.id === b.id);
+        assert.ok(found, 'parent book listed');
+        assert.ok(found.current_story);
+        assert.equal(found.current_story.title, 'B');
+        assert.equal(found.current_story.position, 2);
+      });
+
+      it('current_story is null when no story is reading', async () => {
+        const stem = 'l3p3b' + Math.random().toString(36).slice(2, 6);
+        const { body: b } = await req('POST', '/api/books', { title: `${stem}-coll` });
+        await req('POST', `/api/books/${b.id}/stories`, { title: 'A', position: 1, status: 'unread' });
+        await req('POST', `/api/books/${b.id}/stories`, { title: 'B', position: 2, status: 'finished' });
+        const { body: list } = await req('GET', `/api/books?q=${stem}`);
+        const found = list.books.find(x => x.id === b.id);
+        assert.equal(found.current_story, null);
+      });
+
+      it('first-by-position wins when multiple stories are reading', async () => {
+        const stem = 'l3p3c' + Math.random().toString(36).slice(2, 6);
+        const { body: b } = await req('POST', '/api/books', { title: `${stem}-coll` });
+        await req('POST', `/api/books/${b.id}/stories`, { title: 'Later',  position: 5, status: 'reading' });
+        await req('POST', `/api/books/${b.id}/stories`, { title: 'Sooner', position: 2, status: 'reading' });
+        const { body: list } = await req('GET', `/api/books?q=${stem}`);
+        const found = list.books.find(x => x.id === b.id);
+        assert.equal(found.current_story.title, 'Sooner');
+      });
+
+      it('books without stories return current_story: null', async () => {
+        const stem = 'l3p3d' + Math.random().toString(36).slice(2, 6);
+        const { body: b } = await req('POST', '/api/books', { title: `${stem}-plain` });
+        const { body: list } = await req('GET', `/api/books?q=${stem}`);
+        const found = list.books.find(x => x.id === b.id);
+        assert.equal(found.current_story, null);
+      });
+    });
   });
 
   describe('field persistence', () => {
