@@ -67,6 +67,19 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
   useEffect(() => { setBook(initialBook); }, [initialBook]);
 
   const isAudiobook = book.format === 'audiobook';
+  const hasPct = isAudiobook ? Boolean(book.duration_minutes) : Boolean(book.page_count);
+
+  // Re-clamp the persisted mode when the book's format or totals change
+  // out from under us at runtime — e.g., format toggled physical→audiobook,
+  // or page_count cleared while mode was 'pct'. Mount-time hydration
+  // already runs initialProgressMode, but mount-time alone leaves a
+  // stale mode if the same component instance receives an updated book.
+  // Reads from localStorage so the user's last-selected preference is
+  // honoured if the current state can support it again later.
+  useEffect(() => {
+    setMode(prev => initialProgressMode(localStorage.getItem(getModeKey(book.id)) ?? prev, isAudiobook, hasPct));
+  }, [isAudiobook, hasPct, book.id]);
+
   const pct = isAudiobook
     ? (book.duration_minutes && book.current_minutes != null
         ? Math.min(100, Math.round((book.current_minutes / book.duration_minutes) * 100))
@@ -74,7 +87,6 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
     : (book.page_count && book.current_page != null
         ? Math.min(100, Math.round((book.current_page / book.page_count) * 100))
         : null);
-  const hasPct = isAudiobook ? Boolean(book.duration_minutes) : Boolean(book.page_count);
 
   // For 'remaining' mode the h/m inputs represent time-remaining; we
   // convert to/from current_minutes at the input/submit boundary.

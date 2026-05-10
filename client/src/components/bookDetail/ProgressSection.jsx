@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { api } from '../../api.js';
 import { computeEta } from './eta.js';
 import { getModeKey, initialProgressMode } from '../progressMode.js';
@@ -28,6 +28,15 @@ export default function ProgressSection({ book, onChange, log }) {
         ? Math.min(100, Math.round((book.current_page / book.page_count) * 100))
         : null);
   const hasPct = isAudiobook ? Boolean(book.duration_minutes) : Boolean(book.page_count);
+
+  // Re-clamp the persisted mode when the book's format or totals change
+  // out from under us at runtime — e.g., the user toggles format on the
+  // detail page and the same ProgressSection instance receives an updated
+  // book whose current `mode` is no longer in the rendered <select>'s
+  // options. Mount-time initialProgressMode alone doesn't catch this.
+  useEffect(() => {
+    setMode(prev => initialProgressMode(localStorage.getItem(modeKey) ?? prev, isAudiobook, hasPct));
+  }, [isAudiobook, hasPct, modeKey]);
 
   // For the 'remaining' mode, the h/m inputs represent time-remaining; we
   // convert to/from current_minutes at the input/submit boundary.
