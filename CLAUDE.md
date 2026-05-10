@@ -45,6 +45,32 @@ Regression tests live in `test/migrations.test.js`. The 2026-05-09
 cascade is the originating incident; its migration (`053_relax_books_rating_check.sql`)
 is the canonical example of why the safeguards exist.
 
+## Writing migrations
+
+File naming: `NNN_<short_description>.sql`, sequential. The name appears
+in the pre-snapshot filename and any failure error message — keep it
+descriptive.
+
+- **Additive changes** (`ALTER TABLE … ADD COLUMN`, new tables, new
+  indexes): just write the SQL. The runner wraps each in a transaction;
+  any failure rolls back cleanly.
+- **Table rebuilds** (relaxing a CHECK, dropping a column, etc.): start
+  the migration with `PRAGMA foreign_keys = OFF;`. The runner detects
+  this and bypasses the txn wrapper so the PRAGMA actually takes
+  effect. Without it, `DROP TABLE old` cascades through every junction
+  table whose FK referenced it — the 2026-05-09 incident.
+- **Never `DELETE FROM` a non-empty user table.** The post-batch sanity
+  check throws on non-empty → 0 transitions and refuses startup. If
+  the wipe is intentional, `DROP TABLE` it instead — the check skips
+  tables that no longer exist post-batch.
+- **Test on a copy before merging.** `cp spine.db /tmp/test.db && DB_PATH=/tmp/test.db npm run dev:server`
+  exercises the runner against your migration without touching the
+  live DB.
+- **Keep migrations short and reversible-in-spirit.** If a migration
+  needs more than a few statements, write the rollback path as a
+  comment at the top of the file — even if the runner won't auto-roll-back,
+  you'll be glad of the recipe later.
+
 ## Recovery playbook
 
 If you suspect data loss:
@@ -65,3 +91,46 @@ If you suspect data loss:
 
 The 2026-05-10 conversation transcript (in the JSONL files) walks
 through a complete cascade-and-recover for reference.
+
+### Restoring from a snapshot
+
+Concrete commands. The dance is: stop the server (releases the WAL
+connection), drop the WAL/SHM files (they're bound to the old DB and
+will confuse SQLite if left next to the replacement), swap the file,
+restart, verify.
+
+```bash
+cd /home/pentestlich/scripts/spine
+
+# 1. Stop whatever is holding the DB. The dev stack is launched via
+#    `concurrently npm run dev:server npm run dev:client` — kill the
+#    server watcher; vite can keep running.
+pkill -f 'node --watch server.js'
+
+# 2. Move the broken DB aside (don't delete — wrong snapshot can leave
+#    you worse off, and the broken state may have data the snapshot
+#    lacks). Drop the WAL/SHM since they describe the old DB.
+mv spine.db spine.db.broken-$(date +%s)
+rm -f spine.db-wal spine.db-shm
+
+# 3a. Restore from a pre-migration snapshot (the most precise option):
+cp backups/spine-pre-053_relax_books_rating_check-<ts>.db spine.db
+
+# 3b. OR restore from a daily tarball:
+tar -xzf backups/spine-2026-05-09.tar.gz -C /tmp/ spine.db
+mv /tmp/spine.db .
+
+# 3c. OR restore from an hourly snapshot (last 48h):
+cp backups/hourly/hourly-spine-2026-05-09-15.db spine.db
+
+# 4. Restart and verify.
+./scripts/with-toolchain.sh node --watch server.js >> /tmp/spine-server.log 2>&1 &
+sleep 2
+curl -s 'http://localhost:3001/api/books?limit=1' \
+  | python3 -c "import sys,json; d=json.load(sys.stdin); print('total:', d.get('total'))"
+```
+
+If the restored DB is missing recent activity (e.g. you restored to
+yesterday but want today's reading sessions back), the transcripts
+typically have the original tool-driven writes — see step 3 of the
+playbook above.
