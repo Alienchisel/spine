@@ -145,9 +145,16 @@ export default function Library() {
     if (VALID_TABS.has(saved.tab))        return saved.tab;
     return 'reading';
   });
-  const [queryRaw,    setQueryRaw]    = useState(() => saved.query || '');
-  const [query,       setQuery]       = useState(() => saved.query || '');
-  const [filtersOpen, setFiltersOpen] = useState(() => saved.filtersOpen ?? false);
+  // typeof guards on persisted state mirror the VALID_TABS / typeof-object
+  // patterns elsewhere in this hydration block. Spine itself never writes
+  // a non-string query or non-boolean filtersOpen, but a stale blob from
+  // a future schema change or hand-edited storage could otherwise land
+  // an object as the search box's value (renders as "[object Object]")
+  // or set filtersOpen to a truthy non-boolean.
+  const savedQuery = typeof saved.query === 'string' ? saved.query : '';
+  const [queryRaw,    setQueryRaw]    = useState(() => savedQuery);
+  const [query,       setQuery]       = useState(() => savedQuery);
+  const [filtersOpen, setFiltersOpen] = useState(() => typeof saved.filtersOpen === 'boolean' ? saved.filtersOpen : false);
   const [filters,     setFilters]     = useState(() => {
     // normalizeFilters drops anything that isn't shaped like a filter
     // value — guards against a stale sessionStorage blob from before a
@@ -175,7 +182,10 @@ export default function Library() {
     const initialTab = (urlTab && VALID_TABS.has(urlTab)) ? urlTab
                      : VALID_TABS.has(saved.tab)          ? saved.tab
                      : 'reading';
-    return saved.sort ? { [initialTab]: saved.sort } : {};
+    // Same shape guard as savedQuery / savedFiltersOpen above — a non-
+    // string saved.sort would otherwise land as a sortByTab value and
+    // ship into the API as garbage.
+    return typeof saved.sort === 'string' ? { [initialTab]: saved.sort } : {};
   });
   // Whitelist-validate so stale sessionStorage (e.g. legacy 'list' from when
   // a list view existed) can't yield an undefined GRID[density] className.
