@@ -653,8 +653,7 @@ export default function BookDetail() {
           {/* Stories (collection table-of-contents). Surface only on
               books tagged Stories or Anthology — or any book that
               already has stories attached, so a user can still see/edit
-              them after retagging. Phase 1: per-story status, rating,
-              date_finished, DNF. */}
+              them after retagging. */}
           {(() => {
             const tagNames = (book.tags || []).map(t => t.name);
             const isCollection = tagNames.includes('Stories') || tagNames.includes('Anthology');
@@ -667,11 +666,11 @@ export default function BookDetail() {
                 bookAuthors={book.authors || []}
                 onUpdate={() => api.getBook(book.id).then(b => {
                   if (String(b.id) !== String(latestIdRef.current)) return;
-                  // Layer 3 pass 2: when the last story-finish auto-rolls
-                  // the parent collection to status='finished', surface
-                  // the rating prompt the same way an explicit finish
-                  // would. Compares the prior `book` snapshot held in
-                  // closure to the freshly-fetched `b`.
+                  // When the last story-finish auto-rolls the parent
+                  // collection to status='finished', surface the rating
+                  // prompt the same way an explicit finish would. Compares
+                  // the prior `book` snapshot held in closure to the
+                  // freshly-fetched `b`.
                   if (book && book.status !== 'finished' && b.status === 'finished' && !b.rating) {
                     setRatingPrompt(true);
                   }

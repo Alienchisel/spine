@@ -432,9 +432,9 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
             <span>{progressLabel ?? 'Set progress…'}</span>
             <span className="text-neutral-700 hover:text-neutral-400 transition-colors"><PencilIcon /></span>
           </button>
-          {/* Layer 3 pass 3: when a story inside this collection is
-              currently reading, surface its title under the progress
-              label so the Reading tab tells you which story you're in. */}
+          {/* When a story inside this collection is currently reading,
+              surface its title under the progress label so the Reading
+              tab tells you which story you're in. */}
           {book.current_story && (
             <p className="text-[10px] text-neutral-600 mt-0.5 truncate" title={book.current_story.title}>
               &ldquo;{book.current_story.title}&rdquo;

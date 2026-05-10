@@ -100,11 +100,15 @@ router.delete('/:id/reads/:readId', (req, res) => {
 });
 
 // ── Stories: per-collection table-of-contents tracking ──────────────────────
-// Phase 1 of the short-story-collection model. Each story belongs to a
-// parent book and carries its own status / rating / date_finished / DNF
-// flag, so the user can mark "I read 'Hour of the Dragon'" without touching
-// the rest of a Conan collection. Page ranges, per-story authors, and
-// reading_log integration are deferred to later phases.
+// Each story belongs to a parent book and carries its own status / rating
+// / date_finished / DNF flag, so the user can mark "I read 'Hour of the
+// Dragon'" without touching the rest of a Conan collection. Stories also
+// carry a page range (page_start / page_end), an optional per-story
+// author override (the story_authors join table; falls back to the book's
+// authors when empty), and a year_published. Finishing a story writes a
+// story-attributed reading_log row, bumps the parent's current_page, and
+// — when every sibling is accounted for — auto-rolls the parent book to
+// status='finished'. See migrations 049–052.
 const STORY_STATUSES = new Set(['unread', 'reading', 'finished']);
 
 function validateStory(body) {
@@ -162,8 +166,8 @@ function logStoryFinish(book_id, story) {
   }
 }
 
-// Layer 3 pass 2: parent collection auto-rolls to status='finished' when
-// every story is accounted for (status='finished' OR did_not_finish=1).
+// Parent collection auto-rolls to status='finished' when every story is
+// accounted for (status='finished' OR did_not_finish=1).
 // "Accounted" includes DNF because the user is done with that story —
 // either path closes the book out. Idempotent: a parent already in the
 // 'finished' state is a no-op, so re-firing on every story write is safe.

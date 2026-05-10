@@ -5,12 +5,12 @@ import StarRating from '../StarRating.jsx';
 import { useConfirm } from '../ConfirmModal.jsx';
 import { formatPartialDate } from './dates.js';
 
-// Layer 2 of the short-story-collection model. Each story belongs to a
-// parent book; the user marks individual stories finished / DNF / rates
-// them without touching the collection's own status. Layer 2 adds page
-// ranges (page_start / page_end) and per-story authors that override the
-// book's authors when set (anthologies, adaptations like Junji Ito's
-// versions of Edogawa Ranpo / Robert Hichens stories).
+// Per-story table of contents for a collection. Each story belongs to a
+// parent book and tracks its own status / rating / date_finished / DNF,
+// page range, optional per-story author override (anthologies, adaptations
+// like Junji Ito's versions of Edogawa Ranpo / Robert Hichens stories),
+// and year of first publication. Finishing the last accounted story
+// auto-rolls the parent book to 'finished'.
 //
 // Visible only when the parent book has the Stories or Anthology tag, or
 // when at least one story is already attached (so a user can populate
@@ -265,9 +265,9 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
     </>
   );
 
-  // Layer 3 pass 2: surface "X of Y finished" so the user can see progress
-  // through a collection at a glance. DNF counts as accounted-for, so the
-  // count reflects "stories closed out" rather than "stories rated 5 stars."
+  // Surface "X of Y finished" so the user can see progress through a
+  // collection at a glance. DNF counts as accounted-for, so the count
+  // reflects "stories closed out" rather than "stories rated 5 stars."
   const accounted = stories.filter(s => s.status === 'finished' || s.did_not_finish).length;
   return (
     <div className="border-t border-neutral-800 pt-5 mb-6">
