@@ -611,6 +611,46 @@ describe('books', () => {
       assert.equal(updated.acquisition_date, null);
     });
 
+    it('clears acquisition fields when neither owned nor previously_owned is set', async () => {
+      // Mirrors AcquisitionFields.jsx:56 — the form hides the acquisition
+      // inputs when (owned || previously_owned) is false, so a book left
+      // in that state shouldn't carry acquisition data the user can no
+      // longer see or edit. Server-side normalisation, parallel to the
+      // is_custom rule above. Catches the #615 scenario where toggling
+      // owned to false left orphaned Kindle/Dec-2018 data behind.
+      //
+      // One fixture, three transitions — keeps the in-memory DB lean so
+      // the result-limited tests downstream don't get squeezed past the
+      // 200-cap by extra fixtures.
+      const { body: owned } = await req('POST', '/api/books', {
+        title: 'Acquisition Gate ' + Math.random().toString(36).slice(2, 6),
+        owned: true,
+        acquisition_source: 'Kindle',
+        acquisition_date: '2020-06-15',
+      });
+      assert.equal(owned.acquisition_source, 'Kindle');
+      assert.equal(owned.acquisition_date, '2020-06-15');
+
+      // Owned→previously_owned: data is preserved (you used to have it).
+      const { body: prev } = await req('PUT', `/api/books/${owned.id}`, {
+        ...owned, owned: false, previously_owned: true,
+      });
+      assert.equal(prev.owned, 0);
+      assert.equal(prev.previously_owned, 1);
+      assert.equal(prev.acquisition_source, 'Kindle');
+      assert.equal(prev.acquisition_date, '2020-06-15');
+
+      // previously_owned→never-owned: server nulls acquisition data the
+      // user can no longer see through the UI.
+      const { body: orphan } = await req('PUT', `/api/books/${owned.id}`, {
+        ...prev, owned: false, previously_owned: false,
+      });
+      assert.equal(orphan.owned, 0);
+      assert.equal(orphan.previously_owned, 0);
+      assert.equal(orphan.acquisition_source, null);
+      assert.equal(orphan.acquisition_date, null);
+    });
+
     it('saves and returns ASIN', async () => {
       const { status, body } = await req('POST', '/api/books', { title: 'Audible Book', asin: 'B01N4P45MO' });
       assert.equal(status, 201);
@@ -3041,6 +3081,9 @@ describe('books', () => {
           }
           const payload = { title };
           if (value != null) payload[c.col] = value;
+          // acquisition_source is server-nulled when (!owned && !previously_owned)
+          // — set owned so the filled-source case actually persists.
+          if (c.col === 'acquisition_source' && value != null) payload.owned = true;
           const { body } = await req('POST', '/api/books', payload);
           return body;
         }
@@ -3088,8 +3131,14 @@ describe('books', () => {
             ...created, rating: c.filledValue, tags: [],
           }));
         } else {
+          // acquisition_source is server-nulled when (!owned && !previously_owned)
+          // per the gate in bookColumns. Set owned for the sources case so the
+          // value actually persists and the filter has something to exclude.
+          const extras = c.col === 'acquisition_source' ? { owned: true } : {};
           ({ body: filled } = await req('POST', '/api/books', {
-            title: `${c.filter} empty filter — has value`, [c.col]: c.filledValue,
+            title: `${c.filter} empty filter — has value`,
+            [c.col]: c.filledValue,
+            ...extras,
           }));
         }
         // limit=200 since the in-memory DB accumulates books across tests in
@@ -3104,8 +3153,11 @@ describe('books', () => {
     });
 
     it('saves acquisition_source and acquisition_date', async () => {
+      // owned: true so the acquisition fields aren't nulled by the
+      // (!owned && !previously_owned) → null-acquisition gate in bookColumns.
       const { body } = await req('POST', '/api/books', {
         title: 'Sourced Book',
+        owned: true,
         acquisition_source: 'Audible',
         acquisition_date: '2025-06',
       });
