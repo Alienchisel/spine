@@ -6,7 +6,10 @@ import { getModeKey, initialProgressMode } from '../progressMode.js';
 export default function ProgressSection({ book, onChange, log }) {
   const isAudiobook = book.format === 'audiobook';
   const modeKey = getModeKey(book.id);
-  const [mode, setMode] = useState(() => initialProgressMode(localStorage.getItem(modeKey), isAudiobook));
+  const [mode, setMode] = useState(() => {
+    const initialHasPct = isAudiobook ? Boolean(book.duration_minutes) : Boolean(book.page_count);
+    return initialProgressMode(localStorage.getItem(modeKey), isAudiobook, initialHasPct);
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   // `saving` (React state) drives the disabled UI but doesn't commit until

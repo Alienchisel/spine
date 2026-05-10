@@ -30,7 +30,11 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
   const [inputVal, setInputVal] = useState('');
   const [inputH, setInputH] = useState('');
   const [inputM, setInputM] = useState('');
-  const [mode, setMode] = useState(() => initialProgressMode(localStorage.getItem(getModeKey(initialBook.id)), initialBook.format === 'audiobook'));
+  const [mode, setMode] = useState(() => {
+    const audio = initialBook.format === 'audiobook';
+    const initialHasPct = audio ? Boolean(initialBook.duration_minutes) : Boolean(initialBook.page_count);
+    return initialProgressMode(localStorage.getItem(getModeKey(initialBook.id)), audio, initialHasPct);
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [ratingPrompt, setRatingPrompt] = useState(false);
