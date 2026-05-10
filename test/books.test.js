@@ -1706,6 +1706,65 @@ describe('books', () => {
         assert.equal(found.current_story, null);
       });
     });
+
+    // Layer 4 pass 1: per-story year_published. Foundation for the cross-
+    // collection chronological view that ships in pass 2; this pass only
+    // verifies the field round-trips and validates correctly.
+    describe('Layer 4 pass 1 year_published', () => {
+      let bookId;
+      before(async () => {
+        const { body } = await req('POST', '/api/books', { title: 'L4 Year Coll' });
+        bookId = body.id;
+      });
+
+      it('persists year_published on POST and surfaces it on GET', async () => {
+        const { body: created } = await req('POST', `/api/books/${bookId}/stories`, {
+          title: 'The Island of Doctor Death and Other Stories', year_published: 1970,
+        });
+        assert.equal(created.year_published, 1970);
+        const { body: full } = await req('GET', `/api/books/${bookId}`);
+        const fetched = full.stories.find(s => s.id === created.id);
+        assert.equal(fetched.year_published, 1970);
+      });
+
+      it('PUT updates year_published and accepts null to clear', async () => {
+        const { body: created } = await req('POST', `/api/books/${bookId}/stories`, {
+          title: 'Trip, Trap', year_published: 1967,
+        });
+        const { body: updated } = await req('PUT', `/api/books/${bookId}/stories/${created.id}`, {
+          title: 'Trip, Trap', year_published: 1968,
+        });
+        assert.equal(updated.year_published, 1968);
+        const { body: cleared } = await req('PUT', `/api/books/${bookId}/stories/${created.id}`, {
+          title: 'Trip, Trap', year_published: null,
+        });
+        assert.equal(cleared.year_published, null);
+      });
+
+      it('null / omitted year_published is permitted', async () => {
+        const { body: a } = await req('POST', `/api/books/${bookId}/stories`, { title: 'No year A' });
+        assert.equal(a.year_published, null);
+        const { body: b } = await req('POST', `/api/books/${bookId}/stories`, { title: 'No year B', year_published: null });
+        assert.equal(b.year_published, null);
+      });
+
+      it('rejects non-integer and zero years', async () => {
+        const r1 = await req('POST', `/api/books/${bookId}/stories`, { title: 'Bad year', year_published: 'abc' });
+        assert.equal(r1.status, 400);
+        const r2 = await req('POST', `/api/books/${bookId}/stories`, { title: 'Zero year', year_published: 0 });
+        assert.equal(r2.status, 400);
+        const r3 = await req('POST', `/api/books/${bookId}/stories`, { title: 'Float year', year_published: 1934.5 });
+        assert.equal(r3.status, 400);
+      });
+
+      it('accepts negative years for ancient works', async () => {
+        const { body, status } = await req('POST', `/api/books/${bookId}/stories`, {
+          title: 'On the Heavens', year_published: -350,
+        });
+        assert.equal(status, 201);
+        assert.equal(body.year_published, -350);
+      });
+    });
   });
 
   describe('field persistence', () => {

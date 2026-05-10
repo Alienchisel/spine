@@ -42,6 +42,7 @@ function emptyForm() {
     notes: '',
     page_start: '',
     page_end: '',
+    year_published: '',
     authorsText: '',
   };
 }
@@ -57,6 +58,7 @@ function toForm(s) {
     notes: s.notes || '',
     page_start: s.page_start != null ? String(s.page_start) : '',
     page_end:   s.page_end   != null ? String(s.page_end)   : '',
+    year_published: s.year_published != null ? String(s.year_published) : '',
     // Authors live in a comma-separated text input on the form; the
     // canonical structure (authors[]) only emerges on save. Empty string
     // means "use parent book's authors as fallback" — matches the
@@ -80,6 +82,7 @@ function toPayload(form) {
     notes: form.notes.trim() || null,
     page_start: form.page_start === '' ? null : Number(form.page_start),
     page_end:   form.page_end   === '' ? null : Number(form.page_end),
+    year_published: form.year_published === '' ? null : Number(form.year_published),
     authors,
   };
 }
@@ -223,6 +226,14 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
         className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-300 focus:outline-none focus:border-oak/50 w-16"
       />
       <input
+        type="number"
+        value={form.year_published}
+        onChange={e => setForm(f => ({ ...f, year_published: e.target.value }))}
+        placeholder="year"
+        title="First publication year (optional). Powers the cross-collection chronological view."
+        className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-300 focus:outline-none focus:border-oak/50 w-16"
+      />
+      <input
         type="text"
         value={form.authorsText}
         onChange={e => setForm(f => ({ ...f, authorsText: e.target.value }))}
@@ -295,12 +306,14 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
               <div className="flex-1 min-w-0">
                 <p className="text-neutral-300 truncate" title={s.title}>{s.title}</p>
                 {(() => {
-                  // Compose a single dim subline: page range, then explicit
-                  // story authors when they differ from the book's, then
-                  // freeform notes. Each piece is optional; pieces are
-                  // joined with " · " so the layout reads naturally.
+                  // Compose a single dim subline: page range, year, then
+                  // explicit story authors when they differ from the
+                  // book's, then freeform notes. Each piece is optional;
+                  // pieces are joined with " · " so the layout reads
+                  // naturally.
                   const overrideAuthors = s.authors?.length ? authorText(s, []) : null;
-                  const parts = [pageRangeText(s), overrideAuthors, s.notes].filter(Boolean);
+                  const yearText = s.year_published != null ? String(s.year_published) : null;
+                  const parts = [pageRangeText(s), yearText, overrideAuthors, s.notes].filter(Boolean);
                   if (!parts.length) return null;
                   const text = parts.join(' · ');
                   return <p className="text-neutral-600 text-[10px] truncate" title={text}>{text}</p>;

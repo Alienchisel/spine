@@ -118,6 +118,9 @@ function validateStory(body) {
   if (body.page_start != null && (!Number.isInteger(Number(body.page_start)) || Number(body.page_start) < 1)) errors.push('page_start must be a positive integer');
   if (body.page_end   != null && (!Number.isInteger(Number(body.page_end))   || Number(body.page_end)   < 1)) errors.push('page_end must be a positive integer');
   if (body.page_start != null && body.page_end != null && Number(body.page_end) < Number(body.page_start)) errors.push('page_end cannot be before page_start');
+  // Mirrors books.year_published validation in lib/books/validation.js: any
+  // non-zero integer (negative for BC works). Empty string treated as null.
+  if (body.year_published != null && body.year_published !== '' && (!Number.isInteger(Number(body.year_published)) || Number(body.year_published) === 0)) errors.push('Invalid publication year');
   return errors;
 }
 
@@ -132,6 +135,7 @@ function storyValues(body) {
     notes:          body.notes?.trim() || null,
     page_start:     body.page_start != null && body.page_start !== '' ? Number(body.page_start) : null,
     page_end:       body.page_end   != null && body.page_end   !== '' ? Number(body.page_end)   : null,
+    year_published: body.year_published != null && body.year_published !== '' ? Number(body.year_published) : null,
   };
 }
 
@@ -243,9 +247,9 @@ router.post('/:id/stories', (req, res) => {
   const v = storyValues(req.body);
   const result = db.transaction(() => {
     const r = db.prepare(`
-      INSERT INTO stories (book_id, title, position, status, date_finished, rating, did_not_finish, notes, page_start, page_end, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'), datetime('now', 'localtime'))
-    `).run(id, v.title, v.position, v.status, v.date_finished, v.rating, v.did_not_finish, v.notes, v.page_start, v.page_end);
+      INSERT INTO stories (book_id, title, position, status, date_finished, rating, did_not_finish, notes, page_start, page_end, year_published, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'), datetime('now', 'localtime'))
+    `).run(id, v.title, v.position, v.status, v.date_finished, v.rating, v.did_not_finish, v.notes, v.page_start, v.page_end, v.year_published);
     if (req.body.authors !== undefined) syncStoryAuthors(r.lastInsertRowid, req.body.authors);
     if (v.status === 'finished') {
       logStoryFinish(id, { id: r.lastInsertRowid, page_start: v.page_start, page_end: v.page_end, date_finished: v.date_finished });
@@ -272,9 +276,9 @@ router.put('/:id/stories/:storyId', (req, res) => {
   const result = db.transaction(() => {
     db.prepare(`
       UPDATE stories
-         SET title = ?, position = ?, status = ?, date_finished = ?, rating = ?, did_not_finish = ?, notes = ?, page_start = ?, page_end = ?, updated_at = datetime('now', 'localtime')
+         SET title = ?, position = ?, status = ?, date_finished = ?, rating = ?, did_not_finish = ?, notes = ?, page_start = ?, page_end = ?, year_published = ?, updated_at = datetime('now', 'localtime')
        WHERE id = ?
-    `).run(v.title, v.position, v.status, v.date_finished, v.rating, v.did_not_finish, v.notes, v.page_start, v.page_end, storyId);
+    `).run(v.title, v.position, v.status, v.date_finished, v.rating, v.did_not_finish, v.notes, v.page_start, v.page_end, v.year_published, storyId);
     if (req.body.authors !== undefined) syncStoryAuthors(storyId, req.body.authors);
     if (finishing) {
       logStoryFinish(id, { id: storyId, page_start: v.page_start, page_end: v.page_end, date_finished: v.date_finished });
