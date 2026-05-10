@@ -1,11 +1,12 @@
 import { useState, useRef } from 'react';
 import { api } from '../../api.js';
 import { computeEta } from './eta.js';
+import { getModeKey, initialProgressMode } from '../progressMode.js';
 
 export default function ProgressSection({ book, onChange, log }) {
   const isAudiobook = book.format === 'audiobook';
-  const modeKey = `spine-progress-mode-${book.id}`;
-  const [mode, setMode] = useState(() => localStorage.getItem(modeKey) || (isAudiobook ? 'min' : 'page'));
+  const modeKey = getModeKey(book.id);
+  const [mode, setMode] = useState(() => initialProgressMode(localStorage.getItem(modeKey), isAudiobook));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   // `saving` (React state) drives the disabled UI but doesn't commit until

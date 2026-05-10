@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { realTagNames, formatAuthors } from '../utils.js';
+import { getModeKey, initialProgressMode } from './progressMode.js';
 import ListPicker from './ListPicker.jsx';
 import StarRating from './StarRating.jsx';
 
@@ -11,9 +12,6 @@ const STATUS_BAR = {
   unread:   'bg-neutral-600',
 };
 
-function getModeKey(bookId) {
-  return `spine-progress-mode-${bookId}`;
-}
 
 function PencilIcon() {
   return (
@@ -32,7 +30,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
   const [inputVal, setInputVal] = useState('');
   const [inputH, setInputH] = useState('');
   const [inputM, setInputM] = useState('');
-  const [mode, setMode] = useState(() => localStorage.getItem(getModeKey(initialBook.id)) || (initialBook.format === 'audiobook' ? 'min' : 'page'));
+  const [mode, setMode] = useState(() => initialProgressMode(localStorage.getItem(getModeKey(initialBook.id)), initialBook.format === 'audiobook'));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [ratingPrompt, setRatingPrompt] = useState(false);
