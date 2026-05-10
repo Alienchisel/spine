@@ -327,7 +327,16 @@ router.delete('/:id/stories/:storyId', (req, res) => {
   const storyId = Number(req.params.storyId);
   if (!Number.isInteger(id) || id < 1 || !Number.isInteger(storyId) || storyId < 1) return res.status(400).json({ error: 'Invalid id' });
   if (!db.prepare('SELECT id FROM stories WHERE id = ? AND book_id = ?').get(storyId, id)) return res.status(404).json({ error: 'Not found' });
-  db.prepare('DELETE FROM stories WHERE id = ?').run(storyId);
+  // Removing a story can be the act that completes the collection — e.g.
+  // four siblings finished, an erroneous fifth deleted, parent should
+  // roll. Symmetric to the POST/PUT auto-roll path. The function's own
+  // guards keep this safe: zero remaining stories returns false (matches
+  // the books-without-stories rule), already-finished parent returns
+  // false (no double-roll).
+  db.transaction(() => {
+    db.prepare('DELETE FROM stories WHERE id = ?').run(storyId);
+    maybeAutoRollParent(id);
+  })();
   res.status(204).send();
 });
 

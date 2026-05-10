@@ -1838,6 +1838,54 @@ describe('books', () => {
         assert.equal(full.read_count, 1, 'read_count not bumped a second time');
       });
 
+      it('deleting the last unaccounted story rolls the parent', async () => {
+        // Bug D: a data-correction delete (e.g. an erroneously-added
+        // story removed) can be the act that completes a collection.
+        // Symmetric to the POST/PUT auto-roll path.
+        const { body: b } = await req('POST', '/api/books', { title: 'Bug D Delete Rolls' });
+        const { body: a }  = await req('POST', `/api/books/${b.id}/stories`, { title: 'A' });
+        const { body: bb } = await req('POST', `/api/books/${b.id}/stories`, { title: 'B' });
+        const { body: c }  = await req('POST', `/api/books/${b.id}/stories`, { title: 'C-erroneous' });
+        await req('PUT', `/api/books/${b.id}/stories/${a.id}`,  { title: 'A', status: 'finished', date_finished: todayIso() });
+        await req('PUT', `/api/books/${b.id}/stories/${bb.id}`, { title: 'B', status: 'finished', date_finished: todayIso() });
+        // C is still unread — parent must not have rolled yet.
+        let full = (await req('GET', `/api/books/${b.id}`)).body;
+        assert.notEqual(full.status, 'finished');
+        // Delete C — A and B remain, both finished. Parent rolls.
+        const { status } = await req('DELETE', `/api/books/${b.id}/stories/${c.id}`);
+        assert.equal(status, 204);
+        full = (await req('GET', `/api/books/${b.id}`)).body;
+        assert.equal(full.status, 'finished');
+        assert.equal(full.read_count, 1);
+      });
+
+      it('deleting all stories from a collection does NOT roll', async () => {
+        // Empty-stories matches the books-without-stories rule: no
+        // auto-roll candidate, parent stays where it was.
+        const { body: b } = await req('POST', '/api/books', { title: 'Bug D Empty Stays' });
+        const { body: only } = await req('POST', `/api/books/${b.id}/stories`, { title: 'Only one' });
+        await req('DELETE', `/api/books/${b.id}/stories/${only.id}`);
+        const full = (await req('GET', `/api/books/${b.id}`)).body;
+        assert.notEqual(full.status, 'finished');
+        assert.equal(full.read_count, 0);
+      });
+
+      it('deleting from an already-finished parent does not double-roll', async () => {
+        const { body: b } = await req('POST', '/api/books', { title: 'Bug D No Double' });
+        const { body: a } = await req('POST', `/api/books/${b.id}/stories`, { title: 'A' });
+        const { body: bb } = await req('POST', `/api/books/${b.id}/stories`, { title: 'B' });
+        await req('PUT', `/api/books/${b.id}/stories/${a.id}`,  { title: 'A', status: 'finished', date_finished: todayIso() });
+        await req('PUT', `/api/books/${b.id}/stories/${bb.id}`, { title: 'B', status: 'finished', date_finished: todayIso() });
+        // Parent already finished; read_count = 1.
+        let full = (await req('GET', `/api/books/${b.id}`)).body;
+        assert.equal(full.read_count, 1);
+        // Delete B — remaining A is still finished, but parent is already
+        // 'finished'. The function's own guard prevents a second roll.
+        await req('DELETE', `/api/books/${b.id}/stories/${bb.id}`);
+        full = (await req('GET', `/api/books/${b.id}`)).body;
+        assert.equal(full.read_count, 1, 'no second read_count bump');
+      });
+
       it('empty-string position and rating coerce to null, not 0', async () => {
         // Defensive: a cleared form input sends '' rather than null. Without
         // the isBlank guard, '' coerces to 0 — silently polluting the
