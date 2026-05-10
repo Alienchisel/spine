@@ -34,9 +34,27 @@ export default function ProgressSection({ book, onChange, log }) {
   // detail page and the same ProgressSection instance receives an updated
   // book whose current `mode` is no longer in the rendered <select>'s
   // options. Mount-time initialProgressMode alone doesn't catch this.
+  // When the resolved mode differs from current, also refresh the
+  // visible inputs so the always-on form doesn't render with a value
+  // typed for the old mode (e.g. "42" entered as percent left sitting
+  // in the page-count input). Read `mode` / `book` / `pct` from closure;
+  // they're intentionally absent from deps because user-driven mode
+  // changes and book mutations don't represent the kind of invalidation
+  // this effect exists to handle.
   useEffect(() => {
-    setMode(prev => initialProgressMode(localStorage.getItem(modeKey) ?? prev, isAudiobook, hasPct));
-  }, [isAudiobook, hasPct, modeKey]);
+    const next = initialProgressMode(localStorage.getItem(modeKey) ?? mode, isAudiobook, hasPct);
+    if (next === mode) return;
+    setMode(next);
+    if (next === 'pct') {
+      setInputVal(pct !== null ? String(pct) : '');
+    } else if (isAudiobook) {
+      const mins = audioMinutesForMode(next, book);
+      setInputH(mins != null ? String(Math.floor(mins / 60)) : '');
+      setInputM(mins != null ? String(mins % 60) : '');
+    } else {
+      setInputVal(book.current_page != null ? String(book.current_page) : '');
+    }
+  }, [isAudiobook, hasPct, modeKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // For the 'remaining' mode, the h/m inputs represent time-remaining; we
   // convert to/from current_minutes at the input/submit boundary.
