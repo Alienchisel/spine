@@ -26,10 +26,28 @@ const migrationsDir = path.join(__dirname, 'migrations');
 if (!fs.existsSync(migrationsDir)) throw new Error(`Missing migrations directory: ${migrationsDir}`);
 const files = fs.readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort();
 
-const applyMigration = db.transaction((file, sql) => {
+// SQLite gotcha that bit us once already (2026-05-09 incident): PRAGMA
+// foreign_keys is a no-op while a transaction is open. If a table-rebuild
+// migration tries `PRAGMA foreign_keys = OFF` from inside the runner's
+// outer transaction, the PRAGMA is silently ignored and the subsequent
+// DROP TABLE cascades through every junction table whose FK has
+// ON DELETE CASCADE — wiping book_authors, book_tags, reading_log, etc.
+// Migrations that toggle foreign_keys must therefore run OUTSIDE the
+// runner's transaction wrapper. Such migrations are responsible for their
+// own atomicity (include explicit BEGIN/COMMIT in the SQL if needed).
+const txnMigration = db.transaction((file, sql) => {
   db.exec(sql);
   db.prepare('INSERT INTO migrations (name) VALUES (?)').run(file);
 });
+
+const applyMigration = (file, sql) => {
+  if (/PRAGMA\s+foreign_keys\s*=\s*OFF/i.test(sql)) {
+    db.exec(sql);
+    db.prepare('INSERT INTO migrations (name) VALUES (?)').run(file);
+  } else {
+    txnMigration(file, sql);
+  }
+};
 
 for (const file of files) {
   if (applied.has(file)) continue;
