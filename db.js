@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { makeApplyMigration } from './lib/migrations/applyMigration.js';
+import { snapshotRowCounts, diffRowCounts } from './lib/migrations/sanityCheck.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dbPath = process.env.DB_PATH || path.join(__dirname, 'spine.db');
@@ -51,22 +52,9 @@ if (shouldSnapshotMigrations && !fs.existsSync(preMigrationDir)) {
   fs.mkdirSync(preMigrationDir, { recursive: true });
 }
 
-// Snapshot row counts for every user table. Used to bracket the migration
-// loop with a sanity check: if any table that had rows BEFORE the batch is
-// empty AFTER, abort startup (the 2026-05-09 cascade incident left every
-// junction table at 0 rows; this would have caught it within seconds).
-function snapshotRowCounts() {
-  const tables = db.prepare(
-    "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name != 'migrations'"
-  ).all();
-  const counts = new Map();
-  for (const { name } of tables) {
-    counts.set(name, db.prepare(`SELECT COUNT(*) AS n FROM "${name}"`).get().n);
-  }
-  return counts;
-}
-
-const preCounts = hasPendingMigrations ? snapshotRowCounts() : null;
+// Snapshot row counts before the migration batch so we can bracket
+// the loop with a sanity check (see lib/migrations/sanityCheck.js).
+const preCounts = hasPendingMigrations ? snapshotRowCounts(db) : null;
 
 for (const file of files) {
   if (applied.has(file)) continue;
@@ -97,26 +85,16 @@ for (const file of files) {
   }
 }
 
-// Post-migration sanity check. Throw if any non-empty table dropped to 0
-// rows after the migration batch. This is the canary for accidental
-// cascade-style data loss (e.g. DROP TABLE inside a transaction with
-// PRAGMA foreign_keys silently still on). The error message points at the
-// pre-migration snapshot directory so recovery is `cp` away.
+// Post-migration sanity check. Throws if any non-empty table dropped
+// to 0 rows after the migration batch — the canary for accidental
+// cascade-style data loss. Tables that no longer exist post-migration
+// (a legitimate rename or drop) are intentionally skipped; see
+// lib/migrations/sanityCheck.js for the exact rule.
 if (preCounts) {
-  const postCounts = snapshotRowCounts();
-  const wiped = [];
-  const dropped = [];
-  for (const [table, before] of preCounts) {
-    if (before === 0) continue;
-    const after = postCounts.get(table) ?? 0;
-    if (after === 0) {
-      wiped.push(`${table}: ${before} → 0`);
-    } else if (after < before / 2) {
-      dropped.push(`${table}: ${before} → ${after}`);
-    }
-  }
-  if (dropped.length) {
-    console.warn(`Migration batch shrank tables by >50%: ${dropped.join(', ')}`);
+  const postCounts = snapshotRowCounts(db);
+  const { wiped, shrunk } = diffRowCounts(preCounts, postCounts);
+  if (shrunk.length) {
+    console.warn(`Migration batch shrank tables by >50%: ${shrunk.join(', ')}`);
   }
   if (wiped.length) {
     throw new Error(
@@ -124,6 +102,23 @@ if (preCounts) {
       `Pre-migration snapshots are in ${preMigrationDir} — restore the relevant ` +
       `spine-pre-*.db over spine.db before retrying.`
     );
+  }
+}
+
+// Prune pre-migration snapshots older than the retention window so the
+// directory stays bounded. Only runs after a successful batch (we're
+// past the throws above), so failed-migration forensics aren't swept
+// for at least RETAIN_DAYS afterwards. mtime-based — close enough for
+// monthly cleanup, doesn't depend on filename parsing.
+if (shouldSnapshotMigrations) {
+  const RETAIN_DAYS = 90;
+  const cutoff = Date.now() - RETAIN_DAYS * 24 * 60 * 60 * 1000;
+  for (const f of fs.readdirSync(preMigrationDir)) {
+    if (!f.startsWith('spine-pre-') || !f.endsWith('.db')) continue;
+    const p = path.join(preMigrationDir, f);
+    try {
+      if (fs.statSync(p).mtimeMs < cutoff) fs.unlinkSync(p);
+    } catch { /* file vanished mid-scan, ignore */ }
   }
 }
 

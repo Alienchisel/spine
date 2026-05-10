@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
 import { makeApplyMigration } from '../lib/migrations/applyMigration.js';
+import { snapshotRowCounts, diffRowCounts } from '../lib/migrations/sanityCheck.js';
 
 describe('migration runner', () => {
   // Regression for the 2026-05-09 incident. Migration 053 used the
@@ -87,16 +88,21 @@ describe('migration runner', () => {
     assert.equal(recorded, 0, 'failed migration must not record itself as applied');
   });
 
-  it('detects PRAGMA foreign_keys = OFF case-insensitively and with varied spacing', () => {
-    // The gate uses a regex; make sure casing and whitespace variants
-    // don't slip through and accidentally re-introduce the txn wrapper
-    // for a migration that needs FKs off.
+  it('detects PRAGMA foreign_keys disable in OFF / 0 / false forms', () => {
+    // SQLite accepts any of these as the "disable" value. The gate
+    // must catch all three (case-insensitively, whitespace-varied)
+    // or migrations using the numeric/boolean form would silently
+    // get the txn-wrapped path and re-trigger the cascade.
     const variants = [
       'PRAGMA foreign_keys = OFF',
       'pragma foreign_keys = off',
       'PRAGMA  foreign_keys=OFF',
       'PRAGMA\tforeign_keys\t=\tOFF',
       'pragma Foreign_Keys = oFf',
+      'PRAGMA foreign_keys = 0',
+      'pragma foreign_keys=0',
+      'PRAGMA foreign_keys = false',
+      'PRAGMA foreign_keys = FALSE',
     ];
 
     for (const variant of variants) {
@@ -121,5 +127,90 @@ describe('migration runner', () => {
       const surviving = db.prepare('SELECT COUNT(*) AS n FROM child').get().n;
       assert.equal(surviving, 1, `child row must survive variant: ${JSON.stringify(variant)}`);
     }
+  });
+});
+
+describe('migration sanity check', () => {
+  it('flags a non-empty table that was wiped to zero', () => {
+    const before = new Map([['books', 100], ['authors', 50]]);
+    const after  = new Map([['books', 100], ['authors', 0]]);
+    const { wiped, shrunk } = diffRowCounts(before, after);
+    assert.deepEqual(wiped, ['authors: 50 → 0']);
+    assert.deepEqual(shrunk, []);
+  });
+
+  it('does not flag a table that is gone post-migration (rename or drop)', () => {
+    // The cascade case the check exists for keeps junction tables in
+    // place — only their rows vanish. A migration that deliberately
+    // drops or renames a table is not the bug we're guarding against.
+    const before = new Map([['old_table', 50], ['books', 100]]);
+    const after  = new Map([['books', 100]]);
+    const { wiped, shrunk } = diffRowCounts(before, after);
+    assert.deepEqual(wiped, []);
+    assert.deepEqual(shrunk, []);
+  });
+
+  it('flags a >50% shrinkage as a warning, not a wipe', () => {
+    const before = new Map([['books', 100]]);
+    const after  = new Map([['books', 40]]);
+    const { wiped, shrunk } = diffRowCounts(before, after);
+    assert.deepEqual(wiped, []);
+    assert.deepEqual(shrunk, ['books: 100 → 40']);
+  });
+
+  it('skips tables that started empty', () => {
+    const before = new Map([['books', 0]]);
+    const after  = new Map([['books', 0]]);
+    const { wiped, shrunk } = diffRowCounts(before, after);
+    assert.deepEqual(wiped, []);
+    assert.deepEqual(shrunk, []);
+  });
+
+  it('snapshotRowCounts returns counts for user tables only', () => {
+    const db = new Database(':memory:');
+    db.exec(`
+      CREATE TABLE migrations (id INTEGER PRIMARY KEY);
+      CREATE TABLE books (id INTEGER PRIMARY KEY);
+      CREATE TABLE authors (id INTEGER PRIMARY KEY);
+      INSERT INTO books (id) VALUES (1), (2);
+      INSERT INTO authors (id) VALUES (10);
+    `);
+    const counts = snapshotRowCounts(db);
+    assert.equal(counts.get('books'), 2);
+    assert.equal(counts.get('authors'), 1);
+    assert.equal(counts.has('migrations'), false, 'migrations table is excluded');
+    assert.equal(counts.has('sqlite_sequence'), false, 'sqlite_* tables are excluded');
+  });
+
+  it('end-to-end: cascade-style wipe is caught by diffRowCounts', () => {
+    // Mirror the 2026-05-09 incident shape inside a single test:
+    // populate parent + child, simulate a botched table-rebuild that
+    // cascades the child rows away, and verify the diff classifies
+    // the child as wiped.
+    const db = new Database(':memory:');
+    db.pragma('foreign_keys = ON');
+    db.exec(`
+      CREATE TABLE migrations (id INTEGER PRIMARY KEY);
+      CREATE TABLE parent (id INTEGER PRIMARY KEY);
+      CREATE TABLE child (parent_id INTEGER NOT NULL REFERENCES parent(id) ON DELETE CASCADE);
+      INSERT INTO parent (id) VALUES (1), (2), (3);
+      INSERT INTO child (parent_id) VALUES (1), (1), (2), (3);
+    `);
+    const before = snapshotRowCounts(db);
+    assert.equal(before.get('child'), 4);
+
+    // Cascade: drop parent with FKs ON inside an explicit txn — child rows go.
+    db.exec(`
+      BEGIN;
+      DROP TABLE parent;
+      CREATE TABLE parent (id INTEGER PRIMARY KEY);
+      INSERT INTO parent (id) VALUES (1), (2), (3);
+      COMMIT;
+    `);
+
+    const after = snapshotRowCounts(db);
+    const { wiped } = diffRowCounts(before, after);
+    assert.deepEqual(wiped, ['child: 4 → 0'],
+      'sanity check must surface the cascade-style child-row wipe');
   });
 });
