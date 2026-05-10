@@ -60,10 +60,28 @@ const applyMigration = (file, sql) => {
 // Skipped for in-memory DBs (tests) — there's no underlying file to
 // preserve and millisecond-tight test loops would collide on filenames.
 const preMigrationDir = path.join(__dirname, 'backups');
-const shouldSnapshotMigrations = !isInMemoryDb && files.some(f => !applied.has(f));
+const hasPendingMigrations = files.some(f => !applied.has(f));
+const shouldSnapshotMigrations = !isInMemoryDb && hasPendingMigrations;
 if (shouldSnapshotMigrations && !fs.existsSync(preMigrationDir)) {
   fs.mkdirSync(preMigrationDir, { recursive: true });
 }
+
+// Snapshot row counts for every user table. Used to bracket the migration
+// loop with a sanity check: if any table that had rows BEFORE the batch is
+// empty AFTER, abort startup (the 2026-05-09 cascade incident left every
+// junction table at 0 rows; this would have caught it within seconds).
+function snapshotRowCounts() {
+  const tables = db.prepare(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name != 'migrations'"
+  ).all();
+  const counts = new Map();
+  for (const { name } of tables) {
+    counts.set(name, db.prepare(`SELECT COUNT(*) AS n FROM "${name}"`).get().n);
+  }
+  return counts;
+}
+
+const preCounts = hasPendingMigrations ? snapshotRowCounts() : null;
 
 for (const file of files) {
   if (applied.has(file)) continue;
@@ -91,6 +109,36 @@ for (const file of files) {
   } catch (err) {
     console.error(`Failed migration: ${file}${snapshotPath ? ` (pre-snapshot at ${snapshotPath})` : ''}`);
     throw err;
+  }
+}
+
+// Post-migration sanity check. Throw if any non-empty table dropped to 0
+// rows after the migration batch. This is the canary for accidental
+// cascade-style data loss (e.g. DROP TABLE inside a transaction with
+// PRAGMA foreign_keys silently still on). The error message points at the
+// pre-migration snapshot directory so recovery is `cp` away.
+if (preCounts) {
+  const postCounts = snapshotRowCounts();
+  const wiped = [];
+  const dropped = [];
+  for (const [table, before] of preCounts) {
+    if (before === 0) continue;
+    const after = postCounts.get(table) ?? 0;
+    if (after === 0) {
+      wiped.push(`${table}: ${before} → 0`);
+    } else if (after < before / 2) {
+      dropped.push(`${table}: ${before} → ${after}`);
+    }
+  }
+  if (dropped.length) {
+    console.warn(`Migration batch shrank tables by >50%: ${dropped.join(', ')}`);
+  }
+  if (wiped.length) {
+    throw new Error(
+      `Migration batch wiped non-empty tables: ${wiped.join(', ')}. ` +
+      `Pre-migration snapshots are in ${preMigrationDir} — restore the relevant ` +
+      `spine-pre-*.db over spine.db before retrying.`
+    );
   }
 }
 
