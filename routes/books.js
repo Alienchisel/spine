@@ -111,35 +111,41 @@ router.delete('/:id/reads/:readId', (req, res) => {
 // status='finished'. See migrations 049–052.
 const STORY_STATUSES = new Set(['unread', 'reading', 'finished']);
 
+// Empty-string from a cleared form input means "no value" — coerce to
+// null before validation so position='' / rating='' don't masquerade as 0.
+// (page_start / page_end / year_published already handled this inline; we
+// now treat the rest the same way.)
+const isBlank = v => v == null || v === '';
+
 function validateStory(body) {
   const errors = [];
   if (!body.title?.trim()) errors.push('Title is required');
   if (body.title && body.title.trim().length > 500) errors.push('Title too long');
   if (body.status && !STORY_STATUSES.has(body.status.trim())) errors.push('Invalid status');
-  if (body.rating != null && (Number(body.rating) < 0.5 || Number(body.rating) > 5 || (Number(body.rating) * 2) % 1 !== 0)) errors.push('Rating must be 0.5–5 in half-star increments');
+  if (!isBlank(body.rating) && (Number(body.rating) < 0.5 || Number(body.rating) > 5 || (Number(body.rating) * 2) % 1 !== 0)) errors.push('Rating must be 0.5–5 in half-star increments');
   if (body.date_finished && !isValidPartialDate(String(body.date_finished).trim())) errors.push('Invalid date_finished');
-  if (body.position != null && !Number.isInteger(Number(body.position))) errors.push('Position must be an integer');
-  if (body.page_start != null && (!Number.isInteger(Number(body.page_start)) || Number(body.page_start) < 1)) errors.push('page_start must be a positive integer');
-  if (body.page_end   != null && (!Number.isInteger(Number(body.page_end))   || Number(body.page_end)   < 1)) errors.push('page_end must be a positive integer');
-  if (body.page_start != null && body.page_end != null && Number(body.page_end) < Number(body.page_start)) errors.push('page_end cannot be before page_start');
+  if (!isBlank(body.position) && !Number.isInteger(Number(body.position))) errors.push('Position must be an integer');
+  if (!isBlank(body.page_start) && (!Number.isInteger(Number(body.page_start)) || Number(body.page_start) < 1)) errors.push('page_start must be a positive integer');
+  if (!isBlank(body.page_end)   && (!Number.isInteger(Number(body.page_end))   || Number(body.page_end)   < 1)) errors.push('page_end must be a positive integer');
+  if (!isBlank(body.page_start) && !isBlank(body.page_end) && Number(body.page_end) < Number(body.page_start)) errors.push('page_end cannot be before page_start');
   // Mirrors books.year_published validation in lib/books/validation.js: any
-  // non-zero integer (negative for BC works). Empty string treated as null.
-  if (body.year_published != null && body.year_published !== '' && (!Number.isInteger(Number(body.year_published)) || Number(body.year_published) === 0)) errors.push('Invalid publication year');
+  // non-zero integer (negative for BC works).
+  if (!isBlank(body.year_published) && (!Number.isInteger(Number(body.year_published)) || Number(body.year_published) === 0)) errors.push('Invalid publication year');
   return errors;
 }
 
 function storyValues(body) {
   return {
     title:          body.title.trim(),
-    position:       body.position   != null ? Number(body.position)   : null,
+    position:       isBlank(body.position)       ? null : Number(body.position),
     status:         body.status?.trim() || 'unread',
     date_finished:  body.date_finished?.trim() || null,
-    rating:         body.rating     != null ? Number(body.rating)     : null,
+    rating:         isBlank(body.rating)         ? null : Number(body.rating),
     did_not_finish: body.did_not_finish ? 1 : 0,
     notes:          body.notes?.trim() || null,
-    page_start:     body.page_start != null && body.page_start !== '' ? Number(body.page_start) : null,
-    page_end:       body.page_end   != null && body.page_end   !== '' ? Number(body.page_end)   : null,
-    year_published: body.year_published != null && body.year_published !== '' ? Number(body.year_published) : null,
+    page_start:     isBlank(body.page_start)     ? null : Number(body.page_start),
+    page_end:       isBlank(body.page_end)       ? null : Number(body.page_end),
+    year_published: isBlank(body.year_published) ? null : Number(body.year_published),
   };
 }
 

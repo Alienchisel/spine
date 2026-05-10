@@ -1827,6 +1827,23 @@ describe('books', () => {
         assert.equal(full.read_count, 1, 'read_count not bumped a second time');
       });
 
+      it('empty-string position and rating coerce to null, not 0', async () => {
+        // Defensive: a cleared form input sends '' rather than null. Without
+        // the isBlank guard, '' coerces to 0 — silently polluting the
+        // contents-list ordering for position, and tripping the rating
+        // validator with a misleading "0.5–5" error for rating.
+        const { body: b } = await req('POST', '/api/books', { title: 'Bug E Empty Strings' });
+        const { body: s, status } = await req('POST', `/api/books/${b.id}/stories`, {
+          title: 'Cleared inputs', position: '', rating: '', page_start: '', page_end: '', year_published: '',
+        });
+        assert.equal(status, 201);
+        assert.equal(s.position, null);
+        assert.equal(s.rating, null);
+        assert.equal(s.page_start, null);
+        assert.equal(s.page_end, null);
+        assert.equal(s.year_published, null);
+      });
+
       it('genuine accounting transition still rolls the parent', async () => {
         // Sanity: the gate must not block legitimate transitions. After
         // reverting the parent and unmarking a story as 'unread', re-
