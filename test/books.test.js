@@ -403,6 +403,31 @@ describe('books', () => {
       }
     });
 
+    it('preserves cover_path and the file on disk when PUT omits the field entirely', async () => {
+      // Regression for the 2026-05-10 incident: scripted PUT roundtrips that
+      // omitted cover_path were silently nulling the column AND deleteLocalCover()ing
+      // the underlying file. Field-absent must be distinguished from explicit-null.
+      const filename = '5555555555-eeeeee.jpg';
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'cover-absent ' + Math.random().toString(36).slice(2, 6),
+        cover_path: `/uploads/${filename}`,
+      });
+      const unlinkMock = mock.method(fs, 'unlink', (_p, cb) => cb(null));
+      try {
+        const { cover_path: _omit, ...withoutCover } = created;
+        const { status, body } = await req('PUT', `/api/books/${created.id}`, {
+          ...withoutCover, tags: [],
+        });
+        assert.equal(status, 200);
+        assert.ok(body.cover_path?.endsWith(filename),
+          `expected preserved cover_path to end in ${filename}, got: ${body.cover_path}`);
+        assert.equal(unlinkMock.mock.callCount(), 0,
+          'fs.unlink must not fire when cover_path is absent from payload');
+      } finally {
+        unlinkMock.mock.restore();
+      }
+    });
+
     it('unlinks the old cover file when PUT swaps cover_path to a different valid filename', async () => {
       // repository.js:254 — when an existing book's cover_path changes from
       // one safe filename to another, the old file is unlinked. fs.unlink is
