@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { makeApplyMigration } from './lib/migrations/applyMigration.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dbPath = process.env.DB_PATH || path.join(__dirname, 'spine.db');
@@ -28,28 +29,12 @@ const migrationsDir = path.join(__dirname, 'migrations');
 if (!fs.existsSync(migrationsDir)) throw new Error(`Missing migrations directory: ${migrationsDir}`);
 const files = fs.readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort();
 
-// SQLite gotcha that bit us once already (2026-05-09 incident): PRAGMA
-// foreign_keys is a no-op while a transaction is open. If a table-rebuild
-// migration tries `PRAGMA foreign_keys = OFF` from inside the runner's
-// outer transaction, the PRAGMA is silently ignored and the subsequent
-// DROP TABLE cascades through every junction table whose FK has
-// ON DELETE CASCADE — wiping book_authors, book_tags, reading_log, etc.
-// Migrations that toggle foreign_keys must therefore run OUTSIDE the
-// runner's transaction wrapper. Such migrations are responsible for their
-// own atomicity (include explicit BEGIN/COMMIT in the SQL if needed).
-const txnMigration = db.transaction((file, sql) => {
-  db.exec(sql);
-  db.prepare('INSERT INTO migrations (name) VALUES (?)').run(file);
-});
-
-const applyMigration = (file, sql) => {
-  if (/PRAGMA\s+foreign_keys\s*=\s*OFF/i.test(sql)) {
-    db.exec(sql);
-    db.prepare('INSERT INTO migrations (name) VALUES (?)').run(file);
-  } else {
-    txnMigration(file, sql);
-  }
-};
+// Migration runner — see lib/migrations/applyMigration.js. Migrations
+// containing `PRAGMA foreign_keys = OFF` bypass the wrapping transaction
+// because SQLite silently ignores foreign_keys toggling inside a txn,
+// which would let DROP TABLE cascade through every junction table (the
+// 2026-05-09 incident). Regression test in test/migrations.test.js.
+const applyMigration = makeApplyMigration(db);
 
 // Pre-migration snapshot directory. Each pending migration writes a
 // VACUUM INTO snapshot named `spine-pre-<migration>-<ts>.db` before
