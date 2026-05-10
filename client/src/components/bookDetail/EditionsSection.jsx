@@ -12,12 +12,14 @@ function statusBadge(e) {
   return 'Unread';
 }
 
-// Compact rating glyph: "5★" or "4½★" — null/0 ratings render nothing.
+// Compact rating glyph: "5★", "4½★", "½★" — null/0 ratings render
+// nothing. Drops the leading zero on a half-star-only rating so 0.5
+// renders as "½★", not "0½★".
 function ratingGlyph(r) {
   if (r == null || r <= 0) return null;
   const whole = Math.floor(r);
   const half  = (r % 1) ? '½' : '';
-  return `${whole}${half}★`;
+  return `${whole || ''}${half}★`;
 }
 
 function EditionRow({ edition, onUnlink, disabled, linkState }) {

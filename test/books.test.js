@@ -603,6 +603,17 @@ describe('books', () => {
       assert.equal(body.rating, 3.5);
     });
 
+    it('accepts 0.5 rating (the lowest half-step)', async () => {
+      // Migration 053 relaxed the books CHECK from `rating >= 1` to
+      // `rating >= 0.5`, bringing books in line with stories (which
+      // had no CHECK) and with the half-stars convention used across
+      // the UI. Before 053 this insert would fail at the DB layer
+      // even though the JS validator allowed it.
+      const { status, body } = await req('POST', '/api/books', { title: 'Half Star Min', rating: 0.5 });
+      assert.equal(status, 201);
+      assert.equal(body.rating, 0.5);
+    });
+
     it('rejects non-half-increment rating', async () => {
       const { status } = await req('POST', '/api/books', { title: 'Bad Rating', rating: 3.3 });
       assert.equal(status, 400);
