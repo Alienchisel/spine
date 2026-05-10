@@ -667,6 +667,14 @@ export default function BookDetail() {
                 bookAuthors={book.authors || []}
                 onUpdate={() => api.getBook(book.id).then(b => {
                   if (String(b.id) !== String(latestIdRef.current)) return;
+                  // Layer 3 pass 2: when the last story-finish auto-rolls
+                  // the parent collection to status='finished', surface
+                  // the rating prompt the same way an explicit finish
+                  // would. Compares the prior `book` snapshot held in
+                  // closure to the freshly-fetched `b`.
+                  if (book && book.status !== 'finished' && b.status === 'finished' && !b.rating) {
+                    setRatingPrompt(true);
+                  }
                   setBook(b);
                 })}
               />

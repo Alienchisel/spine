@@ -1460,6 +1460,10 @@ describe('books', () => {
         const { body: b } = await req('POST', '/api/books', { title: 'L3 Progress Bump', page_count: 500 });
         // current_page is PATCH-only; seed via PATCH after create.
         await req('PATCH', `/api/books/${b.id}`, { current_page: 50 });
+        // A second unread sibling keeps the parent unfinished so the
+        // current_page bump from logStoryFinish stays visible (without
+        // it the pass-2 auto-roll would set current_page = page_count).
+        await req('POST', `/api/books/${b.id}/stories`, { title: 'Other', status: 'unread' });
         await req('POST', `/api/books/${b.id}/stories`, {
           title: 'Late Story', status: 'finished', date_finished: '2025-04-17',
           page_start: 200, page_end: 280,
@@ -1471,6 +1475,7 @@ describe('books', () => {
       it('finishing a story does not lower current_page if already past page_end', async () => {
         const { body: b } = await req('POST', '/api/books', { title: 'L3 No Regress', page_count: 500 });
         await req('PATCH', `/api/books/${b.id}`, { current_page: 400 });
+        await req('POST', `/api/books/${b.id}/stories`, { title: 'Other', status: 'unread' });
         await req('POST', `/api/books/${b.id}/stories`, {
           title: 'Earlier Story', status: 'finished', date_finished: '2025-04-18',
           page_start: 50, page_end: 100,
@@ -1542,6 +1547,115 @@ describe('books', () => {
         const storyRows = diaryEntries(diary, e => e.story_id === s.id);
         assert.equal(bookRows.length, 1);
         assert.equal(storyRows.length, 1);
+      });
+    });
+
+    // Layer 3 pass 2: parent auto-roll. When every story in a collection
+    // is accounted for (status='finished' OR did_not_finish=1), the parent
+    // book auto-transitions to 'finished' — bumping read_count, inserting
+    // a reads row, setting date_finished, and surfacing parent_auto_finished
+    // in the response so the client can fire the rating prompt.
+    describe('Layer 3 pass 2 parent auto-roll', () => {
+      const todayIso = () => new Date().toLocaleDateString('en-CA');
+
+      it('finishing the last story auto-rolls the parent to finished', async () => {
+        const { body: b } = await req('POST', '/api/books', { title: 'L3p2 Roll Up', page_count: 200 });
+        const { body: a }  = await req('POST', `/api/books/${b.id}/stories`, { title: 'A' });
+        const { body: bb } = await req('POST', `/api/books/${b.id}/stories`, { title: 'B' });
+        const { body: mid } = await req('PUT', `/api/books/${b.id}/stories/${a.id}`, {
+          title: 'A', status: 'finished', date_finished: todayIso(),
+        });
+        assert.equal(mid.parent_auto_finished, false, 'first of two finishes does not roll');
+        const { body: last } = await req('PUT', `/api/books/${b.id}/stories/${bb.id}`, {
+          title: 'B', status: 'finished', date_finished: todayIso(),
+        });
+        assert.equal(last.parent_auto_finished, true);
+        const { body: full } = await req('GET', `/api/books/${b.id}`);
+        assert.equal(full.status, 'finished');
+        assert.equal(full.read_count, 1);
+        assert.equal(full.current_page, 200);
+        assert.equal(full.date_finished, todayIso());
+        const { body: reads } = await req('GET', `/api/books/${b.id}/reads`);
+        assert.equal(reads.length, 1);
+      });
+
+      it('the last DNF transition also rolls the parent', async () => {
+        const { body: b } = await req('POST', '/api/books', { title: 'L3p2 DNF Closes' });
+        const { body: a } = await req('POST', `/api/books/${b.id}/stories`, { title: 'Read it' });
+        const { body: c } = await req('POST', `/api/books/${b.id}/stories`, { title: 'Skipped' });
+        await req('PUT', `/api/books/${b.id}/stories/${a.id}`, { title: 'Read it', status: 'finished', date_finished: todayIso() });
+        const { body: last } = await req('PUT', `/api/books/${b.id}/stories/${c.id}`, {
+          title: 'Skipped', did_not_finish: true,
+        });
+        assert.equal(last.parent_auto_finished, true);
+        const { body: full } = await req('GET', `/api/books/${b.id}`);
+        assert.equal(full.status, 'finished');
+      });
+
+      it('mixed state does not roll', async () => {
+        const { body: b } = await req('POST', '/api/books', { title: 'L3p2 Mixed' });
+        const { body: a } = await req('POST', `/api/books/${b.id}/stories`, { title: 'A' });
+        const { body: bb } = await req('POST', `/api/books/${b.id}/stories`, { title: 'B' });
+        await req('POST', `/api/books/${b.id}/stories`, { title: 'C' });
+        await req('PUT', `/api/books/${b.id}/stories/${a.id}`, { title: 'A', status: 'finished', date_finished: todayIso() });
+        const { body: last } = await req('PUT', `/api/books/${b.id}/stories/${bb.id}`, {
+          title: 'B', did_not_finish: true,
+        });
+        assert.equal(last.parent_auto_finished, false);
+        const { body: full } = await req('GET', `/api/books/${b.id}`);
+        assert.notEqual(full.status, 'finished');
+      });
+
+      it('already-finished parent does not double-roll', async () => {
+        const { body: b } = await req('POST', '/api/books', { title: 'L3p2 Already Done' });
+        // Manually finish the parent first (read_count goes to 1).
+        await req('PUT', `/api/books/${b.id}`, { title: 'L3p2 Already Done', status: 'finished' });
+        const { body: a } = await req('POST', `/api/books/${b.id}/stories`, { title: 'A' });
+        const { body: ax } = await req('PUT', `/api/books/${b.id}/stories/${a.id}`, {
+          title: 'A', status: 'finished', date_finished: todayIso(),
+        });
+        assert.equal(ax.parent_auto_finished, false, 'no roll on an already-finished parent');
+        const { body: full } = await req('GET', `/api/books/${b.id}`);
+        assert.equal(full.read_count, 1);
+      });
+
+      it('books without any stories are unaffected', async () => {
+        const { body: b } = await req('POST', '/api/books', { title: 'L3p2 No Stories' });
+        const { body: full } = await req('GET', `/api/books/${b.id}`);
+        assert.notEqual(full.status, 'finished');
+      });
+
+      it('re-read flow: revert parent, finish last story again, read_count bumps to 2', async () => {
+        const { body: b } = await req('POST', '/api/books', { title: 'L3p2 Re-Read' });
+        const { body: s1 } = await req('POST', `/api/books/${b.id}/stories`, { title: 'A' });
+        const { body: s2 } = await req('POST', `/api/books/${b.id}/stories`, { title: 'B' });
+        await req('PUT', `/api/books/${b.id}/stories/${s1.id}`, { title: 'A', status: 'finished', date_finished: todayIso() });
+        await req('PUT', `/api/books/${b.id}/stories/${s2.id}`, { title: 'B', status: 'finished', date_finished: todayIso() });
+        let full = (await req('GET', `/api/books/${b.id}`)).body;
+        assert.equal(full.status, 'finished');
+        assert.equal(full.read_count, 1);
+        // User reverts parent for a re-read, then re-marks one story as
+        // unread, then re-finishes it. The auto-roll fires again on the
+        // last finish. read_count climbs to 2.
+        await req('PUT', `/api/books/${b.id}`, { title: 'L3p2 Re-Read', status: 'unread' });
+        await req('PUT', `/api/books/${b.id}/stories/${s1.id}`, { title: 'A', status: 'unread' });
+        await req('PUT', `/api/books/${b.id}/stories/${s1.id}`, { title: 'A', status: 'finished', date_finished: todayIso() });
+        full = (await req('GET', `/api/books/${b.id}`)).body;
+        assert.equal(full.status, 'finished');
+        assert.equal(full.read_count, 2);
+      });
+
+      it('auto-roll bumps current_minutes to duration_minutes for audiobooks', async () => {
+        const { body: b } = await req('POST', '/api/books', {
+          title: 'L3p2 Audio Roll', format: 'audiobook', duration_minutes: 600,
+        });
+        const { body: a } = await req('POST', `/api/books/${b.id}/stories`, { title: 'Track 1' });
+        await req('PUT', `/api/books/${b.id}/stories/${a.id}`, {
+          title: 'Track 1', status: 'finished', date_finished: todayIso(),
+        });
+        const { body: full } = await req('GET', `/api/books/${b.id}`);
+        assert.equal(full.status, 'finished');
+        assert.equal(full.current_minutes, 600);
       });
     });
   });

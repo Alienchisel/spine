@@ -158,6 +158,46 @@ function logStoryFinish(book_id, story) {
   }
 }
 
+// Layer 3 pass 2: parent collection auto-rolls to status='finished' when
+// every story is accounted for (status='finished' OR did_not_finish=1).
+// "Accounted" includes DNF because the user is done with that story —
+// either path closes the book out. Idempotent: a parent already in the
+// 'finished' state is a no-op, so re-firing on every story write is safe.
+//
+// Mirrors the finish-transition machinery in updateBook(): bumps
+// read_count, inserts a reads row, sets date_finished, advances
+// current_page / current_minutes to their respective totals when
+// known. Books without any stories are unaffected.
+//
+// Returns true when the auto-roll fired this call, so route handlers can
+// surface that to the client (rating prompt, etc.).
+function maybeAutoRollParent(book_id) {
+  const book = db.prepare('SELECT status, page_count, duration_minutes FROM books WHERE id = ?').get(book_id);
+  if (!book || book.status === 'finished') return false;
+  const c = db.prepare(`
+    SELECT
+      COUNT(*) AS total,
+      SUM(CASE WHEN status = 'finished' OR did_not_finish = 1 THEN 1 ELSE 0 END) AS accounted
+    FROM stories WHERE book_id = ?
+  `).get(book_id);
+  if (!c.total || c.total !== c.accounted) return false;
+  db.prepare(`
+    UPDATE books
+       SET status        = 'finished',
+           read_count    = read_count + 1,
+           date_finished = date('now', 'localtime'),
+           current_page    = CASE WHEN page_count       IS NOT NULL THEN page_count       ELSE current_page    END,
+           current_minutes = CASE WHEN duration_minutes IS NOT NULL THEN duration_minutes ELSE current_minutes END,
+           updated_at    = datetime('now', 'localtime')
+     WHERE id = ?
+  `).run(book_id);
+  db.prepare(`
+    INSERT INTO reads (book_id, date_started, date_finished, created_at)
+    VALUES (?, NULL, date('now', 'localtime'), datetime('now', 'localtime'))
+  `).run(book_id);
+  return true;
+}
+
 function getStoryWithAuthors(storyId) {
   const s = db.prepare('SELECT * FROM stories WHERE id = ?').get(storyId);
   if (!s) return null;
@@ -201,7 +241,7 @@ router.post('/:id/stories', (req, res) => {
   const errors = validateStory(req.body);
   if (errors.length) return res.status(400).json({ error: errors[0] });
   const v = storyValues(req.body);
-  const storyId = db.transaction(() => {
+  const result = db.transaction(() => {
     const r = db.prepare(`
       INSERT INTO stories (book_id, title, position, status, date_finished, rating, did_not_finish, notes, page_start, page_end, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'), datetime('now', 'localtime'))
@@ -210,9 +250,10 @@ router.post('/:id/stories', (req, res) => {
     if (v.status === 'finished') {
       logStoryFinish(id, { id: r.lastInsertRowid, page_start: v.page_start, page_end: v.page_end, date_finished: v.date_finished });
     }
-    return r.lastInsertRowid;
+    const parentAutoFinished = maybeAutoRollParent(id);
+    return { storyId: r.lastInsertRowid, parentAutoFinished };
   })();
-  res.status(201).json(getStoryWithAuthors(storyId));
+  res.status(201).json({ ...getStoryWithAuthors(result.storyId), parent_auto_finished: result.parentAutoFinished });
 });
 
 router.put('/:id/stories/:storyId', (req, res) => {
@@ -228,7 +269,7 @@ router.put('/:id/stories/:storyId', (req, res) => {
   // 'finished' triggers reading_log + current_page bump on the parent.
   // Re-saving an already-finished story (e.g. fixing a typo) does not.
   const finishing = v.status === 'finished' && existing.status !== 'finished';
-  db.transaction(() => {
+  const result = db.transaction(() => {
     db.prepare(`
       UPDATE stories
          SET title = ?, position = ?, status = ?, date_finished = ?, rating = ?, did_not_finish = ?, notes = ?, page_start = ?, page_end = ?, updated_at = datetime('now', 'localtime')
@@ -238,8 +279,10 @@ router.put('/:id/stories/:storyId', (req, res) => {
     if (finishing) {
       logStoryFinish(id, { id: storyId, page_start: v.page_start, page_end: v.page_end, date_finished: v.date_finished });
     }
+    const parentAutoFinished = maybeAutoRollParent(id);
+    return { parentAutoFinished };
   })();
-  res.json(getStoryWithAuthors(storyId));
+  res.json({ ...getStoryWithAuthors(storyId), parent_auto_finished: result.parentAutoFinished });
 });
 
 router.delete('/:id/stories/:storyId', (req, res) => {

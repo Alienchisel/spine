@@ -254,9 +254,20 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
     </>
   );
 
+  // Layer 3 pass 2: surface "X of Y finished" so the user can see progress
+  // through a collection at a glance. DNF counts as accounted-for, so the
+  // count reflects "stories closed out" rather than "stories rated 5 stars."
+  const accounted = stories.filter(s => s.status === 'finished' || s.did_not_finish).length;
   return (
     <div className="border-t border-neutral-800 pt-5 mb-6">
-      <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Contents</p>
+      <div className="flex items-baseline justify-between mb-3">
+        <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Contents</p>
+        {stories.length > 0 && (
+          <p className="text-[10px] text-neutral-600 tabular-nums">
+            {accounted} of {stories.length} finished
+          </p>
+        )}
+      </div>
       {stories.length > 0 ? (
         <div className="space-y-2 mb-3">
           {stories.map(s => editId === s.id ? (
