@@ -1765,6 +1765,88 @@ describe('books', () => {
         assert.equal(body.year_published, -350);
       });
     });
+
+    // Regression: bug-sweep on the new collection / story features.
+    //   A. Partial date_finished must not leak into reading_log.date,
+    //      where it would break the diary year filter (LIKE 'YYYY-%').
+    //   B. The parent auto-roll must not fire on writes that don't move
+    //      the story from unaccounted to accounted — otherwise saving a
+    //      note on an already-finished story after a manual parent
+    //      revert silently re-rolls and bumps read_count.
+    describe('Stories bug-sweep regressions', () => {
+      const todayIso = () => new Date().toLocaleDateString('en-CA');
+
+      it('partial date_finished falls back to today in reading_log', async () => {
+        const { body: b } = await req('POST', '/api/books', { title: 'Bug A Year-Only' });
+        const { body: s } = await req('POST', `/api/books/${b.id}/stories`, {
+          title: 'Long-ago read', status: 'finished', date_finished: '1998',
+        });
+        const { body: diary } = await req('GET', '/api/diary');
+        const matches = diary.days.flatMap(d => d.entries).filter(e => e.story_id === s.id);
+        assert.equal(matches.length, 1, 'attribution survives the partial date');
+        // The reading_log row should be on today, not '1998'. Verify by
+        // checking that the diary entry sits under today's day.
+        const todaysEntries = diary.days.find(d => d.date === todayIso())?.entries || [];
+        assert.ok(todaysEntries.some(e => e.story_id === s.id),
+          'partial-date story finish lands under today');
+      });
+
+      it('full ISO date_finished still routes to its actual date', async () => {
+        const { body: b } = await req('POST', '/api/books', { title: 'Bug A Full ISO' });
+        const { body: s } = await req('POST', `/api/books/${b.id}/stories`, {
+          title: 'Backdated finish', status: 'finished', date_finished: '2024-08-15',
+        });
+        const { body: diary } = await req('GET', '/api/diary?year=2024');
+        const matches = diary.days.flatMap(d => d.entries).filter(e => e.story_id === s.id);
+        assert.equal(matches.length, 1, 'full ISO date routes to its day');
+        const day = diary.days.find(d => d.entries.some(e => e.story_id === s.id));
+        assert.equal(day.date, '2024-08-15');
+      });
+
+      it('saving a finished story does not re-roll a manually-reverted parent', async () => {
+        const { body: b } = await req('POST', '/api/books', { title: 'Bug B No Re-Roll' });
+        const { body: s1 } = await req('POST', `/api/books/${b.id}/stories`, { title: 'A' });
+        const { body: s2 } = await req('POST', `/api/books/${b.id}/stories`, { title: 'B' });
+        await req('PUT', `/api/books/${b.id}/stories/${s1.id}`, { title: 'A', status: 'finished', date_finished: todayIso() });
+        await req('PUT', `/api/books/${b.id}/stories/${s2.id}`, { title: 'B', status: 'finished', date_finished: todayIso() });
+        // First auto-roll: parent finished, read_count = 1.
+        let full = (await req('GET', `/api/books/${b.id}`)).body;
+        assert.equal(full.read_count, 1);
+        // User reverts parent to start a re-read. They have NOT yet
+        // unmarked any story — both still 'finished'.
+        await req('PUT', `/api/books/${b.id}`, { title: 'Bug B No Re-Roll', status: 'unread' });
+        // User edits a note on one of the already-finished stories. No
+        // accounting transition happened in this PUT — the parent must
+        // stay where the user put it.
+        const { body: noteEdit } = await req('PUT', `/api/books/${b.id}/stories/${s1.id}`, {
+          title: 'A', status: 'finished', date_finished: todayIso(), notes: 'Loved this one',
+        });
+        assert.equal(noteEdit.parent_auto_finished, false, 'no roll on a non-transition write');
+        full = (await req('GET', `/api/books/${b.id}`)).body;
+        assert.equal(full.status, 'unread', 'parent stays where the user put it');
+        assert.equal(full.read_count, 1, 'read_count not bumped a second time');
+      });
+
+      it('genuine accounting transition still rolls the parent', async () => {
+        // Sanity: the gate must not block legitimate transitions. After
+        // reverting the parent and unmarking a story as 'unread', re-
+        // finishing it is a real accounting transition and the parent
+        // must auto-roll back to 'finished' with read_count = 2.
+        const { body: b } = await req('POST', '/api/books', { title: 'Bug B Gate Sanity' });
+        const { body: s1 } = await req('POST', `/api/books/${b.id}/stories`, { title: 'A' });
+        const { body: s2 } = await req('POST', `/api/books/${b.id}/stories`, { title: 'B' });
+        await req('PUT', `/api/books/${b.id}/stories/${s1.id}`, { title: 'A', status: 'finished', date_finished: todayIso() });
+        await req('PUT', `/api/books/${b.id}/stories/${s2.id}`, { title: 'B', status: 'finished', date_finished: todayIso() });
+        await req('PUT', `/api/books/${b.id}`, { title: 'Bug B Gate Sanity', status: 'unread' });
+        await req('PUT', `/api/books/${b.id}/stories/${s1.id}`, { title: 'A', status: 'unread' });
+        const { body: rolled } = await req('PUT', `/api/books/${b.id}/stories/${s1.id}`, {
+          title: 'A', status: 'finished', date_finished: todayIso(),
+        });
+        assert.equal(rolled.parent_auto_finished, true);
+        const full = (await req('GET', `/api/books/${b.id}`)).body;
+        assert.equal(full.read_count, 2);
+      });
+    });
   });
 
   describe('field persistence', () => {

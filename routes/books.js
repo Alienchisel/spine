@@ -1,6 +1,6 @@
 import express from 'express';
 import db from '../db.js';
-import { validateBook, isValidPartialDate, partialDateBefore } from '../lib/books/validation.js';
+import { validateBook, isValidDate, isValidPartialDate, partialDateBefore } from '../lib/books/validation.js';
 import { getBook, getBookCounts, getBookFacets, listBooks, createBook, updateBook, patchBook, deleteBook, updateBookCover, linkEditions, unlinkEdition } from '../lib/books/repository.js';
 import { syncStoryAuthors } from '../lib/books/people.js';
 
@@ -155,7 +155,17 @@ function logStoryFinish(book_id, story) {
   const pages = (story.page_start != null && story.page_end != null)
     ? Math.max(0, story.page_end - story.page_start + 1)
     : 0;
-  const date = story.date_finished?.trim() || db.prepare("SELECT date('now', 'localtime') AS d").get().d;
+  // reading_log.date is consumed by streaks, year filters (LIKE 'YYYY-%'),
+  // and date('now', '-N days') comparisons — all of which assume a full
+  // ISO YYYY-MM-DD. Story-level date_finished accepts partial dates
+  // ('2024' / '2024-06') for finishes recalled long after the fact, so
+  // we fall back to today's date unless the value is a full ISO. A
+  // story-finish event with a partial date still gets a diary entry —
+  // attributed to today rather than dropped.
+  const trimmed = story.date_finished?.trim();
+  const date = (trimmed && isValidDate(trimmed))
+    ? trimmed
+    : db.prepare("SELECT date('now', 'localtime') AS d").get().d;
   db.prepare(`
     INSERT OR IGNORE INTO reading_log (book_id, story_id, date, pages_read, minutes_read)
     VALUES (?, ?, ?, ?, 0)
@@ -249,6 +259,11 @@ router.post('/:id/stories', (req, res) => {
   const errors = validateStory(req.body);
   if (errors.length) return res.status(400).json({ error: errors[0] });
   const v = storyValues(req.body);
+  // A new story counts as transitioning to "accounted" iff it's created
+  // already in that state. Without this gate, *any* POST after the user
+  // manually reverted a finished parent (to re-read or fix metadata)
+  // would re-roll the parent on the next note edit / story add.
+  const accountedNow = v.status === 'finished' || v.did_not_finish === 1;
   const result = db.transaction(() => {
     const r = db.prepare(`
       INSERT INTO stories (book_id, title, position, status, date_finished, rating, did_not_finish, notes, page_start, page_end, year_published, created_at, updated_at)
@@ -258,7 +273,7 @@ router.post('/:id/stories', (req, res) => {
     if (v.status === 'finished') {
       logStoryFinish(id, { id: r.lastInsertRowid, page_start: v.page_start, page_end: v.page_end, date_finished: v.date_finished });
     }
-    const parentAutoFinished = maybeAutoRollParent(id);
+    const parentAutoFinished = accountedNow ? maybeAutoRollParent(id) : false;
     return { storyId: r.lastInsertRowid, parentAutoFinished };
   })();
   res.status(201).json({ ...getStoryWithAuthors(result.storyId), parent_auto_finished: result.parentAutoFinished });
@@ -268,15 +283,23 @@ router.put('/:id/stories/:storyId', (req, res) => {
   const id = Number(req.params.id);
   const storyId = Number(req.params.storyId);
   if (!Number.isInteger(id) || id < 1 || !Number.isInteger(storyId) || storyId < 1) return res.status(400).json({ error: 'Invalid id' });
-  const existing = db.prepare('SELECT id, status FROM stories WHERE id = ? AND book_id = ?').get(storyId, id);
+  const existing = db.prepare('SELECT id, status, did_not_finish FROM stories WHERE id = ? AND book_id = ?').get(storyId, id);
   if (!existing) return res.status(404).json({ error: 'Not found' });
   const errors = validateStory(req.body);
   if (errors.length) return res.status(400).json({ error: errors[0] });
   const v = storyValues(req.body);
-  // Snapshot the transition once: a story going from anything-else to
+  // Snapshot the transitions once. A story going from anything-else to
   // 'finished' triggers reading_log + current_page bump on the parent.
   // Re-saving an already-finished story (e.g. fixing a typo) does not.
   const finishing = v.status === 'finished' && existing.status !== 'finished';
+  // The parent auto-roll fires only when *this* PUT moves the story
+  // from unaccounted to accounted (status='finished' OR did_not_finish=1).
+  // Without this gate, saving a note on an already-finished story after
+  // the user manually reverted the parent (to re-read or fix metadata)
+  // would silently re-roll the parent and bump read_count.
+  const wasAccounted = existing.status === 'finished' || existing.did_not_finish === 1;
+  const isAccounted  = v.status === 'finished' || v.did_not_finish === 1;
+  const accountedTransition = !wasAccounted && isAccounted;
   const result = db.transaction(() => {
     db.prepare(`
       UPDATE stories
@@ -287,7 +310,7 @@ router.put('/:id/stories/:storyId', (req, res) => {
     if (finishing) {
       logStoryFinish(id, { id: storyId, page_start: v.page_start, page_end: v.page_end, date_finished: v.date_finished });
     }
-    const parentAutoFinished = maybeAutoRollParent(id);
+    const parentAutoFinished = accountedTransition ? maybeAutoRollParent(id) : false;
     return { parentAutoFinished };
   })();
   res.json({ ...getStoryWithAuthors(storyId), parent_auto_finished: result.parentAutoFinished });
