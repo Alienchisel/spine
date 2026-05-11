@@ -341,6 +341,7 @@ export default function BookForm() {
       const result = await api.uploadCover(file);
       if (gen !== coverActionGenRef.current) return;
       set('cover_path', result.path);
+      setCoverPreview(result.path);
     } catch (e) {
       if (gen !== coverActionGenRef.current) return;
       setCoverPreview(null);
