@@ -140,7 +140,7 @@ export default function ProgressSection({ book, onChange, log }) {
     } else {
       const current_page = mode === 'pct'
         ? Math.round((Math.min(100, Math.max(0, parseFloat(inputVal))) / 100) * book.page_count)
-        : Math.max(0, parseInt(inputVal));
+        : Math.max(0, Math.min(book.page_count ?? Infinity, parseInt(inputVal)));
       if (isNaN(current_page)) { setError('Invalid value'); return; }
       patchData = { current_page };
     }
