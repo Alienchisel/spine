@@ -1,14 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { api } from '../../api.js';
 import { computeEta } from './eta.js';
-import { getModeKey, initialProgressMode, computeProgressPatch, syncProgressInputs } from '../progressMode.js';
+import { getModeKey, initialProgressMode, computeProgressPatch, syncProgressInputs, progressDerived, clampMinutes } from '../progressMode.js';
 
 export default function ProgressSection({ book, onChange, log }) {
-  const isAudiobook = book.format === 'audiobook';
+  const { isAudiobook, hasPct, pct } = progressDerived(book);
   const modeKey = getModeKey(book.id);
   const [mode, setMode] = useState(() => {
-    const initialHasPct = isAudiobook ? Boolean(book.duration_minutes) : Boolean(book.page_count);
-    return initialProgressMode(localStorage.getItem(modeKey), isAudiobook, initialHasPct);
+    return initialProgressMode(localStorage.getItem(modeKey), isAudiobook, hasPct);
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -19,15 +18,6 @@ export default function ProgressSection({ book, onChange, log }) {
   // second call sees the first's marker. Mirrors the busyIdsRef pattern in
   // ListPicker.
   const savingRef = useRef(false);
-
-  const pct = isAudiobook
-    ? (book.duration_minutes && book.current_minutes != null
-        ? Math.min(100, Math.round((book.current_minutes / book.duration_minutes) * 100))
-        : null)
-    : (book.page_count && book.current_page != null
-        ? Math.min(100, Math.round((book.current_page / book.page_count) * 100))
-        : null);
-  const hasPct = isAudiobook ? Boolean(book.duration_minutes) : Boolean(book.page_count);
 
   // Re-clamp the persisted mode when the book's format or totals change
   // out from under us at runtime — e.g., the user toggles format on the
@@ -68,11 +58,6 @@ export default function ProgressSection({ book, onChange, log }) {
   const isHMMode = isAudiobook && mode !== 'pct';
   const isEmpty = isHMMode ? (inputH === '' && inputM === '') : inputVal === '';
 
-  function clampMinutes(val) {
-    const n = parseInt(val);
-    if (isNaN(n)) return '';
-    return String(Math.min(59, Math.max(0, n)));
-  }
 
   async function handleSubmit(e) {
     e.preventDefault();

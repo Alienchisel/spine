@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { realTagNames, formatAuthors } from '../utils.js';
-import { getModeKey, initialProgressMode, computeProgressPatch, syncProgressInputs } from './progressMode.js';
+import { getModeKey, initialProgressMode, computeProgressPatch, syncProgressInputs, progressDerived, clampMinutes } from './progressMode.js';
 import ListPicker from './ListPicker.jsx';
 import StarRating from './StarRating.jsx';
 
@@ -66,16 +66,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
 
   useEffect(() => { setBook(initialBook); }, [initialBook]);
 
-  const isAudiobook = book.format === 'audiobook';
-  const hasPct = isAudiobook ? Boolean(book.duration_minutes) : Boolean(book.page_count);
-
-  const pct = isAudiobook
-    ? (book.duration_minutes && book.current_minutes != null
-        ? Math.min(100, Math.round((book.current_minutes / book.duration_minutes) * 100))
-        : null)
-    : (book.page_count && book.current_page != null
-        ? Math.min(100, Math.round((book.current_page / book.page_count) * 100))
-        : null);
+  const { isAudiobook, hasPct, pct } = progressDerived(book);
 
 
   // Re-clamp the persisted mode when the book's format or totals change
@@ -123,14 +114,9 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
     setInputM(inputs.inputM);
   }
 
-  const isHMMode = isAudiobook && (mode === 'min' || mode === 'remaining');
+  const isHMMode = isAudiobook && mode !== 'pct';
   const isEmpty = isHMMode ? (inputH === '' && inputM === '') : inputVal === '';
 
-  function clampMinutes(val) {
-    const n = parseInt(val);
-    if (isNaN(n)) return '';
-    return String(Math.min(59, Math.max(0, n)));
-  }
 
   async function handleSubmit(e) {
     e.preventDefault();

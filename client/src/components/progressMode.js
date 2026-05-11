@@ -34,6 +34,33 @@ export function initialProgressMode(saved, isAudiobook, hasPct) {
   return isAudiobook ? 'min' : 'page';
 }
 
+// Per-book derivations used by every consumer of progress state:
+// whether the book is in audiobook form, whether its total field
+// (duration_minutes / page_count) is set so 'pct' / 'remaining'
+// modes are valid, and the current progress percent (0-100, or null
+// when no progress or no total).
+export function progressDerived(book) {
+  const isAudiobook = book.format === 'audiobook';
+  const hasPct = isAudiobook ? Boolean(book.duration_minutes) : Boolean(book.page_count);
+  const pct = isAudiobook
+    ? (book.duration_minutes && book.current_minutes != null
+        ? Math.min(100, Math.round((book.current_minutes / book.duration_minutes) * 100))
+        : null)
+    : (book.page_count && book.current_page != null
+        ? Math.min(100, Math.round((book.current_page / book.page_count) * 100))
+        : null);
+  return { isAudiobook, hasPct, pct };
+}
+
+// Clamp the 'm' input of the h-m audiobook field to [0, 59]. Empty
+// / NaN passes through as '' so an onBlur doesn't replace a blank
+// field with "0".
+export function clampMinutes(val) {
+  const n = parseInt(val);
+  if (isNaN(n)) return '';
+  return String(Math.min(59, Math.max(0, n)));
+}
+
 // For the 'remaining' mode, the h/m inputs represent time-remaining;
 // we convert to/from current_minutes at the input/submit boundary.
 export function audioMinutesForMode(mode, book) {
