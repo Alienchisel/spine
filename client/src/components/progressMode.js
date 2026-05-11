@@ -33,3 +33,40 @@ export function initialProgressMode(saved, isAudiobook, hasPct) {
   if (ok) return saved;
   return isAudiobook ? 'min' : 'page';
 }
+
+// Normalise a progress-input submission into a PATCH body. Both
+// BookCard and bookDetail/ProgressSection have the same submit
+// shape (4 modes × audiobook/page) — keeping the math here lets the
+// next edge-case fix (a clamp tweak, a new mode) happen once.
+//
+// Returns { patchData } on success or { error } on failure; the
+// caller wires `error` into its setError + early-return without a
+// try/catch. The compute step is intentionally pure: no spinner,
+// no network, no setState — that's left to the caller's in-flight
+// guard.
+//
+// Both axes clamp to [0, total] when total is known, falling back to
+// max(0, ...) when it isn't. Server-side PATCH enforces the same
+// bounds; the clamp here prevents the round-trip error that an
+// out-of-range typo would otherwise produce.
+export function computeProgressPatch({ book, isAudiobook, mode, inputVal, inputH, inputM }) {
+  if (isAudiobook) {
+    const enteredMinutes = (parseInt(inputH) || 0) * 60 + (parseInt(inputM) || 0);
+    let current_minutes;
+    if (mode === 'pct') {
+      current_minutes = Math.round((Math.min(100, Math.max(0, parseFloat(inputVal))) / 100) * book.duration_minutes);
+    } else if (mode === 'remaining') {
+      if (!book.duration_minutes) return { error: 'Duration unknown' };
+      current_minutes = Math.max(0, Math.min(book.duration_minutes, book.duration_minutes - enteredMinutes));
+    } else {
+      current_minutes = Math.max(0, Math.min(book.duration_minutes ?? Infinity, enteredMinutes));
+    }
+    if (isNaN(current_minutes)) return { error: 'Invalid value' };
+    return { patchData: { current_minutes } };
+  }
+  const current_page = mode === 'pct'
+    ? Math.round((Math.min(100, Math.max(0, parseFloat(inputVal))) / 100) * book.page_count)
+    : Math.max(0, Math.min(book.page_count ?? Infinity, parseInt(inputVal)));
+  if (isNaN(current_page)) return { error: 'Invalid value' };
+  return { patchData: { current_page } };
+}

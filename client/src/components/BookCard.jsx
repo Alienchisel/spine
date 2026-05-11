@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { realTagNames, formatAuthors } from '../utils.js';
-import { getModeKey, initialProgressMode } from './progressMode.js';
+import { getModeKey, initialProgressMode, computeProgressPatch } from './progressMode.js';
 import ListPicker from './ListPicker.jsx';
 import StarRating from './StarRating.jsx';
 
@@ -163,37 +163,13 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
     // could double-trigger the auto-finish reads-row insert.
     if (savingRef.current || saving || isEmpty) return;
 
-    // Build and validate the patch BEFORE arming the spinner. Validation
-    // returns inside try { } would still hit finally and reset `saving`
-    // (JS semantics), but mixing "compute" with "in-flight" inside the
-    // same try-block reads like a stuck-spinner footgun. Split the phases.
-    let patchData;
-    if (isAudiobook) {
-      const enteredMinutes = (parseInt(inputH) || 0) * 60 + (parseInt(inputM) || 0);
-      let current_minutes;
-      if (mode === 'pct') {
-        current_minutes = Math.round((Math.min(100, Math.max(0, parseFloat(inputVal))) / 100) * book.duration_minutes);
-      } else if (mode === 'remaining') {
-        if (!book.duration_minutes) { setError('Duration unknown'); return; }
-        current_minutes = Math.max(0, Math.min(book.duration_minutes, book.duration_minutes - enteredMinutes));
-      } else {
-        // Elapsed-time mode. Clamp to [0, duration_minutes] to match
-        // the remaining-time path and the server's PATCH bounds —
-        // without it, a typo like "-1h" or "999h" round-trips through
-        // the server as an Invalid-minutes / exceeds-duration error
-        // rather than getting silently fixed at the boundary. Falls
-        // back to Math.max(0, ...) when duration is unknown.
-        current_minutes = Math.max(0, Math.min(book.duration_minutes ?? Infinity, enteredMinutes));
-      }
-      if (isNaN(current_minutes)) { setError('Invalid value'); return; }
-      patchData = { current_minutes };
-    } else {
-      const current_page = mode === 'pct'
-        ? Math.round((Math.min(100, Math.max(0, parseFloat(inputVal))) / 100) * book.page_count)
-        : Math.max(0, Math.min(book.page_count ?? Infinity, parseInt(inputVal)));
-      if (isNaN(current_page)) { setError('Invalid value'); return; }
-      patchData = { current_page };
-    }
+    // Compute the patch BEFORE arming the spinner. Splitting the
+    // pure-compute step from the in-flight step avoids a stuck-spinner
+    // footgun on validation early-returns. See computeProgressPatch.
+    const { patchData, error: patchError } = computeProgressPatch({
+      book, isAudiobook, mode, inputVal, inputH, inputM,
+    });
+    if (patchError) { setError(patchError); return; }
 
     setError(null);
     savingRef.current = true;
