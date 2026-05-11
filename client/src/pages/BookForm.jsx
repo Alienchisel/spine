@@ -248,6 +248,16 @@ export default function BookForm() {
     return () => window.removeEventListener('beforeunload', handler);
   }, [dirty]);
 
+  // Revoke the blob: URL when coverPreview is replaced or the form unmounts.
+  // Server paths and fetched URLs flow through coverPreview too, so the prefix
+  // guard prevents revoking non-blob values that the browser would no-op anyway
+  // but reads as a category error to a future reader.
+  useEffect(() => {
+    return () => {
+      if (coverPreview && coverPreview.startsWith('blob:')) URL.revokeObjectURL(coverPreview);
+    };
+  }, [coverPreview]);
+
   async function applyResult(result) {
     const gen = ++lookupApplyGenRef.current;
     const { description } = result.key ? await api.fetchBookDescription(result.key).catch(() => ({ description: null })) : { description: null };
