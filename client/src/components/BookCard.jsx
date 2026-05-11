@@ -137,6 +137,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
     setSaving(true);
     try {
       const updated = await api.patchBook(book.id, patchData);
+      // Inline until a second surface needs auto-finish — progressMode.js stays the home for shared progress logic.
       const isComplete = isAudiobook
         ? (updated.duration_minutes > 0 && updated.current_minutes >= updated.duration_minutes)
         : (updated.page_count > 0 && updated.current_page >= updated.page_count);
