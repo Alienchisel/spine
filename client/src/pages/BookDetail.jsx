@@ -655,19 +655,24 @@ export default function BookDetail() {
           )}
 
           {/* Stories (collection table-of-contents). Surface only on
-              books tagged Stories or Anthology — or any book that
-              already has stories attached, so a user can still see/edit
-              them after retagging. */}
+              books tagged Stories, Anthology, or Compilation — or any
+              book that already has stories attached, so a user can
+              still see/edit them after retagging. Compilation extends
+              the same shape to nonfiction collected-works / essay
+              volumes, swapping the user-visible noun from "story" to
+              "entry" since the items are essays or books, not shorts. */}
           {(() => {
             const tagNames = (book.tags || []).map(t => t.name);
-            const isCollection = tagNames.includes('Stories') || tagNames.includes('Anthology');
+            const isCollection = tagNames.includes('Stories') || tagNames.includes('Anthology') || tagNames.includes('Compilation');
             const stories = book.stories || [];
             if (!isCollection && stories.length === 0) return null;
+            const noun = tagNames.includes('Compilation') && !tagNames.includes('Stories') && !tagNames.includes('Anthology') ? 'entry' : 'story';
             return (
               <StoriesSection
                 bookId={book.id}
                 stories={stories}
                 bookAuthors={book.authors || []}
+                noun={noun}
                 onUpdate={() => api.getBook(book.id).then(b => {
                   if (String(b.id) !== String(latestIdRef.current)) return;
                   // When the last story-finish auto-rolls the parent

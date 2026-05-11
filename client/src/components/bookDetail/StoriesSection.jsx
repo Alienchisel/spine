@@ -87,7 +87,7 @@ function toPayload(form) {
   };
 }
 
-export default function StoriesSection({ bookId, stories, bookAuthors = [], onUpdate }) {
+export default function StoriesSection({ bookId, stories, bookAuthors = [], onUpdate, noun = 'story' }) {
   const [adding, setAdding] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState(emptyForm);
@@ -134,7 +134,7 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
       cancel();
       onUpdate();
     } catch {
-      setError('Failed to add story');
+      setError(`Failed to add ${noun}`);
     } finally {
       savingRef.current = false;
       setSaving(false);
@@ -170,7 +170,7 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
       await api.deleteStory(bookId, storyId);
       onUpdate();
     } catch {
-      setError('Failed to delete story');
+      setError(`Failed to delete ${noun}`);
     } finally {
       deletingIdsRef.current.delete(storyId);
     }
@@ -199,7 +199,7 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
         autoFocus
         value={form.title}
         onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-        placeholder="Story title"
+        placeholder={`${noun.charAt(0).toUpperCase()}${noun.slice(1)} title`}
         className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-oak/50 flex-1 min-w-[12rem]"
       />
       <input
@@ -334,7 +334,7 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
           ))}
         </div>
       ) : (
-        <p className="text-xs text-neutral-600 mb-3">No stories logged yet.</p>
+        <p className="text-xs text-neutral-600 mb-3">No {noun === 'story' ? 'stories' : 'entries'} logged yet.</p>
       )}
       {adding ? (
         <form onSubmit={handleAdd} className="flex flex-wrap items-center gap-2">
@@ -344,7 +344,7 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
         </form>
       ) : (
         <button onClick={startAdd} className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors">
-          + Add story
+          + Add {noun}
         </button>
       )}
       {error && <p className="text-xs text-warn mt-2">{error}</p>}
