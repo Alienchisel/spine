@@ -79,12 +79,7 @@ export default function ProgressSection({ book, onChange, log }) {
     try {
       const updated = await api.patchBook(book.id, patchData);
       onChange(updated);
-      const newPct = isAudiobook
-        ? (updated.duration_minutes && updated.current_minutes != null
-            ? Math.min(100, Math.round((updated.current_minutes / updated.duration_minutes) * 100)) : null)
-        : (updated.page_count && updated.current_page != null
-            ? Math.min(100, Math.round((updated.current_page / updated.page_count) * 100)) : null);
-      const inputs = syncProgressInputs({ book: updated, isAudiobook, mode, pct: newPct });
+      const inputs = syncProgressInputs({ book: updated, isAudiobook, mode, pct: progressDerived(updated).pct });
       setInputVal(inputs.inputVal);
       setInputH(inputs.inputH);
       setInputM(inputs.inputM);
