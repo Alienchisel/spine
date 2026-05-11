@@ -92,6 +92,14 @@ export function formStateToPayload(form, { tagInput, narratorInput, authorInput,
     out[f] = form[f] === '' || form[f] == null ? null : parseFloat(form[f]);
   }
 
+  // Year 0 doesn't exist on the proleptic Gregorian calendar — the backend
+  // rejects it ('Invalid publication year' / 'Invalid edition year'). The
+  // HTML5 number input allows 0 between min=-9999 and max=9999, so coerce
+  // here rather than round-trip the user's typo as a server error.
+  for (const f of ['year_published', 'year_edition']) {
+    if (out[f] === 0) out[f] = null;
+  }
+
   // year_approximate is only meaningful when year_edition is set.
   out.year_approximate = form.year_edition ? form.year_approximate : false;
 
