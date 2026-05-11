@@ -470,13 +470,17 @@ export default function BookDetail() {
                 </span>
               ) : null}
             </h1>
-            <Link
-              to={`/books/${book.id}/edit`}
-              state={navState}
-              className="text-sm text-neutral-500 hover:text-neutral-200 transition-colors flex-shrink-0 pt-1"
-            >
-              Edit
-            </Link>
+            <div className="flex items-center gap-2 flex-shrink-0 pt-1">
+              <span className="text-xs text-neutral-700 tabular-nums" title="Book ID">#{book.id}</span>
+              <span className="text-neutral-800">·</span>
+              <Link
+                to={`/books/${book.id}/edit`}
+                state={navState}
+                className="text-sm text-neutral-500 hover:text-neutral-200 transition-colors"
+              >
+                Edit
+              </Link>
+            </div>
           </div>
           {book.authors?.length > 0 && (
             <p className="text-neutral-400 text-base mb-5">
