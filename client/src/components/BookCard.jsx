@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { realTagNames, formatAuthors } from '../utils.js';
-import { getModeKey, initialProgressMode, computeProgressPatch } from './progressMode.js';
+import { getModeKey, initialProgressMode, computeProgressPatch, syncProgressInputs } from './progressMode.js';
 import ListPicker from './ListPicker.jsx';
 import StarRating from './StarRating.jsx';
 
@@ -77,16 +77,6 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
         ? Math.min(100, Math.round((book.current_page / book.page_count) * 100))
         : null);
 
-  // For 'remaining' mode the h/m inputs represent time-remaining; we
-  // convert to/from current_minutes at the input/submit boundary.
-  function audioMinutesForMode(m, b) {
-    if (b.current_minutes == null) return null;
-    if (m === 'remaining') {
-      if (!b.duration_minutes) return null;
-      return Math.max(0, b.duration_minutes - b.current_minutes);
-    }
-    return b.current_minutes;
-  }
 
   // Re-clamp the persisted mode when the book's format or totals change
   // out from under us at runtime — e.g., format toggled physical→audiobook,
@@ -105,30 +95,20 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
     const next = initialProgressMode(localStorage.getItem(getModeKey(book.id)) ?? mode, isAudiobook, hasPct);
     if (next === mode) return;
     setMode(next);
-    if (next === 'pct') {
-      setInputVal(pct !== null ? String(pct) : '');
-    } else if (isAudiobook) {
-      const mins = audioMinutesForMode(next, book);
-      setInputH(mins != null ? String(Math.floor(mins / 60)) : '');
-      setInputM(mins != null ? String(mins % 60) : '');
-    } else {
-      setInputVal(book.current_page != null ? String(book.current_page) : '');
-    }
+    const inputs = syncProgressInputs({ book, isAudiobook, mode: next, pct });
+    setInputVal(inputs.inputVal);
+    setInputH(inputs.inputH);
+    setInputM(inputs.inputM);
   }, [isAudiobook, hasPct, book.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function toggleEditor(e) {
     e.preventDefault();
     if (open) { setOpen(false); return; }
     setError(null);
-    if (mode === 'pct') {
-      setInputVal(pct !== null ? String(pct) : '');
-    } else if (isAudiobook) {
-      const mins = audioMinutesForMode(mode, book);
-      setInputH(mins != null ? String(Math.floor(mins / 60)) : '');
-      setInputM(mins != null ? String(mins % 60) : '');
-    } else {
-      setInputVal(book.current_page != null ? String(book.current_page) : '');
-    }
+    const inputs = syncProgressInputs({ book, isAudiobook, mode, pct });
+    setInputVal(inputs.inputVal);
+    setInputH(inputs.inputH);
+    setInputM(inputs.inputM);
     setOpen(true);
     setTimeout(() => inputRef.current?.select(), 0);
   }
@@ -137,15 +117,10 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
     setError(null);
     setMode(m);
     localStorage.setItem(getModeKey(book.id), m);
-    if (m === 'pct') {
-      setInputVal(pct !== null ? String(pct) : '');
-    } else if (isAudiobook) {
-      const mins = audioMinutesForMode(m, book);
-      setInputH(mins != null ? String(Math.floor(mins / 60)) : '');
-      setInputM(mins != null ? String(mins % 60) : '');
-    } else {
-      setInputVal(book.current_page != null ? String(book.current_page) : '');
-    }
+    const inputs = syncProgressInputs({ book, isAudiobook, mode: m, pct });
+    setInputVal(inputs.inputVal);
+    setInputH(inputs.inputH);
+    setInputM(inputs.inputM);
   }
 
   const isHMMode = isAudiobook && (mode === 'min' || mode === 'remaining');

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { api } from '../../api.js';
 import { computeEta } from './eta.js';
-import { getModeKey, initialProgressMode, computeProgressPatch } from '../progressMode.js';
+import { getModeKey, initialProgressMode, computeProgressPatch, syncProgressInputs } from '../progressMode.js';
 
 export default function ProgressSection({ book, onChange, log }) {
   const isAudiobook = book.format === 'audiobook';
@@ -45,57 +45,24 @@ export default function ProgressSection({ book, onChange, log }) {
     const next = initialProgressMode(localStorage.getItem(modeKey) ?? mode, isAudiobook, hasPct);
     if (next === mode) return;
     setMode(next);
-    if (next === 'pct') {
-      setInputVal(pct !== null ? String(pct) : '');
-    } else if (isAudiobook) {
-      const mins = audioMinutesForMode(next, book);
-      setInputH(mins != null ? String(Math.floor(mins / 60)) : '');
-      setInputM(mins != null ? String(mins % 60) : '');
-    } else {
-      setInputVal(book.current_page != null ? String(book.current_page) : '');
-    }
+    const inputs = syncProgressInputs({ book, isAudiobook, mode: next, pct });
+    setInputVal(inputs.inputVal);
+    setInputH(inputs.inputH);
+    setInputM(inputs.inputM);
   }, [isAudiobook, hasPct, modeKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // For the 'remaining' mode, the h/m inputs represent time-remaining; we
-  // convert to/from current_minutes at the input/submit boundary.
-  function audioMinutesForMode(m, b) {
-    if (b.current_minutes == null) return null;
-    if (m === 'remaining') {
-      if (!b.duration_minutes) return null;
-      return Math.max(0, b.duration_minutes - b.current_minutes);
-    }
-    return b.current_minutes;
-  }
-
-  const rawVal = () => {
-    if (mode === 'pct') return pct !== null ? String(pct) : '';
-    if (isAudiobook) return '';
-    return book.current_page != null ? String(book.current_page) : '';
-  };
-  const [inputVal, setInputVal] = useState(rawVal);
-  const [inputH, setInputH] = useState(() => {
-    if (!isAudiobook || mode === 'pct') return '';
-    const mins = audioMinutesForMode(mode, book);
-    return mins != null ? String(Math.floor(mins / 60)) : '';
-  });
-  const [inputM, setInputM] = useState(() => {
-    if (!isAudiobook || mode === 'pct') return '';
-    const mins = audioMinutesForMode(mode, book);
-    return mins != null ? String(mins % 60) : '';
-  });
+  const _initial = syncProgressInputs({ book, isAudiobook, mode, pct });
+  const [inputVal, setInputVal] = useState(_initial.inputVal);
+  const [inputH, setInputH] = useState(_initial.inputH);
+  const [inputM, setInputM] = useState(_initial.inputM);
 
   function changeMode(m) {
     setMode(m);
     localStorage.setItem(modeKey, m);
-    if (m === 'pct') {
-      setInputVal(pct !== null ? String(pct) : '');
-    } else if (isAudiobook) {
-      const mins = audioMinutesForMode(m, book);
-      setInputH(mins != null ? String(Math.floor(mins / 60)) : '');
-      setInputM(mins != null ? String(mins % 60) : '');
-    } else {
-      setInputVal(book.current_page != null ? String(book.current_page) : '');
-    }
+    const inputs = syncProgressInputs({ book, isAudiobook, mode: m, pct });
+    setInputVal(inputs.inputVal);
+    setInputH(inputs.inputH);
+    setInputM(inputs.inputM);
   }
 
   const isHMMode = isAudiobook && mode !== 'pct';
@@ -132,15 +99,10 @@ export default function ProgressSection({ book, onChange, log }) {
             ? Math.min(100, Math.round((updated.current_minutes / updated.duration_minutes) * 100)) : null)
         : (updated.page_count && updated.current_page != null
             ? Math.min(100, Math.round((updated.current_page / updated.page_count) * 100)) : null);
-      if (mode === 'pct') {
-        setInputVal(newPct !== null ? String(newPct) : '');
-      } else if (isAudiobook) {
-        const mins = audioMinutesForMode(mode, updated);
-        setInputH(mins != null ? String(Math.floor(mins / 60)) : '');
-        setInputM(mins != null ? String(mins % 60) : '');
-      } else {
-        setInputVal(updated.current_page != null ? String(updated.current_page) : '');
-      }
+      const inputs = syncProgressInputs({ book: updated, isAudiobook, mode, pct: newPct });
+      setInputVal(inputs.inputVal);
+      setInputH(inputs.inputH);
+      setInputM(inputs.inputM);
     } catch {
       setError('Failed to save');
     } finally {

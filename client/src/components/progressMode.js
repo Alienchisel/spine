@@ -34,6 +34,42 @@ export function initialProgressMode(saved, isAudiobook, hasPct) {
   return isAudiobook ? 'min' : 'page';
 }
 
+// For the 'remaining' mode, the h/m inputs represent time-remaining;
+// we convert to/from current_minutes at the input/submit boundary.
+export function audioMinutesForMode(mode, book) {
+  if (book.current_minutes == null) return null;
+  if (mode === 'remaining') {
+    if (!book.duration_minutes) return null;
+    return Math.max(0, book.duration_minutes - book.current_minutes);
+  }
+  return book.current_minutes;
+}
+
+// Compute the three input strings (inputVal / inputH / inputM) for a
+// given book + mode combo. Unused-for-this-mode fields come back as
+// '' so callers can unconditionally setInputVal / setInputH / setInputM
+// without per-mode branching. Used by both BookCard and ProgressSection
+// on mode change, editor open, mode-invalidation effect, and post-save
+// resync — six identical blocks before extraction.
+export function syncProgressInputs({ book, isAudiobook, mode, pct }) {
+  if (mode === 'pct') {
+    return { inputVal: pct !== null ? String(pct) : '', inputH: '', inputM: '' };
+  }
+  if (isAudiobook) {
+    const mins = audioMinutesForMode(mode, book);
+    return {
+      inputVal: '',
+      inputH: mins != null ? String(Math.floor(mins / 60)) : '',
+      inputM: mins != null ? String(mins % 60) : '',
+    };
+  }
+  return {
+    inputVal: book.current_page != null ? String(book.current_page) : '',
+    inputH: '',
+    inputM: '',
+  };
+}
+
 // Normalise a progress-input submission into a PATCH body. Both
 // BookCard and bookDetail/ProgressSection have the same submit
 // shape (4 modes × audiobook/page) — keeping the math here lets the
