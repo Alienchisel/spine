@@ -287,6 +287,7 @@ export default function BookForm() {
       const coverGen = ++coverActionGenRef.current;
       setCoverError(null);
       setCoverPreview(result.cover_url);
+      setUploading(true);
       try {
         const { path } = await api.fetchCover(result.cover_url);
         if (gen !== lookupApplyGenRef.current || coverGen !== coverActionGenRef.current) return;
@@ -302,6 +303,7 @@ export default function BookForm() {
         setCoverError('Could not save lookup cover. Choose or paste another image.');
       } finally {
         coverActionRef.current = false;
+        if (coverGen === coverActionGenRef.current) setUploading(false);
       }
     }
   }
