@@ -4,7 +4,6 @@ import { api } from '../api.js';
 import { realTagNames, formatAuthors } from '../utils.js';
 import { getModeKey, initialProgressMode, computeProgressPatch, syncProgressInputs, progressDerived, clampMinutes } from './progressMode.js';
 import ListPicker from './ListPicker.jsx';
-import StarRating from './StarRating.jsx';
 
 const STATUS_BAR = {
   reading:  'bg-oak',
@@ -37,14 +36,12 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
-  const [ratingPrompt, setRatingPrompt] = useState(false);
   const inputRef = useRef(null);
   const formRef = useRef(null);
   // Bumped on every rating click so a slower-resolving earlier PUT can't
   // setBook over a faster-resolving later PUT (e.g. user clicks 5 then 3
   // and the 5 response lands last). Local-UI scoped — server-side last-
   // write-wins is unaffected and could still differ in edge cases.
-  const ratingSeqRef = useRef(0);
   // `saving` (React state) drives the disabled UI but doesn't commit until
   // the next render — so two synchronous submit calls in the same tick
   // (Enter-key autorepeat, programmatic dispatch) both see saving === false
@@ -213,26 +210,6 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
     }
   }
 
-  async function handleRate(rating) {
-    setError(null);
-    const seq = ++ratingSeqRef.current;
-    try {
-      // Only forward `tags` if the parent actually loaded them onto the book
-      // prop. Sending `tags: []` when we don't know the real tags would wipe
-      // them; omitting the key tells the backend to leave them untouched.
-      const payload = { ...book, rating };
-      if (book.tags !== undefined) payload.tags = realTagNames(book.tags);
-      const rated = await api.updateBook(book.id, payload);
-      if (seq !== ratingSeqRef.current) return;
-      setBook(rated);
-      onProgressUpdate?.(rated);
-      setRatingPrompt(false);
-    } catch {
-      if (seq !== ratingSeqRef.current) return;
-      setError('Failed to save rating');
-    }
-  }
-
   function handleKeyDown(e) {
     if (e.key === 'Escape') setOpen(false);
   }
@@ -379,23 +356,8 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
           breathing room from the cover bottom now that the under-cover
           title/author labels are gone — without the buffer the rating
           prompt and progress editor sit flush against the cover edge. */}
-      {!compact && error && !ratingPrompt && !open && (
+      {!compact && error && !open && (
         <p className="text-xs text-warn mt-2">{error}</p>
-      )}
-
-      {!compact && ratingPrompt && (
-        <div className="mt-2">
-          <div className="flex items-center gap-2">
-            <StarRating value={null} onChange={handleRate} />
-            <button
-              onClick={() => setRatingPrompt(false)}
-              className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors"
-            >
-              skip
-            </button>
-          </div>
-          {error && <p className="text-xs text-warn mt-0.5">{error}</p>}
-        </div>
       )}
 
       {!compact && book.status === 'reading' && (
