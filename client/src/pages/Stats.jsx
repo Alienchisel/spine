@@ -562,7 +562,14 @@ export default function Stats() {
           <Section title="Top authors">
             <div className="space-y-2.5">
               {topAuthors.map(a => (
-                <Bar key={a.author} label={a.author} count={a.count} max={maxAuthor} color="bg-binding" href={`/browse/author/${encodeURIComponent(a.author)}`} />
+                <Bar
+                  key={a.author_id ?? a.author}
+                  label={a.aliases_count > 0 ? `${a.author} +${a.aliases_count}` : a.author}
+                  count={a.count}
+                  max={maxAuthor}
+                  color="bg-binding"
+                  href={a.author_id ? `/authors/${a.author_id}` : `/browse/author/${encodeURIComponent(a.author)}`}
+                />
               ))}
             </div>
           </Section>
