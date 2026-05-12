@@ -743,7 +743,12 @@ export default function BookDetail() {
           )}
 
           {logError && <p className="text-xs text-warn mb-2">{logError}</p>}
-          <ReadingLog log={log} isAudiobook={book.format === 'audiobook'} />
+          <ReadingLog
+            log={log}
+            isAudiobook={book.format === 'audiobook'}
+            status={book.status}
+            pageCount={book.page_count}
+          />
 
           <div className="mt-8 pt-6 border-t border-neutral-800/60">
             <button
