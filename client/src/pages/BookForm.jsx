@@ -427,7 +427,7 @@ export default function BookForm() {
     // loadError / loadingBook cases are load-bearing: submitting during the
     // edit-load gap PUTs FORM_DEFAULTS over the real book, which is the
     // data-loss path we already plugged at the button level.
-    if (savingRef.current || saving || uploading || loadingBook || loadError) return;
+    if (savingRef.current || saving || uploading || fetchingCover || loadingBook || loadError) return;
     if (!form.title.trim()) { setActiveTab('core'); return; }
     savingRef.current = true;
     setSaving(true);
@@ -566,7 +566,7 @@ export default function BookForm() {
         <button
           form="book-form"
           type="submit"
-          disabled={saving || uploading || !!loadError || loadingBook}
+          disabled={saving || uploading || fetchingCover || !!loadError || loadingBook}
           className="ml-auto bg-oak hover:bg-leather active:scale-[0.98] disabled:opacity-40 text-neutral-950 font-semibold px-6 py-2 rounded-md transition-[transform,background-color] ease-out duration-150 text-sm"
         >
           {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add to library'}
