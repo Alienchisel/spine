@@ -482,18 +482,51 @@ export default function BookDetail() {
               </Link>
             </div>
           </div>
-          {book.authors?.length > 0 && (
-            <p className="text-neutral-400 text-base mb-5">
-              {book.authors.map((a, i) => (
-                <span key={a.id}>
-                  {i > 0 && <span className="text-neutral-600">{i === book.authors.length - 1 ? ' & ' : ', '}</span>}
-                  <Link to={`/browse/author/${encodeURIComponent(a.name)}`} state={bookFromState} className="hover:text-neutral-200 transition-colors">
-                    {a.name}
-                  </Link>
-                </span>
-              ))}
-            </p>
-          )}
+          {(() => {
+            // Pen-name aliases: same person, different byline. The
+            // "also writes as" line surfaces here so a Bronze Age
+            // Pervert page links to a Costin Alamariu page (and vice
+            // versa) without forcing one canonical name.
+            const seenIds = new Set(book.authors?.map(a => a.id) || []);
+            const aliases = [];
+            for (const a of book.authors || []) {
+              for (const al of a.aliases || []) {
+                if (seenIds.has(al.id)) continue;
+                seenIds.add(al.id);
+                aliases.push(al);
+              }
+            }
+            const bylineMb = aliases.length ? 'mb-1' : 'mb-5';
+            return (
+              <>
+                {book.authors?.length > 0 && (
+                  <p className={`text-neutral-400 text-base ${bylineMb}`}>
+                    {book.authors.map((a, i) => (
+                      <span key={a.id}>
+                        {i > 0 && <span className="text-neutral-600">{i === book.authors.length - 1 ? ' & ' : ', '}</span>}
+                        <Link to={`/browse/author/${encodeURIComponent(a.name)}`} state={bookFromState} className="hover:text-neutral-200 transition-colors">
+                          {a.name}
+                        </Link>
+                      </span>
+                    ))}
+                  </p>
+                )}
+                {aliases.length > 0 && (
+                  <p className="text-neutral-600 text-xs mb-5">
+                    also writes as{' '}
+                    {aliases.map((a, i) => (
+                      <span key={a.id}>
+                        {i > 0 && (i === aliases.length - 1 ? ' & ' : ', ')}
+                        <Link to={`/browse/author/${encodeURIComponent(a.name)}`} state={bookFromState} className="hover:text-neutral-400 transition-colors">
+                          {a.name}
+                        </Link>
+                      </span>
+                    ))}
+                  </p>
+                )}
+              </>
+            );
+          })()}
 
           {seriesError && (
             <p className="text-xs text-warn mb-5 -mt-2">{seriesError}</p>

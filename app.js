@@ -3,6 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import booksRouter from './routes/books.js';
+import authorsRouter from './routes/authors.js';
 import uploadsRouter from './routes/uploads.js';
 import searchRouter from './routes/search.js';
 import readlistRouter from './routes/readlist.js';
@@ -19,6 +20,7 @@ app.use(express.json({ limit: '1mb' }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.use('/api/books', booksRouter);
+app.use('/api/authors', authorsRouter);
 app.use('/api/upload', uploadsRouter);
 app.use('/api/search', searchRouter);
 app.use('/api/readlist', readlistRouter);
