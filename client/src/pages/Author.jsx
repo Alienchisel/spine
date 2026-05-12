@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useParams, useLocation, Link } from 'react-router-dom';
+import { useParams, useLocation, useNavigate, Link } from 'react-router-dom';
 import { api } from '../api.js';
 import BookCard from '../components/BookCard.jsx';
 
@@ -11,8 +11,8 @@ import BookCard from '../components/BookCard.jsx';
 export default function Author() {
   const { id }       = useParams();
   const { state, pathname } = useLocation();
+  const navigate     = useNavigate();
   const backLabel    = state?.from ? `← ${state.from}` : '← Library';
-  const backPath     = state?.fromPath ?? '/';
 
   const [author, setAuthor] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -43,9 +43,23 @@ export default function Author() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
-      <Link to={backPath} state={state} className="text-sm text-neutral-500 hover:text-neutral-200 transition-colors">
-        {backLabel}
-      </Link>
+      {/*
+        Back: use browser history (navigate(-1)) so re-visiting an earlier
+        page restores its original state (incl. its own back-link label),
+        instead of clobbering it with the current page's state. Without
+        this, looping through alias pages (A → B → A) leaves the back-link
+        on A stuck pointing at B even after returning. Falls back to
+        Link to="/" when there's no in-app referrer (deep-link arrivals).
+      */}
+      {state?.from ? (
+        <button type="button" onClick={() => navigate(-1)} className="text-sm text-neutral-500 hover:text-neutral-200 transition-colors">
+          {backLabel}
+        </button>
+      ) : (
+        <Link to="/" className="text-sm text-neutral-500 hover:text-neutral-200 transition-colors">
+          {backLabel}
+        </Link>
+      )}
 
       <div className="mt-6 mb-8">
         <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1">Author</p>
