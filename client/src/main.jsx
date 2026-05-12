@@ -6,6 +6,7 @@ import Library from './pages/Library.jsx';
 import BookDetail from './pages/BookDetail.jsx';
 import BookForm from './pages/BookForm.jsx';
 import BrowsePage from './pages/BrowsePage.jsx';
+import Author from './pages/Author.jsx';
 import Readlist from './pages/Readlist.jsx';
 import Loved from './pages/Loved.jsx';
 import Lists from './pages/Lists.jsx';
@@ -33,6 +34,7 @@ const router = createBrowserRouter(
       <Route path="books/:id"             element={<BookDetail />} />
       <Route path="books/:id/edit"        element={<BookForm />} />
       <Route path="browse/:field/:value"  element={<BrowsePage />} />
+      <Route path="authors/:id"           element={<Author />} />
       <Route path="readlist"              element={<Readlist />} />
       <Route path="loved"                 element={<Loved />} />
       <Route path="lists"                 element={<Lists />} />

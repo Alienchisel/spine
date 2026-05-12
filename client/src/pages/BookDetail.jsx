@@ -504,7 +504,7 @@ export default function BookDetail() {
                     {book.authors.map((a, i) => (
                       <span key={a.id}>
                         {i > 0 && <span className="text-neutral-600">{i === book.authors.length - 1 ? ' & ' : ', '}</span>}
-                        <Link to={`/browse/author/${encodeURIComponent(a.name)}`} state={bookFromState} className="hover:text-neutral-200 transition-colors">
+                        <Link to={`/authors/${a.id}`} state={bookFromState} className="hover:text-neutral-200 transition-colors">
                           {a.name}
                         </Link>
                       </span>
@@ -517,7 +517,7 @@ export default function BookDetail() {
                     {aliases.map((a, i) => (
                       <span key={a.id}>
                         {i > 0 && (i === aliases.length - 1 ? ' & ' : ', ')}
-                        <Link to={`/browse/author/${encodeURIComponent(a.name)}`} state={bookFromState} className="hover:text-neutral-400 transition-colors">
+                        <Link to={`/authors/${a.id}`} state={bookFromState} className="hover:text-neutral-400 transition-colors">
                           {a.name}
                         </Link>
                       </span>
