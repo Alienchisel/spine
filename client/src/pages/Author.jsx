@@ -16,15 +16,22 @@ export default function Author() {
 
   const [author, setAuthor] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState(false);
+  // 'notfound' for a 404 (author id has no row), 'fetch' for any other
+  // failure. Distinguished so the body can show a tailored message
+  // instead of conflating "this author doesn't exist" with "the request
+  // failed — please retry".
+  const [errorKind, setErrorKind] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    setFetchError(false);
+    setErrorKind(null);
     api.getAuthor(id)
       .then(data => { if (!cancelled) setAuthor(data); })
-      .catch(() => { if (!cancelled) setFetchError(true); })
+      .catch(err => {
+        if (cancelled) return;
+        setErrorKind(err?.status === 404 ? 'notfound' : 'fetch');
+      })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [id]);
@@ -42,7 +49,7 @@ export default function Author() {
 
       <div className="mt-6 mb-8">
         <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1">Author</p>
-        <h1 className="text-2xl font-bold text-white">{author?.name ?? (loading ? ' ' : 'Author not found')}</h1>
+        <h1 className="text-2xl font-bold text-white">{author?.name ?? (loading || errorKind === 'fetch' ? ' ' : 'Author not found')}</h1>
         {author?.aliases?.length > 0 && (
           <p className="text-neutral-600 text-xs mt-1">
             also writes as{' '}
@@ -63,11 +70,12 @@ export default function Author() {
 
       {loading ? (
         <div className="text-neutral-700 text-sm">Loading…</div>
-      ) : fetchError ? (
+      ) : errorKind === 'fetch' ? (
         <div className="text-center py-32">
           <p className="text-neutral-600">Failed to load author. Please try again.</p>
         </div>
-      ) : !author?.books?.length ? (
+      ) : errorKind === 'notfound' ? null
+      : !author?.books?.length ? (
         <div className="text-neutral-600 text-sm">No books found.</div>
       ) : (
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-3 gap-y-5 items-start">
