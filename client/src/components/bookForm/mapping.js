@@ -48,7 +48,6 @@ export function bookToFormState(book) {
     binding: book.binding || '',
     condition: book.condition || '',
     page_count: book.page_count ?? '',
-    current_page: book.current_page ?? '',
     duration_minutes: book.duration_minutes ?? '',
     narrators: book.narrators?.map(n => n.name) || [],
     notes: book.notes || '',

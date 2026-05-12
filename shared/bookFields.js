@@ -5,7 +5,7 @@
 // Integer-valued fields edited via <input type="number">. Form holds them as
 // strings ('' when blank) and they are parseInt'd on submit.
 export const INTEGER_FIELDS = [
-  'page_count', 'duration_minutes', 'current_page',
+  'page_count', 'duration_minutes',
   'year_published', 'year_edition',
 ];
 
@@ -33,7 +33,7 @@ export const FORM_DEFAULTS = Object.freeze({
   fiction: null,
 
   // Integer/float number inputs render '' when blank.
-  page_count: '', duration_minutes: '', current_page: '',
+  page_count: '', duration_minutes: '',
   year_published: '', year_edition: '',
   series_number: '',
 
@@ -59,7 +59,7 @@ export const FORM_DEFAULTS = Object.freeze({
 // Virtual tags computed from book fields (never stored). The frontend uses
 // this list to filter out virtual names from past-tag suggestions.
 // Keep in sync with VIRTUAL_TAG_RULES in lib/books/filters.js.
-export const VIRTUAL_TAG_NAMES = ['Antique', 'Vintage', 'Translated', 'Re-read', 'Abridged', 'Long', 'Short'];
+export const VIRTUAL_TAG_NAMES = Object.freeze(['Antique', 'Vintage', 'Translated', 'Re-read', 'Abridged', 'Long', 'Short']);
 
 // Valid values for each enum field. Single source of truth for both backend
 // validation and the form's <select> options.
