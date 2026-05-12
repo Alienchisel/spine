@@ -4,13 +4,13 @@
 
 // Integer-valued fields edited via <input type="number">. Form holds them as
 // strings ('' when blank) and they are parseInt'd on submit.
-export const INTEGER_FIELDS = [
+export const INTEGER_FIELDS = Object.freeze([
   'page_count', 'duration_minutes',
   'year_published', 'year_edition',
-];
+]);
 
 // Float-valued field. Same form behaviour as integers but parseFloat on submit.
-export const FLOAT_FIELDS = ['series_number'];
+export const FLOAT_FIELDS = Object.freeze(['series_number']);
 
 // Default form state. Values are chosen to make the BookForm render cleanly
 // for a fresh book; see comments per group for the rationale.
