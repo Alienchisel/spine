@@ -63,7 +63,7 @@ export function clampMinutes(val) {
 
 // For the 'remaining' mode, the h/m inputs represent time-remaining;
 // we convert to/from current_minutes at the input/submit boundary.
-export function audioMinutesForMode(mode, book) {
+function audioMinutesForMode(mode, book) {
   if (book.current_minutes == null) return null;
   if (mode === 'remaining') {
     if (!book.duration_minutes) return null;
