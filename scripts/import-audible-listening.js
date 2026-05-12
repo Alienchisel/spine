@@ -8,8 +8,11 @@
 //
 // Each CSV row is a single listening session. We group by (ASIN, Start Date),
 // sum Event Duration Milliseconds, convert to minutes, and upsert into the
-// reading_log table — using Spine's existing ON CONFLICT(book_id, date) DO
-// UPDATE semantics so re-running is idempotent.
+// reading_log table — using Spine's existing ON CONFLICT(book_id, date)
+// WHERE story_id IS NULL DO UPDATE semantics so re-running is idempotent.
+// The WHERE clause is mandatory: reading_log's uniqueness is a partial
+// index (book_id, date) WHERE story_id IS NULL, and SQLite refuses an
+// ON CONFLICT target that omits the matching predicate.
 //
 // Filtering: events shorter than `--min-event-seconds` (default 60) are
 // dropped before grouping. This excludes the accidental taps and brief
@@ -164,7 +167,7 @@ if (!apply) {
 const upsert = db.prepare(`
   INSERT INTO reading_log (book_id, date, pages_read, minutes_read)
   VALUES (?, ?, 0, ?)
-  ON CONFLICT(book_id, date) DO UPDATE SET
+  ON CONFLICT(book_id, date) WHERE story_id IS NULL DO UPDATE SET
     minutes_read = excluded.minutes_read
 `);
 
