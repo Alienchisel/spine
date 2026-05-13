@@ -378,6 +378,12 @@ export default function BookForm() {
     }
 
     function handlePaste(e) {
+      // Mirror the picker-button disabled state: a paste while a cover
+      // upload/fetch is in flight would parse the clipboard and dispatch
+      // to uploadFile / fetchAndSetCover, which then silently no-op
+      // because they each check the same ref. Bailing here keeps the
+      // lock contract visible at every entry point.
+      if (coverActionRef.current) return;
       const items = Array.from(e.clipboardData?.items || []);
 
       // Binary image data — highest priority
