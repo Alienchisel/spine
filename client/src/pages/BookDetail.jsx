@@ -21,12 +21,32 @@ const STATUS_COLOR = {
   unread:   'text-neutral-400 bg-neutral-800',
 };
 
+// Same-origin Library referrer (any URL on this origin that starts at
+// `/?` or is exactly `/`). Used to recover the filtered Library view
+// when the user opened this BookDetail in a new tab — location.state
+// doesn't transmit through new tabs but document.referrer does.
+function libraryReferrerPath() {
+  if (typeof document === 'undefined' || !document.referrer) return null;
+  try {
+    const ref = new URL(document.referrer);
+    if (ref.origin !== window.location.origin) return null;
+    if (ref.pathname !== '/') return null;
+    return ref.pathname + ref.search;
+  } catch {
+    return null;
+  }
+}
+
 export default function BookDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { state: navState } = useLocation();
   const backLabel = navState?.from ?? 'Library';
-  const backPath  = navState?.fromPath ?? '/';
+  // navState wins (same-tab navigation carries the exact Library URL
+  // we came from); document.referrer is the fallback for new-tab
+  // opens where location.state is lost. Default to '/' if neither
+  // applies (direct deep link / bookmark / typed URL).
+  const backPath  = navState?.fromPath ?? libraryReferrerPath() ?? '/';
   const confirm = useConfirm();
   const [book, setBook] = useState(null);
   const [loading, setLoading] = useState(true);

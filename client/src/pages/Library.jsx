@@ -21,7 +21,8 @@ import BookCard from '../components/BookCard.jsx';
 import FilterPanel from '../components/FilterPanel.jsx';
 import SearchHelp from '../components/SearchHelp.jsx';
 import SeriesCard from '../components/library/SeriesCard.jsx';
-import { EMPTY_FILTERS, normalizeFilters, countFilters, pruneFilters, buildApiParams } from '../components/library/filters.js';
+import { EMPTY_FILTERS, countFilters, pruneFilters, buildApiParams } from '../components/library/filters.js';
+import { paramsToFilters, writeFiltersToParams } from '../components/library/urlState.js';
 import { buildDisplayItems, sortVolumes } from '../components/library/grouping.js';
 import { useGridCols, COMFORTABLE_BPS, COMPACT_BPS } from '../hooks/useGridCols.js';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
@@ -37,7 +38,10 @@ const TABS = [
   { key: 'archived',    label: 'Archived' },
 ];
 
-const SESSION_KEY = 'spine-library-state';
+// localStorage holds only UI preferences that aren't part of "this
+// view": per-tab sort memory, grid density, filter-panel open state.
+// View state (tab/sort/query/filters) lives in the URL — see urlState.js.
+const PREFS_KEY = 'spine-library-prefs';
 
 const SORTS = [
   { key: 'updated',     label: 'Recently updated' },
@@ -79,8 +83,8 @@ const GRID = {
   compact:     'grid grid-cols-6 sm:grid-cols-9 md:grid-cols-12 gap-0.5 items-start',
 };
 
-function getSaved() {
-  try { return JSON.parse(sessionStorage.getItem(SESSION_KEY)) ?? {}; }
+function getPrefs() {
+  try { return JSON.parse(localStorage.getItem(PREFS_KEY)) ?? {}; }
   catch { return {}; }
 }
 
@@ -132,70 +136,62 @@ function SortableBookCard({ book, compact }) {
 const VALID_TABS = new Set(['reading', 'finished', 'unread', 'owned', 'prev_owned', 'never_owned', 'all', 'archived']);
 
 export default function Library() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const prefs = getPrefs();
+
+  // ── URL-derived view state (tab/sort/query/filters) ────────────────
+  // tab/sort/query/filters all derive from searchParams. setters mutate
+  // the URL, which triggers a re-render with the new values. The URL is
+  // the single source of truth so refreshes preserve state and the
+  // current location.search round-trips back to the same view.
   const urlTab = searchParams.get('tab');
-  const saved = getSaved();
+  const tab = (urlTab && VALID_TABS.has(urlTab)) ? urlTab : 'reading';
+  const query = searchParams.get('q') || '';
+  const filters = useMemo(() => paramsToFilters(searchParams), [searchParams]);
 
-  // Validate saved.tab the same way as urlTab — stale sessionStorage from
-  // before a tab was retired (e.g. 'paused' after the status-taxonomy cleanup)
-  // would otherwise land in tab state, leave the tab strip with no item
-  // highlighted, and ship an invalid tab into buildApiParams.
-  const [tab,         setTab]         = useState(() => {
-    if (urlTab && VALID_TABS.has(urlTab)) return urlTab;
-    if (VALID_TABS.has(saved.tab))        return saved.tab;
-    return 'reading';
-  });
-  // typeof guards on persisted state mirror the VALID_TABS / typeof-object
-  // patterns elsewhere in this hydration block. Spine itself never writes
-  // a non-string query or non-boolean filtersOpen, but a stale blob from
-  // a future schema change or hand-edited storage could otherwise land
-  // an object as the search box's value (renders as "[object Object]")
-  // or set filtersOpen to a truthy non-boolean.
-  const savedQuery = typeof saved.query === 'string' ? saved.query : '';
-  const [queryRaw,    setQueryRaw]    = useState(() => savedQuery);
-  const [query,       setQuery]       = useState(() => savedQuery);
-  const [filtersOpen, setFiltersOpen] = useState(() => typeof saved.filtersOpen === 'boolean' ? saved.filtersOpen : false);
-  const [filters,     setFilters]     = useState(() => {
-    // normalizeFilters drops anything that isn't shaped like a filter
-    // value — guards against a stale sessionStorage blob from before a
-    // future schema change, and against hand-edited storage.
-    const base = normalizeFilters(saved.filters);
-    // Deep-link support: `?custom=true` (used by the Stats Custom tile)
-    // hydrates the FilterPanel's custom chip on initial mount so the user
-    // lands on a Custom-filtered Library view directly. Tab/query don't
-    // need this override because the URL `tab` param is already read
-    // independently above.
-    const customParam = searchParams.get('custom');
-    if (customParam === 'true')  return { ...base, custom: true };
-    if (customParam === 'false') return { ...base, custom: false };
-    return base;
-  });
-  // Per-tab sort memory: each tab earns its own preferred sort. Reading might
-  // sit on 'last_logged' while All sits on 'updated' — switching tabs swaps
-  // the dropdown to that tab's last choice instead of dragging one global
-  // sort across the whole library.
+  // ── Local UI preferences (don't belong in URL) ─────────────────────
+  // Per-tab sort memory in localStorage so switching tabs restores the
+  // tab's last-used sort. Density and filtersOpen are personal display
+  // preferences — also localStorage so they survive across tabs.
   const [sortByTab, setSortByTab] = useState(() => {
-    if (saved.sortByTab && typeof saved.sortByTab === 'object') return saved.sortByTab;
-    // Migrate from the legacy single-sort key so the user's last selection
-    // survives the upgrade. Lands under whichever tab they were on; other
-    // tabs default to 'updated' lazily on first visit.
-    const initialTab = (urlTab && VALID_TABS.has(urlTab)) ? urlTab
-                     : VALID_TABS.has(saved.tab)          ? saved.tab
-                     : 'reading';
-    // Same shape guard as savedQuery / savedFiltersOpen above — a non-
-    // string saved.sort would otherwise land as a sortByTab value and
-    // ship into the API as garbage.
-    return typeof saved.sort === 'string' ? { [initialTab]: saved.sort } : {};
+    return (prefs.sortByTab && typeof prefs.sortByTab === 'object') ? prefs.sortByTab : {};
   });
-  // Whitelist-validate so stale sessionStorage (e.g. legacy 'list' from when
-  // a list view existed) can't yield an undefined GRID[density] className.
-  const [density,     setDensity]     = useState(() => saved.density === 'compact' ? 'compact' : 'comfortable');
+  const [density,     setDensity]     = useState(() => prefs.density === 'compact' ? 'compact' : 'comfortable');
+  const [filtersOpen, setFiltersOpen] = useState(() => typeof prefs.filtersOpen === 'boolean' ? prefs.filtersOpen : false);
 
-  // Read/write the per-tab sort as if it were a single piece of state. The
-  // setter always keys by the *current* tab — switching tabs first then
-  // calling setSort would write to the new tab, which is the right behaviour
-  // since the only call sites set sort *for the tab the user is on*.
-  const sort = sortAllowedForTab(sortByTab[tab], tab);
+  // Sort is URL-encoded but defaults to the per-tab remembered sort
+  // when absent. This preserves the "each tab has its own preferred
+  // sort" feature while keeping bookmark URLs that explicitly set
+  // `?sort=...` authoritative.
+  const urlSort = searchParams.get('sort');
+  const sort = sortAllowedForTab(urlSort || sortByTab[tab], tab);
+
+  // Setters: each one mutates the URL. We keep a useState `queryRaw`
+  // for the search-box value so typing isn't bottlenecked on URL
+  // updates — the debounced effect below writes to the URL.
+  function setTab(value) {
+    const resolved = typeof value === 'function' ? value(tab) : value;
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (resolved === 'reading') next.delete('tab'); else next.set('tab', resolved);
+      // When switching tabs, also re-key sort to the new tab's remembered
+      // sort so the dropdown swaps to that tab's last choice. Strip any
+      // explicit ?sort= from the URL — falling back to sortByTab[newTab]
+      // is the intended behaviour and an explicit param would override
+      // it on every subsequent URL push.
+      next.delete('sort');
+      return next;
+    });
+  }
+  function setFilters(value) {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      const current = paramsToFilters(prev);
+      const resolved = typeof value === 'function' ? value(current) : value;
+      writeFiltersToParams(next, resolved);
+      return next;
+    });
+  }
   // Random-sort seed lives only in component state — refresh re-rolls,
   // which matches the user's mental model of "each session is a fresh
   // shuffle". The die button explicitly re-rolls without reload.
@@ -203,11 +199,20 @@ export default function Library() {
   function setSort(value) {
     const resolved = typeof value === 'function' ? value(sort) : value;
     setSortByTab(prev => ({ ...prev, [tab]: resolved }));
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (resolved === 'updated') next.delete('sort'); else next.set('sort', resolved);
+      return next;
+    });
     // Re-roll on switch INTO random so the user sees a fresh shuffle
     // (otherwise the same seed would carry forward from a prior random
     // tab, which feels stale).
     if (resolved === 'random' && sort !== 'random') setRandomSeed(rollSeed());
   }
+  // Search-box value is kept in local state so each keystroke is
+  // responsive; a 300ms debounce flushes the value to the URL. URL
+  // writes use replace:true so typing doesn't spam the history stack.
+  const [queryRaw, setQueryRaw] = useState(query);
 
   const [books,       setBooks]       = useState([]);
   const [total,       setTotal]       = useState(0);
@@ -269,16 +274,45 @@ export default function Library() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  // Debounce search query
+  // Debounce search query → URL. replace:true so each keystroke
+  // overwrites the URL in history instead of pushing a new entry
+  // (otherwise the back button would step through every character).
   useEffect(() => {
-    const timer = setTimeout(() => setQuery(queryRaw), 300);
+    if (queryRaw === query) return;
+    const timer = setTimeout(() => {
+      setSearchParams(prev => {
+        const next = new URLSearchParams(prev);
+        if (queryRaw) next.set('q', queryRaw); else next.delete('q');
+        return next;
+      }, { replace: true });
+    }, 300);
     return () => clearTimeout(timer);
-  }, [queryRaw]);
+  }, [queryRaw, query, setSearchParams]);
 
-  // Persist UI state
+  // Sync URL → local search-box value. Catches back/forward navigation
+  // and external URL changes; the early-return in the debounce effect
+  // above ensures this doesn't trigger a feedback loop on user typing.
   useEffect(() => {
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ tab, query: queryRaw, filtersOpen, filters, sortByTab, density }));
-  }, [tab, queryRaw, filtersOpen, filters, sortByTab, density]);
+    setQueryRaw(query);
+  }, [query]);
+
+  // Mirror URL-explicit sort into sortByTab so a bookmarked URL like
+  // `/?tab=all&sort=author` registers in per-tab memory. Without this
+  // sync, switching tabs and back would lose the URL-driven sort
+  // because setTab strips ?sort= and the fallback (sortByTab[tab])
+  // would still be empty.
+  useEffect(() => {
+    if (!urlSort) return;
+    if (sortAllowedForTab(urlSort, tab) !== urlSort) return;
+    setSortByTab(prev => prev[tab] === urlSort ? prev : { ...prev, [tab]: urlSort });
+  }, [urlSort, tab]);
+
+  // Persist UI preferences (sort memory, density, filter-panel state)
+  // to localStorage so they survive across tabs and sessions. View
+  // state (tab/sort/query/filters) lives in the URL, not here.
+  useEffect(() => {
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ sortByTab, density, filtersOpen }));
+  }, [sortByTab, density, filtersOpen]);
 
   // Tab counts badge
   useEffect(() => {
@@ -591,7 +625,17 @@ export default function Library() {
                 onKeyDown={(e) => {
                   // Enter flushes the 300ms debounce — keyboard users get
                   // the snappy feedback they expect from a "submit" key.
-                  if (e.key === 'Enter') { e.preventDefault(); setQuery(queryRaw); }
+                  // Writes directly to the URL with replace:true, same as
+                  // the debounce target, so search-as-you-type and the
+                  // Enter shortcut converge on identical state.
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    setSearchParams(prev => {
+                      const next = new URLSearchParams(prev);
+                      if (queryRaw) next.set('q', queryRaw); else next.delete('q');
+                      return next;
+                    }, { replace: true });
+                  }
                 }}
                 placeholder="Search title, people, series, or tags…"
                 className="w-full bg-neutral-800 border border-leather/30 rounded-lg pl-4 pr-10 py-2 text-sm text-parchment placeholder-neutral-500 focus:outline-none focus:border-leather/70 focus:ring-1 focus:ring-oak/25 transition-colors duration-150 [&::-webkit-search-cancel-button]:appearance-none"
