@@ -109,7 +109,19 @@ export default function LookupPanel({ onApply, coverInFlight }) {
         </p>
       )}
       {results.length > 0 && (
-        <ul className="absolute z-10 w-full mt-1 bg-neutral-900 border border-neutral-700 rounded-lg overflow-hidden shadow-xl">
+        // Wrapper holds the optional in-flight notice + result list so
+        // both share the dropdown's absolute positioning. The notice is
+        // belt-and-suspenders with the per-button title tooltip below —
+        // disabled-button tooltips are unreliable across browsers and
+        // don't surface at all on touch devices, so an inline message
+        // is the accessible fallback.
+        <div className="absolute z-10 w-full mt-1 bg-neutral-900 border border-neutral-700 rounded-lg overflow-hidden shadow-xl">
+          {coverInFlight && (
+            <p className="px-4 py-2 text-xs text-neutral-400 border-b border-neutral-800">
+              A cover action is in progress — wait for it to finish.
+            </p>
+          )}
+          <ul>
           {results.map((r) => (
             <li key={r.key}>
               <button type="button" onClick={() => handlePick(r)}
@@ -127,7 +139,8 @@ export default function LookupPanel({ onApply, coverInFlight }) {
               </button>
             </li>
           ))}
-        </ul>
+          </ul>
+        </div>
       )}
     </div>
   );
