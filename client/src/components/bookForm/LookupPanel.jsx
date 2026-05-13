@@ -31,7 +31,7 @@ export default function LookupPanel({ onApply, coverInFlight }) {
   // already in-flight Open Library response lands as a setState on
   // an unmounted instance. Clearing the timer kills the pending
   // search, and bumping searchGenRef invalidates any response still
-  // in flight so its early-return guards (lines 36/39/44) all hit.
+  // in flight so the guards in runSearch all hit.
   useEffect(() => () => {
     clearTimeout(debounce.current);
     searchGenRef.current++;
