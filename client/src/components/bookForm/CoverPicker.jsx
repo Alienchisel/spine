@@ -49,7 +49,7 @@ export default function CoverPicker({
           disabled={coverBusy}
           className="mt-2 w-full text-center text-xs text-neutral-600 hover:text-neutral-400 transition-colors disabled:opacity-50"
         >
-          {fetchingCover ? 'Fetching…' : 'Fetch from ISBN'}
+          {uploading ? 'Uploading…' : fetchingCover ? 'Fetching…' : 'Fetch from ISBN'}
         </button>
       )}
     </div>
