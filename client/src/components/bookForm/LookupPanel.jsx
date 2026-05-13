@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { api } from '../../api.js';
 
 // Top-of-page Open Library search. Owns its own query/results state and
@@ -25,6 +25,17 @@ export default function LookupPanel({ onApply, coverInFlight }) {
   // handler returns. A same-tick double-click on a result would otherwise fire
   // onApply twice and race two description-fetch / form-fill passes.
   const pickingRef = useRef(false);
+
+  // Unmount cleanup. Without this, navigating away within the 400ms
+  // debounce window fires runSearch on a dead component, and any
+  // already in-flight Open Library response lands as a setState on
+  // an unmounted instance. Clearing the timer kills the pending
+  // search, and bumping searchGenRef invalidates any response still
+  // in flight so its early-return guards (lines 36/39/44) all hit.
+  useEffect(() => () => {
+    clearTimeout(debounce.current);
+    searchGenRef.current++;
+  }, []);
 
   async function runSearch(q) {
     if (!q.trim()) return;
