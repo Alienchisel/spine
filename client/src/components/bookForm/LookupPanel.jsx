@@ -3,7 +3,12 @@ import { api } from '../../api.js';
 
 // Top-of-page Open Library search. Owns its own query/results state and
 // debounces the search call. Calls `onApply(result)` when a result is picked.
-export default function LookupPanel({ onApply }) {
+// coverInFlight gates the result-apply buttons: picking a result while a
+// cover upload/fetch is running would race two cover writes — onApply's
+// cover branch silently no-ops (the shared coverActionRef catches it),
+// leaving the user with B's metadata but A's cover. Mirrors the picker-
+// controls disable in BookForm.
+export default function LookupPanel({ onApply, coverInFlight }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -67,6 +72,12 @@ export default function LookupPanel({ onApply }) {
 
   async function handlePick(result) {
     if (pickingRef.current) return;
+    // Defensive: the result buttons are also disabled when coverInFlight,
+    // but the prop-passing is async-by-render whereas pickingRef is
+    // synchronous. Bail here too so a click that lands between the cover
+    // action starting and React re-rendering with disabled buttons can't
+    // slip through.
+    if (coverInFlight) return;
     pickingRef.current = true;
     // Same gen-bump rationale: an earlier in-flight search must not pop the
     // dropdown back open after the user has already chosen a result.
@@ -102,7 +113,9 @@ export default function LookupPanel({ onApply }) {
           {results.map((r) => (
             <li key={r.key}>
               <button type="button" onClick={() => handlePick(r)}
-                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-neutral-800 transition-colors">
+                disabled={coverInFlight}
+                title={coverInFlight ? 'A cover action is in progress — wait or paste manually.' : ''}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent">
                 {r.cover_url
                   ? <img src={r.cover_url} alt="" className="w-8 h-12 object-cover rounded flex-shrink-0" />
                   : <div className="w-8 h-12 bg-neutral-800 rounded flex-shrink-0" />}

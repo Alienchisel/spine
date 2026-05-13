@@ -479,7 +479,7 @@ export default function BookForm() {
         </div>
       )}
 
-      {!isEdit && <LookupPanel onApply={applyResult} />}
+      {!isEdit && <LookupPanel onApply={applyResult} coverInFlight={uploading || fetchingCover} />}
 
       <div className="flex gap-8 items-start">
         <CoverPicker
