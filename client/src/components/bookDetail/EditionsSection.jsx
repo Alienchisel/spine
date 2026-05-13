@@ -93,6 +93,16 @@ export default function EditionsSection({ book, onChange, linkState }) {
     if (picking) setTimeout(() => inputRef.current?.focus(), 0);
   }, [picking]);
 
+  // Unmount cleanup. The debounce-with-cleanup below catches the
+  // window where the 200ms timer hasn't fired yet, but an API call
+  // that has already left the wire still resolves and would setState
+  // on a dead component. Bumping searchGenRef invalidates any
+  // in-flight response so the guards in the .then/.catch/.finally
+  // all hit.
+  useEffect(() => () => {
+    searchGenRef.current++;
+  }, []);
+
   useEffect(() => {
     if (!picking) return;
     const term = query.trim();
