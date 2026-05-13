@@ -58,6 +58,26 @@ export function writeFiltersToParams(params, filters) {
   return params;
 }
 
+// Order-aware deep equality on the filter shape. Used by setFilters
+// to skip no-op URL writes when pruneFilters returns the same content.
+// Comparing URL strings instead would false-positive on non-canonical
+// param orders (URL written by something other than writeFiltersToParams,
+// e.g. typed by the user) — writeFiltersToParams normalises order, so
+// the same-content rewrite still differs as strings. Comparing the
+// filter objects directly avoids that trap.
+export function filtersEqual(a, b) {
+  for (const k of FILTER_ARRAY_KEYS) {
+    const aa = a[k] || [], bb = b[k] || [];
+    if (aa.length !== bb.length) return false;
+    for (let i = 0; i < aa.length; i++) if (aa[i] !== bb[i]) return false;
+  }
+  if ((a.tagsMode || 'all') !== (b.tagsMode || 'all')) return false;
+  for (const k of TRISTATE_KEYS) {
+    if ((a[k] ?? null) !== (b[k] ?? null)) return false;
+  }
+  return true;
+}
+
 // Convenience: produce a fresh URLSearchParams reflecting the given
 // view state. Used when fully replacing the URL (e.g. tab switch
 // re-keys sort from per-tab memory).

@@ -22,7 +22,7 @@ import FilterPanel from '../components/FilterPanel.jsx';
 import SearchHelp from '../components/SearchHelp.jsx';
 import SeriesCard from '../components/library/SeriesCard.jsx';
 import { EMPTY_FILTERS, countFilters, pruneFilters, buildApiParams } from '../components/library/filters.js';
-import { paramsToFilters, writeFiltersToParams } from '../components/library/urlState.js';
+import { paramsToFilters, writeFiltersToParams, filtersEqual } from '../components/library/urlState.js';
 import { buildDisplayItems, sortVolumes } from '../components/library/grouping.js';
 import { useGridCols, COMFORTABLE_BPS, COMPACT_BPS } from '../hooks/useGridCols.js';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
@@ -186,13 +186,14 @@ export default function Library() {
   function setFilters(value) {
     const current = paramsToFilters(searchParams);
     const resolved = typeof value === 'function' ? value(current) : value;
-    const next = new URLSearchParams(searchParams);
-    writeFiltersToParams(next, resolved);
     // Skip the navigation when filters didn't change — pruneFilters
     // on tab change calls setFilters even when the result is identical
     // (overlapping facets), which would otherwise push a redundant
-    // history entry for every tab switch.
-    if (next.toString() === searchParams.toString()) return;
+    // history entry for every tab switch. Compare the filter objects
+    // directly so non-canonical URL param orders don't fool the check.
+    if (filtersEqual(current, resolved)) return;
+    const next = new URLSearchParams(searchParams);
+    writeFiltersToParams(next, resolved);
     setSearchParams(next);
   }
   // Random-sort seed lives only in component state — refresh re-rolls,
