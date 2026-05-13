@@ -164,7 +164,7 @@ export default function CoreFields({
                 <option value="hardcover">Hardcover</option>
               </select>
             </div>
-            {(form.owned || form.previously_owned) && (
+            {form.owned && (
               <div>
                 <div className="flex items-center gap-1.5 mb-1.5">
                   <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Condition</span>
