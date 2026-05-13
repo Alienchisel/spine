@@ -184,13 +184,16 @@ export default function Library() {
     });
   }
   function setFilters(value) {
-    setSearchParams(prev => {
-      const next = new URLSearchParams(prev);
-      const current = paramsToFilters(prev);
-      const resolved = typeof value === 'function' ? value(current) : value;
-      writeFiltersToParams(next, resolved);
-      return next;
-    });
+    const current = paramsToFilters(searchParams);
+    const resolved = typeof value === 'function' ? value(current) : value;
+    const next = new URLSearchParams(searchParams);
+    writeFiltersToParams(next, resolved);
+    // Skip the navigation when filters didn't change — pruneFilters
+    // on tab change calls setFilters even when the result is identical
+    // (overlapping facets), which would otherwise push a redundant
+    // history entry for every tab switch.
+    if (next.toString() === searchParams.toString()) return;
+    setSearchParams(next);
   }
   // Random-sort seed lives only in component state — refresh re-rolls,
   // which matches the user's mental model of "each session is a fresh
@@ -292,7 +295,11 @@ export default function Library() {
   // Sync URL → local search-box value. Catches back/forward navigation
   // and external URL changes; the early-return in the debounce effect
   // above ensures this doesn't trigger a feedback loop on user typing.
+  // Skip when the search input is focused so external URL changes
+  // can't clobber a user's in-progress typing — their debounce will
+  // still flush whatever they end up with.
   useEffect(() => {
+    if (document.activeElement === searchRef.current) return;
     setQueryRaw(query);
   }, [query]);
 

@@ -310,7 +310,7 @@ export default function Stats() {
           <StatCard label="Reading" value={totals.reading?.toLocaleString()} href="/?tab=reading" />
           <StatCard label="Unread" value={totals.unread?.toLocaleString()} href="/?tab=unread" />
           {totals.loved > 0 && <StatCard label="Loved" value={totals.loved?.toLocaleString()} href="/loved" />}
-          {totals.custom > 0 && <StatCard label="Custom" value={totals.custom?.toLocaleString()} href="/?custom=true" />}
+          {totals.custom > 0 && <StatCard label="Custom" value={totals.custom?.toLocaleString()} href="/?tab=all&custom=true" />}
         </div>
       </Section>
 
