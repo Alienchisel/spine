@@ -28,9 +28,14 @@ export default function CoverPicker({
           ? 'cursor-not-allowed text-neutral-600 border-neutral-800 opacity-60'
           : 'cursor-pointer text-neutral-500 hover:text-neutral-200 border-neutral-700 hover:border-neutral-500'
       }`}>
-        {coverBusy
-          ? (uploading ? 'Uploading…' : 'Fetching…')
-          : (coverPreview ? 'Change' : 'Choose image')}
+        {coverBusy ? (
+          // role='status' wraps just the transient in-flight text so
+          // screen readers announce 'Uploading…' / 'Fetching…' when the
+          // label flips to it. Mirrors LookupPanel's Searching… pattern.
+          <span role="status">{uploading ? 'Uploading…' : 'Fetching…'}</span>
+        ) : (
+          coverPreview ? 'Change' : 'Choose image'
+        )}
         {/* Hide the "or paste" invitation while a cover action is in flight
             — file input is disabled and BookForm.handlePaste bails early
             on the same lock, so advertising paste would mislead. Use an
@@ -49,7 +54,9 @@ export default function CoverPicker({
           disabled={coverBusy}
           className="mt-2 w-full text-center text-xs text-neutral-600 hover:text-neutral-400 transition-colors disabled:opacity-50"
         >
-          {uploading ? 'Uploading…' : fetchingCover ? 'Fetching…' : 'Fetch from ISBN'}
+          {coverBusy ? (
+            <span role="status">{uploading ? 'Uploading…' : 'Fetching…'}</span>
+          ) : 'Fetch from ISBN'}
         </button>
       )}
     </div>
