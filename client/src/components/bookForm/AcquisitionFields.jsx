@@ -1,8 +1,11 @@
+import { useId } from 'react';
 import ShelfPicker from '../ShelfPicker.jsx';
 import PartialDateInput from '../PartialDateInput.jsx';
 import { input, label } from './styles.js';
 
 export default function AcquisitionFields({ form, setForm, set, pastSources, shelfTree }) {
+  const idPfx = useId();
+  const idFor = (k) => `${idPfx}-${k}`;
   return (
     <div className="space-y-6">
       <div className="space-y-2.5">
@@ -56,8 +59,8 @@ export default function AcquisitionFields({ form, setForm, set, pastSources, she
       {(form.owned || form.previously_owned) && !form.is_custom && (
         <>
           <div>
-            <label className={label}>Acquisition source</label>
-            <input className={input} list="sources-list" value={form.acquisition_source}
+            <label htmlFor={idFor('acquisition_source')} className={label}>Acquisition source</label>
+            <input id={idFor('acquisition_source')} className={input} list="sources-list" value={form.acquisition_source}
               onChange={(e) => set('acquisition_source', e.target.value)}
               placeholder="e.g. Chapters, Amazon, gift…" />
             <datalist id="sources-list">
@@ -70,6 +73,7 @@ export default function AcquisitionFields({ form, setForm, set, pastSources, she
             <PartialDateInput
               value={form.acquisition_date}
               onChange={v => set('acquisition_date', v)}
+              ariaLabelPrefix="Acquisition"
             />
           </div>
         </>

@@ -200,6 +200,7 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
         value={form.title}
         onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
         placeholder={`${noun.charAt(0).toUpperCase()}${noun.slice(1)} title`}
+        aria-label={`${noun.charAt(0).toUpperCase()}${noun.slice(1)} title`}
         className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-oak/50 flex-1 min-w-[12rem]"
       />
       <input
@@ -207,6 +208,7 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
         value={form.position}
         onChange={e => setForm(f => ({ ...f, position: e.target.value }))}
         placeholder="#"
+        aria-label="Position"
         className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-300 focus:outline-none focus:border-oak/50 w-14"
       />
       <input
@@ -215,6 +217,7 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
         onChange={e => setForm(f => ({ ...f, page_start: e.target.value }))}
         placeholder="p."
         title="Starting page"
+        aria-label="Starting page"
         className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-300 focus:outline-none focus:border-oak/50 w-16"
       />
       <input
@@ -223,6 +226,7 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
         onChange={e => setForm(f => ({ ...f, page_end: e.target.value }))}
         placeholder="end"
         title="Ending page (optional)"
+        aria-label="Ending page"
         className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-300 focus:outline-none focus:border-oak/50 w-16"
       />
       <input
@@ -231,6 +235,7 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
         onChange={e => setForm(f => ({ ...f, year_published: e.target.value }))}
         placeholder="year"
         title="First publication year (optional). Powers the cross-collection chronological view."
+        aria-label="First publication year"
         className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-300 focus:outline-none focus:border-oak/50 w-16"
       />
       <input
@@ -239,11 +244,13 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
         onChange={e => setForm(f => ({ ...f, authorsText: e.target.value }))}
         placeholder="Authors (override)"
         title="Comma-separated. Empty = use the book's authors."
+        aria-label="Authors override (comma-separated)"
         className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-300 placeholder-neutral-600 focus:outline-none focus:border-oak/50 flex-1 min-w-[10rem]"
       />
       <select
         value={form.status}
         onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
+        aria-label="Status"
         className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-300 focus:outline-none focus:border-oak/50"
       >
         <option value="unread">Unread</option>
@@ -251,7 +258,7 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
         <option value="finished">Finished</option>
       </select>
       {form.status === 'finished' && (
-        <PartialDateInput size="sm" value={form.date_finished} onChange={v => setForm(f => ({ ...f, date_finished: v }))} />
+        <PartialDateInput size="sm" value={form.date_finished} onChange={v => setForm(f => ({ ...f, date_finished: v }))} ariaLabelPrefix="Date finished" />
       )}
       <StarRating
         value={form.rating}

@@ -25,7 +25,7 @@ const SIZES = {
   },
 };
 
-export default function PartialDateInput({ value, onChange, size = 'md' }) {
+export default function PartialDateInput({ value, onChange, size = 'md', ariaLabelPrefix }) {
   const sz = SIZES[size] || SIZES.md;
   const parts = (value || '').split('-');
   const year  = parts[0] || '';
@@ -38,15 +38,24 @@ export default function PartialDateInput({ value, onChange, size = 'md' }) {
     onChange(v);
   }
 
+  // The three controls are unlabelled in the form — placeholders give a
+  // visual hint but vanish on focus and aren't reliably announced as
+  // accessible names. Callers can pass `ariaLabelPrefix` (e.g.
+  // "Acquisition") to qualify them in context; otherwise just "Year /
+  // Month / Day" stands alone.
+  const labelFor = (part) => ariaLabelPrefix ? `${ariaLabelPrefix} ${part}` : part;
+
   return (
     <div className="flex gap-2 items-center">
       <input
         type="number" min="1800" max="2099" placeholder="Year"
+        aria-label={labelFor('year')}
         className={`${sz.yearW} ${sz.input}`}
         value={year}
         onChange={e => emit(e.target.value, year && month ? month : '', year && day ? day : '')}
       />
       <select
+        aria-label={labelFor('month')}
         className={`flex-1 ${sz.input}`}
         value={month}
         onChange={e => emit(year, e.target.value, e.target.value ? day : '')}
@@ -59,6 +68,7 @@ export default function PartialDateInput({ value, onChange, size = 'md' }) {
       {month && (
         <input
           type="number" min="1" max="31" placeholder="Day"
+          aria-label={labelFor('day')}
           className={`${sz.dayW} ${sz.input}`}
           value={day ? parseInt(day) : ''}
           onChange={e => emit(year, month, e.target.value ? String(parseInt(e.target.value)).padStart(2, '0') : '')}

@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { label as labelClass } from './styles.js';
 
 // Reusable chip+input pattern. Used for authors, narrators, translators, and
@@ -15,6 +16,7 @@ export default function ChipInput({
   placeholder,
   inputClassName,
 }) {
+  const inputId = useId();
   function commit() {
     const value = inputValue.trim().replace(/,$/, '');
     if (value && !items.includes(value)) onItemsChange([...items, value]);
@@ -33,13 +35,14 @@ export default function ChipInput({
 
   return (
     <div>
-      <label className={labelClass}>{label}</label>
+      <label htmlFor={inputId} className={labelClass}>{label}</label>
       {items.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-2">
           {items.map((it) => (
             <span key={it} className="flex items-center gap-1 text-xs bg-neutral-800 text-neutral-300 px-2.5 py-1 rounded-full">
               {it}
               <button type="button" onClick={() => remove(it)}
+                aria-label={`Remove ${it}`}
                 className="text-neutral-500 hover:text-white leading-none ml-0.5">×</button>
             </span>
           ))}
@@ -47,6 +50,7 @@ export default function ChipInput({
       )}
       <div className="flex items-center gap-2">
         <input
+          id={inputId}
           className={inputClassName}
           list={datalistId}
           value={inputValue}

@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import ChipInput from './ChipInput.jsx';
 import ConditionGuide from './ConditionGuide.jsx';
 import { input, inputNoWidth, label } from './styles.js';
@@ -10,11 +11,19 @@ export default function CoreFields({
   durationH, setDurationH,
   durationM, setDurationM,
 }) {
+  // One useId() call yields a stable prefix; child IDs are derived by
+  // concatenation. Programmatic htmlFor/id linkage lets screen readers
+  // announce the visible label when the matching control receives focus
+  // — the visible sibling-label-without-association pattern doesn't
+  // create that connection. Inputs without a visible label (series_number,
+  // duration h/m) get aria-label instead.
+  const idPfx = useId();
+  const idFor = (k) => `${idPfx}-${k}`;
   return (
     <div className="space-y-6">
       <div>
-        <label className={label}>Format</label>
-        <select className={input} value={form.format}
+        <label htmlFor={idFor('format')} className={label}>Format</label>
+        <select id={idFor('format')} className={input} value={form.format}
           onChange={(e) => {
             const f = e.target.value;
             setForm(prev => ({
@@ -38,8 +47,8 @@ export default function CoreFields({
       </div>
 
       <div>
-        <label className={label}>Title *</label>
-        <input className={ic('title')} value={form.title}
+        <label htmlFor={idFor('title')} className={label}>Title *</label>
+        <input id={idFor('title')} className={ic('title')} value={form.title}
           onChange={(e) => set('title', e.target.value)}
           placeholder="Book title" required autoFocus={!isEdit} />
       </div>
@@ -57,8 +66,8 @@ export default function CoreFields({
       />
 
       <div>
-        <label className={label}>Fiction / Non-fiction</label>
-        <select className={input} value={form.fiction === null ? '' : String(form.fiction)}
+        <label htmlFor={idFor('fiction')} className={label}>Fiction / Non-fiction</label>
+        <select id={idFor('fiction')} className={input} value={form.fiction === null ? '' : String(form.fiction)}
           onChange={e => {
             const val = e.target.value === '' ? null : e.target.value === 'true';
             setForm(f => ({ ...f, fiction: val, source_type: val === false ? f.source_type : '' }));
@@ -71,8 +80,8 @@ export default function CoreFields({
 
       {form.fiction === false && (
         <div>
-          <label className={label}>Source</label>
-          <select className={input} value={form.source_type}
+          <label htmlFor={idFor('source_type')} className={label}>Source</label>
+          <select id={idFor('source_type')} className={input} value={form.source_type}
             onChange={e => set('source_type', e.target.value)}>
             <option value="">—</option>
             <option value="primary">Primary source</option>
@@ -82,10 +91,10 @@ export default function CoreFields({
       )}
 
       <div>
-        <label className={label}>Series</label>
+        <label htmlFor={idFor('series')} className={label}>Series</label>
         <div className="flex gap-2">
           <div className="flex-1">
-            <input className={input} list="series-list" value={form.series}
+            <input id={idFor('series')} className={input} list="series-list" value={form.series}
               onChange={(e) => set('series', e.target.value)}
               placeholder="e.g. The Wheel of Time…" />
             <datalist id="series-list">
@@ -96,6 +105,7 @@ export default function CoreFields({
             <div className="w-24">
               <input
                 type="number" min="0" step="0.5"
+                aria-label="Series number"
                 className={`${input} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
                 value={form.series_number}
                 onChange={(e) => set('series_number', e.target.value)}
@@ -106,8 +116,8 @@ export default function CoreFields({
       </div>
 
       <div>
-        <label className={label}>Status</label>
-        <select className={input} value={form.status}
+        <label htmlFor={idFor('status')} className={label}>Status</label>
+        <select id={idFor('status')} className={input} value={form.status}
           onChange={(e) => {
             const s = e.target.value;
             const today = new Date().toLocaleDateString('en-CA');
@@ -131,21 +141,21 @@ export default function CoreFields({
       {(form.status === 'reading' || form.status === 'finished') && (
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className={label}>Date started</label>
-            <input type="date" className={input} value={form.date_started}
+            <label htmlFor={idFor('date_started')} className={label}>Date started</label>
+            <input id={idFor('date_started')} type="date" className={input} value={form.date_started}
               onChange={(e) => set('date_started', e.target.value)} />
           </div>
           {form.status === 'finished' && (
             <div>
-              <label className={label}>Date finished</label>
-              <input type="date" className={input} value={form.date_finished}
+              <label htmlFor={idFor('date_finished')} className={label}>Date finished</label>
+              <input id={idFor('date_finished')} type="date" className={input} value={form.date_finished}
                 onChange={(e) => set('date_finished', e.target.value)} />
             </div>
           )}
           {(form.status === 'finished' || form.read_count > 0) && (
             <div>
-              <label className={label}>Times read</label>
-              <input type="number" min="0" className={input} value={form.read_count}
+              <label htmlFor={idFor('read_count')} className={label}>Times read</label>
+              <input id={idFor('read_count')} type="number" min="0" className={input} value={form.read_count}
                 onChange={(e) => set('read_count', parseInt(e.target.value) || 0)} />
             </div>
           )}
@@ -156,8 +166,8 @@ export default function CoreFields({
         <>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className={label}>Binding</label>
-              <select className={input} value={form.binding}
+              <label htmlFor={idFor('binding')} className={label}>Binding</label>
+              <select id={idFor('binding')} className={input} value={form.binding}
                 onChange={(e) => set('binding', e.target.value)}>
                 <option value="">—</option>
                 <option value="paperback">Paperback</option>
@@ -167,10 +177,10 @@ export default function CoreFields({
             {form.owned && (
               <div>
                 <div className="flex items-center gap-1.5 mb-1.5">
-                  <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Condition</span>
+                  <label htmlFor={idFor('condition')} className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Condition</label>
                   <ConditionGuide />
                 </div>
-                <select className={input} value={form.condition}
+                <select id={idFor('condition')} className={input} value={form.condition}
                   onChange={(e) => set('condition', e.target.value)}>
                   <option value="">—</option>
                   <option value="new">New</option>
@@ -184,8 +194,8 @@ export default function CoreFields({
             )}
           </div>
           <div>
-            <label className={label}>Page count</label>
-            <input type="number" min="1" max="99999" className={ic('page_count')}
+            <label htmlFor={idFor('page_count')} className={label}>Page count</label>
+            <input id={idFor('page_count')} type="number" min="1" max="99999" className={ic('page_count')}
               value={form.page_count} onChange={(e) => set('page_count', e.target.value)}
               placeholder="e.g. 342" />
           </div>
@@ -194,8 +204,8 @@ export default function CoreFields({
 
       {form.format === 'ebook' && (
         <div>
-          <label className={label}>Page count</label>
-          <input type="number" min="1" max="99999" className={ic('page_count')}
+          <label htmlFor={idFor('page_count')} className={label}>Page count</label>
+          <input id={idFor('page_count')} type="number" min="1" max="99999" className={ic('page_count')}
             value={form.page_count} onChange={(e) => set('page_count', e.target.value)}
             placeholder="e.g. 342" />
         </div>
@@ -208,6 +218,7 @@ export default function CoreFields({
             <div className="flex items-center gap-2">
               <input
                 type="number" min="0" max="999"
+                aria-label="Duration hours"
                 className={`${inputNoWidth} flex-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
                 value={durationH}
                 onChange={(e) => {
@@ -221,6 +232,7 @@ export default function CoreFields({
               <span className="text-neutral-500 text-sm flex-shrink-0">h</span>
               <input
                 type="number" min="0" max="59"
+                aria-label="Duration minutes"
                 className={`${inputNoWidth} w-20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
                 value={durationM}
                 onChange={(e) => {

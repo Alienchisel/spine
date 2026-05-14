@@ -383,6 +383,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
               <select
                 value={mode}
                 onChange={(e) => changeMode(e.target.value)}
+                aria-label="Progress unit"
                 className="bg-neutral-800 border border-neutral-700 text-neutral-300 text-xs rounded px-1.5 py-1 focus:outline-none"
               >
                 {isAudiobook ? (
@@ -403,6 +404,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
                     value={inputH}
                     onChange={(e) => { setError(null); setInputH(e.target.value); }}
                     placeholder="h"
+                    aria-label="Hours"
                     className={`w-12 ${numCls}`}
                   />
                   <span className="text-neutral-500 text-xs">h</span>
@@ -412,6 +414,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
                     onChange={(e) => { setError(null); setInputM(e.target.value); }}
                     onBlur={(e) => setInputM(clampMinutes(e.target.value))}
                     placeholder="m"
+                    aria-label="Minutes"
                     className={`w-12 ${numCls}`}
                   />
                   <span className="text-neutral-500 text-xs">m</span>
@@ -425,6 +428,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
                   value={inputVal}
                   onChange={(e) => { setError(null); setInputVal(e.target.value); }}
                   placeholder={mode === 'pct' ? '0–100' : '#'}
+                  aria-label={mode === 'pct' ? 'Percent complete' : 'Current page'}
                   className={`flex-1 min-w-[3rem] ${numCls}`}
                 />
               )}

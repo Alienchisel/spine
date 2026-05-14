@@ -130,6 +130,7 @@ export default function ProgressSection({ book, onChange, log }) {
 
       <form onSubmit={handleSubmit} className="flex flex-wrap items-center gap-2">
         <select value={mode} onChange={(e) => changeMode(e.target.value)}
+          aria-label="Progress unit"
           className="bg-neutral-900 border border-neutral-700 text-neutral-300 text-sm rounded px-2 py-1.5 focus:outline-none">
           {isAudiobook ? (
             <>
@@ -148,6 +149,7 @@ export default function ProgressSection({ book, onChange, log }) {
               value={inputH}
               onChange={(e) => { setError(null); setInputH(e.target.value); }}
               placeholder="0"
+              aria-label="Hours"
               className="w-16 bg-neutral-900 border border-neutral-700 rounded px-3 py-1.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-500 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
             <span className="text-neutral-500 text-sm">h</span>
@@ -157,6 +159,7 @@ export default function ProgressSection({ book, onChange, log }) {
               onChange={(e) => { setError(null); setInputM(e.target.value); }}
               onBlur={(e) => setInputM(clampMinutes(e.target.value))}
               placeholder="0"
+              aria-label="Minutes"
               className="w-16 bg-neutral-900 border border-neutral-700 rounded px-3 py-1.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-500 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
             <span className="text-neutral-500 text-sm">m</span>
@@ -168,6 +171,7 @@ export default function ProgressSection({ book, onChange, log }) {
             value={inputVal}
             onChange={(e) => { setError(null); setInputVal(e.target.value); }}
             placeholder={mode === 'pct' ? 'e.g. 42' : 'e.g. 123'}
+            aria-label={mode === 'pct' ? 'Percent complete' : 'Current page'}
             className="flex-1 bg-neutral-900 border border-neutral-700 rounded px-3 py-1.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-500 transition-colors"
           />
         )}
