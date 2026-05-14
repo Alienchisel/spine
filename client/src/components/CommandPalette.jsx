@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 
 // Global command palette, opened with Ctrl/Cmd+K (universal) or
@@ -9,11 +9,14 @@ import { api } from '../api.js';
 // Phase 1: book search via /api/books?q= (debounced 200ms, capped 20).
 // Phase 2: navigation entries (top-level views + Library tabs) and
 //   user-created lists, both filtered client-side. Sections group the
-//   three kinds (Navigate / Lists / Books); arrow keys traverse the
+//   kinds (Navigate / Actions / Lists / Books); arrow keys traverse the
 //   flat list across sections.
+// Phase 3: Library actions — clear filters, change sort. URL-driven,
+//   so they preserve other params when invoked on Library and
+//   navigate to a fresh Library view when invoked elsewhere.
 //
-// Future phases will add static and context-aware actions, and an
-// empty-state recent / suggested layer.
+// Future phases will add context-aware book-detail actions, sub-prompts,
+// and an empty-state recent / suggested layer.
 
 // Static navigation entries. Paths must match main.jsx routes. The
 // Library tabs reuse the same path with a query string the existing
@@ -38,8 +41,24 @@ const NAV_ENTRIES = [
   { id: 'nav.new',                  label: 'Add a new book',       hint: 'Open the new-book form',   path: '/books/new' },
 ];
 
-// Simple case-insensitive substring match — sufficient for nav and
-// list filtering (small sets, exact-feeling matches). Book search
+// Mirror of the SORTS array in pages/Library.jsx. Kept as a local copy
+// rather than imported to keep the palette decoupled from page internals
+// — if Library renames a sort key, both files need updating, but the
+// keys are part of the URL contract anyway so this is a stable surface.
+const SORTS = [
+  { key: 'updated',     label: 'Recently updated' },
+  { key: 'last_logged', label: 'Recently logged' },
+  { key: 'added',       label: 'Recently added' },
+  { key: 'author',      label: 'Author A–Z' },
+  { key: 'title',       label: 'Title A–Z' },
+  { key: 'rating',      label: 'Rating' },
+  { key: 'progress',    label: 'Progress' },
+  { key: 'started',     label: 'Date started' },
+  { key: 'finished',    label: 'Date finished' },
+];
+
+// Simple case-insensitive substring match — sufficient for nav, action,
+// and list filtering (small sets, exact-feeling matches). Book search
 // stays on the backend FTS path for its smarter ranking.
 function matchesQuery(text, q) {
   if (!q) return true;
@@ -64,6 +83,9 @@ export default function CommandPalette() {
   // earlier ones must not overwrite results from a later query.
   const queryGenRef = useRef(0);
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const isOnLibrary = location.pathname === '/';
 
   const close = useCallback(() => {
     setOpen(false);
@@ -149,15 +171,57 @@ export default function CommandPalette() {
     return () => clearTimeout(t);
   }, [query, open]);
 
+  // Library actions are URL-driven. When already on Library, preserve
+  // other params (tab, q, filters) and just update the one we care
+  // about; when elsewhere, navigate to a fresh Library view. Both
+  // branches read the *current* URL at the moment of invocation, so
+  // memoizing the actions array on `searchParams` is intentional.
+  const actionEntries = useMemo(() => {
+    const onLibrary = isOnLibrary;
+    const currentParams = searchParams;
+
+    const changeSort = (key) => () => {
+      if (onLibrary) {
+        const next = new URLSearchParams(currentParams);
+        next.set('sort', key);
+        setSearchParams(next);
+      } else {
+        navigate(`/?sort=${key}`);
+      }
+    };
+
+    const clearAll = () => navigate('/');
+
+    return [
+      {
+        id: 'action.clear',
+        kind: 'action',
+        label: 'Clear filters and search',
+        hint: 'Library — reset to default view',
+        perform: clearAll,
+      },
+      ...SORTS.map(s => ({
+        id: `action.sort.${s.key}`,
+        kind: 'action',
+        label: `Sort by ${s.label}`,
+        hint: 'Library',
+        perform: changeSort(s.key),
+      })),
+    ];
+  }, [isOnLibrary, searchParams, navigate, setSearchParams]);
+
   // Build the sectioned result set. Memoized so arrow-key navigation
   // doesn't recompute on every render. Each entry carries everything
-  // needed to render and execute it.
+  // needed to render and execute it (path OR perform).
   const { sections, flat } = useMemo(() => {
     const q = query.trim().toLowerCase();
 
     const navEntries = NAV_ENTRIES
       .filter(e => matchesQuery(e.label, q) || (e.hint && matchesQuery(e.hint, q)))
       .map(e => ({ ...e, kind: 'nav' }));
+
+    const matchedActions = actionEntries
+      .filter(e => matchesQuery(e.label, q) || (e.hint && matchesQuery(e.hint, q)));
 
     const listEntries = lists
       .filter(l => matchesQuery(l.name, q))
@@ -179,13 +243,14 @@ export default function CommandPalette() {
     }));
 
     const _sections = [
-      { kind: 'nav',  label: 'Navigate', entries: navEntries },
-      { kind: 'list', label: 'Lists',    entries: listEntries },
-      { kind: 'book', label: 'Books',    entries: bookEntries },
+      { kind: 'nav',    label: 'Navigate', entries: navEntries },
+      { kind: 'action', label: 'Actions',  entries: matchedActions },
+      { kind: 'list',   label: 'Lists',    entries: listEntries },
+      { kind: 'book',   label: 'Books',    entries: bookEntries },
     ].filter(s => s.entries.length > 0);
 
     return { sections: _sections, flat: _sections.flatMap(s => s.entries) };
-  }, [query, lists, bookResults]);
+  }, [query, lists, bookResults, actionEntries]);
 
   // Clamp the selected index whenever the result set shrinks (e.g.
   // user typed a more restrictive query). Reset to 0 on each query
@@ -208,7 +273,8 @@ export default function CommandPalette() {
   function pick(entry) {
     if (!entry) return;
     close();
-    navigate(entry.path);
+    if (entry.perform) entry.perform();
+    else if (entry.path) navigate(entry.path);
   }
 
   function handleKey(e) {
@@ -286,7 +352,9 @@ export default function CommandPalette() {
                             )
                           ) : (
                             <div className="w-6 flex-shrink-0 text-neutral-600 text-xs">
-                              {entry.kind === 'nav' ? '→' : '☰'}
+                              {entry.kind === 'nav'    ? '→'
+                                : entry.kind === 'action' ? '⚡'
+                                : '☰'}
                             </div>
                           )}
                           <div className="min-w-0 flex-1">
