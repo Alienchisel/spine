@@ -143,6 +143,10 @@ export default function CommandPalette() {
   // bookId, bookTitle } describing the parameter-picker currently
   // active. Escape returns to root before closing the whole palette.
   const [subPrompt, setSubPrompt] = useState(null);
+  // Inline error surfaced in sub-prompt mode when a pick fails. Cleared
+  // automatically on input change and on sub-prompt entry/exit so it
+  // doesn't sit stale after a retry.
+  const [subPromptError, setSubPromptError] = useState(null);
 
   // Reset query / results / selection without dismissing the palette
   // — used both by close() and by sub-prompt transitions, where we
@@ -284,6 +288,11 @@ export default function CommandPalette() {
     }, 200);
     return () => clearTimeout(t);
   }, [query, open]);
+
+  // Clear any stale sub-prompt error when the user keeps typing or
+  // when the sub-prompt itself toggles. Prevents a "failed" message
+  // from sitting next to an unrelated filter the user has narrowed to.
+  useEffect(() => { setSubPromptError(null); }, [query, subPrompt]);
 
   // Library actions are URL-driven. When already on Library, preserve
   // other params (tab, q, filters) and just update the one we care
@@ -451,14 +460,15 @@ export default function CommandPalette() {
           label: l.name,
           hint: l.book_count != null ? `${l.book_count} book${l.book_count === 1 ? '' : 's'}` : null,
           perform: async () => {
+            setSubPromptError(null);
             try {
               await api.addToList(l.id, subPrompt.bookId);
               window.dispatchEvent(new CustomEvent('spine:book-mutated', { detail: { id: subPrompt.bookId } }));
             } catch (err) {
-              // Phase 6 swallows sub-prompt errors silently. The book-
-              // detail page won't refresh on failure, and the user can
-              // retry. Future phase could surface an inline error.
-              console.error('Add to list failed:', err);
+              // Surface the failure inline so the user knows the add
+              // didn't take, then re-throw so pick() skips its close().
+              setSubPromptError(`Failed to add to "${l.name}"`);
+              throw err;
             }
           },
         }));
@@ -543,18 +553,30 @@ export default function CommandPalette() {
     }
   }, [selected]);
 
-  function pick(entry) {
+  async function pick(entry) {
     if (!entry) return;
-    remember(entry);
-    // keepOpen entries are sub-prompt activators — perform() transitions
-    // the palette into the picker rather than completing an action.
+    // Sub-prompt activator: synchronous transition into a picker
+    // (no API call); remember on entry and stay open.
     if (entry.keepOpen) {
+      remember(entry);
       if (entry.perform) entry.perform();
       return;
     }
+    // Mutating or navigating entries: await perform so a failure can
+    // keep the palette open with an inline error (the perform itself
+    // sets the visible error state and re-throws). Successful picks
+    // and pure-navigation picks fall through to remember + close +
+    // optional navigate.
+    if (entry.perform) {
+      try {
+        await entry.perform();
+      } catch {
+        return;
+      }
+    }
+    remember(entry);
     close();
-    if (entry.perform) entry.perform();
-    else if (entry.path) navigate(entry.path);
+    if (entry.path) navigate(entry.path);
   }
 
   function handleKey(e) {
@@ -620,6 +642,11 @@ export default function CommandPalette() {
           aria-autocomplete="list"
           className="w-full bg-neutral-900 border-b border-neutral-800 px-4 py-3 text-sm text-white placeholder-neutral-600 focus:outline-none"
         />
+        {subPrompt && subPromptError && (
+          <p role="alert" className="px-4 py-2 text-xs text-warn border-b border-neutral-800">
+            {subPromptError}
+          </p>
+        )}
         {bookLoading && bookResults.length === 0 && query.trim() && (
           <p role="status" className="px-4 py-3 text-xs text-neutral-600">Searching…</p>
         )}

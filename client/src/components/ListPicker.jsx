@@ -35,6 +35,23 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
   // ReadsSection.
   const busyIdsRef = useRef(new Set());
 
+  // Stay in sync with palette-driven (or any external) mutations on
+  // this book. The command palette's 'Add to list…' sub-prompt
+  // dispatches spine:book-mutated after a successful add; without this
+  // listener, ListPicker's cached memberIds would keep its check-marks
+  // stale until the dropdown was reopened. Always listens (not just
+  // when open) so the cache is current on the next open too.
+  useEffect(() => {
+    function onMutate(e) {
+      if (Number(e.detail?.id) !== Number(bookId)) return;
+      api.getBookLists(bookId)
+        .then(ids => setMemberIds(new Set(ids)))
+        .catch(() => {});
+    }
+    window.addEventListener('spine:book-mutated', onMutate);
+    return () => window.removeEventListener('spine:book-mutated', onMutate);
+  }, [bookId]);
+
   useEffect(() => {
     if (!open) return;
     function onMouseDown(e) {
