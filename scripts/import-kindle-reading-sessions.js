@@ -2,30 +2,39 @@
 // Import Kindle "Reading Session" CSV export into Spine's reading_log table.
 //
 // Usage:
-//   node scripts/import-kindle-reading-sessions.js <csv-path>            # dry-run
+//   node scripts/import-kindle-reading-sessions.js <csv-path>                 # dry-run, all matched books
 //   node scripts/import-kindle-reading-sessions.js <csv-path> --apply
+//   node scripts/import-kindle-reading-sessions.js <csv-path> --asin=B075MRHZBV[,B0XXXXXXXX]
+//   node scripts/import-kindle-reading-sessions.js <csv-path> --book-id=644[,645]
 //   node scripts/import-kindle-reading-sessions.js <csv-path> --min-event-seconds=60
 //
 // Each CSV row is a single Kindle reading session. We group by (ASIN, date),
-// sum total_reading_millis, convert to minutes, and upsert into the reading_log
-// table — using the same ON CONFLICT(book_id, date) WHERE story_id IS NULL
-// shape as the Audible importer, so re-running is idempotent.
+// sum total_reading_millis (→ minutes_read) and number_of_page_flips
+// (→ pages_read), and upsert into reading_log — using the same
+// ON CONFLICT(book_id, date) WHERE story_id IS NULL shape as the Audible
+// importer, so re-running is idempotent.
 //
 // Date derivation: prefer end_timestamp, fall back to start_timestamp. Both
 // can be literal "Not Available" in this export; rows with neither are
 // dropped. Timestamps are ISO 8601 in UTC (Z suffix); we extract the UTC
-// date — matches what the one-off backfill for #644 wrote, so re-running
-// over the same range converges. If you want local-date semantics, convert
-// the CSV upstream.
+// date. If you want local-date semantics, convert the CSV upstream.
 //
 // Filtering: sessions shorter than `--min-event-seconds` (default 60) are
-// dropped before grouping. Mirrors the Audible importer — excludes the
-// accidental opens and brief app foregrounding the Kindle device records.
+// dropped before grouping — excludes accidental opens and brief app
+// foregrounding the Kindle device records.
 //
-// Pages: pages_read is written as 0. Kindle's number_of_page_flips field
-// counts every page navigation event (including back-flips and lookups),
-// so its sum can easily overshoot the true forward progress. Diary captures
-// engaged-reading minutes; current_page captures position. They're orthogonal.
+// Scope filters: --asin and --book-id (each comma-separated) narrow the
+// apply set. Default scope is every matched ASIN in the CSV. Use the
+// filters for surgical backfills; the Kindle export covers years and the
+// importer replaces minutes_read/pages_read on conflict, so a blind
+// --apply over active books will overwrite live diary state for any
+// overlapping (book, date).
+//
+// Pages: number_of_page_flips is written as pages_read. Caveat — this
+// counts every page navigation event (including back-flips and lookups
+// during a session), so its sum across days will routinely overshoot the
+// book's actual forward progress (current_page bookmark). The diary
+// captures activity, not net progress.
 
 import fs from 'fs';
 
@@ -35,10 +44,12 @@ const args = process.argv.slice(2);
 const apply = args.includes('--apply');
 const minEventSecondsArg = args.find(a => a.startsWith('--min-event-seconds='));
 const minEventSeconds = minEventSecondsArg ? parseInt(minEventSecondsArg.split('=')[1], 10) : 60;
+const asinFilterArg = args.find(a => a.startsWith('--asin='));
+const bookIdFilterArg = args.find(a => a.startsWith('--book-id='));
 const csvPath = args.find(a => !a.startsWith('--'));
 
 if (!csvPath) {
-  console.error('Usage: node scripts/import-kindle-reading-sessions.js <csv-path> [--apply] [--min-event-seconds=N]');
+  console.error('Usage: node scripts/import-kindle-reading-sessions.js <csv-path> [--apply] [--asin=A,B] [--book-id=N,M] [--min-event-seconds=N]');
   process.exit(1);
 }
 if (!Number.isFinite(minEventSeconds) || minEventSeconds < 0) {
@@ -46,6 +57,16 @@ if (!Number.isFinite(minEventSeconds) || minEventSeconds < 0) {
   process.exit(1);
 }
 const minEventMs = minEventSeconds * 1000;
+
+const parseList = (arg) => arg ? new Set(arg.split('=')[1].split(',').map(s => s.trim()).filter(Boolean)) : null;
+const asinFilter   = parseList(asinFilterArg);                                  // Set<string> | null
+const bookIdRaw    = parseList(bookIdFilterArg);
+const bookIdFilter = bookIdRaw ? new Set([...bookIdRaw].map(n => Number(n))) : null;  // Set<number> | null
+if (bookIdFilter && [...bookIdFilter].some(n => !Number.isInteger(n) || n < 1)) {
+  console.error('Invalid --book-id (expected positive integers, comma-separated)');
+  process.exit(1);
+}
+const hasScopeFilter = !!(asinFilter || bookIdFilter);
 
 // ─── CSV parsing ───────────────────────────────────────────────────────
 
@@ -85,9 +106,10 @@ const I_START_TS  = idx('start_timestamp');
 const I_END_TS    = idx('end_timestamp');
 const I_ASIN      = idx('ASIN');
 const I_MILLIS    = idx('total_reading_millis');
+const I_FLIPS     = idx('number_of_page_flips');
 
-if ([I_START_TS, I_END_TS, I_ASIN, I_MILLIS].some(v => v < 0)) {
-  console.error('CSV missing required columns (start_timestamp, end_timestamp, ASIN, total_reading_millis)');
+if ([I_START_TS, I_END_TS, I_ASIN, I_MILLIS, I_FLIPS].some(v => v < 0)) {
+  console.error('CSV missing required columns (start_timestamp, end_timestamp, ASIN, total_reading_millis, number_of_page_flips)');
   process.exit(1);
 }
 
@@ -113,7 +135,7 @@ function isoToUtcDate(ts) {
 let totalEvents = 0;
 let droppedShort = 0;
 let droppedNoDate = 0;
-const groups = new Map();  // key: `${asin}|${date}` → { asin, date, ms }
+const groups = new Map();  // key: `${asin}|${date}` → { asin, date, ms, flips }
 const asinsSeen = new Set();
 
 for (const r of allRows) {
@@ -127,9 +149,14 @@ for (const r of allRows) {
   const ts = val(r[I_END_TS]) || val(r[I_START_TS]);
   const date = isoToUtcDate(ts);
   if (!date) { droppedNoDate++; continue; }
+  // page_flips can be missing on rows where Kindle recorded reading time
+  // but no navigation events — fall back to 0 rather than skipping the row.
+  const flipsRaw = val(r[I_FLIPS]);
+  const flips = flipsRaw == null ? 0 : (parseInt(flipsRaw, 10) || 0);
   const key = `${asin}|${date}`;
-  const g = groups.get(key) || { asin, date, ms: 0 };
+  const g = groups.get(key) || { asin, date, ms: 0, flips: 0 };
   g.ms += ms;
+  g.flips += flips;
   groups.set(key, g);
 }
 
@@ -145,21 +172,38 @@ for (const asin of asinsSeen) {
 
 // ─── Plan ──────────────────────────────────────────────────────────────
 
-const writes = [];          // { book_id, date, minutes_read, title, asin }
+const writes = [];          // { book_id, date, minutes_read, pages_read, title, asin }
 const skipped = new Map();  // asin → { totalMinutes, days }
+const filteredOut = new Map(); // book_id → { title, asin, days, minutes } — matched but excluded by --asin/--book-id
 
 for (const g of groups.values()) {
   const minutes = Math.round(g.ms / 60000);
   if (minutes <= 0) continue;
   const book = bookByAsin.get(g.asin);
-  if (book) {
-    writes.push({ book_id: book.id, date: g.date, minutes_read: minutes, title: book.title, asin: g.asin });
-  } else {
+  if (!book) {
     const s = skipped.get(g.asin) || { totalMinutes: 0, days: 0 };
     s.totalMinutes += minutes;
     s.days += 1;
     skipped.set(g.asin, s);
+    continue;
   }
+  const inScope = (!asinFilter   || asinFilter.has(g.asin))
+              && (!bookIdFilter || bookIdFilter.has(book.id));
+  if (!inScope) {
+    const f = filteredOut.get(book.id) || { title: book.title, asin: g.asin, days: 0, minutes: 0 };
+    f.days += 1;
+    f.minutes += minutes;
+    filteredOut.set(book.id, f);
+    continue;
+  }
+  writes.push({
+    book_id:      book.id,
+    date:         g.date,
+    minutes_read: minutes,
+    pages_read:   g.flips,
+    title:        book.title,
+    asin:         g.asin,
+  });
 }
 
 // ─── Summary ───────────────────────────────────────────────────────────
@@ -167,9 +211,13 @@ for (const g of groups.values()) {
 const dates = writes.map(w => w.date).sort();
 const dateRange = dates.length ? `${dates[0]} → ${dates[dates.length - 1]}` : '(none)';
 const totalMinutes = writes.reduce((s, w) => s + w.minutes_read, 0);
+const totalPages   = writes.reduce((s, w) => s + w.pages_read,   0);
 const matchedBooks = new Set(writes.map(w => w.book_id)).size;
 
-console.log(`\n${apply ? 'APPLY' : 'DRY-RUN'}  min-event-seconds=${minEventSeconds}\n`);
+console.log(`\n${apply ? 'APPLY' : 'DRY-RUN'}  min-event-seconds=${minEventSeconds}`);
+if (asinFilter)   console.log(`Scope: --asin=${[...asinFilter].join(',')}`);
+if (bookIdFilter) console.log(`Scope: --book-id=${[...bookIdFilter].join(',')}`);
+console.log('');
 console.log(`Events read:        ${totalEvents}`);
 console.log(`Dropped as short:   ${droppedShort}`);
 console.log(`Dropped no date:    ${droppedNoDate}`);
@@ -177,13 +225,40 @@ console.log(`(asin, date) groups after filter: ${groups.size}`);
 console.log(`Days to write:      ${writes.length}`);
 console.log(`Books matched:      ${matchedBooks}`);
 console.log(`Total minutes:      ${totalMinutes.toLocaleString()}  (${(totalMinutes / 60).toFixed(1)} hours)`);
+console.log(`Total pages:        ${totalPages.toLocaleString()}`);
 console.log(`Date range:         ${dateRange}`);
 
-if (skipped.size > 0) {
+if (hasScopeFilter && writes.length) {
+  console.log(`\nIn-scope target books (will be written):`);
+  const perBook = new Map();
+  for (const w of writes) {
+    const b = perBook.get(w.book_id) || { title: w.title, asin: w.asin, days: 0, minutes: 0, pages: 0 };
+    b.days    += 1;
+    b.minutes += w.minutes_read;
+    b.pages   += w.pages_read;
+    perBook.set(w.book_id, b);
+  }
+  for (const [id, b] of [...perBook.entries()].sort((a, c) => c[1].minutes - a[1].minutes)) {
+    console.log(`  #${id}  ${b.minutes.toString().padStart(6)} min  ${b.pages.toString().padStart(5)} pages  ${b.days.toString().padStart(3)} days  ${b.asin}  ${b.title}`);
+  }
+}
+
+// Only surface the noisy lists when no scope filter is in play. Once the
+// user is narrowing to specific books, the off-target ASINs are not what
+// they're trying to decide on.
+if (!hasScopeFilter && skipped.size > 0) {
   console.log(`\nSkipped — no Spine book with matching ASIN (${skipped.size} unique titles):`);
   const rows = [...skipped.entries()].sort((a, b) => b[1].totalMinutes - a[1].totalMinutes);
   for (const [asin, s] of rows) {
     console.log(`  ${asin}  ${s.totalMinutes.toString().padStart(6)} min  ${s.days.toString().padStart(3)} days`);
+  }
+}
+
+if (hasScopeFilter && filteredOut.size > 0) {
+  console.log(`\nMatched books filtered out by scope (${filteredOut.size}):`);
+  const rows = [...filteredOut.entries()].sort((a, b) => b[1].minutes - a[1].minutes);
+  for (const [id, f] of rows) {
+    console.log(`  #${id}  ${f.minutes.toString().padStart(6)} min  ${f.days.toString().padStart(3)} days  ${f.asin}  ${f.title}`);
   }
 }
 
@@ -196,13 +271,14 @@ if (!apply) {
 
 const upsert = db.prepare(`
   INSERT INTO reading_log (book_id, date, pages_read, minutes_read)
-  VALUES (?, ?, 0, ?)
+  VALUES (?, ?, ?, ?)
   ON CONFLICT(book_id, date) WHERE story_id IS NULL DO UPDATE SET
+    pages_read   = excluded.pages_read,
     minutes_read = excluded.minutes_read
 `);
 
 const txn = db.transaction((rows) => {
-  for (const w of rows) upsert.run(w.book_id, w.date, w.minutes_read);
+  for (const w of rows) upsert.run(w.book_id, w.date, w.pages_read, w.minutes_read);
 });
 txn(writes);
 
