@@ -42,13 +42,21 @@ export default function CommandPalette() {
     }
   }, []);
 
-  // Global open shortcut. Ctrl+Shift+P on Windows/Linux, Cmd+Shift+P on
-  // Mac. Both browsers reserve Ctrl+P for print and Ctrl+K for the URL
-  // bar, so the +Shift form keeps us out of those collisions.
+  // Global open shortcut. Both bindings are intentional:
+  //   - Ctrl/Cmd+K — the modern convention (Linear/Slack/GitHub/Notion)
+  //     and Firefox-friendly. Firefox's Ctrl+Shift+P opens a Private
+  //     Window at the browser-chrome level and can't be intercepted
+  //     by preventDefault, so K is the only universally-working binding.
+  //   - Ctrl/Cmd+Shift+P — the VS Code convention. Useful on Chrome/
+  //     Edge/Safari where it isn't browser-bound; ignored on Firefox.
   useEffect(() => {
     function onKey(e) {
-      const isOpenCombo = (e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'P' || e.key === 'p');
-      if (!isOpenCombo) return;
+      const mod = e.ctrlKey || e.metaKey;
+      if (!mod) return;
+      const k = e.key.toLowerCase();
+      const isCmdK = !e.shiftKey && k === 'k';
+      const isCmdShiftP = e.shiftKey && k === 'p';
+      if (!isCmdK && !isCmdShiftP) return;
       e.preventDefault();
       if (open) { close(); return; }
       returnFocusRef.current = document.activeElement;
@@ -186,7 +194,7 @@ export default function CommandPalette() {
         )}
         <div className="border-t border-neutral-800 px-4 py-2 text-[10px] text-neutral-600 flex items-center justify-between">
           <span>↑↓ navigate · ↵ open · esc close</span>
-          <span>Ctrl+Shift+P</span>
+          <span>Ctrl+K</span>
         </div>
       </div>
     </div>
