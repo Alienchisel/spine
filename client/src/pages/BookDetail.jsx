@@ -410,6 +410,7 @@ export default function BookDetail() {
                 disabled={loving}
                 className={`flex flex-col items-center gap-1.5 transition-colors disabled:opacity-50 ${book.loved ? 'text-red-400' : 'text-neutral-600 hover:text-neutral-300'}`}
                 title={book.loved ? 'Remove from loved' : 'Mark as loved'}
+                aria-pressed={!!book.loved}
               >
                 <span className="text-2xl leading-none">{book.loved ? '♥' : '♡'}</span>
                 <span className="text-[10px] uppercase tracking-wider">Loved</span>
@@ -419,6 +420,7 @@ export default function BookDetail() {
                 disabled={listing}
                 className={`flex flex-col items-center gap-1.5 transition-colors disabled:opacity-50 ${book.on_readlist ? 'text-sky-400' : 'text-neutral-600 hover:text-neutral-300'}`}
                 title={book.on_readlist ? 'Remove from readlist' : 'Add to readlist'}
+                aria-pressed={!!book.on_readlist}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-5 h-5">
                   <path d="M2 2.75A2.75 2.75 0 0 1 4.75 0h6.5A2.75 2.75 0 0 1 14 2.75v12.5a.75.75 0 0 1-1.18.617L8 12.21l-4.82 3.657A.75.75 0 0 1 2 15.25V2.75Z" />
@@ -434,6 +436,7 @@ export default function BookDetail() {
                 disabled={archiving}
                 className={`flex flex-col items-center gap-1.5 transition-colors disabled:opacity-50 ${book.archived ? 'text-amber-500' : 'text-neutral-600 hover:text-neutral-300'}`}
                 title={book.archived ? 'Restore from archive' : 'Archive — hide from active library'}
+                aria-pressed={!!book.archived}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-5 h-5">
                   <path d="M2 3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1.5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3Z" />

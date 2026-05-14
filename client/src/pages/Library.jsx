@@ -681,14 +681,14 @@ export default function Library() {
               {total} {total === 1 ? 'book' : 'books'}
             </span>
             <div className="flex items-center gap-1">
-              <button onClick={() => setDensity('comfortable')} title="Comfortable grid" className={`transition-colors ${density === 'comfortable' ? 'text-neutral-300' : 'text-neutral-700 hover:text-neutral-400'}`}>
+              <button onClick={() => setDensity('comfortable')} title="Comfortable grid" aria-label="Comfortable grid" aria-pressed={density === 'comfortable'} className={`transition-colors ${density === 'comfortable' ? 'text-neutral-300' : 'text-neutral-700 hover:text-neutral-400'}`}>
                 <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4">
                   <rect x="1" y="1" width="4" height="4" rx="0.5"/><rect x="6" y="1" width="4" height="4" rx="0.5"/><rect x="11" y="1" width="4" height="4" rx="0.5"/>
                   <rect x="1" y="6" width="4" height="4" rx="0.5"/><rect x="6" y="6" width="4" height="4" rx="0.5"/><rect x="11" y="6" width="4" height="4" rx="0.5"/>
                   <rect x="1" y="11" width="4" height="4" rx="0.5"/><rect x="6" y="11" width="4" height="4" rx="0.5"/><rect x="11" y="11" width="4" height="4" rx="0.5"/>
                 </svg>
               </button>
-              <button onClick={() => setDensity('compact')} title="Compact grid" className={`transition-colors ${density === 'compact' ? 'text-neutral-300' : 'text-neutral-700 hover:text-neutral-400'}`}>
+              <button onClick={() => setDensity('compact')} title="Compact grid" aria-label="Compact grid" aria-pressed={density === 'compact'} className={`transition-colors ${density === 'compact' ? 'text-neutral-300' : 'text-neutral-700 hover:text-neutral-400'}`}>
                 <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4">
                   <rect x="1" y="1" width="6.5" height="6.5" rx="0.5"/><rect x="8.5" y="1" width="6.5" height="6.5" rx="0.5"/>
                   <rect x="1" y="8.5" width="6.5" height="6.5" rx="0.5"/><rect x="8.5" y="8.5" width="6.5" height="6.5" rx="0.5"/>
