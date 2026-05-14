@@ -2,7 +2,7 @@ import express from 'express';
 import db from '../db.js';
 import { validateBook, isValidDate, isValidPartialDate, partialDateBefore } from '../lib/books/validation.js';
 import { getBook, getBookCounts, getBookFacets, listBooks, createBook, updateBook, patchBook, deleteBook, updateBookCover, linkEditions, unlinkEdition } from '../lib/books/repository.js';
-import { syncStoryAuthors } from '../lib/books/people.js';
+import { syncStoryAuthors, pruneOrphanPeople } from '../lib/books/people.js';
 
 const router = express.Router();
 
@@ -335,6 +335,9 @@ router.delete('/:id/stories/:storyId', (req, res) => {
   // false (no double-roll).
   db.transaction(() => {
     db.prepare('DELETE FROM stories WHERE id = ?').run(storyId);
+    // story_authors cascades on the stories delete; the author rows
+    // themselves may now be orphaned if this was their last credit.
+    pruneOrphanPeople('authors');
     maybeAutoRollParent(id);
   })();
   res.status(204).send();

@@ -3,6 +3,11 @@ import assert from 'node:assert/strict';
 import fs from 'fs';
 import { createTestServer } from './helpers.js';
 
+// Helper for orphan-prune assertions. The test server uses an in-memory
+// DB; importing db.js shares that same connection because app.js loads it
+// at module init.
+async function loadDb() { return (await import('../db.js')).default; }
+
 describe('books', () => {
   let url;
   let close;
@@ -351,6 +356,100 @@ describe('books', () => {
       });
       assert.equal(body.tags.length, 2);
       assert.ok(body.tags.every(t => ['sci-fi', 'dystopia'].includes(t.name)));
+    });
+
+    it('prunes orphan author rows after a PUT removes the last credit', async () => {
+      const db = await loadDb();
+      const name = 'Solo Orphan Author ' + Math.random().toString(36).slice(2, 8);
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Orphan Author Test', authors: [name],
+      });
+      try {
+        const rowBefore = db.prepare('SELECT id FROM authors WHERE name = ?').get(name);
+        assert.ok(rowBefore, 'author row should exist after POST');
+        await req('PUT', `/api/books/${created.id}`, {
+          title: 'Orphan Author Test', authors: ['Replacement Author'],
+        });
+        const rowAfter = db.prepare('SELECT id FROM authors WHERE name = ?').get(name);
+        assert.equal(rowAfter, undefined, 'author row should be pruned once no book or story credits remain');
+      } finally {
+        await req('DELETE', `/api/books/${created.id}`);
+      }
+    });
+
+    it('keeps an author row alive when only book credit is removed but story credit remains', async () => {
+      const db = await loadDb();
+      const name = 'Story-Only Author ' + Math.random().toString(36).slice(2, 8);
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Mixed Credit Test', authors: [name],
+      });
+      try {
+        // Layer 2 credit: the author also appears on a story.
+        await req('POST', `/api/books/${created.id}/stories`, { title: 'Story 1', authors: [name] });
+        await req('PUT', `/api/books/${created.id}`, {
+          title: 'Mixed Credit Test', authors: ['Different Book Author'],
+        });
+        const row = db.prepare('SELECT id FROM authors WHERE name = ?').get(name);
+        assert.ok(row, 'author with surviving story credit must not be pruned');
+      } finally {
+        await req('DELETE', `/api/books/${created.id}`);
+      }
+    });
+
+    it('prunes orphan tag rows after a PUT removes the last book using them', async () => {
+      const db = await loadDb();
+      const tagName = 'orphan-tag-' + Math.random().toString(36).slice(2, 8);
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Tag Orphan Test', tags: [tagName],
+      });
+      try {
+        const rowBefore = db.prepare('SELECT id FROM tags WHERE name = ?').get(tagName);
+        assert.ok(rowBefore, 'tag row should exist after POST');
+        await req('PUT', `/api/books/${created.id}`, {
+          title: 'Tag Orphan Test', tags: ['replacement-tag'],
+        });
+        const rowAfter = db.prepare('SELECT id FROM tags WHERE name = ?').get(tagName);
+        assert.equal(rowAfter, undefined, 'tag row should be pruned once no book uses it');
+      } finally {
+        await req('DELETE', `/api/books/${created.id}`);
+      }
+    });
+
+    it('prunes orphan people and tags when a book is deleted', async () => {
+      const db = await loadDb();
+      const authorName = 'Delete-Cascade Author ' + Math.random().toString(36).slice(2, 8);
+      const tagName    = 'delete-cascade-tag-' + Math.random().toString(36).slice(2, 8);
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Delete Cascade Test', authors: [authorName], tags: [tagName],
+      });
+      assert.ok(db.prepare('SELECT id FROM authors WHERE name = ?').get(authorName));
+      assert.ok(db.prepare('SELECT id FROM tags WHERE name = ?').get(tagName));
+      await req('DELETE', `/api/books/${created.id}`);
+      assert.equal(db.prepare('SELECT id FROM authors WHERE name = ?').get(authorName), undefined);
+      assert.equal(db.prepare('SELECT id FROM tags WHERE name = ?').get(tagName), undefined);
+    });
+
+    it('dissolves a phantom alias group when pruning leaves a single member', async () => {
+      const db = await loadDb();
+      const nameA = 'Alias A ' + Math.random().toString(36).slice(2, 8);
+      const nameB = 'Alias B ' + Math.random().toString(36).slice(2, 8);
+      const { body: bookA } = await req('POST', '/api/books', { title: 'Alias Test A', authors: [nameA] });
+      const { body: bookB } = await req('POST', '/api/books', { title: 'Alias Test B', authors: [nameB] });
+      try {
+        const a = db.prepare('SELECT id FROM authors WHERE name = ?').get(nameA);
+        const b = db.prepare('SELECT id FROM authors WHERE name = ?').get(nameB);
+        await req('POST', `/api/authors/${a.id}/alias-link`, { other_id: b.id });
+        const grouped = db.prepare('SELECT alias_group_id FROM authors WHERE id = ?').get(a.id);
+        assert.ok(grouped.alias_group_id != null, 'precondition: alias group was formed');
+        // Remove the credit on A's only book → A becomes orphan → prune deletes A → group has 1 member → dissolve B.
+        await req('PUT', `/api/books/${bookA.id}`, { title: 'Alias Test A', authors: ['Different'] });
+        assert.equal(db.prepare('SELECT id FROM authors WHERE id = ?').get(a.id), undefined, 'A pruned');
+        const bAfter = db.prepare('SELECT alias_group_id FROM authors WHERE id = ?').get(b.id);
+        assert.equal(bAfter.alias_group_id, null, 'singleton alias group must be dissolved');
+      } finally {
+        await req('DELETE', `/api/books/${bookA.id}`);
+        await req('DELETE', `/api/books/${bookB.id}`);
+      }
     });
 
     it('returns 404 for unknown id', async () => {
