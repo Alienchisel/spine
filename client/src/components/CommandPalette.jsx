@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams, useMatch } from 'react-router-dom';
 import { api } from '../api.js';
+import { useConfirm } from './ConfirmModal.jsx';
 
 // Global command palette, opened with Ctrl/Cmd+K (universal) or
 // Ctrl/Cmd+Shift+P (VS Code muscle memory; Chrome/Edge/Safari only —
@@ -14,9 +15,14 @@ import { api } from '../api.js';
 // Phase 3: Library actions — clear filters, change sort. URL-driven,
 //   so they preserve other params when invoked on Library and
 //   navigate to a fresh Library view when invoked elsewhere.
+// Phase 4: context-aware book-detail actions — toggle loved / readlist
+//   / archive (PATCH-based), edit book (navigate), delete book (confirm
+//   + delete + navigate to /). Only surface when on /books/:id. After a
+//   mutating action, dispatch spine:book-mutated so BookDetail refreshes
+//   without a navigation.
 //
-// Future phases will add context-aware book-detail actions, sub-prompts,
-// and an empty-state recent / suggested layer.
+// Future phases will add sub-prompts (Add to list…) and an empty-state
+// recent / suggested layer.
 
 // Static navigation entries. Paths must match main.jsx routes. The
 // Library tabs reuse the same path with a query string the existing
@@ -86,6 +92,16 @@ export default function CommandPalette() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const isOnLibrary = location.pathname === '/';
+  const confirm = useConfirm();
+  // Exact match on /books/:id — excludes /books/new (no numeric id),
+  // /books/:id/edit (longer path), and any other /books/* subpath.
+  // We further guard on a numeric id below so a future /books/foo
+  // doesn't accidentally activate book actions.
+  const bookMatch = useMatch('/books/:id');
+  const currentBookId = bookMatch && /^\d+$/.test(bookMatch.params.id)
+    ? Number(bookMatch.params.id)
+    : null;
+  const [currentBook, setCurrentBook] = useState(null);
 
   const close = useCallback(() => {
     setOpen(false);
@@ -143,6 +159,22 @@ export default function CommandPalette() {
     return () => { cancelled = true; };
   }, [open, listsLoaded]);
 
+  // Fetch the current book whenever the palette opens on /books/:id.
+  // Re-fetching per open (rather than caching) keeps the loved /
+  // readlist / archive labels accurate after the user mutates state
+  // on the detail page itself.
+  useEffect(() => {
+    if (!open || currentBookId == null) {
+      setCurrentBook(null);
+      return;
+    }
+    let cancelled = false;
+    api.getBook(currentBookId)
+      .then(b => { if (!cancelled) setCurrentBook(b); })
+      .catch(() => { if (!cancelled) setCurrentBook(null); });
+    return () => { cancelled = true; };
+  }, [open, currentBookId]);
+
   // Debounced book search. Empty query → no books (we still show the
   // nav directory; books wait for a real query because they're a
   // round-trip).
@@ -176,7 +208,7 @@ export default function CommandPalette() {
   // about; when elsewhere, navigate to a fresh Library view. Both
   // branches read the *current* URL at the moment of invocation, so
   // memoizing the actions array on `searchParams` is intentional.
-  const actionEntries = useMemo(() => {
+  const libraryActions = useMemo(() => {
     const onLibrary = isOnLibrary;
     const currentParams = searchParams;
 
@@ -209,6 +241,68 @@ export default function CommandPalette() {
       })),
     ];
   }, [isOnLibrary, searchParams, navigate, setSearchParams]);
+
+  // Book-detail actions — only present when on /books/:id and the book
+  // has loaded. Mutating actions hit the PATCH endpoint and then
+  // dispatch spine:book-mutated; BookDetail listens and refetches so
+  // the page reflects the change without a navigation. Delete uses
+  // useConfirm() (the palette is mounted under ConfirmModalProvider)
+  // and navigates back to Library on success.
+  const bookActions = useMemo(() => {
+    if (!currentBook) return [];
+    const id = currentBook.id;
+    const title = currentBook.title;
+    const fireMutation = () => window.dispatchEvent(new CustomEvent('spine:book-mutated', { detail: { id } }));
+
+    return [
+      {
+        id: 'book.toggle-loved',
+        kind: 'action',
+        label: currentBook.loved ? 'Remove from loved' : 'Mark as loved',
+        hint: title,
+        perform: async () => { await api.patchBook(id, { loved: !currentBook.loved }); fireMutation(); },
+      },
+      {
+        id: 'book.toggle-readlist',
+        kind: 'action',
+        label: currentBook.on_readlist ? 'Remove from readlist' : 'Add to readlist',
+        hint: title,
+        perform: async () => { await api.patchBook(id, { on_readlist: !currentBook.on_readlist }); fireMutation(); },
+      },
+      {
+        id: 'book.toggle-archive',
+        kind: 'action',
+        label: currentBook.archived ? 'Restore from archive' : 'Archive book',
+        hint: title,
+        perform: async () => { await api.patchBook(id, { archived: !currentBook.archived }); fireMutation(); },
+      },
+      {
+        id: 'book.edit',
+        kind: 'action',
+        label: 'Edit book…',
+        hint: title,
+        perform: () => navigate(`/books/${id}/edit`),
+      },
+      {
+        id: 'book.delete',
+        kind: 'action',
+        label: 'Delete book…',
+        hint: title,
+        perform: async () => {
+          const ok = await confirm({
+            title: 'Delete book',
+            message: `Delete "${title}"? This is permanent.`,
+            confirmLabel: 'Delete',
+          });
+          if (!ok) return;
+          await api.deleteBook(id);
+          navigate('/');
+        },
+      },
+    ];
+  }, [currentBook, navigate, confirm]);
+
+  const actionEntries = useMemo(() => [...bookActions, ...libraryActions], [bookActions, libraryActions]);
 
   // Build the sectioned result set. Memoized so arrow-key navigation
   // doesn't recompute on every render. Each entry carries everything

@@ -228,6 +228,21 @@ export default function BookDetail() {
     return String(reqId) === String(latestIdRef.current);
   }
 
+  // Listen for palette-driven mutations on this book (toggle loved /
+  // readlist / archive). The command palette fires its API call directly
+  // and dispatches spine:book-mutated so the detail page can refresh
+  // without a navigation. Same-id check guards against listening for
+  // mutations on other books while this page is mounted (e.g. background
+  // tabs sharing the same window).
+  useEffect(() => {
+    function onMutate(e) {
+      if (Number(e.detail?.id) !== Number(id)) return;
+      api.getBook(id).then(setBook).catch(() => {});
+    }
+    window.addEventListener('spine:book-mutated', onMutate);
+    return () => window.removeEventListener('spine:book-mutated', onMutate);
+  }, [id]);
+
   // Both finishError and actionError render inside the action panel, so a
   // stale message from one handler can sit next to a successful action from
   // another. Each handler clears both on entry so the visible state always
