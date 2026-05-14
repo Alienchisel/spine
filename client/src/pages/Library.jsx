@@ -553,7 +553,7 @@ export default function Library() {
                     // only ever lives in the never_owned slot.
                     if (t.key !== 'never_owned') setEditMode(false);
                   }}
-                  className={`px-5 py-2 text-sm rounded-md whitespace-nowrap transition-[transform,background-color,color] ease-out duration-150 active:scale-[0.98] ${
+                  className={`px-5 py-2 text-sm rounded-md whitespace-nowrap transition-[transform,background-color,color] ease-out duration-150 motion-safe:active:scale-[0.98] ${
                     tab === t.key
                       ? 'bg-binding/25 text-parchment font-semibold'
                       : 'font-medium text-neutral-400 hover:text-neutral-200'
@@ -655,7 +655,7 @@ export default function Library() {
             </div>
             <button
               onClick={() => setFiltersOpen(o => !o)}
-              className={`flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg whitespace-nowrap transition-[transform,background-color,color] ease-out duration-150 active:scale-[0.98] ${
+              className={`flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg whitespace-nowrap transition-[transform,background-color,color] ease-out duration-150 motion-safe:active:scale-[0.98] ${
                 filtersOpen || activeCount > 0
                   ? 'bg-binding/25 text-parchment'
                   : 'bg-neutral-800 text-neutral-400 hover:text-neutral-200'

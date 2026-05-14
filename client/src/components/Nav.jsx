@@ -46,7 +46,7 @@ export default function Nav() {
         {showAddButton && (
           <Link
             to="/books/new"
-            className="text-sm font-medium bg-oak hover:bg-leather active:scale-[0.98] text-neutral-950 px-4 py-1.5 rounded-full transition-[transform,background-color] ease-out duration-150"
+            className="text-sm font-medium bg-oak hover:bg-leather motion-safe:active:scale-[0.98] text-neutral-950 px-4 py-1.5 rounded-full transition-[transform,background-color] ease-out duration-150"
           >
             + Add book
           </Link>

@@ -23,7 +23,7 @@ const MISSING_FIELDS = [
 const FORMAT_LABEL = { physical: 'Physical', ebook: 'Digital', audiobook: 'Audiobook' };
 
 function pill(active, variant = 'default') {
-  const base = 'text-xs px-2.5 py-1 rounded-full border cursor-pointer transition-[transform,background-color,color,border-color] ease-out duration-150 active:scale-[0.98]';
+  const base = 'text-xs px-2.5 py-1 rounded-full border cursor-pointer transition-[transform,background-color,color,border-color] ease-out duration-150 motion-safe:active:scale-[0.98]';
   if (variant === 'missing') {
     return `${base} ${active
       ? 'bg-warn/20 text-warn border-warn/50'

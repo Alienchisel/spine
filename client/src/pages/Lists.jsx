@@ -127,7 +127,7 @@ export default function Lists() {
         <button
           type="submit"
           disabled={creating || !newName.trim()}
-          className="text-sm font-medium bg-oak hover:bg-leather disabled:opacity-40 active:scale-[0.98] text-neutral-950 px-4 py-2 rounded-lg transition-[transform,background-color] ease-out duration-150"
+          className="text-sm font-medium bg-oak hover:bg-leather disabled:opacity-40 motion-safe:active:scale-[0.98] text-neutral-950 px-4 py-2 rounded-lg transition-[transform,background-color] ease-out duration-150"
         >
           Create
         </button>

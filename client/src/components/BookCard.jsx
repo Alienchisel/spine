@@ -440,7 +440,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
                 type="submit"
                 disabled={saving || isEmpty}
                 aria-label={saving ? 'Saving progress' : 'Save progress'}
-                className="text-xs bg-binding hover:bg-binding/80 active:scale-[0.98] disabled:opacity-40 text-parchment px-2 py-1 rounded transition-[transform,background-color] ease-out duration-150"
+                className="text-xs bg-binding hover:bg-binding/80 motion-safe:active:scale-[0.98] disabled:opacity-40 text-parchment px-2 py-1 rounded transition-[transform,background-color] ease-out duration-150"
               >
                 {saving ? '…' : '✓'}
               </button>

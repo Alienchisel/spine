@@ -164,7 +164,7 @@ function QuickAdd({ listId, onAdded }) {
       <button
         type="submit"
         disabled={saving || !title.trim()}
-        className="text-sm font-medium bg-oak hover:bg-leather disabled:opacity-40 active:scale-[0.98] text-neutral-950 px-4 py-2 rounded-lg transition-[transform,background-color] ease-out duration-150 whitespace-nowrap"
+        className="text-sm font-medium bg-oak hover:bg-leather disabled:opacity-40 motion-safe:active:scale-[0.98] text-neutral-950 px-4 py-2 rounded-lg transition-[transform,background-color] ease-out duration-150 whitespace-nowrap"
       >
         Add
       </button>
