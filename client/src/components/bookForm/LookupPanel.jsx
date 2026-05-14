@@ -133,22 +133,22 @@ export default function LookupPanel({ onApply, coverInFlight }) {
             </p>
           )}
           <ul>
-          {results.map((r) => (
-            <li key={r.key}>
-              <button type="button" onClick={() => handlePick(r)}
-                disabled={coverInFlight}
-                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent">
-                {r.cover_url
-                  ? <img src={r.cover_url} alt="" className="w-8 h-12 object-cover rounded flex-shrink-0" />
-                  : <div className="w-8 h-12 bg-neutral-800 rounded flex-shrink-0" />}
-                <div className="min-w-0">
-                  <p className="text-sm text-white truncate" title={r.title}>{r.title}</p>
-                  {r.authors?.length > 0 && <p className="text-xs text-neutral-500 truncate">{r.authors.join(', ')}</p>}
-                  {r.publisher && <p className="text-xs text-neutral-600 truncate">{r.publisher}</p>}
-                </div>
-              </button>
-            </li>
-          ))}
+            {results.map((r) => (
+              <li key={r.key}>
+                <button type="button" onClick={() => handlePick(r)}
+                  disabled={coverInFlight}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent">
+                  {r.cover_url
+                    ? <img src={r.cover_url} alt="" className="w-8 h-12 object-cover rounded flex-shrink-0" />
+                    : <div className="w-8 h-12 bg-neutral-800 rounded flex-shrink-0" />}
+                  <div className="min-w-0">
+                    <p className="text-sm text-white truncate" title={r.title}>{r.title}</p>
+                    {r.authors?.length > 0 && <p className="text-xs text-neutral-500 truncate">{r.authors.join(', ')}</p>}
+                    {r.publisher && <p className="text-xs text-neutral-600 truncate">{r.publisher}</p>}
+                  </div>
+                </button>
+              </li>
+            ))}
           </ul>
         </div>
       )}
