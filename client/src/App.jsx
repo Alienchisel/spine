@@ -30,8 +30,19 @@ export default function App() {
   return (
     <ConfirmModalProvider>
       <div className="min-h-screen bg-neutral-950">
+        {/* Skip link for keyboard users: invisible until focused (Tab
+            from the URL bar lands here first), then appears as a
+            button in the top-left to bypass the sticky Nav. Lets
+            screen-reader and keyboard-only users skip the seven nav
+            links and go straight to page content. */}
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-3 focus:py-2 focus:bg-oak focus:text-neutral-950 focus:text-sm focus:font-medium focus:rounded focus:shadow-lg"
+        >
+          Skip to main content
+        </a>
         <Nav />
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <main id="main" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
           <Outlet />
         </main>
         <CommandPalette />
