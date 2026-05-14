@@ -127,9 +127,16 @@ export default function LookupPanel({ onApply, coverInFlight }) {
         // result buttons — disabled-button title tooltips don't surface
         // on touch and aren't reliably announced by screen readers, so
         // a visible inline message is the accessible choice.
+        //
+        // role='status' (implicit aria-live='polite') announces the
+        // notice non-interruptively for screen readers, matching the
+        // Searching… indicator above and the same indicator in
+        // EditionsSection. The element is conditionally rendered;
+        // modern screen readers re-scan polite regions on subtree
+        // mutations, so the new <p> is announced when it appears.
         <div className="absolute z-10 w-full mt-1 bg-neutral-900 border border-neutral-700 rounded-lg overflow-hidden shadow-xl">
           {coverInFlight && (
-            <p className="px-4 py-2 text-xs text-neutral-400 border-b border-neutral-800">
+            <p role="status" className="px-4 py-2 text-xs text-neutral-400 border-b border-neutral-800">
               A cover action is in progress — wait for it to finish.
             </p>
           )}
