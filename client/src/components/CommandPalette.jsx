@@ -20,9 +20,15 @@ import { useConfirm } from './ConfirmModal.jsx';
 //   + delete + navigate to /). Only surface when on /books/:id. After a
 //   mutating action, dispatch spine:book-mutated so BookDetail refreshes
 //   without a navigation.
+// Phase 5: empty-state layer — Continue reading (top 3 books with
+//   status='reading', refetched per open) and Recent (top 3 MRU entries
+//   from localStorage). Library actions hide in the empty state so the
+//   10-similar-sort-options block doesn't dominate; they surface when
+//   the user types. Book-scoped action ids (book.toggle-loved, etc.)
+//   aren't added to the MRU since their target depends on which detail
+//   page is open at execution time.
 //
-// Future phases will add sub-prompts (Add to list…) and an empty-state
-// recent / suggested layer.
+// Future phases will add sub-prompts (Add to list…).
 
 // Static navigation entries. Paths must match main.jsx routes. The
 // Library tabs reuse the same path with a query string the existing
@@ -71,6 +77,29 @@ function matchesQuery(text, q) {
   return text.toLowerCase().includes(q);
 }
 
+const MRU_KEY = 'spine-palette-mru';
+const MRU_MAX = 20;
+
+function loadMRU() {
+  try {
+    const raw = localStorage.getItem(MRU_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch { return []; }
+}
+
+function saveMRU(items) {
+  try { localStorage.setItem(MRU_KEY, JSON.stringify(items)); } catch {}
+}
+
+// Book-scoped action ids don't belong in MRU — their target is whichever
+// book detail page is open at execution time, so showing 'Mark as loved'
+// in Recent would mislead the user about *which* book it toggles.
+function isPersistableForRecent(entry) {
+  if (entry.kind !== 'action') return true;
+  return !entry.id.startsWith('book.');
+}
+
 export default function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -102,6 +131,8 @@ export default function CommandPalette() {
     ? Number(bookMatch.params.id)
     : null;
   const [currentBook, setCurrentBook] = useState(null);
+  const [reading, setReading] = useState([]);
+  const [recent, setRecent] = useState(loadMRU);
 
   const close = useCallback(() => {
     setOpen(false);
@@ -174,6 +205,39 @@ export default function CommandPalette() {
       .catch(() => { if (!cancelled) setCurrentBook(null); });
     return () => { cancelled = true; };
   }, [open, currentBookId]);
+
+  // Continue-reading: fetch every time the palette opens. The set is
+  // tiny (3 books) and the user might have flipped status elsewhere
+  // between opens, so the cost of a refetch is worth the freshness.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    api.getBooks({ statuses: 'reading', sort: 'updated', limit: 3 })
+      .then(d => { if (!cancelled) setReading(d.books || []); })
+      .catch(() => { if (!cancelled) setReading([]); });
+    return () => { cancelled = true; };
+  }, [open]);
+
+  const remember = useCallback((entry) => {
+    if (!entry || !isPersistableForRecent(entry)) return;
+    // Strip non-serializable bits (perform fn closures); we re-bind the
+    // action's perform() from the live registry when rendering Recent.
+    const stripped = {
+      id:    entry.id,
+      kind:  entry.kind,
+      label: entry.label,
+      hint:  entry.hint ?? null,
+      path:  entry.path ?? null,
+      cover: entry.cover ?? null,
+      ts:    Date.now(),
+    };
+    setRecent(prev => {
+      const filtered = prev.filter(p => p.id !== stripped.id);
+      const next = [stripped, ...filtered].slice(0, MRU_MAX);
+      saveMRU(next);
+      return next;
+    });
+  }, []);
 
   // Debounced book search. Empty query → no books (we still show the
   // nav directory; books wait for a real query because they're a
@@ -304,22 +368,52 @@ export default function CommandPalette() {
 
   const actionEntries = useMemo(() => [...bookActions, ...libraryActions], [bookActions, libraryActions]);
 
+  // Empty-state entry sets. Continue-reading maps the fetched book
+  // objects to entry shape; recent rehydrates persisted MRU entries,
+  // re-binding action perform() functions from the live registry so
+  // a stored Library action still works after a reload. Entries whose
+  // live counterpart no longer exists (e.g. a deleted book in MRU,
+  // or a book-scoped action whose page isn't open) are filtered out.
+  const continueEntries = useMemo(() => reading.map(b => ({
+    id:    `book.${b.id}`,
+    kind:  'book',
+    label: b.title,
+    hint:  b.authors?.map(a => a.name).join(', ') || null,
+    cover: b.cover_path,
+    path:  `/books/${b.id}`,
+  })), [reading]);
+
+  const recentEntries = useMemo(() => {
+    return recent
+      .map(r => {
+        if (r.kind === 'action') {
+          const live = actionEntries.find(a => a.id === r.id);
+          return live || null;
+        }
+        return r;
+      })
+      .filter(Boolean)
+      .slice(0, 3);
+  }, [recent, actionEntries]);
+
   // Build the sectioned result set. Memoized so arrow-key navigation
-  // doesn't recompute on every render. Each entry carries everything
-  // needed to render and execute it (path OR perform).
+  // doesn't recompute on every render. Empty-state and query-state are
+  // intentionally different — the empty layout prioritizes pre-curated
+  // discovery (Continue reading, Recent, Book actions, then the static
+  // directory) while the query layout filters everything by the input.
   const { sections, flat } = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const isEmpty = q === '';
 
-    const navEntries = NAV_ENTRIES
-      .filter(e => matchesQuery(e.label, q) || (e.hint && matchesQuery(e.hint, q)))
-      .map(e => ({ ...e, kind: 'nav' }));
+    let _sections;
 
-    const matchedActions = actionEntries
-      .filter(e => matchesQuery(e.label, q) || (e.hint && matchesQuery(e.hint, q)));
-
-    const listEntries = lists
-      .filter(l => matchesQuery(l.name, q))
-      .map(l => ({
+    if (isEmpty) {
+      // Pre-curated empty state. Library actions are suppressed here —
+      // they'd add 10 similar-looking 'Sort by ...' rows and dominate
+      // the surface. Users discover them by typing or via Recent once
+      // they've used them. Book actions stay visible when on a detail
+      // page since they're the obvious thing to reach for there.
+      const listEntries = lists.map(l => ({
         id: `list.${l.id}`,
         kind: 'list',
         label: l.name,
@@ -327,24 +421,51 @@ export default function CommandPalette() {
         path: `/lists/${l.id}`,
       }));
 
-    const bookEntries = bookResults.map(b => ({
-      id: `book.${b.id}`,
-      kind: 'book',
-      label: b.title,
-      hint: b.authors?.map(a => a.name).join(', ') || null,
-      cover: b.cover_path,
-      path: `/books/${b.id}`,
-    }));
+      _sections = [
+        { kind: 'continue', label: 'Continue reading', entries: continueEntries },
+        { kind: 'recent',   label: 'Recent',           entries: recentEntries },
+        { kind: 'action',   label: 'Book actions',     entries: bookActions },
+        { kind: 'nav',      label: 'Navigate',         entries: NAV_ENTRIES.map(e => ({ ...e, kind: 'nav' })) },
+        { kind: 'list',     label: 'Lists',            entries: listEntries },
+      ];
+    } else {
+      const navEntries = NAV_ENTRIES
+        .filter(e => matchesQuery(e.label, q) || (e.hint && matchesQuery(e.hint, q)))
+        .map(e => ({ ...e, kind: 'nav' }));
 
-    const _sections = [
-      { kind: 'nav',    label: 'Navigate', entries: navEntries },
-      { kind: 'action', label: 'Actions',  entries: matchedActions },
-      { kind: 'list',   label: 'Lists',    entries: listEntries },
-      { kind: 'book',   label: 'Books',    entries: bookEntries },
-    ].filter(s => s.entries.length > 0);
+      const matchedActions = actionEntries
+        .filter(e => matchesQuery(e.label, q) || (e.hint && matchesQuery(e.hint, q)));
 
+      const listEntries = lists
+        .filter(l => matchesQuery(l.name, q))
+        .map(l => ({
+          id: `list.${l.id}`,
+          kind: 'list',
+          label: l.name,
+          hint: l.book_count != null ? `${l.book_count} book${l.book_count === 1 ? '' : 's'}` : null,
+          path: `/lists/${l.id}`,
+        }));
+
+      const bookEntries = bookResults.map(b => ({
+        id: `book.${b.id}`,
+        kind: 'book',
+        label: b.title,
+        hint: b.authors?.map(a => a.name).join(', ') || null,
+        cover: b.cover_path,
+        path: `/books/${b.id}`,
+      }));
+
+      _sections = [
+        { kind: 'nav',    label: 'Navigate', entries: navEntries },
+        { kind: 'action', label: 'Actions',  entries: matchedActions },
+        { kind: 'list',   label: 'Lists',    entries: listEntries },
+        { kind: 'book',   label: 'Books',    entries: bookEntries },
+      ];
+    }
+
+    _sections = _sections.filter(s => s.entries.length > 0);
     return { sections: _sections, flat: _sections.flatMap(s => s.entries) };
-  }, [query, lists, bookResults, actionEntries]);
+  }, [query, lists, bookResults, actionEntries, bookActions, continueEntries, recentEntries]);
 
   // Clamp the selected index whenever the result set shrinks (e.g.
   // user typed a more restrictive query). Reset to 0 on each query
@@ -366,6 +487,7 @@ export default function CommandPalette() {
 
   function pick(entry) {
     if (!entry) return;
+    remember(entry);
     close();
     if (entry.perform) entry.perform();
     else if (entry.path) navigate(entry.path);
