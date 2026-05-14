@@ -54,9 +54,12 @@ export default function CoverPicker({
           disabled={coverBusy}
           className="mt-2 w-full text-center text-xs text-neutral-600 hover:text-neutral-400 transition-colors disabled:opacity-50"
         >
-          {coverBusy ? (
-            <span role="status">{uploading ? 'Uploading…' : 'Fetching…'}</span>
-          ) : 'Fetch from ISBN'}
+          {/* Plain text — the primary cover-picker label above wraps
+              the same Uploading… / Fetching… string in role='status'.
+              A second live region here would double-announce. */}
+          {coverBusy
+            ? (uploading ? 'Uploading…' : 'Fetching…')
+            : 'Fetch from ISBN'}
         </button>
       )}
     </div>
