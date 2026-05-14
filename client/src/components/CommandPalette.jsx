@@ -27,8 +27,10 @@ import { useConfirm } from './ConfirmModal.jsx';
 //   the user types. Book-scoped action ids (book.toggle-loved, etc.)
 //   aren't added to the MRU since their target depends on which detail
 //   page is open at execution time.
-//
-// Future phases will add sub-prompts (Add to list…).
+// Phase 6: sub-prompts — actions that need a parameter (Add to list…)
+//   push a one-level picker state. Escape from a sub-prompt returns to
+//   root rather than closing. Sub-prompt pick ids (pick-list.X) aren't
+//   persisted in MRU since they're ephemeral.
 
 // Static navigation entries. Paths must match main.jsx routes. The
 // Library tabs reuse the same path with a query string the existing
@@ -95,9 +97,13 @@ function saveMRU(items) {
 // Book-scoped action ids don't belong in MRU — their target is whichever
 // book detail page is open at execution time, so showing 'Mark as loved'
 // in Recent would mislead the user about *which* book it toggles.
+// Sub-prompt pick entries (pick-list.X, etc.) are also ephemeral — they
+// only exist while a sub-prompt is open, so persisting them would
+// surface them as Recent items the user can't directly invoke.
 function isPersistableForRecent(entry) {
-  if (entry.kind !== 'action') return true;
-  return !entry.id.startsWith('book.');
+  if (entry.id.startsWith('pick-')) return false;
+  if (entry.kind === 'action' && entry.id.startsWith('book.')) return false;
+  return true;
 }
 
 export default function CommandPalette() {
@@ -133,18 +139,30 @@ export default function CommandPalette() {
   const [currentBook, setCurrentBook] = useState(null);
   const [reading, setReading] = useState([]);
   const [recent, setRecent] = useState(loadMRU);
+  // Sub-prompt state. null when in root mode; otherwise { action,
+  // bookId, bookTitle } describing the parameter-picker currently
+  // active. Escape returns to root before closing the whole palette.
+  const [subPrompt, setSubPrompt] = useState(null);
 
-  const close = useCallback(() => {
-    setOpen(false);
+  // Reset query / results / selection without dismissing the palette
+  // — used both by close() and by sub-prompt transitions, where we
+  // want a fresh input but want to stay open.
+  const resetQuery = useCallback(() => {
     setQuery('');
     setBookResults([]);
     setSelected(0);
+  }, []);
+
+  const close = useCallback(() => {
+    setOpen(false);
+    resetQuery();
+    setSubPrompt(null);
     const target = returnFocusRef.current;
     returnFocusRef.current = null;
     if (target && typeof target.focus === 'function') {
       requestAnimationFrame(() => target.focus());
     }
-  }, []);
+  }, [resetQuery]);
 
   // Open shortcut. See header comment for binding rationale.
   useEffect(() => {
@@ -341,6 +359,20 @@ export default function CommandPalette() {
         perform: async () => { await api.patchBook(id, { archived: !currentBook.archived }); fireMutation(); },
       },
       {
+        id: 'book.add-to-list',
+        kind: 'action',
+        label: 'Add to list…',
+        hint: title,
+        // keepOpen: this entry transitions into a sub-prompt rather
+        // than completing an action, so we don't dismiss the palette
+        // when the user picks it.
+        keepOpen: true,
+        perform: () => {
+          setSubPrompt({ action: 'add-to-list', bookId: id, bookTitle: title });
+          resetQuery();
+        },
+      },
+      {
         id: 'book.edit',
         kind: 'action',
         label: 'Edit book…',
@@ -364,7 +396,7 @@ export default function CommandPalette() {
         },
       },
     ];
-  }, [currentBook, navigate, confirm]);
+  }, [currentBook, navigate, confirm, resetQuery]);
 
   const actionEntries = useMemo(() => [...bookActions, ...libraryActions], [bookActions, libraryActions]);
 
@@ -397,17 +429,43 @@ export default function CommandPalette() {
   }, [recent, actionEntries]);
 
   // Build the sectioned result set. Memoized so arrow-key navigation
-  // doesn't recompute on every render. Empty-state and query-state are
-  // intentionally different — the empty layout prioritizes pre-curated
-  // discovery (Continue reading, Recent, Book actions, then the static
-  // directory) while the query layout filters everything by the input.
+  // doesn't recompute on every render. Three modes:
+  //   1. Sub-prompt mode: show the parameter picker only (lists for
+  //      'add-to-list'). Other sections are suppressed so the user
+  //      stays focused on the choice they're making.
+  //   2. Empty root: pre-curated discovery (Continue reading, Recent,
+  //      Book actions, the static directory).
+  //   3. Query root: everything filtered by the input.
   const { sections, flat } = useMemo(() => {
     const q = query.trim().toLowerCase();
     const isEmpty = q === '';
 
     let _sections;
 
-    if (isEmpty) {
+    if (subPrompt?.action === 'add-to-list') {
+      const matched = lists
+        .filter(l => matchesQuery(l.name, q))
+        .map(l => ({
+          id: `pick-list.${l.id}`,
+          kind: 'list',
+          label: l.name,
+          hint: l.book_count != null ? `${l.book_count} book${l.book_count === 1 ? '' : 's'}` : null,
+          perform: async () => {
+            try {
+              await api.addToList(l.id, subPrompt.bookId);
+              window.dispatchEvent(new CustomEvent('spine:book-mutated', { detail: { id: subPrompt.bookId } }));
+            } catch (err) {
+              // Phase 6 swallows sub-prompt errors silently. The book-
+              // detail page won't refresh on failure, and the user can
+              // retry. Future phase could surface an inline error.
+              console.error('Add to list failed:', err);
+            }
+          },
+        }));
+      _sections = [
+        { kind: 'pick', label: `Add "${subPrompt.bookTitle}" to…`, entries: matched },
+      ];
+    } else if (isEmpty) {
       // Pre-curated empty state. Library actions are suppressed here —
       // they'd add 10 similar-looking 'Sort by ...' rows and dominate
       // the surface. Users discover them by typing or via Recent once
@@ -465,7 +523,7 @@ export default function CommandPalette() {
 
     _sections = _sections.filter(s => s.entries.length > 0);
     return { sections: _sections, flat: _sections.flatMap(s => s.entries) };
-  }, [query, lists, bookResults, actionEntries, bookActions, continueEntries, recentEntries]);
+  }, [query, lists, bookResults, actionEntries, bookActions, continueEntries, recentEntries, subPrompt]);
 
   // Clamp the selected index whenever the result set shrinks (e.g.
   // user typed a more restrictive query). Reset to 0 on each query
@@ -488,13 +546,31 @@ export default function CommandPalette() {
   function pick(entry) {
     if (!entry) return;
     remember(entry);
+    // keepOpen entries are sub-prompt activators — perform() transitions
+    // the palette into the picker rather than completing an action.
+    if (entry.keepOpen) {
+      if (entry.perform) entry.perform();
+      return;
+    }
     close();
     if (entry.perform) entry.perform();
     else if (entry.path) navigate(entry.path);
   }
 
   function handleKey(e) {
-    if (e.key === 'Escape') { e.preventDefault(); close(); return; }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      // From a sub-prompt, Escape returns to root rather than closing
+      // the whole palette — gives the user a one-step undo of the
+      // 'I picked the wrong action' case.
+      if (subPrompt) {
+        setSubPrompt(null);
+        resetQuery();
+      } else {
+        close();
+      }
+      return;
+    }
     if (flat.length === 0) return;
     if (e.key === 'ArrowDown') {
       e.preventDefault();
@@ -525,13 +601,22 @@ export default function CommandPalette() {
     >
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm pointer-events-none" />
       <div className="relative w-full max-w-xl rounded-lg border border-neutral-700 bg-neutral-900 shadow-2xl overflow-hidden">
+        {subPrompt && (
+          <div className="px-4 py-1.5 border-b border-neutral-800 bg-neutral-950 text-[11px] text-neutral-500 flex items-center gap-1.5">
+            <span className="text-oak">→</span>
+            <span>Add to list</span>
+            <span className="text-neutral-700">·</span>
+            <span className="truncate">{subPrompt.bookTitle}</span>
+            <span className="ml-auto text-neutral-700">esc to cancel</span>
+          </div>
+        )}
         <input
           ref={inputRef}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKey}
-          placeholder="Search library, lists, or navigate…"
-          aria-label="Command palette search"
+          placeholder={subPrompt ? 'Pick a list…' : 'Search library, lists, or navigate…'}
+          aria-label={subPrompt ? 'Pick a list' : 'Command palette search'}
           aria-autocomplete="list"
           className="w-full bg-neutral-900 border-b border-neutral-800 px-4 py-3 text-sm text-white placeholder-neutral-600 focus:outline-none"
         />
@@ -592,7 +677,7 @@ export default function CommandPalette() {
           <p role="status" className="px-4 py-3 text-xs text-neutral-600">No matches.</p>
         )}
         <div className="border-t border-neutral-800 px-4 py-2 text-[10px] text-neutral-600 flex items-center justify-between">
-          <span>↑↓ navigate · ↵ open · esc close</span>
+          <span>{subPrompt ? '↑↓ navigate · ↵ select · esc back' : '↑↓ navigate · ↵ open · esc close'}</span>
           <span>Ctrl+K</span>
         </div>
       </div>
