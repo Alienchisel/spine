@@ -54,6 +54,7 @@ function EditionRow({ edition, onUnlink, disabled, linkState }) {
         disabled={disabled}
         className="text-neutral-700 hover:text-warn disabled:opacity-40 disabled:cursor-wait text-lg leading-none flex-shrink-0 transition-colors"
         title="Unlink this edition"
+        aria-label="Unlink this edition"
       >
         ×
       </button>
@@ -204,6 +205,7 @@ export default function EditionsSection({ book, onChange, linkState }) {
             ref={inputRef}
             type="text"
             value={query}
+            aria-label="Search library to link an edition"
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => { if (e.key === 'Escape') { setPicking(false); setQuery(''); } }}
             placeholder="Search your library by title…"

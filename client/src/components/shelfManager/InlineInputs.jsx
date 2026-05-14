@@ -17,6 +17,7 @@ export function InlineInput({ placeholder, onSave, onCancel }) {
         value={val}
         onChange={e => setVal(e.target.value)}
         onKeyDown={handleKey}
+        aria-label={placeholder}
         placeholder={placeholder}
         className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-oak/50 w-36"
       />
@@ -43,6 +44,7 @@ export function InlineEdit({ value, onSave, onCancel }) {
         value={val}
         onChange={e => setVal(e.target.value)}
         onKeyDown={handleKey}
+        aria-label="Rename"
         className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-oak/50 w-36"
       />
       <button type="submit" disabled={!val.trim()} className="text-xs text-oak hover:text-leather disabled:opacity-40 transition-colors">save</button>

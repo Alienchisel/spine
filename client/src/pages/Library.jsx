@@ -629,6 +629,7 @@ export default function Library() {
                 ref={searchRef}
                 type="search"
                 value={queryRaw}
+                aria-label="Search library"
                 onChange={(e) => setQueryRaw(e.target.value)}
                 onKeyDown={(e) => {
                   // Enter flushes the 300ms debounce — keyboard users get
