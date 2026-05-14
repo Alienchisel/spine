@@ -71,7 +71,7 @@ function SortableRow({ book, onRemove, index }) {
 
       <div className="w-9 h-[54px] flex-shrink-0 rounded overflow-hidden bg-neutral-800">
         {book.cover_path ? (
-          <img src={book.cover_path} alt={book.title} className="w-full h-full object-cover" />
+          <img src={book.cover_path} alt="" className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-neutral-700 to-neutral-900" />
         )}

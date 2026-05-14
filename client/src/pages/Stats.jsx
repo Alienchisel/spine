@@ -55,7 +55,7 @@ function RecordCard({ label, book, value }) {
     <Link to={`/books/${book.id}`} state={FROM_STATS} className="bg-card rounded-lg p-3 flex items-center gap-3 hover:ring-1 hover:ring-neutral-600 transition-shadow">
       <div className="w-8 h-12 flex-shrink-0 rounded overflow-hidden bg-neutral-800">
         {book.cover_path
-          ? <img src={book.cover_path} alt={book.title} className="w-full h-full object-cover object-top" />
+          ? <img src={book.cover_path} alt="" className="w-full h-full object-cover object-top" />
           : <div className="w-full h-full bg-gradient-to-br from-neutral-700 to-neutral-900" />}
       </div>
       <div className="min-w-0">
@@ -249,7 +249,7 @@ export default function Stats() {
               <Link key={b.id} to={`/books/${b.id}`} state={FROM_STATS} className="bg-card rounded-lg p-3 flex items-center gap-3 hover:ring-1 hover:ring-neutral-600 transition-shadow">
                 <div className="w-8 h-12 flex-shrink-0 rounded overflow-hidden bg-neutral-800">
                   {b.cover_path
-                    ? <img src={b.cover_path} alt={b.title} className="w-full h-full object-cover object-top" />
+                    ? <img src={b.cover_path} alt="" className="w-full h-full object-cover object-top" />
                     : <div className="w-full h-full bg-gradient-to-br from-neutral-700 to-neutral-900" />}
                 </div>
                 <div className="min-w-0 flex-1">

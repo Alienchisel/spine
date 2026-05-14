@@ -389,7 +389,7 @@ export default function BookDetail() {
         <div className="flex-shrink-0 sticky top-[4.5rem] self-start">
           <div className={`relative w-[230px] ${book.format === 'audiobook' ? 'h-[230px]' : 'h-[345px]'} bg-neutral-800 rounded overflow-hidden shadow-2xl ring-1 ring-white/5`}>
             {book.cover_path ? (
-              <img src={book.cover_path} alt={book.title} className="w-full h-full object-cover" />
+              <img src={book.cover_path} alt="" className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center p-3 bg-gradient-to-br from-neutral-700 to-neutral-900 gap-3">
                 <span className="text-6xl font-bold text-neutral-500 select-none leading-none">

@@ -21,6 +21,8 @@ export default function SeriesCard({ seriesName, books, expanded, onToggle, comp
         sorted[0]?.authors?.map(a => a.name).join(', '),
         statusParts.join(' · '),
       ].filter(Boolean).join(' — ')}
+      aria-label={seriesName}
+      aria-expanded={expanded}
       className={`group transition-[background-color] ease-out duration-150 text-left w-full ${compact ? 'hover:opacity-80' : `bg-card rounded-lg p-1.5 ${expanded ? 'ring-1 ring-binding/40' : ''}`}`}
     >
       {/* Hover signal: 2px white inset frame, same as BookCard. Drawn via
