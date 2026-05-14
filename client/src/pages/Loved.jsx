@@ -39,7 +39,7 @@ export default function Loved() {
       {loading ? (
         <div className="text-neutral-700 text-sm">Loading…</div>
       ) : error ? (
-        <div className="text-red-500 text-sm">{error}</div>
+        <div role="alert" className="text-red-500 text-sm">{error}</div>
       ) : books.length === 0 ? (
         <div className="text-center py-32">
           <p className="text-neutral-600 mb-3">No loved books yet.</p>

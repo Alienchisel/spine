@@ -385,7 +385,7 @@ export default function ShelfView() {
     <div>
       {error && (
         <div className="mb-4 flex items-center justify-between bg-warn/10 border border-warn/30 rounded px-3 py-2">
-          <p className="text-xs text-warn">{error}</p>
+          <p role="alert" className="text-xs text-warn">{error}</p>
           <button onClick={() => setError(null)} className="text-xs text-warn/60 hover:text-warn ml-4">×</button>
         </div>
       )}
@@ -437,7 +437,7 @@ export default function ShelfView() {
               // where the section would otherwise render, so the user
               // knows what specifically is missing without the page-wide
               // "Failed to load shelves" being implied.
-              <p className="mt-10 text-xs text-warn">{unshelfedError}</p>
+              <p role="alert" className="mt-10 text-xs text-warn">{unshelfedError}</p>
             )}
             {unshelfed.length > 0 && (
               <div className="mt-10">

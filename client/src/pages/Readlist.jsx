@@ -243,7 +243,7 @@ export default function Readlist() {
       {loading ? (
         <div className="text-neutral-700 text-sm">Loading…</div>
       ) : error ? (
-        <div className="text-red-500 text-sm">{error}</div>
+        <div role="alert" className="text-red-500 text-sm">{error}</div>
       ) : visibleBooks.length === 0 ? (
         <div className="text-center py-32">
           <p className="text-neutral-600 mb-3">No {TABS.find(t => t.key === tab).label.toLowerCase()} books on your readlist.</p>

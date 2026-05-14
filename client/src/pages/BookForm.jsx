@@ -474,7 +474,7 @@ export default function BookForm() {
       </h1>
 
       {loadError && (
-        <div className="mb-6 px-3 py-2 bg-warn/10 border border-warn/30 rounded text-sm text-warn">
+        <div role="alert" className="mb-6 px-3 py-2 bg-warn/10 border border-warn/30 rounded text-sm text-warn">
           {loadError} The form below shows defaults — saving has been disabled to avoid overwriting the book.
         </div>
       )}

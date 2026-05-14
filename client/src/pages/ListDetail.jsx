@@ -442,7 +442,7 @@ export default function ListDetail() {
   }
 
   if (loading) return <div className="text-neutral-700 text-sm">Loading…</div>;
-  if (error)   return <div className="text-red-500 text-sm">{error}</div>;
+  if (error)   return <div role="alert" className="text-red-500 text-sm">{error}</div>;
 
   const draggable = sort === 'added';
 
@@ -463,7 +463,7 @@ export default function ListDetail() {
               onBlur={handleRename}
               className="bg-neutral-800 border border-neutral-700 rounded px-3 py-1 text-lg font-bold text-white focus:outline-none focus:border-oak/50"
             />
-            {renameError && <span className="text-xs text-red-400">{renameError}</span>}
+            {renameError && <span role="alert" className="text-xs text-red-400">{renameError}</span>}
           </form>
         ) : (
           <h1

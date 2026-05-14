@@ -706,7 +706,7 @@ export default function Library() {
           // would otherwise be invisible (gated on facets being non-null);
           // surface why so the user knows it's a fetch error, not "you have
           // no facets to filter on".
-          <p className="text-xs text-warn mt-3 pt-4 border-t border-neutral-800/60">
+          <p role="alert" className="text-xs text-warn mt-3 pt-4 border-t border-neutral-800/60">
             Failed to load filter options.
           </p>
         )}

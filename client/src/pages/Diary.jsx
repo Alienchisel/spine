@@ -321,7 +321,7 @@ export default function Diary() {
       {loading ? (
         <div className="text-neutral-700 text-sm">Loading…</div>
       ) : error ? (
-        <div className="text-red-500 text-sm">{error}</div>
+        <div role="alert" className="text-red-500 text-sm">{error}</div>
       ) : days.length === 0 ? (
         <div className="text-center py-32">
           <p className="text-neutral-600 mb-3">No reading logged{years.length > 0 ? ` in ${year}` : ' yet'}.</p>
@@ -332,7 +332,7 @@ export default function Diary() {
       ) : (
         <div>
           {deleteError && (
-            <div className="flex items-center justify-between bg-red-950/40 border border-red-900/50 rounded-lg px-4 py-2 mb-4 text-xs text-red-400">
+            <div role="alert" className="flex items-center justify-between bg-red-950/40 border border-red-900/50 rounded-lg px-4 py-2 mb-4 text-xs text-red-400">
               {deleteError}
               <button onClick={() => setDeleteError(null)} className="ml-4 text-red-600 hover:text-red-400">×</button>
             </div>

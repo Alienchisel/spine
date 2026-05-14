@@ -160,7 +160,7 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
       ) : error && lists.length === 0 ? (
         // Load failed and we have nothing to show — error replaces the
         // list content rather than sitting on top of an empty state.
-        <p className="text-xs text-warn px-3 py-2">{error}</p>
+        <p role="alert" className="text-xs text-warn px-3 py-2">{error}</p>
       ) : lists.length === 0 ? (
         <div className="px-3 py-2">
           <p className="text-xs text-neutral-600 mb-1">No lists yet.</p>

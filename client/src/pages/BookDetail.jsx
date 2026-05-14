@@ -469,7 +469,7 @@ export default function BookDetail() {
                 >
                   {finishing ? 'Saving…' : 'Mark as finished'}
                 </button>
-                {finishError && <p className="text-[10px] text-warn text-center mt-1">{finishError}</p>}
+                {finishError && <p role="alert" className="text-[10px] text-warn text-center mt-1">{finishError}</p>}
               </div>
             )}
             <div className="border-t border-neutral-800 py-3 px-2">
@@ -492,7 +492,7 @@ export default function BookDetail() {
             </div>
             {actionError && (
               <div className="border-t border-neutral-800 py-2 px-3">
-                <p className="text-[10px] text-warn text-center">{actionError}</p>
+                <p role="alert" className="text-[10px] text-warn text-center">{actionError}</p>
               </div>
             )}
           </div>
@@ -567,7 +567,7 @@ export default function BookDetail() {
           })()}
 
           {seriesError && (
-            <p className="text-xs text-warn mb-5 -mt-2">{seriesError}</p>
+            <p role="alert" className="text-xs text-warn mb-5 -mt-2">{seriesError}</p>
           )}
           {(() => {
             if (seriesSiblings.length < 2) return null;
@@ -676,7 +676,7 @@ export default function BookDetail() {
             );
           })()}
 
-          {locationError && <p className="text-xs text-warn mb-2">{locationError}</p>}
+          {locationError && <p role="alert" className="text-xs text-warn mb-2">{locationError}</p>}
           <MetadataList book={book} location={location} linkState={bookFromState} />
 
           {book.tags?.length > 0 && (
@@ -707,7 +707,7 @@ export default function BookDetail() {
 
           {(book.status !== 'unread' || reads.length > 0 || readsError) && (
             <>
-              {readsError && <p className="text-xs text-warn mb-2">{readsError}</p>}
+              {readsError && <p role="alert" className="text-xs text-warn mb-2">{readsError}</p>}
               <ReadsSection
                 bookId={book.id}
                 reads={reads}
@@ -780,7 +780,7 @@ export default function BookDetail() {
             </div>
           )}
 
-          {logError && <p className="text-xs text-warn mb-2">{logError}</p>}
+          {logError && <p role="alert" className="text-xs text-warn mb-2">{logError}</p>}
           <ReadingLog
             log={log}
             isAudiobook={book.format === 'audiobook'}
@@ -796,7 +796,7 @@ export default function BookDetail() {
             >
               {deleting ? 'Deleting…' : 'Delete'}
             </button>
-            {deleteError && <p className="text-xs text-warn mt-2">{deleteError}</p>}
+            {deleteError && <p role="alert" className="text-xs text-warn mt-2">{deleteError}</p>}
           </div>
         </div>
       </div>

@@ -361,7 +361,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
           title/author labels are gone — without the buffer the rating
           prompt and progress editor sit flush against the cover edge. */}
       {!compact && error && !open && (
-        <p className="text-xs text-warn mt-2">{error}</p>
+        <p role="alert" className="text-xs text-warn mt-2">{error}</p>
       )}
 
       {!compact && book.status === 'reading' && (

@@ -131,15 +131,15 @@ export default function Lists() {
         >
           Create
         </button>
-        {createError && <span className="text-xs text-red-400">{createError}</span>}
+        {createError && <span role="alert" className="text-xs text-red-400">{createError}</span>}
       </form>
 
-      {deleteError && <p className="text-xs text-warn mb-4">{deleteError}</p>}
+      {deleteError && <p role="alert" className="text-xs text-warn mb-4">{deleteError}</p>}
 
       {loading ? (
         <div className="text-neutral-700 text-sm">Loading…</div>
       ) : error ? (
-        <div className="text-red-500 text-sm">{error}</div>
+        <div role="alert" className="text-red-500 text-sm">{error}</div>
       ) : lists.length === 0 ? (
         <div className="text-center py-32">
           <p className="text-neutral-600">No lists yet. Create one above.</p>

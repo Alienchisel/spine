@@ -222,7 +222,7 @@ export default function Stats() {
     }
   }
 
-  if (error) return <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-warn text-sm">{error}</div>;
+  if (error) return <div role="alert" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-warn text-sm">{error}</div>;
   if (!stats) return null;
 
   const { totals, formats, fiction, ownedStatus, ratings, acquisitionSources, pagesRead, minutesListened, byYear, byMonth = [], topAuthors, topNarrators, languages, streaks, todayPages, thisYearBooks, thisYearPages, topTags, topSeries, avgPagesPerDay, avgDaysToFinish, inProgressPace = [], decadesPublished = [], records } = stats;
@@ -271,7 +271,7 @@ export default function Stats() {
       )}
 
       <Section title="Goals">
-        {settingsError && <p className="text-xs text-warn mb-2">{settingsError}</p>}
+        {settingsError && <p role="alert" className="text-xs text-warn mb-2">{settingsError}</p>}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <GoalCard
             label="Pages today"
