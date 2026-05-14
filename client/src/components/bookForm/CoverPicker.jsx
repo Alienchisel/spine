@@ -40,7 +40,7 @@ export default function CoverPicker({
           onChange={(e) => { if (e.target.files[0]) onFileSelected(e.target.files[0]); }} />
       </label>
       {coverError && (
-        <p className="mt-2 text-xs text-warn text-center">{coverError}</p>
+        <p role="alert" className="mt-2 text-xs text-warn text-center">{coverError}</p>
       )}
       {showFetchFromIsbn && (
         <button
