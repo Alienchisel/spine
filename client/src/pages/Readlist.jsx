@@ -241,7 +241,7 @@ export default function Readlist() {
       </div>
 
       {loading ? (
-        <div className="text-neutral-700 text-sm">Loading…</div>
+        <div role="status" className="text-neutral-700 text-sm">Loading…</div>
       ) : error ? (
         <div role="alert" className="text-red-500 text-sm">{error}</div>
       ) : visibleBooks.length === 0 ? (

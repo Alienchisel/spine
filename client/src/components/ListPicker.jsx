@@ -156,7 +156,7 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
       className="z-[9999] w-52 bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl py-1"
     >
       {loading ? (
-        <p className="text-xs text-neutral-600 px-3 py-2">Loading…</p>
+        <p role="status" className="text-xs text-neutral-600 px-3 py-2">Loading…</p>
       ) : error && lists.length === 0 ? (
         // Load failed and we have nothing to show — error replaces the
         // list content rather than sitting on top of an empty state.

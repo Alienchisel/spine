@@ -137,7 +137,7 @@ export default function Lists() {
       {deleteError && <p role="alert" className="text-xs text-warn mb-4">{deleteError}</p>}
 
       {loading ? (
-        <div className="text-neutral-700 text-sm">Loading…</div>
+        <div role="status" className="text-neutral-700 text-sm">Loading…</div>
       ) : error ? (
         <div role="alert" className="text-red-500 text-sm">{error}</div>
       ) : lists.length === 0 ? (

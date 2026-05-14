@@ -83,7 +83,7 @@ export default function Author() {
       </div>
 
       {loading ? (
-        <div className="text-neutral-700 text-sm">Loading…</div>
+        <div role="status" className="text-neutral-700 text-sm">Loading…</div>
       ) : errorKind === 'fetch' ? (
         <div className="text-center py-32">
           <p className="text-neutral-600">Failed to load author. Please try again.</p>

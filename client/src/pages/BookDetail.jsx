@@ -386,7 +386,7 @@ export default function BookDetail() {
     }
   }
 
-  if (loading) return <div className="text-neutral-700 text-sm">Loading…</div>;
+  if (loading) return <div role="status" className="text-neutral-700 text-sm">Loading…</div>;
   if (!book) return <div className="text-neutral-600 text-sm">{loadError ? 'Failed to load book.' : 'Book not found.'}</div>;
 
   // BrowsePage back-link state for outgoing tag/author/etc links — returning

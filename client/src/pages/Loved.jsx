@@ -37,7 +37,7 @@ export default function Loved() {
       <h1 className="text-xl font-bold text-white mb-6">Loved</h1>
 
       {loading ? (
-        <div className="text-neutral-700 text-sm">Loading…</div>
+        <div role="status" className="text-neutral-700 text-sm">Loading…</div>
       ) : error ? (
         <div role="alert" className="text-red-500 text-sm">{error}</div>
       ) : books.length === 0 ? (

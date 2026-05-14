@@ -319,7 +319,7 @@ export default function Diary() {
       </div>
 
       {loading ? (
-        <div className="text-neutral-700 text-sm">Loading…</div>
+        <div role="status" className="text-neutral-700 text-sm">Loading…</div>
       ) : error ? (
         <div role="alert" className="text-red-500 text-sm">{error}</div>
       ) : days.length === 0 ? (

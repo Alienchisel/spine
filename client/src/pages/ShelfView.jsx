@@ -379,7 +379,7 @@ export default function ShelfView() {
     shelf    && { label: shelf.label, action: null },
   ].filter(Boolean);
 
-  if (loading) return <div className="text-neutral-700 text-sm">Loading…</div>;
+  if (loading) return <div role="status" className="text-neutral-700 text-sm">Loading…</div>;
 
   return (
     <div>
@@ -470,7 +470,7 @@ export default function ShelfView() {
           </div>
         )}
         {booksLoading ? (
-          <div className="text-neutral-700 text-sm mt-6">Loading…</div>
+          <div role="status" className="text-neutral-700 text-sm mt-6">Loading…</div>
         ) : books.length > 0 && (
           <div className={`grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-3 gap-y-5 ${rooms.length > 0 ? 'mt-8' : ''}`}>
             {books.map(book => <BookCard key={book.id} book={book} linkState={fromState} />)}
@@ -496,7 +496,7 @@ export default function ShelfView() {
           </div>
         )}
         {booksLoading ? (
-          <div className="text-neutral-700 text-sm mt-6">Loading…</div>
+          <div role="status" className="text-neutral-700 text-sm mt-6">Loading…</div>
         ) : books.length > 0 && (
           <div className={`grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-3 gap-y-5 ${units.length > 0 ? 'mt-8' : ''}`}>
             {books.map(book => <BookCard key={book.id} book={book} linkState={fromState} />)}
@@ -510,7 +510,7 @@ export default function ShelfView() {
       {/* Shelves rendered as stacked horizontal rows + unit-level (shelfless) books */}
       {unitId && !shelfId && (<>
         {booksLoading ? (
-          <div className="text-neutral-700 text-sm">Loading…</div>
+          <div role="status" className="text-neutral-700 text-sm">Loading…</div>
         ) : (<>
           {shelves.length > 0 && (
             <div className="-mx-4 sm:-mx-6 lg:-mx-8">
@@ -572,7 +572,7 @@ export default function ShelfView() {
       {/* Shelf-level books */}
       {shelfId && (
         booksLoading ? (
-          <div className="text-neutral-700 text-sm">Loading…</div>
+          <div role="status" className="text-neutral-700 text-sm">Loading…</div>
         ) : books.length === 0 ? (
           <p className="text-neutral-600 text-sm">No books on this shelf yet.</p>
         ) : (

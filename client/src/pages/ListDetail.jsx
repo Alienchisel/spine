@@ -441,7 +441,7 @@ export default function ListDetail() {
     });
   }
 
-  if (loading) return <div className="text-neutral-700 text-sm">Loading…</div>;
+  if (loading) return <div role="status" className="text-neutral-700 text-sm">Loading…</div>;
   if (error)   return <div role="alert" className="text-red-500 text-sm">{error}</div>;
 
   const draggable = sort === 'added';

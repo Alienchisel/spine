@@ -163,7 +163,7 @@ export default function BrowsePage() {
       </div>
 
       {loading ? (
-        <div className="text-neutral-700 text-sm">Loading…</div>
+        <div role="status" className="text-neutral-700 text-sm">Loading…</div>
       ) : fetchError ? (
         <div className="text-center py-32">
           <p className="text-neutral-600">Failed to load books. Please try again.</p>
