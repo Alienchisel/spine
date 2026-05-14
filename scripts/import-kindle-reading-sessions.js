@@ -7,12 +7,12 @@
 //   node scripts/import-kindle-reading-sessions.js <csv-path> --asin=B075MRHZBV[,B0XXXXXXXX]
 //   node scripts/import-kindle-reading-sessions.js <csv-path> --book-id=644[,645]
 //   node scripts/import-kindle-reading-sessions.js <csv-path> --min-event-seconds=60
+//   node scripts/import-kindle-reading-sessions.js <csv-path> --include-page-flips
 //
 // Each CSV row is a single Kindle reading session. We group by (ASIN, date),
-// sum total_reading_millis (→ minutes_read) and number_of_page_flips
-// (→ pages_read), and upsert into reading_log — using the same
-// ON CONFLICT(book_id, date) WHERE story_id IS NULL shape as the Audible
-// importer, so re-running is idempotent.
+// sum total_reading_millis (→ minutes_read), and upsert into reading_log —
+// using the same ON CONFLICT(book_id, date) WHERE story_id IS NULL shape as
+// the Audible importer, so re-running is idempotent.
 //
 // Date derivation: prefer end_timestamp, fall back to start_timestamp. Both
 // can be literal "Not Available" in this export; rows with neither are
@@ -26,15 +26,20 @@
 // Scope filters: --asin and --book-id (each comma-separated) narrow the
 // apply set. Default scope is every matched ASIN in the CSV. Use the
 // filters for surgical backfills; the Kindle export covers years and the
-// importer replaces minutes_read/pages_read on conflict, so a blind
-// --apply over active books will overwrite live diary state for any
-// overlapping (book, date).
+// importer replaces minutes_read on conflict, so a blind --apply over
+// active books will overwrite live diary state for any overlapping
+// (book, date).
 //
-// Pages: number_of_page_flips is written as pages_read. Caveat — this
-// counts every page navigation event (including back-flips and lookups
-// during a session), so its sum across days will routinely overshoot the
-// book's actual forward progress (current_page bookmark). The diary
-// captures activity, not net progress.
+// Pages signal (default off): minutes is the truthful per-day signal —
+// every recorded session was real engagement. Pages, however, would have
+// to come from number_of_page_flips, which counts every page navigation
+// (including back-flips and lookups). Its sum across days routinely
+// overshoots the book's actual forward progress AND drags down
+// avgPagesPerDay (the projection rate used to estimate days-left on
+// active reads). The default is minutes-only: pages_read is set to 0
+// on INSERT and preserved on conflict. Pass --include-page-flips to opt
+// into writing page_flips as pages_read; that mode also replaces
+// pages_read on conflict.
 
 import fs from 'fs';
 
@@ -42,6 +47,7 @@ import fs from 'fs';
 
 const args = process.argv.slice(2);
 const apply = args.includes('--apply');
+const includePageFlips = args.includes('--include-page-flips');
 const minEventSecondsArg = args.find(a => a.startsWith('--min-event-seconds='));
 const minEventSeconds = minEventSecondsArg ? parseInt(minEventSecondsArg.split('=')[1], 10) : 60;
 const asinFilterArg = args.find(a => a.startsWith('--asin='));
@@ -49,7 +55,7 @@ const bookIdFilterArg = args.find(a => a.startsWith('--book-id='));
 const csvPath = args.find(a => !a.startsWith('--'));
 
 if (!csvPath) {
-  console.error('Usage: node scripts/import-kindle-reading-sessions.js <csv-path> [--apply] [--asin=A,B] [--book-id=N,M] [--min-event-seconds=N]');
+  console.error('Usage: node scripts/import-kindle-reading-sessions.js <csv-path> [--apply] [--asin=A,B] [--book-id=N,M] [--min-event-seconds=N] [--include-page-flips]');
   process.exit(1);
 }
 if (!Number.isFinite(minEventSeconds) || minEventSeconds < 0) {
@@ -200,7 +206,10 @@ for (const g of groups.values()) {
     book_id:      book.id,
     date:         g.date,
     minutes_read: minutes,
-    pages_read:   g.flips,
+    // Default minutes-only: pages_read stays 0 (and is preserved on
+    // conflict so any existing live progress isn't clobbered). The
+    // --include-page-flips flag opts into writing & replacing pages_read.
+    pages_read:   includePageFlips ? g.flips : 0,
     title:        book.title,
     asin:         g.asin,
   });
@@ -214,7 +223,7 @@ const totalMinutes = writes.reduce((s, w) => s + w.minutes_read, 0);
 const totalPages   = writes.reduce((s, w) => s + w.pages_read,   0);
 const matchedBooks = new Set(writes.map(w => w.book_id)).size;
 
-console.log(`\n${apply ? 'APPLY' : 'DRY-RUN'}  min-event-seconds=${minEventSeconds}`);
+console.log(`\n${apply ? 'APPLY' : 'DRY-RUN'}  min-event-seconds=${minEventSeconds}  pages=${includePageFlips ? 'page_flips' : 'off (minutes-only)'}`);
 if (asinFilter)   console.log(`Scope: --asin=${[...asinFilter].join(',')}`);
 if (bookIdFilter) console.log(`Scope: --book-id=${[...bookIdFilter].join(',')}`);
 console.log('');
@@ -269,11 +278,22 @@ if (!apply) {
   process.exit(0);
 }
 
-const upsert = db.prepare(`
+// Default (minutes-only): preserve any existing pages_read on conflict —
+// the user may have set it intentionally elsewhere (live progress patches,
+// a prior --include-page-flips run, hand edits). We're only authoritative
+// on minutes here.
+// --include-page-flips: replace both columns, since the user has opted to
+// trust the page_flips signal end-to-end.
+const upsert = db.prepare(includePageFlips ? `
   INSERT INTO reading_log (book_id, date, pages_read, minutes_read)
   VALUES (?, ?, ?, ?)
   ON CONFLICT(book_id, date) WHERE story_id IS NULL DO UPDATE SET
     pages_read   = excluded.pages_read,
+    minutes_read = excluded.minutes_read
+` : `
+  INSERT INTO reading_log (book_id, date, pages_read, minutes_read)
+  VALUES (?, ?, ?, ?)
+  ON CONFLICT(book_id, date) WHERE story_id IS NULL DO UPDATE SET
     minutes_read = excluded.minutes_read
 `);
 
