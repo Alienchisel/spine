@@ -44,10 +44,16 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
       ) setOpen(false);
     }
     function onScroll() { setOpen(false); }
+    // Escape closes the popover without losing focus on the trigger,
+    // which keeps the keyboard user oriented (Tab continues from where
+    // they were before opening).
+    function onKey(e) { if (e.key === 'Escape') { setOpen(false); buttonRef.current?.focus(); } }
     document.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('keydown', onKey);
     window.addEventListener('scroll', onScroll, true);
     return () => {
       document.removeEventListener('mousedown', onMouseDown);
+      document.removeEventListener('keydown', onKey);
       window.removeEventListener('scroll', onScroll, true);
     };
   }, [open]);
@@ -127,6 +133,8 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
   const dropdown = open && pos && createPortal(
     <div
       ref={dropdownRef}
+      role="menu"
+      aria-label="Add to list"
       style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left }}
       className="z-[9999] w-52 bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl py-1"
     >
@@ -154,6 +162,8 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
               key={list.id}
               onClick={(e) => handleToggle(e, list.id)}
               disabled={busy.has(list.id)}
+              role="menuitemcheckbox"
+              aria-checked={checked}
               className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-neutral-800 transition-colors disabled:opacity-50"
             >
               <span className={`w-3.5 h-3.5 flex-shrink-0 rounded border flex items-center justify-center ${checked ? 'bg-sky-500 border-sky-500' : 'border-neutral-600'}`}>
@@ -178,6 +188,9 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
         ref={buttonRef}
         onClick={handleOpen}
         title="Add to list"
+        aria-label="Add to list"
+        aria-haspopup="menu"
+        aria-expanded={open}
         className={`leading-none transition-colors ${inAny ? 'text-sky-400' : 'text-neutral-600 hover:text-neutral-400'} ${buttonClassName}`}
       >
         <ListsIcon className={iconClassName} />

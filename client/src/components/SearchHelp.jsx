@@ -24,6 +24,8 @@ export default function SearchHelp() {
         type="button"
         onClick={() => setOpen(o => !o)}
         aria-label="Search syntax help"
+        aria-expanded={open}
+        aria-haspopup="dialog"
         title="Search syntax help"
         className={`flex items-center justify-center w-7 h-7 rounded-lg text-sm transition-colors ${
           open ? 'bg-binding/25 text-parchment' : 'bg-neutral-800 text-neutral-500 hover:text-neutral-300'
