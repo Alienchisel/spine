@@ -261,6 +261,18 @@ export default function CommandPalette() {
     });
   }, []);
 
+  // Remove a specific entry from MRU. Used when an action deletes the
+  // resource it points at — without this, the deleted book would keep
+  // surfacing in Recent until naturally aged off the 20-cap, and
+  // clicking it would route to a 404 detail page.
+  const forget = useCallback((id) => {
+    setRecent(prev => {
+      const next = prev.filter(p => p.id !== id);
+      saveMRU(next);
+      return next;
+    });
+  }, []);
+
   // Debounced book search. Empty query → no books (we still show the
   // nav directory; books wait for a real query because they're a
   // round-trip).
@@ -401,11 +413,12 @@ export default function CommandPalette() {
           });
           if (!ok) return;
           await api.deleteBook(id);
+          forget(`book.${id}`);
           navigate('/');
         },
       },
     ];
-  }, [currentBook, navigate, confirm, resetQuery]);
+  }, [currentBook, navigate, confirm, resetQuery, forget]);
 
   const actionEntries = useMemo(() => [...bookActions, ...libraryActions], [bookActions, libraryActions]);
 
@@ -415,16 +428,24 @@ export default function CommandPalette() {
   // a stored Library action still works after a reload. Entries whose
   // live counterpart no longer exists (e.g. a deleted book in MRU,
   // or a book-scoped action whose page isn't open) are filtered out.
-  const continueEntries = useMemo(() => reading.map(b => ({
-    id:    `book.${b.id}`,
-    kind:  'book',
-    label: b.title,
-    hint:  b.authors?.map(a => a.name).join(', ') || null,
-    cover: b.cover_path,
-    path:  `/books/${b.id}`,
-  })), [reading]);
+  //
+  // Continue-reading drops the book the user is currently viewing —
+  // surfacing 'the book I'm looking at' is just noise. Recent drops
+  // anything already in Continue-reading so the same book doesn't
+  // appear twice on the surface.
+  const continueEntries = useMemo(() => reading
+    .filter(b => b.id !== currentBookId)
+    .map(b => ({
+      id:    `book.${b.id}`,
+      kind:  'book',
+      label: b.title,
+      hint:  b.authors?.map(a => a.name).join(', ') || null,
+      cover: b.cover_path,
+      path:  `/books/${b.id}`,
+    })), [reading, currentBookId]);
 
   const recentEntries = useMemo(() => {
+    const continueIds = new Set(continueEntries.map(e => e.id));
     return recent
       .map(r => {
         if (r.kind === 'action') {
@@ -434,8 +455,9 @@ export default function CommandPalette() {
         return r;
       })
       .filter(Boolean)
+      .filter(e => !continueIds.has(e.id))
       .slice(0, 3);
-  }, [recent, actionEntries]);
+  }, [recent, actionEntries, continueEntries]);
 
   // Build the sectioned result set. Memoized so arrow-key navigation
   // doesn't recompute on every render. Three modes:
