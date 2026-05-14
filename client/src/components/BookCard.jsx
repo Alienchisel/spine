@@ -446,7 +446,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
               >
                 ✕
               </button>
-              {error && <p className="w-full text-xs text-warn mt-0.5">{error}</p>}
+              {error && <p role="alert" className="w-full text-xs text-warn mt-0.5">{error}</p>}
             </form>
           )}
         </div>

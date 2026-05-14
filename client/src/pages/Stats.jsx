@@ -240,7 +240,7 @@ export default function Stats() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
       <h1 className="font-slab text-2xl text-parchment tracking-wide uppercase">Stats</h1>
 
-      {actionError && <p className="text-xs text-warn">{actionError}</p>}
+      {actionError && <p role="alert" className="text-xs text-warn">{actionError}</p>}
 
       {inProgressPace.length > 0 && (
         <Section title="Currently reading">

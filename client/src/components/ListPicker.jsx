@@ -146,7 +146,7 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
       ) : (<>
         {/* Toggle failed but lists are loaded — surface the error above
             the list buttons so the user knows their click didn't take. */}
-        {error && <p className="text-xs text-warn px-3 py-1.5 border-b border-neutral-800">{error}</p>}
+        {error && <p role="alert" className="text-xs text-warn px-3 py-1.5 border-b border-neutral-800">{error}</p>}
         {lists.map(list => {
           const checked = memberIds.has(list.id);
           return (

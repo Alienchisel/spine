@@ -199,7 +199,7 @@ export default function BrowsePage() {
               {loadingAll ? `Loading all · ${loadedRef.current}/${total}` : 'Load all'}
             </button>
           </div>
-          {actionError && <p className="text-xs text-warn">{actionError}</p>}
+          {actionError && <p role="alert" className="text-xs text-warn">{actionError}</p>}
         </div>
       )}
     </div>

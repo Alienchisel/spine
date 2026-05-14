@@ -179,7 +179,7 @@ export default function ProgressSection({ book, onChange, log }) {
           className="text-sm bg-binding hover:bg-binding/80 active:scale-[0.98] disabled:opacity-40 disabled:cursor-default text-parchment px-4 py-1.5 rounded transition-[transform,background-color] ease-out duration-150">
           {saving ? 'Saving…' : 'Update'}
         </button>
-        {error && <p className="w-full text-xs text-warn mt-1">{error}</p>}
+        {error && <p role="alert" className="w-full text-xs text-warn mt-1">{error}</p>}
       </form>
     </div>
   );

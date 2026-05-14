@@ -565,9 +565,9 @@ export default function BookForm() {
 
       <div className="fixed bottom-0 left-0 right-0 bg-neutral-950/90 backdrop-blur border-t border-neutral-800 px-4 py-3 flex items-center justify-between gap-4">
         <div className="flex flex-col gap-0.5 min-w-0">
-          {error            && <p className="text-sm text-warn truncate">{error}</p>}
-          {shelfTreeError   && <p className="text-xs text-warn/80 truncate">{shelfTreeError}</p>}
-          {suggestionsError && <p className="text-xs text-warn/80 truncate">{suggestionsError}</p>}
+          {error            && <p role="alert" className="text-sm text-warn truncate">{error}</p>}
+          {shelfTreeError   && <p role="alert" className="text-xs text-warn/80 truncate">{shelfTreeError}</p>}
+          {suggestionsError && <p role="alert" className="text-xs text-warn/80 truncate">{suggestionsError}</p>}
         </div>
         <button
           form="book-form"

@@ -252,7 +252,7 @@ export default function Readlist() {
           </Link>
         </div>
       ) : (<>
-        {actionError && <p className="text-xs text-warn mb-2">{actionError}</p>}
+        {actionError && <p role="alert" className="text-xs text-warn mb-2">{actionError}</p>}
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={visibleBooks.map(b => b.id)} strategy={verticalListSortingStrategy}>
             <div className="space-y-1.5">

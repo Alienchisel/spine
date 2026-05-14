@@ -354,7 +354,7 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
           + Add {noun}
         </button>
       )}
-      {error && <p className="text-xs text-warn mt-2">{error}</p>}
+      {error && <p role="alert" className="text-xs text-warn mt-2">{error}</p>}
     </div>
   );
 }

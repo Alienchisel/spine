@@ -192,7 +192,7 @@ export default function EditionsSection({ book, onChange, linkState }) {
       <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">
         Other editions of this work
       </p>
-      {error && <p className="text-xs text-warn mb-2">{error}</p>}
+      {error && <p role="alert" className="text-xs text-warn mb-2">{error}</p>}
       <div className="divide-y divide-neutral-800/60">
         {editions.map(e => (
           <EditionRow key={e.id} edition={e} onUnlink={() => handleUnlink(e.id)} disabled={mutatingId === e.id} linkState={linkState} />
@@ -211,7 +211,7 @@ export default function EditionsSection({ book, onChange, linkState }) {
             placeholder="Search your library by title…"
             className="w-full bg-neutral-900 border border-neutral-700 rounded px-3 py-1.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-oak/50"
           />
-          {searching && <p className="text-xs text-neutral-600">Searching…</p>}
+          {searching && <p role="status" className="text-xs text-neutral-600">Searching…</p>}
           {!searching && query.trim() && results.length === 0 && (
             <p className="text-xs text-neutral-600">No matches.</p>
           )}

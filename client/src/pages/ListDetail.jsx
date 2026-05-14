@@ -168,7 +168,7 @@ function QuickAdd({ listId, onAdded }) {
       >
         Add
       </button>
-      {error && <span className="text-xs text-red-400">{error}</span>}
+      {error && <span role="alert" className="text-xs text-red-400">{error}</span>}
     </form>
   );
 }
@@ -516,7 +516,7 @@ export default function ListDetail() {
               {SORTS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
             </select>
           </div>
-          {actionError && <p className="text-xs text-warn mb-2">{actionError}</p>}
+          {actionError && <p role="alert" className="text-xs text-warn mb-2">{actionError}</p>}
           {editMode ? (
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext items={list.books.map(b => b.id)} strategy={rectSortingStrategy}>
@@ -552,7 +552,7 @@ export default function ListDetail() {
                   {loadingAll ? `Loading all · ${list.books.length}/${total}` : 'Load all'}
                 </button>
               </div>
-              {actionError && <p className="text-xs text-warn">{actionError}</p>}
+              {actionError && <p role="alert" className="text-xs text-warn">{actionError}</p>}
             </div>
           )}
         </>
