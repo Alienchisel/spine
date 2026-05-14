@@ -110,6 +110,7 @@ export default function LookupPanel({ onApply, coverInFlight }) {
         value={query}
         onChange={handleInput}
         onKeyDown={handleKeyDown}
+        aria-label="Search Open Library"
         placeholder="Search Open Library to auto-fill…"
         className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2.5 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-oak/60 focus:ring-1 focus:ring-oak/25 transition-colors duration-150"
       />
