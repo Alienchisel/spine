@@ -140,7 +140,7 @@ export default function LookupPanel({ onApply, coverInFlight }) {
         // mutations, so the new <p> is announced when it appears.
         <div className="absolute z-10 w-full mt-1 bg-neutral-900 border border-neutral-700 rounded-lg overflow-hidden shadow-xl">
           {coverInFlight && (
-            <p role="status" className="px-4 py-2 text-xs text-neutral-400 border-b border-neutral-800">
+            <p id="lookup-cover-in-flight-notice" role="status" className="px-4 py-2 text-xs text-neutral-400 border-b border-neutral-800">
               A cover action is in progress — wait for it to finish.
             </p>
           )}
@@ -149,6 +149,7 @@ export default function LookupPanel({ onApply, coverInFlight }) {
               <li key={r.key}>
                 <button type="button" onClick={() => handlePick(r)}
                   disabled={coverInFlight}
+                  aria-describedby={coverInFlight ? 'lookup-cover-in-flight-notice' : undefined}
                   className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent">
                   {r.cover_url
                     ? <img src={r.cover_url} alt="" className="w-8 h-12 object-cover rounded flex-shrink-0" />
