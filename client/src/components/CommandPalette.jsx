@@ -146,6 +146,15 @@ export default function CommandPalette() {
   const [bookLoading, setBookLoading] = useState(false);
   const [lists, setLists] = useState([]);
   const [listsLoaded, setListsLoaded] = useState(false);
+  // Cached facet data for qualifier-value autocomplete (tag:, author:,
+  // series:, narrator:, translator:, publisher:). Fetched once on first
+  // open from /api/books/facets — same endpoint FilterPanel uses, no new
+  // backend surface needed. Stays in memory for the session; a long-lived
+  // tab won't pick up brand-new tags/authors etc. until reload, which
+  // mirrors the existing `lists` cache tradeoff and is acceptable for an
+  // autocomplete affordance.
+  const [facets, setFacets] = useState(null);
+  const [facetsLoaded, setFacetsLoaded] = useState(false);
   const [selected, setSelected] = useState(0);
   const inputRef = useRef(null);
   const listRef = useRef(null);
@@ -256,6 +265,27 @@ export default function CommandPalette() {
     })();
     return () => { cancelled = true; };
   }, [open, listsLoaded]);
+
+  // Lazy-load facets on first open for qualifier-value autocomplete.
+  // Same retry-on-failure shape as the lists fetch above. Empty params
+  // → corpus-wide facets (every tag/author/etc. in the library), which
+  // is what autocomplete wants — filtered facets would silently hide
+  // values that don't match the current Library view's filters.
+  useEffect(() => {
+    if (!open || facetsLoaded) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await api.getBookFacets();
+        if (cancelled) return;
+        setFacets(data || null);
+        setFacetsLoaded(true);
+      } catch {
+        if (!cancelled) setFacets(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [open, facetsLoaded]);
 
   // Fetch the current book whenever the palette opens on /books/:id.
   // Re-fetching per open (rather than caching) keeps the loved /
