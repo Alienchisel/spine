@@ -402,12 +402,13 @@ export default function CommandPalette() {
   // Fetch the current book whenever the palette opens on /books/:id.
   // Re-fetching per open (rather than caching) keeps the loved /
   // readlist / archive labels accurate after the user mutates state
-  // on the detail page itself.
+  // on the detail page itself. Clear `currentBook` synchronously
+  // before the fetch — without that, navigating /books/A → /books/B
+  // with the palette open leaves the bookActions perform()s targeting
+  // book A's id until book B's fetch resolves.
   useEffect(() => {
-    if (!open || currentBookId == null) {
-      setCurrentBook(null);
-      return;
-    }
+    setCurrentBook(null);
+    if (!open || currentBookId == null) return;
     let cancelled = false;
     api.getBook(currentBookId)
       .then(b => { if (!cancelled) setCurrentBook(b); })
@@ -415,17 +416,21 @@ export default function CommandPalette() {
     return () => { cancelled = true; };
   }, [open, currentBookId]);
 
-  // Continue-reading: fetch every time the palette opens. The set is
-  // tiny (3 books) and the user might have flipped status elsewhere
-  // between opens, so the cost of a refetch is worth the freshness.
-  useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
+  // Continue-reading: fetch once on mount, then refetch when any book
+  // mutates or is deleted. Cheaper than the prior per-open fetch (which
+  // hit the endpoint even when no book had moved into or out of reading
+  // status between opens), and freshness is unchanged because every
+  // status change goes through spine:book-mutated.
+  const readingGuard = useStaleGuard();
+  const refetchReading = useCallback(() => {
+    const epoch = readingGuard.next();
     api.getBooks({ statuses: 'reading', sort: 'updated', limit: 3 })
-      .then(d => { if (!cancelled) setReading(d.books || []); })
-      .catch(() => { if (!cancelled) setReading([]); });
-    return () => { cancelled = true; };
-  }, [open]);
+      .then(d => { if (readingGuard.isFresh(epoch)) setReading(d.books || []); })
+      .catch(() => { if (readingGuard.isFresh(epoch)) setReading([]); });
+  }, [readingGuard]);
+  useEffect(() => { refetchReading(); }, [refetchReading]);
+  useSpineEvent('spine:book-mutated', refetchReading);
+  useSpineEvent('spine:book-deleted', refetchReading);
 
   const remember = useCallback((entry) => {
     if (!entry || !isPersistableForRecent(entry)) return;
