@@ -34,6 +34,21 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
   // first's marker immediately. Mirrors the deletingIdsRef pattern in
   // ReadsSection.
   const busyIdsRef = useRef(new Set());
+  // Tracks the current bookId so the spine:book-mutated listener's
+  // in-flight getBookLists can drop its setMemberIds when the user has
+  // navigated to a different book mid-flight. Assigned every render so
+  // the ref is always fresh by the time any handler closure reads it.
+  const currentBookIdRef = useRef(bookId);
+  currentBookIdRef.current = bookId;
+
+  // Reset memberIds when the bookId prop changes so the old book's
+  // memberships don't briefly color the icon or seed stale check marks
+  // before handleOpen's next fetch lands. Without this, navigating
+  // between books on BookDetail shows the previous book's "in any list"
+  // state until the user opens the picker.
+  useEffect(() => {
+    setMemberIds(new Set());
+  }, [bookId]);
 
   // Stay in sync with palette-driven (or any external) mutations on
   // this book. The command palette's 'Add to list…' sub-prompt
@@ -43,9 +58,18 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
   // when open) so the cache is current on the next open too.
   useEffect(() => {
     function onMutate(e) {
-      if (Number(e.detail?.id) !== Number(bookId)) return;
+      const evtBookId = Number(e.detail?.id);
+      if (evtBookId !== Number(bookId)) return;
       api.getBookLists(bookId)
-        .then(ids => setMemberIds(new Set(ids)))
+        .then(ids => {
+          // Drop the response if the user has navigated to a different
+          // book in the meantime — without this, an in-flight refetch
+          // started while bookId was still X could land setMemberIds on
+          // the component now showing Y. Same shape as BookDetail's
+          // isStillCurrent pattern.
+          if (Number(currentBookIdRef.current) !== evtBookId) return;
+          setMemberIds(new Set(ids));
+        })
         .catch(() => {});
     }
     window.addEventListener('spine:book-mutated', onMutate);
@@ -60,7 +84,13 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
         dropdownRef.current && !dropdownRef.current.contains(e.target)
       ) setOpen(false);
     }
-    function onScroll() { setOpen(false); }
+    function onScroll(e) {
+      // Skip scrolls inside the dropdown — internal overflow scroll for
+      // a tall list shouldn't close the very menu the user is scrolling.
+      // Mirrors MoreMenu's scroll-close guard.
+      if (dropdownRef.current?.contains(e.target)) return;
+      setOpen(false);
+    }
     // Escape closes the popover without losing focus on the trigger,
     // which keeps the keyboard user oriented (Tab continues from where
     // they were before opening).
@@ -153,7 +183,7 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
       role="menu"
       aria-label="Add to list"
       style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left }}
-      className="z-[9999] w-52 bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl py-1"
+      className="z-[9999] w-52 max-h-[80vh] overflow-y-auto bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl py-1"
     >
       {loading ? (
         <p role="status" className="text-xs text-neutral-600 px-3 py-2">Loading…</p>
