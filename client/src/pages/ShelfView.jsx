@@ -319,8 +319,17 @@ export default function ShelfView() {
       setBooksLoading(false);
       return;
     }
-    if (!isSameLocation) setBooks([]);
-    setBooksLoading(true);
+    // The shelf render branches on booksLoading — flipping it true
+    // unmounts the DndContext/overflow-x-auto scroll container and
+    // replaces it with a 'Loading…' div, which destroys scrollLeft.
+    // Keep it false on same-location refreshTick refetches so the
+    // container survives the background fetch. Real navigation still
+    // wipes through the Loading… state so old books don't show on the
+    // new view.
+    if (!isSameLocation) {
+      setBooks([]);
+      setBooksLoading(true);
+    }
     const fetch = shelfId    ? api.getShelfBooks(shelfId)
       : unitId              ? api.getUnitBooks(unitId)
       : roomId              ? api.getRoomBooks(roomId)
