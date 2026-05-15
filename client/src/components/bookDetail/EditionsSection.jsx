@@ -230,8 +230,8 @@ export default function EditionsSection({ book, onChange, linkState }) {
                       : <div className="w-full h-full bg-gradient-to-br from-neutral-700 to-neutral-900" />}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-neutral-200 truncate">{r.title}</p>
-                    <p className="text-xs text-neutral-500 truncate">
+                    <p className="text-sm text-neutral-200 truncate" title={r.title}>{r.title}</p>
+                    <p className="text-xs text-neutral-500 truncate" title={FORMAT_LABEL[r.format] ?? r.format}>
                       {FORMAT_LABEL[r.format] ?? r.format}
                     </p>
                   </div>
