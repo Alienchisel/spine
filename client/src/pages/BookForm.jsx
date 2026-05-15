@@ -15,7 +15,7 @@ import { useConfirm } from '../components/ConfirmModal.jsx';
 const TABS = [
   { key: 'core',        label: 'Core' },
   { key: 'details',     label: 'Details' },
-  { key: 'acquisition', label: 'Acquisition' },
+  { key: 'acquisition', label: 'My copy' },
   { key: 'personal',    label: 'Personal' },
 ];
 
