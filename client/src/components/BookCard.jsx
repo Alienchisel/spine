@@ -89,9 +89,11 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
     setInputM(inputs.inputM);
   }, [isAudiobook, hasPct, book.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function toggleEditor(e) {
-    e.preventDefault();
-    if (open) { setOpen(false); return; }
+  // Split from toggleEditor so the MoreMenu can request an unconditional
+  // open (toggling would close the editor if it happened to already be
+  // open behind the popover). toggleEditor still owns the pencil-button
+  // open/close behaviour.
+  function openEditor() {
     setError(null);
     const inputs = syncProgressInputs({ book, isAudiobook, mode, pct });
     setInputVal(inputs.inputVal);
@@ -99,6 +101,12 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
     setInputM(inputs.inputM);
     setOpen(true);
     setTimeout(() => inputRef.current?.select(), 0);
+  }
+
+  function toggleEditor(e) {
+    e.preventDefault();
+    if (open) { setOpen(false); return; }
+    openEditor();
   }
 
   function changeMode(m) {
@@ -331,6 +339,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
                 book={book}
                 dropUp
                 iconClassName="w-5 h-5"
+                onOpenProgress={openEditor}
               />
             </div>
           )}

@@ -43,7 +43,7 @@ function DotsIcon({ className }) {
   );
 }
 
-export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-5', buttonClassName = '' }) {
+export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-5', buttonClassName = '', onOpenProgress }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState(null);
   const [subPrompt, setSubPrompt] = useState(null);  // null | 'add-to-lists'
@@ -225,6 +225,18 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
     navigate(`/books/${book.id}/edit`);
   }
 
+  // Surface BookCard's inline progress editor from the menu — useful as
+  // a keyboard-driven entry point when the cover's pencil button is
+  // hover-revealed and hard to reach without a pointer. The editor is
+  // owned by BookCard (which holds the form state); the parent passes
+  // an opener callback in.
+  function handleOpenProgress(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    setOpen(false);
+    onOpenProgress?.();
+  }
+
   // Archive / Restore. PATCH-based (archived is in the patchBook
   // whitelist; the backend also auto-clears on_readlist when archiving).
   async function handleArchive(e) {
@@ -324,6 +336,12 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
           >
             <StarRating value={localRating} onChange={handleRate} size="text-lg" />
           </div>
+          {onOpenProgress && book.status === 'reading' && (
+            <button type="button" onClick={handleOpenProgress} role="menuitem"
+              className="w-full px-3 py-2 text-left text-sm text-neutral-300 hover:bg-neutral-800 transition-colors">
+              Update progress…
+            </button>
+          )}
           {book.status !== 'finished' && (
             <button type="button" onClick={(e) => changeStatus(e, 'finished')} role="menuitem"
               className="w-full px-3 py-2 text-left text-sm text-neutral-300 hover:bg-neutral-800 transition-colors">
