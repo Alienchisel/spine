@@ -13,8 +13,9 @@ import { useConfirm } from './ConfirmModal.jsx';
 //   kinds (Navigate / Actions / Lists / Books); arrow keys traverse the
 //   flat list across sections.
 // Phase 3: Library actions — clear filters, change sort. URL-driven,
-//   so they preserve other params when invoked on Library and
-//   navigate to a fresh Library view when invoked elsewhere.
+//   preserving other params on the current tab. Only surfaced when on
+//   Library (no current tab to sort or filters to clear elsewhere); sort
+//   entries are further filtered to those allowed on the active tab.
 // Phase 4: context-aware book-detail actions — toggle loved / readlist
 //   / archive (PATCH-based), edit book (navigate), delete book (confirm
 //   + delete + navigate to /). Only surface when on /books/:id. After a
@@ -70,6 +71,8 @@ const STATUS_DOT_CLASS = {
 // rather than imported to keep the palette decoupled from page internals
 // — if Library renames a sort key, both files need updating, but the
 // keys are part of the URL contract anyway so this is a stable surface.
+// The `tabs` metadata is what powers per-tab sort filtering in the palette:
+// 'custom' only makes sense on the Never owned tab (manual rank).
 const SORTS = [
   { key: 'updated',     label: 'Recently updated' },
   { key: 'last_logged', label: 'Recently logged' },
@@ -80,7 +83,22 @@ const SORTS = [
   { key: 'progress',    label: 'Progress' },
   { key: 'started',     label: 'Date started' },
   { key: 'finished',    label: 'Date finished' },
+  { key: 'length',      label: 'Length' },
+  { key: 'custom',      label: 'Custom order', tabs: ['never_owned'] },
+  { key: 'random',      label: 'Random' },
 ];
+
+// Mirror of Library's VALID_TABS — used to derive the current tab from
+// the URL inside libraryActions so per-tab sort filtering matches what
+// Library itself accepts.
+const VALID_TABS = new Set(['reading', 'finished', 'unread', 'owned', 'prev_owned', 'never_owned', 'all', 'archived']);
+
+function sortAllowedForTab(sortKey, tab) {
+  const def = SORTS.find(s => s.key === sortKey);
+  if (!def) return false;
+  if (def.tabs && !def.tabs.includes(tab)) return false;
+  return true;
+}
 
 // Simple case-insensitive substring match — sufficient for nav, action,
 // and list filtering (small sets, exact-feeling matches). Book search
@@ -322,23 +340,25 @@ export default function CommandPalette() {
   // from sitting next to an unrelated filter the user has narrowed to.
   useEffect(() => { setSubPromptError(null); }, [query, subPrompt]);
 
-  // Library actions are URL-driven. When already on Library, preserve
-  // other params (tab, q, filters) and just update the one we care
-  // about; when elsewhere, navigate to a fresh Library view. Both
-  // branches read the *current* URL at the moment of invocation, so
-  // memoizing the actions array on `searchParams` is intentional.
+  // Library actions are URL-driven and only meaningful when the user is
+  // on Library — there's no "current tab" to sort or "current filters"
+  // to clear off-page. Returning an empty list off Library both hides
+  // the entries from the typed-query Actions section AND filters them
+  // out of Recent (the resolver drops MRU entries with no live match).
+  //
+  // Sort entries are filtered to those allowed for the current tab —
+  // Custom order, for instance, is only meaningful on Never owned, so
+  // it would silently coerce to 'updated' if surfaced elsewhere.
   const libraryActions = useMemo(() => {
-    const onLibrary = isOnLibrary;
+    if (!isOnLibrary) return [];
     const currentParams = searchParams;
+    const urlTab = currentParams.get('tab');
+    const currentTab = (urlTab && VALID_TABS.has(urlTab)) ? urlTab : 'reading';
 
     const changeSort = (key) => () => {
-      if (onLibrary) {
-        const next = new URLSearchParams(currentParams);
-        next.set('sort', key);
-        setSearchParams(next);
-      } else {
-        navigate(`/?sort=${key}`);
-      }
+      const next = new URLSearchParams(currentParams);
+      next.set('sort', key);
+      setSearchParams(next);
     };
 
     // Strip everything paramsToFilters / the search field reads, but
@@ -353,13 +373,9 @@ export default function CommandPalette() {
       'owned', 'previouslyOwned', 'custom', 'loved',
     ];
     const clearAll = () => {
-      if (onLibrary) {
-        const next = new URLSearchParams(currentParams);
-        for (const k of FILTER_PARAM_KEYS) next.delete(k);
-        setSearchParams(next);
-      } else {
-        navigate('/');
-      }
+      const next = new URLSearchParams(currentParams);
+      for (const k of FILTER_PARAM_KEYS) next.delete(k);
+      setSearchParams(next);
     };
 
     return [
@@ -370,7 +386,7 @@ export default function CommandPalette() {
         hint: 'Library',
         perform: clearAll,
       },
-      ...SORTS.map(s => ({
+      ...SORTS.filter(s => sortAllowedForTab(s.key, currentTab)).map(s => ({
         id: `action.sort.${s.key}`,
         kind: 'action',
         label: `Sort by ${s.label}`,
@@ -378,7 +394,7 @@ export default function CommandPalette() {
         perform: changeSort(s.key),
       })),
     ];
-  }, [isOnLibrary, searchParams, navigate, setSearchParams]);
+  }, [isOnLibrary, searchParams, setSearchParams]);
 
   // Book-detail actions — only present when on /books/:id and the book
   // has loaded. Mutating actions hit the PATCH endpoint and then
