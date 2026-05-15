@@ -597,15 +597,22 @@ describe('books', () => {
     });
 
     it('PUT applies the same source_type gate as POST', async () => {
-      // Editing a non-fiction book to fiction must drop source_type even if
-      // the form payload still carries the old value (round-trip pattern).
       const { body: created } = await req('POST', '/api/books', {
         title: 'History', fiction: false, source_type: 'primary',
       });
       assert.equal(created.source_type, 'primary');
 
-      const { body: madeFiction } = await req('PUT', `/api/books/${created.id}`, {
+      // Editing a non-fiction book to fiction with source_type still set is
+      // rejected — the API now refuses to drop the field silently and asks
+      // the caller to clear it explicitly.
+      const { status: madeFictionStatus } = await req('PUT', `/api/books/${created.id}`, {
         ...created, fiction: true, source_type: 'primary', tags: [],
+      });
+      assert.equal(madeFictionStatus, 400);
+
+      // Clearing source_type on the same flip succeeds.
+      const { body: madeFiction } = await req('PUT', `/api/books/${created.id}`, {
+        ...created, fiction: true, source_type: null, tags: [],
       });
       assert.equal(madeFiction.fiction, 1);
       assert.equal(madeFiction.source_type, null);
@@ -618,21 +625,41 @@ describe('books', () => {
       assert.equal(backToNonFiction.source_type, 'secondary');
     });
 
-    it('source_type is dropped on fiction or unset-fiction books', async () => {
-      // Mirrors CoreFields.jsx:64 — the form only keeps source_type when
-      // fiction === false. The backend now enforces the same gate, so
-      // primary/secondary classification stays semantically clean on facets.
+    it('rejects source_type when fiction is not false', async () => {
+      // Was silently dropped before; now a 400 so the caller knows the
+      // field didn't take. Mirrors CoreFields.jsx:64 — the form only sends
+      // source_type when fiction === false.
       const fictionBook = await req('POST', '/api/books', {
         title: 'Iliad', fiction: true, source_type: 'primary',
       });
-      assert.equal(fictionBook.body.fiction, 1);
-      assert.equal(fictionBook.body.source_type, null);
+      assert.equal(fictionBook.status, 400);
 
       const unsetBook = await req('POST', '/api/books', {
         title: 'Mystery Genre', source_type: 'primary',
       });
-      assert.equal(unsetBook.body.fiction, null);
-      assert.equal(unsetBook.body.source_type, null);
+      assert.equal(unsetBook.status, 400);
+    });
+
+    it('accepts a generic `isbn` field, routing by length', async () => {
+      // Was silently dropped before because the validator and column
+      // writer both read isbn_10 / isbn_13 only. Length-routing matches
+      // how listing pages and humans speak about "the ISBN".
+      const { body: isbn13 } = await req('POST', '/api/books', {
+        title: 'ISBN-13 Book', isbn: '9781614876434',
+      });
+      assert.equal(isbn13.isbn_13, '9781614876434');
+      assert.equal(isbn13.isbn_10, null);
+
+      const { body: isbn10 } = await req('POST', '/api/books', {
+        title: 'ISBN-10 Book', isbn: '0691176353',
+      });
+      assert.equal(isbn10.isbn_10, '0691176353');
+      assert.equal(isbn10.isbn_13, null);
+
+      const badIsbn = await req('POST', '/api/books', {
+        title: 'Bad ISBN', isbn: '12345',
+      });
+      assert.equal(badIsbn.status, 400);
     });
 
     it('saves and returns previously_owned flag', async () => {

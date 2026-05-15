@@ -73,7 +73,10 @@ describe('book contract: full field round-trip', () => {
       is_stub:           true,                // POST stores as-is; PUT auto-clears
       loved:             false,
       fiction:           true,                // → 1
-      source_type:       'primary',
+      // source_type is omitted here because the API rejects it on
+      // fiction-true books (validation: 'source_type requires fiction:
+      // false'). The PUT below flips to fiction=false and asserts that
+      // source_type then persists.
       rating:            4.5,
       date_started:      '2024-03-01',
       date_finished:     null,
@@ -130,9 +133,9 @@ describe('book contract: full field round-trip', () => {
     assert.equal(body.archived, 0);
 
     // Scalar fields
-    // source_type is gated to fiction === false; this fixture is fiction=true
-    // so the input 'primary' is silently scrubbed to null. The PUT below
-    // flips fiction=false and source_type then persists as 'secondary'.
+    // source_type was omitted from the POST (validation rejects it on
+    // fiction-true books). The PUT below flips to fiction=false and
+    // asserts that source_type persists.
     assert.equal(body.source_type, null);
     assert.equal(body.rating, 4.5);
     assert.equal(body.date_started, '2024-03-01');
