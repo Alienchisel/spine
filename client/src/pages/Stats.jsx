@@ -189,14 +189,33 @@ function colorForTag(name) {
 }
 
 function TagTreemap({ tags }) {
+  const containerRef = useRef(null);
+  // Measure the rendered container so squarify optimises aspect ratios
+  // against the actual shape we hand the user. Without this, tiles are
+  // laid out for a fixed virtual square and visibly stretched whenever
+  // the rendered cell isn't 1:1 (e.g. when the cell stretches to match
+  // the donut block's height beside it).
+  const [size, setSize] = useState({ w: 400, h: 400 });
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(entries => {
+      for (const e of entries) {
+        const { width, height } = e.contentRect;
+        if (width > 0 && height > 0) setSize({ w: width, h: height });
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   if (!tags || tags.length === 0) return null;
-  // Virtual coords match the rendered aspect ratio (square) so the
-  // squarify algorithm's worst-case aspect ratio reflects what the user
-  // actually sees, not a normalised box that gets stretched at render.
-  const VS = 400;
-  const placed = squarify(tags.map(t => ({ name: t.name, value: t.count, count: t.count })), VS, VS);
+  const placed = squarify(
+    tags.map(t => ({ name: t.name, value: t.count, count: t.count })),
+    size.w,
+    size.h,
+  );
   return (
-    <div className="bg-card rounded-lg p-1 aspect-square relative overflow-hidden">
+    <div ref={containerRef} className="bg-card rounded-lg p-1 h-full min-h-[24rem] relative overflow-hidden">
       {placed.map(t => (
         <Link
           key={t.name}
@@ -204,10 +223,10 @@ function TagTreemap({ tags }) {
           state={FROM_STATS}
           className="absolute border border-neutral-900 transition-[filter] hover:brightness-125 flex items-center justify-center overflow-hidden text-center"
           style={{
-            left:       `${(t.rect.x / VS) * 100}%`,
-            top:        `${(t.rect.y / VS) * 100}%`,
-            width:      `${(t.rect.w / VS) * 100}%`,
-            height:     `${(t.rect.h / VS) * 100}%`,
+            left:       `${(t.rect.x / size.w) * 100}%`,
+            top:        `${(t.rect.y / size.h) * 100}%`,
+            width:      `${(t.rect.w / size.w) * 100}%`,
+            height:     `${(t.rect.h / size.h) * 100}%`,
             background: colorForTag(t.name),
           }}
           title={`${t.name} · ${t.count} ${t.count === 1 ? 'book' : 'books'}`}
@@ -431,7 +450,7 @@ export default function Stats() {
             structural taxonomies (fiction / format / status / source),
             the treemap covers the long-tail tag composition. Stacks on
             mobile so neither gets squeezed. */}
-        <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-4 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-4">
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-3">
             <DonutChart
               title="Fiction / Non-fiction"
