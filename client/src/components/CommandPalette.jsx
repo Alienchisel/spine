@@ -100,12 +100,16 @@ function sortAllowedForTab(sortKey, tab) {
   return true;
 }
 
-// Simple case-insensitive substring match — sufficient for nav, action,
-// and list filtering (small sets, exact-feeling matches). Book search
-// stays on the backend FTS path for its smarter ranking.
+// Case-insensitive token-AND match — every whitespace-separated token in
+// the query must appear somewhere in the text, in any order. Lets users
+// drop filler words ("sort author" matches "Sort by Author A–Z") without
+// pulling in a full fuzzy-search dependency. Book search stays on the
+// backend FTS path for its smarter ranking.
 function matchesQuery(text, q) {
   if (!q) return true;
-  return text.toLowerCase().includes(q);
+  const haystack = text.toLowerCase();
+  const tokens = q.split(/\s+/).filter(Boolean);
+  return tokens.every(t => haystack.includes(t));
 }
 
 const MRU_KEY = 'spine-palette-mru';
