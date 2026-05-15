@@ -109,6 +109,128 @@ function Bar({ label, count, max, color = 'bg-oak', href, caption }) {
   );
 }
 
+// Squarified treemap layout (Bruls, Huijsen, van Wijk 2000) for a flat
+// list of weighted items. Returns each input augmented with a normalised
+// rect = { x, y, w, h } in the virtual coordinate space (vw × vh).
+// We greedily fill the current strip with items while their worst-case
+// aspect ratio keeps improving, then close the strip and recurse on the
+// remaining rect — gives near-square tiles for typical long-tail data.
+function squarify(items, vw, vh) {
+  const sorted = [...items].sort((a, b) => b.value - a.value).filter(d => d.value > 0);
+  if (sorted.length === 0) return [];
+  const total = sorted.reduce((s, d) => s + d.value, 0);
+  const scaled = sorted.map(d => ({ ...d, area: (d.value / total) * vw * vh }));
+  const out = [];
+  layoutRect(scaled, 0, 0, vw, vh, out);
+  return out;
+}
+
+function worstAspect(row, shortSide) {
+  if (row.length === 0) return Infinity;
+  const rowArea = row.reduce((s, it) => s + it.area, 0);
+  const thickness = rowArea / shortSide;
+  let worst = 0;
+  for (const it of row) {
+    const longDim = it.area / thickness;
+    const r = Math.max(thickness / longDim, longDim / thickness);
+    if (r > worst) worst = r;
+  }
+  return worst;
+}
+
+function layoutRect(items, x, y, w, h, out) {
+  if (items.length === 0 || w <= 0 || h <= 0) return;
+  let i = 0;
+  let row = [];
+  while (i < items.length) {
+    const shortSide = Math.min(w, h);
+    const candidate = [...row, items[i]];
+    if (row.length === 0 || worstAspect(candidate, shortSide) <= worstAspect(row, shortSide)) {
+      row = candidate;
+      i++;
+    } else {
+      break;
+    }
+  }
+  const shortSide = Math.min(w, h);
+  const rowArea = row.reduce((s, it) => s + it.area, 0);
+  const thickness = rowArea / shortSide;
+  if (w >= h) {
+    let off = 0;
+    for (const it of row) {
+      const ih = it.area / thickness;
+      out.push({ ...it, rect: { x, y: y + off, w: thickness, h: ih } });
+      off += ih;
+    }
+    layoutRect(items.slice(i), x + thickness, y, w - thickness, h, out);
+  } else {
+    let off = 0;
+    for (const it of row) {
+      const iw = it.area / thickness;
+      out.push({ ...it, rect: { x: x + off, y, w: iw, h: thickness } });
+      off += iw;
+    }
+    layoutRect(items.slice(i), x, y + thickness, w, h - thickness, out);
+  }
+}
+
+function TagCloud({ tags }) {
+  if (!tags || tags.length === 0) return null;
+  const max = Math.max(...tags.map(t => t.count));
+  const min = Math.min(...tags.map(t => t.count));
+  const range = max - min || 1;
+  // Linear scale from 0.8rem (least common in view) to 2rem (most common).
+  // A square-root scale would compress the dominant tags less, but the
+  // linear feel matches what users intuit when reading proportions.
+  const fontSize = (count) => 0.8 + ((count - min) / range) * 1.2;
+  return (
+    <div className="bg-card rounded-lg p-6 flex flex-wrap items-baseline justify-center gap-x-3 gap-y-2">
+      {tags.map(t => (
+        <Link
+          key={t.name}
+          to={`/browse/tag/${encodeURIComponent(t.name)}`}
+          state={FROM_STATS}
+          style={{ fontSize: `${fontSize(t.count)}rem`, lineHeight: 1 }}
+          className="text-neutral-400 hover:text-leather transition-colors"
+          title={`${t.count} ${t.count === 1 ? 'book' : 'books'}`}
+        >
+          {t.name}
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+function TagTreemap({ tags }) {
+  if (!tags || tags.length === 0) return null;
+  // Virtual coords match the rendered aspect ratio (aspect-[5/2]) so the
+  // squarify algorithm's worst-case aspect ratio reflects what the user
+  // actually sees, not a normalised square that gets stretched at render.
+  const VW = 500, VH = 200;
+  const placed = squarify(tags.map(t => ({ name: t.name, value: t.count, count: t.count })), VW, VH);
+  return (
+    <div className="bg-card rounded-lg p-1 aspect-[5/2] relative overflow-hidden">
+      {placed.map(t => (
+        <Link
+          key={t.name}
+          to={`/browse/tag/${encodeURIComponent(t.name)}`}
+          state={FROM_STATS}
+          className="absolute bg-leather/30 hover:bg-leather/60 border border-neutral-900 transition-colors flex items-center justify-center overflow-hidden text-center"
+          style={{
+            left:   `${(t.rect.x / VW) * 100}%`,
+            top:    `${(t.rect.y / VH) * 100}%`,
+            width:  `${(t.rect.w / VW) * 100}%`,
+            height: `${(t.rect.h / VH) * 100}%`,
+          }}
+          title={`${t.name} · ${t.count} ${t.count === 1 ? 'book' : 'books'}`}
+        >
+          <span className="text-xs text-parchment leading-tight px-1 truncate">{t.name}</span>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
 function formatHours(minutes) {
   if (!minutes) return '0h';
   const h = Math.floor(minutes / 60);
@@ -513,6 +635,15 @@ export default function Stats() {
           </div>
         </div>
       </Section>
+
+      {topTags?.length > 0 && (
+        <Section title="Tag composition">
+          <div className="space-y-3">
+            <TagCloud tags={topTags} />
+            <TagTreemap tags={topTags} />
+          </div>
+        </Section>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
         <Section title="Format">
