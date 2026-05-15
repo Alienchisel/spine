@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { api } from '../api.js';
@@ -127,6 +127,12 @@ export default function BookDetail() {
   // re-fires on book?.id, which is downstream of the first effect's setBook.
   const idGenRef = useRef(0);
   const bookGenRef = useRef(0);
+  // Tracks the id from the previous render of the load effect. Lets us
+  // distinguish a real navigation (new id → wipe visible state) from a
+  // refresh-tick refetch at the same id (silently swap data, preserving
+  // expanded description / rating prompt / scroll position). Mirrors
+  // Library's lastFetchKeyRef pattern.
+  const prevIdRef = useRef(null);
   // Bumped on every rating click so a slower-resolving earlier PUT can't
   // setBook over a faster-resolving later PUT (e.g. user clicks 5 then 3
   // and the 5 response lands last). Local-UI scoped — server-side last-
@@ -157,27 +163,30 @@ export default function BookDetail() {
 
   useEffect(() => {
     const gen = ++idGenRef.current;
-    // Reset all state tied to the previous book so we don't briefly render
-    // stale content under the new id. Without this, navigating between
-    // books would leave the prior book's detail page visible until the new
-    // fetch resolved — and a failed new fetch would leave it visible
-    // forever (since the !book branch only fires when book is falsy).
-    setLoading(true);
-    setLoadError(false);
-    setBook(null);
-    setLog([]);
-    setLogError(null);
-    setReads([]);
-    setReadsError(null);
-    setLocation(null);
-    setLocationError(null);
-    setSeriesSiblings([]);
-    setSeriesError(null);
-    setActionError(null);
-    setFinishError(null);
-    setDeleteError(null);
-    setRatingPrompt(false);
-    setDescExpanded(false);
+    const isIdChange = prevIdRef.current !== id;
+    prevIdRef.current = id;
+    // Only wipe visible state on a real navigation (id change). On a
+    // refresh-tick refetch at the same id, the fetch resolutions below
+    // atomically replace the data — wiping first would flash "Loading…"
+    // and reset descExpanded / ratingPrompt every alt-tab roundtrip.
+    if (isIdChange) {
+      setLoading(true);
+      setLoadError(false);
+      setBook(null);
+      setLog([]);
+      setLogError(null);
+      setReads([]);
+      setReadsError(null);
+      setLocation(null);
+      setLocationError(null);
+      setSeriesSiblings([]);
+      setSeriesError(null);
+      setActionError(null);
+      setFinishError(null);
+      setDeleteError(null);
+      setRatingPrompt(false);
+      setDescExpanded(false);
+    }
 
     api.getBook(id)
       .then(b => {
@@ -237,7 +246,14 @@ export default function BookDetail() {
   useEffect(() => {
     function onMutate(e) {
       if (Number(e.detail?.id) !== Number(id)) return;
-      api.getBook(id).then(setBook).catch(() => {});
+      // Stale-navigation guard: api.getBook is async, and the user may
+      // have moved on to a different book before the response arrives.
+      // Without the check, book A's data could land as `book` state on
+      // book B's page. Mirrors the guards on every other async path
+      // below.
+      api.getBook(id)
+        .then(b => { if (isStillCurrent(id)) setBook(b); })
+        .catch(() => {});
     }
     window.addEventListener('spine:book-mutated', onMutate);
     return () => window.removeEventListener('spine:book-mutated', onMutate);
@@ -386,13 +402,21 @@ export default function BookDetail() {
     }
   }
 
-  if (loading) return <div role="status" className="text-neutral-700 text-sm">Loading…</div>;
-  if (!book) return <div className="text-neutral-600 text-sm">{loadError ? 'Failed to load book.' : 'Book not found.'}</div>;
-
   // BrowsePage back-link state for outgoing tag/author/etc links — returning
   // from /browse/<field>/<value> lands back on this book rather than the
   // default Library. Title is the human label; pathname is the round-trip.
-  const bookFromState = { from: book.title, fromPath: `/books/${id}` };
+  // Memoised so every child Link's `state` prop keeps a stable reference
+  // between renders when title/id don't change. Declared above the early
+  // returns so the hook order stays consistent (the empty-fallback values
+  // are never observed — the guards below skip rendering anything that
+  // would read them).
+  const bookFromState = useMemo(() => ({
+    from:     book?.title ?? '',
+    fromPath: `/books/${id}`,
+  }), [book?.title, id]);
+
+  if (loading) return <div role="status" className="text-neutral-700 text-sm">Loading…</div>;
+  if (!book) return <div className="text-neutral-600 text-sm">{loadError ? 'Failed to load book.' : 'Book not found.'}</div>;
 
   return (
     <div className="max-w-2xl">
