@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { realTagNames } from '../utils.js';
 import { useConfirm } from './ConfirmModal.jsx';
+import StarRating from './StarRating.jsx';
 
 // Letterboxd-style 'more actions' button for BookCard's hover-tray
 // (the third slot, alongside readlist and loved). Opens a portal-
@@ -56,6 +57,13 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
   // busyIdsRef pattern in ListPicker.
   const busyIdsRef = useRef(new Set());
   const [error, setError] = useState(null);
+  // Optimistic local rating: lets the star widget react instantly to
+  // a click even though the PUT round-trip + Library refetch takes
+  // ~100-300ms before book.rating reflects the new value. Reset to
+  // book.rating whenever the prop changes (e.g. after the refetch,
+  // or if the card swapped to a different book).
+  const [localRating, setLocalRating] = useState(book.rating ?? null);
+  useEffect(() => { setLocalRating(book.rating ?? null); }, [book.rating, book.id]);
   const buttonRef = useRef(null);
   const dropdownRef = useRef(null);
   // Stale-response guard on the lists fetch — rapid open/close before
@@ -147,6 +155,28 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
     } finally {
       busyIdsRef.current.delete(listId);
       setBusy(s => { const n = new Set(s); n.delete(listId); return n; });
+    }
+  }
+
+  // Apply a rating change via a full PUT. Same payload shape as
+  // changeStatus — joined arrays flattened to name lists, virtual
+  // tags filtered. Optimistic local update so the stars react
+  // instantly; rolled back on error.
+  async function handleRate(rating) {
+    const prior = book.rating ?? null;
+    setLocalRating(rating);
+    try {
+      await api.updateBook(book.id, {
+        ...book,
+        authors:     book.authors?.map(a => a.name) ?? [],
+        narrators:   book.narrators?.map(n => n.name) ?? [],
+        translators: book.translators?.map(t => t.name) ?? [],
+        tags:        realTagNames(book.tags),
+        rating,
+      });
+      window.dispatchEvent(new CustomEvent('spine:book-mutated', { detail: { id: book.id } }));
+    } catch {
+      setLocalRating(prior);
     }
   }
 
@@ -269,6 +299,17 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
         </>
       ) : (
         <>
+          {/* Inline star rating — clicks fire optimistic PUTs; the menu
+              stays open so the user can adjust further or move on to
+              another item. onMouseDown on the wrapper stops the outside-
+              click handler (registered on document.mousedown) from
+              firing on the dead space between stars. */}
+          <div
+            className="px-3 py-2 border-b border-neutral-800 flex justify-center"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <StarRating value={localRating} onChange={handleRate} size="text-lg" />
+          </div>
           {book.status !== 'finished' && (
             <button type="button" onClick={(e) => changeStatus(e, 'finished')} role="menuitem"
               className="w-full px-3 py-2 text-left text-sm text-neutral-300 hover:bg-neutral-800 transition-colors">
