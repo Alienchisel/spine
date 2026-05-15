@@ -173,9 +173,22 @@ export default function BrowsePage() {
         {!loading && <p className="text-sm text-neutral-500 mt-1">{total} {total === 1 ? 'book' : 'books'}</p>}
       </div>
 
+      {/* First-load failure (no books yet) replaces the view with an
+          error message; a refresh-tick failure on an already-loaded
+          page surfaces as a dismissible banner above the existing
+          books. The books-fetch effect's same-target branch already
+          skips setBooks([]), so books survive a failed refetch — the
+          render just has to acknowledge them. */}
+      {fetchError && books.length > 0 && (
+        <div className="flex items-center justify-between bg-warn/10 border border-warn/30 rounded px-3 py-2 mb-4">
+          <p role="alert" className="text-xs text-warn">Failed to refresh. Showing the last loaded results.</p>
+          <button onClick={() => setFetchError(false)} className="text-xs text-warn/60 hover:text-warn ml-4">×</button>
+        </div>
+      )}
+
       {loading ? (
         <div role="status" className="text-neutral-700 text-sm">Loading…</div>
-      ) : fetchError ? (
+      ) : books.length === 0 && fetchError ? (
         <div className="text-center py-32">
           <p className="text-neutral-600">Failed to load books. Please try again.</p>
         </div>
