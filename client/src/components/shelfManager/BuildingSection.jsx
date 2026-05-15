@@ -21,6 +21,17 @@ function BuildingSection({ building, dragHandle, onEdit, onDelete, onAddRoom, on
   const [rooms, setRooms] = useState(building.rooms);
   useEffect(() => setRooms(building.rooms), [building.rooms]);
 
+  // Re-sync editingProximity from the current prop each time the user
+  // enters edit mode. Without this, the useState initial value above
+  // only captures proximity at mount — so a refresh-tick reload that
+  // pulled in an externally-changed proximity would leave the next
+  // edit session's <select> showing the OLD value, and saving would
+  // clobber the newer server state.
+  function startEditing() {
+    setEditingProximity(building.proximity);
+    setEditing(true);
+  }
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -71,7 +82,7 @@ function BuildingSection({ building, dragHandle, onEdit, onDelete, onAddRoom, on
           {open && !adding && (
             <button onClick={() => setAdding(true)} className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors whitespace-nowrap">+ room</button>
           )}
-          <button onClick={() => setEditing(true)} className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors">✎</button>
+          <button onClick={startEditing} className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors">✎</button>
           <button onClick={() => onDelete(building.id)} className="text-xs text-neutral-600 hover:text-warn transition-colors">×</button>
         </div>
       </div>
