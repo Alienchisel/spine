@@ -2,13 +2,12 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
+import { realTagNames } from '../utils.js';
 import { useConfirm } from './ConfirmModal.jsx';
 
 // Letterboxd-style 'more actions' button for BookCard's hover-tray
 // (the third slot, alongside readlist and loved). Opens a portal-
-// rendered menu with Add-to-lists / Edit / Delete. Phase 1 of the
-// card actions menu — status mutations, rating, and archive can layer
-// in later.
+// rendered menu with status mutations + Add-to-lists / Edit / Delete.
 //
 // Architecture mirrors ListPicker's pattern (portal popover, fixed
 // positioning relative to the trigger, mousedown/scroll/Escape close
@@ -16,9 +15,19 @@ import { useConfirm } from './ConfirmModal.jsx';
 // same menu rather than nesting a separate ListPicker popover — keeps
 // the visual model simple and the keyboard contract one-level deep.
 //
+// Status mutations (Mark as finished / reading / unread) hit
+// api.updateBook (PUT — status isn't in the PATCH whitelist) and
+// rely on updateBook's finish-transition magic for the reads-row
+// auto-insert and read_count auto-increment. Mirrors BookDetail's
+// handleFinish payload shape: today-default on date_finished
+// (skipped for previously_owned books, since those are typically
+// historical reads with unknown dates), today-default on date_started
+// when moving into 'reading'.
+//
 // Mutations dispatch two events so other surfaces stay in sync:
-//   - spine:book-mutated  — fired after list add/remove. BookDetail
-//     and ListPicker listen for this and refetch.
+//   - spine:book-mutated  — fired after list add/remove and after
+//     status mutations. BookDetail / ListPicker / Library all listen
+//     and refetch the affected book (or its sub-data).
 //   - spine:book-deleted  — fired after successful api.deleteBook.
 //     Library listens and removes the book from its visible list
 //     without a refetch round-trip.
@@ -141,6 +150,44 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
     }
   }
 
+  // Apply a status change via a full PUT. The whole `book` object is
+  // spread in so the other bookColumns survive the round-trip (PUT
+  // overwrites every bookColumn, so omitting one would null it).
+  // Mirrors BookDetail's handleFinish payload shape.
+  async function changeStatus(e, nextStatus) {
+    e.preventDefault();
+    e.stopPropagation();
+    setOpen(false);
+    setError(null);
+    const today = new Date().toLocaleDateString('en-CA');
+    let payload = {
+      ...book,
+      authors:     book.authors?.map(a => a.name) ?? [],
+      narrators:   book.narrators?.map(n => n.name) ?? [],
+      translators: book.translators?.map(t => t.name) ?? [],
+      tags:        realTagNames(book.tags),
+      status:      nextStatus,
+    };
+    if (nextStatus === 'finished') {
+      // Auto-fill date_finished unless already set or previously_owned
+      // (historical reads with unknown finish dates — keep null so the
+      // user can fill in if they remember).
+      payload.date_finished = book.date_finished
+        || (book.previously_owned ? null : today);
+    }
+    if (nextStatus === 'reading' && !book.date_started) {
+      payload.date_started = today;
+    }
+    try {
+      await api.updateBook(book.id, payload);
+      window.dispatchEvent(new CustomEvent('spine:book-mutated', { detail: { id: book.id } }));
+    } catch {
+      // Phase 2 swallows status-mutation errors silently — the menu
+      // already closed. Future: surface via a toast or a BookCard
+      // banner. The user can retry; the book stays in its prior state.
+    }
+  }
+
   function handleEdit(e) {
     e.preventDefault();
     e.stopPropagation();
@@ -222,6 +269,25 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
         </>
       ) : (
         <>
+          {book.status !== 'finished' && (
+            <button type="button" onClick={(e) => changeStatus(e, 'finished')} role="menuitem"
+              className="w-full px-3 py-2 text-left text-sm text-neutral-300 hover:bg-neutral-800 transition-colors">
+              Mark as finished
+            </button>
+          )}
+          {book.status !== 'reading' && (
+            <button type="button" onClick={(e) => changeStatus(e, 'reading')} role="menuitem"
+              className="w-full px-3 py-2 text-left text-sm text-neutral-300 hover:bg-neutral-800 transition-colors">
+              Mark as reading
+            </button>
+          )}
+          {book.status !== 'unread' && (
+            <button type="button" onClick={(e) => changeStatus(e, 'unread')} role="menuitem"
+              className="w-full px-3 py-2 text-left text-sm text-neutral-300 hover:bg-neutral-800 transition-colors">
+              Mark as unread
+            </button>
+          )}
+          <div className="my-1 border-t border-neutral-800" />
           <button type="button" onClick={openListsSubPrompt} role="menuitem"
             className="w-full px-3 py-2 text-left text-sm text-neutral-300 hover:bg-neutral-800 transition-colors">
             Add to lists…
@@ -230,6 +296,7 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
             className="w-full px-3 py-2 text-left text-sm text-neutral-300 hover:bg-neutral-800 transition-colors">
             Edit book…
           </button>
+          <div className="my-1 border-t border-neutral-800" />
           <button type="button" onClick={handleDelete} role="menuitem"
             className="w-full px-3 py-2 text-left text-sm text-warn hover:bg-warn/10 transition-colors">
             Delete book…

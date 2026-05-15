@@ -288,6 +288,29 @@ export default function Library() {
     return () => window.removeEventListener('spine:book-deleted', onDeleted);
   }, []);
 
+  // Refetch-and-replace on mutation: BookCard's MoreMenu (and the
+  // command palette's status toggles, list adds, etc.) dispatch
+  // spine:book-mutated after a successful PATCH or PUT. We refetch the
+  // single book and swap it into the books array so the card re-renders
+  // with its new state in place. Note: if the new state no longer fits
+  // the current tab/filter (e.g. user marked reading→finished while on
+  // Reading tab), the book stays visible until the next full refetch
+  // — minor inconsistency we accept in exchange for not nuking scroll
+  // position on every mutation.
+  useEffect(() => {
+    function onMutated(e) {
+      const id = Number(e.detail?.id);
+      if (!id) return;
+      api.getBook(id)
+        .then(updated => {
+          setBooks(prev => prev.map(b => b.id === id ? updated : b));
+        })
+        .catch(() => {});
+    }
+    window.addEventListener('spine:book-mutated', onMutated);
+    return () => window.removeEventListener('spine:book-mutated', onMutated);
+  }, []);
+
   // '/' focuses search
   useEffect(() => {
     function onKeyDown(e) {
