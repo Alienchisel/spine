@@ -538,14 +538,18 @@ export default function CommandPalette() {
       newQuery  = newQuery.slice(0, newCursor) + ' ' + newQuery.slice(newCursor);
       newCursor = newCursor + 1;
     }
+    // setCursorPos is synchronous with setQuery so the next render sees
+    // both new values together — otherwise the parser runs for one frame
+    // with the new query and the old cursor position, briefly showing
+    // wrong suggestions before settling. setSelectionRange still has to
+    // happen in an rAF so it runs AFTER React commits the new value to
+    // the DOM (otherwise the controlled-input re-render would snap the
+    // cursor back to the end of the new string).
     setQuery(newQuery);
-    // Restore selection after React commits the new value. Without the
-    // rAF the controlled-input re-render snaps the cursor (sometimes to
-    // the end of the new string) before our setSelectionRange runs.
+    setCursorPos(newCursor);
     requestAnimationFrame(() => {
       if (inputRef.current) {
         inputRef.current.setSelectionRange(newCursor, newCursor);
-        setCursorPos(newCursor);
       }
     });
   }, [context, query]);
@@ -780,7 +784,8 @@ export default function CommandPalette() {
     })), [reading, currentBookId]);
 
   const recentEntries = useMemo(() => {
-    const continueIds = new Set(continueEntries.map(e => e.id));
+    const continueIds   = new Set(continueEntries.map(e => e.id));
+    const currentBookEntryId = currentBookId != null ? `book.${currentBookId}` : null;
     return recent
       .map(r => {
         if (r.kind === 'action') {
@@ -800,9 +805,14 @@ export default function CommandPalette() {
         return r;
       })
       .filter(Boolean)
+      // Drop the currently-viewed book — Continue reading already does
+      // this; Recent should too, otherwise the palette suggests reloading
+      // the page the user is already on. Continue's dedup doesn't catch
+      // it because Continue filtered the book out before forming its set.
+      .filter(e => e.id !== currentBookEntryId)
       .filter(e => !continueIds.has(e.id))
       .slice(0, 3);
-  }, [recent, actionEntries, continueEntries]);
+  }, [recent, actionEntries, continueEntries, currentBookId]);
 
   // Build the sectioned result set. Memoized so arrow-key navigation
   // doesn't recompute on every render. Three modes:
@@ -1073,9 +1083,12 @@ export default function CommandPalette() {
         {/* Live region announcing autocomplete match counts. role="status"
             implies aria-live="polite" so screen readers wait for a natural
             pause before reading. Empty when not autocompleting, so it
-            stays silent during normal palette use. */}
+            stays silent during normal palette use. Suppressed in sub-
+            prompt mode — autocomplete isn't visible there (the sub-prompt
+            section takes precedence in the render), so announcing it
+            would mislead AT users about what's on screen. */}
         <p role="status" className="sr-only">
-          {context
+          {context && !subPrompt
             ? (suggestions.length > 0
                 ? `${suggestions.length} ${context.qualifier} ${suggestions.length === 1 ? 'suggestion' : 'suggestions'}`
                 : `No ${context.qualifier} matches`)
