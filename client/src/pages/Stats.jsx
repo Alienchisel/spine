@@ -372,9 +372,6 @@ export default function Stats() {
   const maxMonth  = Math.max(...byMonth.map(m => m.days), 1);
   const maxAuthor   = Math.max(...topAuthors.map(a => a.count), 1);
   const maxNarrator = Math.max(...(topNarrators?.map(n => n.count) || []), 1);
-  const maxFormat = Math.max(...formats.map(f => f.count), 1);
-
-  const fictionTotal = (fiction.fiction ?? 0) + (fiction.nonfiction ?? 0);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
@@ -670,27 +667,6 @@ export default function Stats() {
       </Section>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-        <Section title="Format">
-          <div className="space-y-2.5">
-            {formats.filter(f => f.format).map(f => (
-              <Bar key={f.format} label={FORMAT_LABEL[f.format] ?? f.format} count={f.count} max={maxFormat} href={`/browse/format/${f.format}`} />
-            ))}
-            {formats.some(f => !f.format) && (
-              <Bar label="Unknown" count={formats.find(f => !f.format).count} max={maxFormat} color="bg-neutral-600" />
-            )}
-          </div>
-        </Section>
-
-        <Section title="Fiction / Non-fiction">
-          <div className="space-y-2.5">
-            <Bar label="Fiction" count={fiction.fiction ?? 0} max={fictionTotal || 1} color="bg-leather" href="/browse/fiction/fiction" />
-            <Bar label="Non-fiction" count={fiction.nonfiction ?? 0} max={fictionTotal || 1} color="bg-binding" href="/browse/fiction/nonfiction" />
-            {fiction.unset > 0 && (
-              <Bar label="Unset" count={fiction.unset} max={totals.books || 1} color="bg-neutral-600" href="/browse/fiction/unset" />
-            )}
-          </div>
-        </Section>
-
         <Section title="Ratings">
           <div className="space-y-2.5">
             {[5, 4.5, 4, 3.5, 3, 2.5, 2, 1.5, 1, 0.5].map(r => {
