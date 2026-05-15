@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
-import { realTagNames, formatAuthors } from '../utils.js';
+import { realTagNames } from '../utils.js';
 import { getModeKey, initialProgressMode, computeProgressPatch, syncProgressInputs, progressDerived, clampMinutes } from './progressMode.js';
 import MoreMenu from './MoreMenu.jsx';
 
@@ -37,7 +37,6 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const inputRef = useRef(null);
-  const formRef = useRef(null);
   // Bumped on every rating click so a slower-resolving earlier PUT can't
   // setBook over a faster-resolving later PUT (e.g. user clicks 5 then 3
   // and the 5 response lands last). Local-UI scoped — server-side last-
@@ -222,8 +221,17 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
     if (e.key === 'Escape') setOpen(false);
   }
 
+  // hasPct gates the `${pct}%` branch on both sides — without the gate,
+  // an audiobook with logged minutes but no duration_minutes (or a paper
+  // book with current_page but no page_count) would interpolate a null
+  // pct and render "null%". Fall back to absolute progress in those cases:
+  // h/m elapsed for audiobooks, "p. N" for paper.
+  const audioMins = book.current_minutes;
+  const audioElapsed = audioMins != null
+    ? (audioMins >= 60 ? `${Math.floor(audioMins / 60)}h ${audioMins % 60}m` : `${audioMins}m`)
+    : null;
   const progressLabel = isAudiobook
-    ? (book.current_minutes != null ? `${pct}%` : null)
+    ? (audioMins != null ? (hasPct ? `${pct}%` : audioElapsed) : null)
     : (book.current_page != null ? (hasPct ? `${pct}%` : `p. ${book.current_page}`) : null);
 
   const numCls = 'bg-neutral-800 border border-neutral-700 text-parchment text-xs rounded px-2 py-1 focus:outline-none focus:border-leather [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none';
@@ -391,7 +399,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
           )}
 
           {open && (
-            <form ref={formRef} onSubmit={handleSubmit} className="mt-1.5 flex gap-1 items-center flex-wrap">
+            <form onSubmit={handleSubmit} className="mt-1.5 flex gap-1 items-center flex-wrap">
               <select
                 value={mode}
                 onChange={(e) => changeMode(e.target.value)}
