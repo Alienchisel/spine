@@ -35,7 +35,15 @@ import { useRef, useEffect, useMemo } from 'react';
 export function useStaleGuard() {
   const ref = useRef(0);
   const unmountedRef = useRef(false);
-  useEffect(() => () => { unmountedRef.current = true; }, []);
+  // Reset on setup, set on cleanup. StrictMode's simulated remount runs
+  // cleanup then setup again — without the setup-side reset, the flag
+  // latches at true after the first simulated unmount and every isFresh()
+  // call returns false for the life of the component (broke palette
+  // book search in dev, 2026-05-15).
+  useEffect(() => {
+    unmountedRef.current = false;
+    return () => { unmountedRef.current = true; };
+  }, []);
   return useMemo(() => ({
     next:    () => ++ref.current,
     current: () => ref.current,
