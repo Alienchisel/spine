@@ -40,6 +40,12 @@ export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBo
     setForm({ date_started: r.date_started || '', date_finished: r.date_finished || '', did_not_finish: !!r.did_not_finish });
   }
 
+  function cancel() {
+    setAdding(false);
+    setEditId(null);
+    setError(null);
+  }
+
   function validateDates() {
     // PartialDateInput only emits well-formed partial dates (YYYY / YYYY-MM /
     // YYYY-MM-DD), so the only check left is ordering. Compare on the shared
@@ -130,7 +136,7 @@ export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBo
                 DNF
               </label>
               <button type="submit" disabled={saveGuard.busy} className="text-xs text-oak hover:text-oak/80 transition-colors disabled:opacity-40">Save</button>
-              <button type="button" onClick={() => setEditId(null)} className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors">Cancel</button>
+              <button type="button" onClick={cancel} className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors">Cancel</button>
             </form>
           ) : (
             <div key={r.id} className="flex items-center gap-3 group">
@@ -162,7 +168,7 @@ export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBo
             </label>
           )}
           <button type="submit" disabled={saveGuard.busy} className="text-xs text-oak hover:text-oak/80 transition-colors disabled:opacity-40">Add</button>
-          <button type="button" onClick={() => { setAdding(false); setError(null); }} className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors">Cancel</button>
+          <button type="button" onClick={cancel} className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors">Cancel</button>
         </form>
       ) : (
         <button onClick={startAdd} className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors">
