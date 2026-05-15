@@ -743,7 +743,12 @@ export default function Library() {
                 placeholder="Search title, people, series, or tags…"
                 className="w-full bg-neutral-800 border border-leather/30 rounded-lg pl-4 pr-10 py-2 text-sm text-parchment placeholder-neutral-500 focus:outline-none focus:border-leather/70 focus:ring-1 focus:ring-oak/25 transition-colors duration-150 [&::-webkit-search-cancel-button]:appearance-none"
               />
-              <div className="absolute right-1.5 top-1/2 -translate-y-1/2">
+              {/* z-20 lifts this wrapper above the book grid below — the
+                  -translate-y-1/2 transform here creates a stacking context
+                  that traps SearchHelp's own popover z-index, so a higher
+                  z-index has to live on the outer wrapper for the popover
+                  to clear the grid. */}
+              <div className="absolute right-1.5 top-1/2 -translate-y-1/2 z-20">
                 <SearchHelp />
               </div>
             </div>
