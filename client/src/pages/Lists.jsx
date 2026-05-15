@@ -83,7 +83,7 @@ export default function Lists() {
       inputRef.current?.focus();
     } catch (err) {
       if (gen !== genRef.current) return;
-      setCreateError(err.message);
+      setCreateError(err?.message || 'Failed to create list.');
     } finally {
       creatingRef.current = false;
       setCreating(false);

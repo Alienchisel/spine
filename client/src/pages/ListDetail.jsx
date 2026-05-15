@@ -127,14 +127,20 @@ function QuickAdd({ listId, onAdded }) {
       const book = await api.createBook({ title: title.trim(), authors: author.trim() ? [author.trim()] : [], is_stub: true });
       await api.addToList(submittedListId, book.id);
       if (listIdRef.current !== submittedListId) return;
-      onAdded(book);
+      // Pass submittedListId so the parent can re-check on its side. If
+      // the user navigated mid-flight, QuickAdd's `key={id}` unmount
+      // killed this instance's `listIdRef` (always stuck at the old id
+      // from this closure), so the check above only catches in-instance
+      // navigation. The parent's check catches the unmount-and-remount
+      // path where this .then still runs against the new list's state.
+      onAdded(book, submittedListId);
       setTitle('');
       setAuthor('');
       setExpanded(false);
       titleRef.current?.focus();
     } catch (err) {
       if (listIdRef.current !== submittedListId) return;
-      setError(err.message);
+      setError(err?.message || 'Failed to add book.');
     } finally {
       savingRef.current = false;
       setSaving(false);
@@ -225,6 +231,10 @@ export default function ListDetail() {
   // second handleRename whose `renameValue === name` check still passes
   // (list.name is still the old name), and a duplicate PUT lands.
   const renamingInFlightRef = useRef(false);
+  // Tracks the last id|sort the load effect ran for so refresh-tick
+  // refetches at the same key don't flash the loading state or cancel an
+  // in-progress rename. Mirrors Library.lastFetchKeyRef.
+  const prevKeyRef = useRef('');
   const refreshTick = useRefreshTick();
 
   const sensors = useSensors(
@@ -243,30 +253,28 @@ export default function ListDetail() {
   useEffect(() => {
     let stale = false;
     genRef.current += 1;
-    setLoading(true);
-    setError(null);
-    // Drop any lingering action banner (load-more / reorder / remove
-    // failures) at the start of a fresh load so a refresh-tick reload
-    // doesn't leave a stale "Failed to …" sitting above an updated list.
-    // Start-clear (vs success-clear) closes the race where a quick user
-    // action fires between effect-start and effect-success — its fresh
-    // actionError is preserved instead of getting wiped by the .then.
+    const key = `${id}|${sort}`;
+    const isRealChange = prevKeyRef.current !== key;
+    prevKeyRef.current = key;
+    // Only show "Loading…" and cancel the rename UI on a real navigation
+    // (id or sort change). A refresh-tick refetch at the same key keeps
+    // the current view in place — atomic data swap via setList(data)
+    // below — so the user doesn't see a flash and an in-progress rename
+    // doesn't get yanked shut on alt-tab.
+    if (isRealChange) {
+      setLoading(true);
+      setError(null);
+      setRenaming(false);
+      setRenameError(null);
+      setRenameValue('');
+    }
+    // Action banner and pagination flags clear on every fire — they're
+    // transient state that shouldn't persist across any refetch (the
+    // genRef bump above also orphans in-flight loadMore/loadAll whose
+    // finally clauses would otherwise strand the flags).
     setActionError(null);
-    // The genRef bump above orphans any in-flight loadMore/loadAll: their
-    // finally clauses are gated on `gen === genRef.current` and will skip
-    // setLoadingMore(false)/setLoadingAll(false), leaving the pagination
-    // buttons disabled forever. Clear the flags here so a refresh-tick or
-    // sort change can't strand them.
     setLoadingMore(false);
     setLoadingAll(false);
-    // Also drop any open rename UI: navigating between lists while the
-    // rename input is open would otherwise leave the form rendered on the
-    // new list with the previous list's value (and any error message) still
-    // visible. The handleRename gen-guard handles the in-flight PUT response
-    // separately.
-    setRenaming(false);
-    setRenameError(null);
-    setRenameValue('');
     loadedRef.current = 0;
     const params = sort === 'added' ? { sort } : { sort, limit: PAGE_SIZE, offset: 0 };
     api.getList(id, params)
@@ -325,7 +333,15 @@ export default function ListDetail() {
     }
   }, [id, sort, total, loadingMore, loadingAll]);
 
-  function handleAdded(book) {
+  function handleAdded(book, submittedListId) {
+    // Guard against the QuickAdd-cross-navigation race: if the user
+    // navigated to a different list between submit and resolve, the
+    // book belongs on the submitted list (server-side it's there) but
+    // shouldn't appear in the current list's local view. Without this
+    // check, QuickAdd's `key={id}` unmount kills its instance-local
+    // listIdRef check, and the .then still ends up here against the
+    // new list's state.
+    if (submittedListId != null && String(submittedListId) !== String(id)) return;
     // Mirror handleRemove's counter handling: today QuickAdd always
     // creates a stub with owned=0 / status='unread' so both deltas resolve
     // to 0, but if the create defaults ever shift (or QuickAdd grows an
@@ -404,7 +420,7 @@ export default function ListDetail() {
       setRenaming(false);
     } catch (err) {
       if (gen !== genRef.current) return;
-      setRenameError(err.message);
+      setRenameError(err?.message || 'Failed to rename list.');
     } finally {
       renamingInFlightRef.current = false;
     }
