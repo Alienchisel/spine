@@ -179,6 +179,13 @@ export default function ShelfView() {
   // location change AND on returns to the root view so an in-flight
   // request from a prior location can't setBooks after navigation.
   const booksGenRef = useRef(0);
+  // Snapshot of the previous location so the books-fetch effect can
+  // tell a navigation (clear stale books) apart from a refresh-tick
+  // refetch at the same location (keep books visible so the user's
+  // horizontal scroll position survives the alt-tab roundtrip — without
+  // this the scroll container briefly empties, the browser clamps
+  // scrollLeft to 0, and the user finds themselves back at the start).
+  const lastLocationRef = useRef('');
   // Bumped on every drag so an earlier failed reorder whose recovery
   // refetch lands *after* a later drag has already applied optimistically
   // can detect that it's stale — without this, A's getShelfBooks/
@@ -279,6 +286,15 @@ export default function ShelfView() {
     // previous location's in-flight fetch is dropped when its response
     // arrives.
     const gen = ++booksGenRef.current;
+    // Same-location refetches (refreshTick fires on alt-tab) skip the
+    // setBooks([]) intermediate. With it, the scrollable container
+    // briefly has no content, the browser clamps scrollLeft to 0, and
+    // when books re-populate the user finds themselves scrolled back
+    // to the start. Without it, the user's old books stay visible
+    // through the refetch window and scroll position survives.
+    const locationKey = `${buildingId || ''}|${roomId || ''}|${unitId || ''}|${shelfId || ''}`;
+    const isSameLocation = locationKey === lastLocationRef.current;
+    lastLocationRef.current = locationKey;
     // Clear any prior load/reorder error so it doesn't haunt the next
     // location. Without this, a failed load at shelf A keeps showing its
     // warning after the user navigates to shelf B (or to root view).
@@ -303,7 +319,7 @@ export default function ShelfView() {
       setBooksLoading(false);
       return;
     }
-    setBooks([]);
+    if (!isSameLocation) setBooks([]);
     setBooksLoading(true);
     const fetch = shelfId    ? api.getShelfBooks(shelfId)
       : unitId              ? api.getUnitBooks(unitId)
