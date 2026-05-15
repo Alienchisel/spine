@@ -155,8 +155,8 @@ export default function LookupPanel({ onApply, coverInFlight }) {
                     : <div className="w-8 h-12 bg-neutral-800 rounded flex-shrink-0" />}
                   <div className="min-w-0">
                     <p className="text-sm text-white truncate" title={r.title}>{r.title}</p>
-                    {r.authors?.length > 0 && <p className="text-xs text-neutral-500 truncate">{r.authors.join(', ')}</p>}
-                    {r.publisher && <p className="text-xs text-neutral-600 truncate">{r.publisher}</p>}
+                    {r.authors?.length > 0 && <p className="text-xs text-neutral-500 truncate" title={r.authors.join(', ')}>{r.authors.join(', ')}</p>}
+                    {r.publisher && <p className="text-xs text-neutral-600 truncate" title={r.publisher}>{r.publisher}</p>}
                   </div>
                 </button>
               </li>
