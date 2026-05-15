@@ -262,6 +262,16 @@ export default function Library() {
   // position survives the alt-tab roundtrip — same shape as the
   // ShelfView horizontal-scroll fix.
   const lastFetchKeyRef = useRef('');
+  // Refs mirroring the latest tab + sort. handleProgressUpdate is invoked
+  // asynchronously by BookCard after its PUT resolves; if the user
+  // switched tabs mid-flight, the function's closure-captured tab would
+  // be stale and could remove a book from the NEW tab's freshly-fetched
+  // list. Reading from refs ensures the latest values are used regardless
+  // of which render's function instance gets invoked.
+  const tabRef  = useRef(tab);
+  const sortRef = useRef(sort);
+  tabRef.current  = tab;
+  sortRef.current = sort;
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -445,9 +455,12 @@ export default function Library() {
     // flight would otherwise strand the flags at true (their finally
     // clauses are gated on gen match) and leave the previous failure
     // banner sitting above the freshly-loaded list.
+    // Also reset pagingRef so the new tab's Load more isn't blocked
+    // while the abandoned old fetch is still in flight.
     setLoadingMore(false);
     setLoadingAll(false);
     setActionError(null);
+    pagingRef.current = false;
     loadedRef.current = 0;
     api.getBooks(buildApiParams(tab, sort, filters, query, 0, randomSeed)).then(({ books: b, total: t }) => {
       if (stale) return;
@@ -512,8 +525,15 @@ export default function Library() {
   }
 
   function handleProgressUpdate(updated) {
+    // Read tab/sort from refs rather than closure: BookCard's PUT can
+    // resolve hundreds of ms after the user clicked save, and they may
+    // have switched tabs in the interim. Closure-captured `tab` would
+    // then point at the old tab and incorrectly remove a book that now
+    // legitimately belongs on the new one.
+    const currentTab  = tabRef.current;
+    const currentSort = sortRef.current;
     const statusTabs = ['reading', 'finished', 'unread'];
-    const removing = statusTabs.includes(tab) && updated.status !== tab;
+    const removing = statusTabs.includes(currentTab) && updated.status !== currentTab;
     if (removing) {
       // Bail if the book is no longer in local state — back-to-back
       // status patches (a finish auto-transition followed by another
@@ -523,7 +543,7 @@ export default function Library() {
       loadedRef.current = Math.max(0, loadedRef.current - 1);
       setTotal(t => Math.max(0, t - 1));
       setBooks(bs => bs.filter(b => b.id !== updated.id));
-    } else if (sort === 'updated') {
+    } else if (currentSort === 'updated') {
       // Mirror the server's `updated_at DESC` ordering locally so an inline
       // edit (rating, progress, finish) bumps the book to the top right away
       // instead of waiting for a refetch on next mount.
