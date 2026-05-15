@@ -113,6 +113,7 @@ const QUALIFIER_FACET_KEY = {
   translator: 'translators',
   series:     'series',
   publisher:  'publishers',
+  list:       'lists',
 };
 
 // Identify whether the cursor is sitting inside the value portion of a

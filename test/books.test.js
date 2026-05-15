@@ -74,6 +74,17 @@ describe('books', () => {
         `expected translators facet to include "Constance Garnett", got ${JSON.stringify(body.translators)}`);
     });
 
+    it('surfaces list names (for any list a book belongs to) in the lists facet', async () => {
+      const { body: book } = await req('POST', '/api/books', { title: 'Listed Book' });
+      const { body: list } = await req('POST', '/api/lists', { name: 'Facet Test List' });
+      await req('POST', `/api/lists/${list.id}/books`, { book_id: book.id });
+      const { status, body } = await req('GET', '/api/books/facets');
+      assert.equal(status, 200);
+      assert.ok(Array.isArray(body.lists));
+      assert.ok(body.lists.includes('Facet Test List'),
+        `expected lists facet to include "Facet Test List", got ${JSON.stringify(body.lists)}`);
+    });
+
     it('narrows people facets by an active cross-axis filter (status)', async () => {
       const cases = [
         { role: 'author',     key: 'authors',     reading: 'Mathilde Vendrasco',  other: 'Cassian Wrenly' },
@@ -4326,6 +4337,17 @@ describe('books', () => {
 
       const trans = await search(`translator:${stem}`);
       assert.equal(trans.size, 0, 'no translators carry the stem');
+    });
+
+    it('list:X pins the match to list membership', async () => {
+      const { body: list } = await req('POST', '/api/lists', { name: `${stem}-list` });
+      await req('POST', `/api/lists/${list.id}/books`, { book_id: titleHit.id });
+      const ids = await search(`list:${stem}`);
+      assert.ok(ids.has(titleHit.id));
+      // A book NOT in the list — the tag-hit — should not appear, even
+      // though it carries the stem in its tag surface.
+      assert.ok(!ids.has(tagHit.id));
+      assert.ok(!ids.has(authorHit.id));
     });
 
     it('publisher:X pins the match to publisher', async () => {

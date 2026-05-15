@@ -74,7 +74,8 @@ export default function SearchHelp() {
             <code className="text-neutral-500">author:</code>{' '}
             <code className="text-neutral-500">narrator:</code>{' '}
             <code className="text-neutral-500">translator:</code>{' '}
-            <code className="text-neutral-500">publisher:</code> pin to a
+            <code className="text-neutral-500">publisher:</code>{' '}
+            <code className="text-neutral-500">list:</code> pin to a
             single surface, and accept quoted values:{' '}
             <code className="text-neutral-500">series:"New Sun"</code>.{' '}
             <code className="text-neutral-500">or</code> and{' '}
