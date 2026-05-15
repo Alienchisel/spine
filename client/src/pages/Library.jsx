@@ -255,6 +255,13 @@ export default function Library() {
   // double-bumped (next page request lands at the wrong offset). Shared
   // between handlers so cross-handler races are caught too.
   const pagingRef = useRef(false);
+  // Snapshot of the books-fetch deps (excluding refreshTick) so we can
+  // distinguish a real state change (tab/sort/filters/query/randomSeed
+  // moved) from a refresh-tick refetch at the same state. On a same-
+  // state refetch we skip the visible-state reset so the user's scroll
+  // position survives the alt-tab roundtrip — same shape as the
+  // ShelfView horizontal-scroll fix.
+  const lastFetchKeyRef = useRef('');
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -352,9 +359,21 @@ export default function Library() {
   useEffect(() => {
     let stale = false;
     genRef.current += 1;
-    setLoading(true);
     setFetchError(false);
-    setBooks([]);
+    // Distinguish a real state change from a refresh-tick refetch.
+    // On real changes (tab/sort/filters/query/randomSeed moved), wipe
+    // visible state so the old list doesn't show on the new view. On
+    // same-state refreshTick refetches, keep books visible so scroll
+    // position survives — without this the briefly-empty grid lets the
+    // browser clamp scroll to 0 and the user pops back to row 1 after
+    // alt-tabbing into a deep list.
+    const fetchKey = `${tab}|${sort}|${JSON.stringify(filters)}|${query}|${randomSeed}`;
+    const isSameState = fetchKey === lastFetchKeyRef.current;
+    lastFetchKeyRef.current = fetchKey;
+    if (!isSameState) {
+      setLoading(true);
+      setBooks([]);
+    }
     // Reset pagination flags + action banner: a refresh-tick / sort / tab
     // / filter / query change that fires while loadMore/loadAll is in
     // flight would otherwise strand the flags at true (their finally

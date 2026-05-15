@@ -66,6 +66,12 @@ export default function BrowsePage() {
   const pagingRef = useRef(false);
   const gridCols  = useGridCols(BROWSE_BPS);
   const refreshTick = useRefreshTick();
+  // Snapshot of the browse target so we can distinguish navigation
+  // (different field/value → wipe to loading) from refresh-tick
+  // refetch (same target → keep books visible so scroll position
+  // survives the alt-tab roundtrip). Same shape as the Library /
+  // Diary / ShelfView fixes.
+  const lastTargetRef = useRef('');
 
   useEffect(() => {
     // Capture this navigation's generation. If the user navigates to a
@@ -73,9 +79,14 @@ export default function BrowsePage() {
     // run will increment genRef again and these guards will short-circuit
     // the stale response so it can't overwrite the new browse target.
     const gen = ++genRef.current;
-    setLoading(true);
+    const target = `${field}|${decoded}`;
+    const isSameTarget = target === lastTargetRef.current;
+    lastTargetRef.current = target;
     setFetchError(false);
-    setBooks([]);
+    if (!isSameTarget) {
+      setLoading(true);
+      setBooks([]);
+    }
     // Reset pagination flags + action banner: a refresh-tick / nav between
     // browse targets that fires while loadMore/loadAll is in flight would
     // otherwise strand the flags at true (their finally clauses are gated

@@ -259,10 +259,21 @@ export default function Diary() {
   const deletingEntryIdsRef = useRef(new Set());
   const confirm = useConfirm();
   const refreshTick = useRefreshTick();
+  // Snapshot of the diary-fetch year so we can distinguish a year
+  // change from a refresh-tick refetch. On a same-year refetch we
+  // keep the rendered days visible during the fetch — otherwise
+  // setLoading(true) flips the render to 'Loading…' and the user's
+  // scroll position is lost when content briefly collapses.
+  const lastYearRef = useRef(null);
 
   useEffect(() => {
     const gen = ++yearGenRef.current;
-    setLoading(true);
+    const isSameYear = year === lastYearRef.current;
+    lastYearRef.current = year;
+    // Real year change: wipe to a loading state so stale days don't
+    // show under a new year. refreshTick refetch at the same year:
+    // keep days visible during the fetch so scroll position survives.
+    if (!isSameYear) setLoading(true);
     // Reset prior load/delete errors so a stale message from one year doesn't
     // hang on top of another year's freshly-loaded entries.
     setError(null);
