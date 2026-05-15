@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
+import { plural } from '../utils.js';
 import { useConfirm } from '../components/ConfirmModal.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
@@ -82,7 +83,7 @@ export default function Lists() {
   async function handleDelete(list) {
     if (deletingIdsRef.current.has(list.id)) return;
     const msg = list.book_count > 0
-      ? `Delete "${list.name}"? It contains ${list.book_count} ${list.book_count === 1 ? 'book' : 'books'}.`
+      ? `Delete "${list.name}"? It contains ${plural(list.book_count, 'book')}.`
       : `Delete "${list.name}"?`;
     if (!await confirm(msg)) return;
     if (deletingIdsRef.current.has(list.id)) return;
@@ -146,7 +147,7 @@ export default function Lists() {
                 </span>
               </Link>
               <span className="text-xs text-neutral-600 flex-shrink-0">
-                {list.book_count} {list.book_count === 1 ? 'book' : 'books'}
+                {plural(list.book_count, 'book')}
               </span>
               <button
                 onClick={() => handleDelete(list)}

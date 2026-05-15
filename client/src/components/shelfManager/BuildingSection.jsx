@@ -6,6 +6,7 @@ import {
   SortableContext, useSortable, verticalListSortingStrategy, sortableKeyboardCoordinates, arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { plural } from '../../utils.js';
 import DragHandle from './DragHandle.jsx';
 import SortableRoom from './RoomSection.jsx';
 import { InlineInput, InlineEdit } from './InlineInputs.jsx';
@@ -75,7 +76,7 @@ function BuildingSection({ building, dragHandle, onEdit, onDelete, onAddRoom, on
           <span className="text-xs text-neutral-600 bg-neutral-800 px-1.5 py-0.5 rounded">
             {PROXIMITY_LABEL[building.proximity]}
           </span>
-          <span className="text-xs text-neutral-600">{building.rooms.length} {building.rooms.length === 1 ? 'room' : 'rooms'}</span>
+          <span className="text-xs text-neutral-600">{plural(building.rooms.length, 'room')}</span>
           </button>
         </div>
         <div className="flex items-center gap-2 opacity-30 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">

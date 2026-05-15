@@ -17,6 +17,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { api } from '../api.js';
+import { plural } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
 import CompletionIndicator from '../components/CompletionIndicator.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
@@ -483,7 +484,7 @@ export default function ListDetail() {
             {list.name}
           </h1>
         )}
-        <span className="text-xs text-neutral-600 mt-0.5">{total} {total === 1 ? 'book' : 'books'}</span>
+        <span className="text-xs text-neutral-600 mt-0.5">{plural(total, 'book')}</span>
       </div>
 
       {total > 0 && (

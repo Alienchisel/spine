@@ -17,6 +17,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { api } from '../api.js';
+import { plural } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
@@ -109,10 +110,6 @@ function LevelCard({ primary, secondary, onClick }) {
       {secondary && <p className="text-xs text-neutral-500 mt-0.5">{secondary}</p>}
     </button>
   );
-}
-
-function plural(n, word, plural) {
-  return `${n} ${n === 1 ? word : (plural ?? word + 's')}`;
 }
 
 function ShelfRow({ shelf, books, onReorder, onLabelClick, linkState }) {

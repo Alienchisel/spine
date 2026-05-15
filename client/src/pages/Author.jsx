@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useLocation, useNavigate, Link } from 'react-router-dom';
 import { api } from '../api.js';
+import { plural } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
 
 // Author entity page: lists all books bylined under this specific
@@ -78,7 +79,7 @@ export default function Author() {
           </p>
         )}
         {!loading && author && (
-          <p className="text-sm text-neutral-500 mt-1">{author.total} {author.total === 1 ? 'book' : 'books'}</p>
+          <p className="text-sm text-neutral-500 mt-1">{plural(author.total, 'book')}</p>
         )}
       </div>
 

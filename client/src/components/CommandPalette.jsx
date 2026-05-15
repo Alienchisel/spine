@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate, useLocation, useSearchParams, useMatch } from 'react-router-dom';
 import { api } from '../api.js';
+import { plural, pluralWord } from '../utils.js';
 import { useConfirm } from './ConfirmModal.jsx';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 
@@ -854,7 +855,7 @@ export default function CommandPalette() {
           id: `pick-list.${l.id}`,
           kind: 'list',
           label: l.name,
-          hint: l.book_count != null ? `${l.book_count} book${l.book_count === 1 ? '' : 's'}` : null,
+          hint: l.book_count != null ? plural(l.book_count, 'book') : null,
           perform: async () => {
             setSubPromptError(null);
             try {
@@ -907,7 +908,7 @@ export default function CommandPalette() {
         id: `list.${l.id}`,
         kind: 'list',
         label: l.name,
-        hint: l.book_count != null ? `${l.book_count} book${l.book_count === 1 ? '' : 's'}` : null,
+        hint: l.book_count != null ? plural(l.book_count, 'book') : null,
         path: `/lists/${l.id}`,
       }));
       const pagingEmptyEntries = libraryActions.filter(a => a.id === 'action.load-more' || a.id === 'action.load-all');
@@ -934,7 +935,7 @@ export default function CommandPalette() {
           id: `list.${l.id}`,
           kind: 'list',
           label: l.name,
-          hint: l.book_count != null ? `${l.book_count} book${l.book_count === 1 ? '' : 's'}` : null,
+          hint: l.book_count != null ? plural(l.book_count, 'book') : null,
           path: `/lists/${l.id}`,
         }));
 
@@ -1104,7 +1105,7 @@ export default function CommandPalette() {
             ? (suggestions.length > 0
                 ? (suggestionsTotal > suggestions.length
                     ? `Showing ${suggestions.length} of ${suggestionsTotal} ${context.qualifier} matches`
-                    : `${suggestions.length} ${context.qualifier} ${suggestions.length === 1 ? 'match' : 'matches'}`)
+                    : `${suggestions.length} ${context.qualifier} ${pluralWord(suggestions.length, 'match', 'matches')}`)
                 : `No ${context.qualifier} matches`)
             : ''}
         </p>

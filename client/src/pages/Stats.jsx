@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { api } from '../api.js';
-import { fmtShortDate, fmtShortMonth, fmtIsoWeekMonday, formatYear } from '../utils.js';
+import { fmtShortDate, fmtShortMonth, fmtIsoWeekMonday, formatYear, plural } from '../utils.js';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 
@@ -241,7 +241,7 @@ function TagTreemap({ tags }) {
             height:     `${(t.rect.h / size.h) * 100}%`,
             background: colorForTag(t.name),
           }}
-          title={`${t.name} · ${t.count} ${t.count === 1 ? 'book' : 'books'}`}
+          title={`${t.name} · ${plural(t.count, 'book')}`}
         >
           <span className="text-xs text-parchment leading-tight px-1 truncate">{t.name}</span>
         </Link>
@@ -403,7 +403,7 @@ export default function Stats() {
                   <p className="text-xs text-neutral-600 mt-1 tabular-nums">
                     {b.pct != null ? `${b.pct}%` : '—'}
                     {b.projected_days_left != null
-                      ? ` · ~${b.projected_days_left} ${b.projected_days_left === 1 ? 'day' : 'days'} left`
+                      ? ` · ~${plural(b.projected_days_left, 'day')} left`
                       : ''}
                   </p>
                 </div>
@@ -757,7 +757,7 @@ export default function Stats() {
                   count={m.days}
                   max={maxMonth}
                   color="bg-oak"
-                  caption={`${m.days} ${m.days === 1 ? 'day' : 'days'}`}
+                  caption={plural(m.days, 'day')}
                 />
               );
             })}
@@ -790,7 +790,7 @@ export default function Stats() {
                     key={b.decade}
                     className={`flex-1 rounded-t transition-colors min-h-[1px] ${b.count > 0 ? 'bg-binding/70 hover:bg-binding' : 'bg-neutral-800'}`}
                     style={{ height: `${(b.count / maxCount) * 100}%` }}
-                    title={`${decadeLabel(b.decade)} · ${b.count} ${b.count === 1 ? 'book' : 'books'}`}
+                    title={`${decadeLabel(b.decade)} · ${plural(b.count, 'book')}`}
                   />
                 ))}
               </div>
@@ -807,7 +807,7 @@ export default function Stats() {
         <Section title="Finished by year">
           <div className="space-y-2.5">
             {byYear.map(y => {
-              const parts = [`${y.count} ${y.count === 1 ? 'book' : 'books'}`];
+              const parts = [plural(y.count, 'book')];
               if (y.pages > 0) parts.push(`${y.pages.toLocaleString()} pages`);
               return (
                 <Bar

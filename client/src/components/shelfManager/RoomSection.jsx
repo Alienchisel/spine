@@ -6,6 +6,7 @@ import {
   SortableContext, useSortable, verticalListSortingStrategy, sortableKeyboardCoordinates, arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { plural } from '../../utils.js';
 import DragHandle from './DragHandle.jsx';
 import SortableUnit from './UnitSection.jsx';
 import { InlineInput, InlineEdit } from './InlineInputs.jsx';
@@ -46,7 +47,7 @@ function RoomSection({ room, dragHandle, onEdit, onDelete, onAddUnit, onReorderU
           <button onClick={() => setOpen(o => !o)} className="flex items-center gap-1.5 text-left min-w-0">
             <span className="text-neutral-600 text-xs w-3 flex-shrink-0">{open ? '▾' : '▸'}</span>
             <span className="text-xs text-neutral-200">{room.name}</span>
-            <span className="text-xs text-neutral-600 ml-1">{room.units.length} {room.units.length === 1 ? 'unit' : 'units'}</span>
+            <span className="text-xs text-neutral-600 ml-1">{plural(room.units.length, 'unit')}</span>
           </button>
         </div>
         <div className="flex items-center gap-2 opacity-30 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">

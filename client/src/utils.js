@@ -22,6 +22,18 @@ export function sortTitle(title) {
   return (title || '').replace(/^(the|a|an)\s+/i, '');
 }
 
+// "5 books", "1 book". Default pluralForm appends "s"; pass an explicit
+// override for irregulars (shelves, matches, etc.).
+export function plural(n, singular, pluralForm) {
+  return `${n} ${pluralWord(n, singular, pluralForm)}`;
+}
+
+// Just the noun, no count — for label slots like <Row label="Narrators">
+// where the count lives elsewhere in the row.
+export function pluralWord(n, singular, pluralForm) {
+  return n === 1 ? singular : (pluralForm ?? singular + 's');
+}
+
 export function realTagNames(tags) {
   return (tags ?? []).filter(t => !t.virtual).map(t => t.name);
 }

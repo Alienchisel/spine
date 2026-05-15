@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
+import { plural } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 import { useGridCols, BROWSE_BPS } from '../hooks/useGridCols.js';
@@ -172,7 +173,7 @@ export default function BrowsePage() {
       <div className="mb-8">
         {label && <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1">{label}</p>}
         <h1 className="text-2xl font-bold text-white">{heading}</h1>
-        {!loading && <p className="text-sm text-neutral-500 mt-1">{total} {total === 1 ? 'book' : 'books'}</p>}
+        {!loading && <p className="text-sm text-neutral-500 mt-1">{plural(total, 'book')}</p>}
       </div>
 
       {/* First-load failure (no books yet) replaces the view with an

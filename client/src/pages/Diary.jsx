@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
-import { formatAuthors, fmtShortDate } from '../utils.js';
+import { formatAuthors, fmtShortDate, plural, pluralWord } from '../utils.js';
 import { useConfirm } from '../components/ConfirmModal.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
@@ -27,7 +27,7 @@ function formatProgress(entry) {
     const m = entry.minutes_read % 60;
     return h > 0 ? `${h}h ${m}m` : `${m}m`;
   }
-  if (entry.pages_read > 0) return `${entry.pages_read} ${entry.pages_read === 1 ? 'page' : 'pages'}`;
+  if (entry.pages_read > 0) return plural(entry.pages_read, 'page');
   return null;
 }
 
@@ -44,7 +44,7 @@ function formatMinutes(min) {
 
 function formatTotal({ pages, minutes }) {
   const parts = [];
-  if (pages > 0)   parts.push(`${pages.toLocaleString()} ${pages === 1 ? 'page' : 'pages'}`);
+  if (pages > 0)   parts.push(`${pages.toLocaleString()} ${pluralWord(pages, 'page')}`);
   if (minutes > 0) parts.push(formatMinutes(minutes));
   return parts.join(' · ') || '—';
 }
@@ -311,9 +311,9 @@ export default function Diary() {
   const totalMinutes = days.flatMap(d => d.entries).reduce((s, e) => s + (e.minutes_read || 0), 0);
 
   const summaryParts = [];
-  if (totalPages   > 0) summaryParts.push(`${totalPages.toLocaleString()} ${totalPages === 1 ? 'page' : 'pages'}`);
+  if (totalPages   > 0) summaryParts.push(`${totalPages.toLocaleString()} ${pluralWord(totalPages, 'page')}`);
   if (totalMinutes > 0) summaryParts.push(`${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m listened`);
-  if (days.length  > 0) summaryParts.push(`${days.length} ${days.length === 1 ? 'day' : 'days'}`);
+  if (days.length  > 0) summaryParts.push(plural(days.length, 'day'));
   if (stats.dayStreak > 1) summaryParts.push(`${stats.dayStreak}-day streak`);
 
   return (
@@ -372,7 +372,7 @@ export default function Diary() {
                         const p = day.entries.reduce((s, e) => s + (e.pages_read   || 0), 0);
                         const m = day.entries.reduce((s, e) => s + (e.minutes_read || 0), 0);
                         const parts = [];
-                        if (p > 0) parts.push(`${p} ${p === 1 ? 'page' : 'pages'}`);
+                        if (p > 0) parts.push(plural(p, 'page'));
                         if (m > 0) parts.push(`${Math.floor(m / 60)}h ${m % 60}m`);
                         return parts.join(' · ');
                       })()}

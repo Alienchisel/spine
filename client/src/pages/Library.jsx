@@ -17,6 +17,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { api } from '../api.js';
+import { plural } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
 import FilterPanel from '../components/FilterPanel.jsx';
 import SearchHelp from '../components/SearchHelp.jsx';
@@ -803,7 +804,7 @@ export default function Library() {
               </button>
             )}
             <span className="text-xs text-neutral-600 tabular-nums whitespace-nowrap">
-              {total} {total === 1 ? 'book' : 'books'}
+              {plural(total, 'book')}
             </span>
             <div className="flex items-center gap-1">
               <button onClick={() => setDensity('comfortable')} title="Comfortable grid" aria-label="Comfortable grid" aria-pressed={density === 'comfortable'} className={`transition-colors ${density === 'comfortable' ? 'text-neutral-300' : 'text-neutral-700 hover:text-neutral-400'}`}>

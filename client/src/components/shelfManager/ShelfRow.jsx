@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { plural } from '../../utils.js';
 import { InlineEdit } from './InlineInputs.jsx';
 
 export default function ShelfRow({ shelf, dragHandle, onEdit, onDelete }) {
@@ -14,7 +15,7 @@ export default function ShelfRow({ shelf, dragHandle, onEdit, onDelete }) {
         {dragHandle && <span className="opacity-30 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">{dragHandle}</span>}
         <span className="text-xs text-neutral-400">{shelf.label}</span>
         {shelf.book_count > 0 && (
-          <span className="text-xs text-neutral-600">· {shelf.book_count} {shelf.book_count === 1 ? 'book' : 'books'}</span>
+          <span className="text-xs text-neutral-600">· {plural(shelf.book_count, 'book')}</span>
         )}
       </div>
       <div className="flex items-center gap-2 opacity-30 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">

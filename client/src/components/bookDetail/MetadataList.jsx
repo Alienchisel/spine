@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { formatDate, formatPartialDate } from './dates.js';
-import { formatYear } from '../../utils.js';
+import { formatYear, pluralWord } from '../../utils.js';
 
 function Row({ label, children }) {
   return (
@@ -37,7 +37,7 @@ export default function MetadataList({ book, location, linkState }) {
         </Row>
       )}
       {book.narrators?.length > 0 && (
-        <Row label={book.narrators.length === 1 ? 'Narrator' : 'Narrators'}>
+        <Row label={pluralWord(book.narrators.length, 'Narrator')}>
           {book.narrators.map((n, i) => (
             <span key={n.id}>
               {i > 0 && <span className="text-neutral-600">, </span>}
@@ -77,7 +77,7 @@ export default function MetadataList({ book, location, linkState }) {
         <Row label="Original">{book.original_language}</Row>
       )}
       {book.translators?.length > 0 && (
-        <Row label={book.translators.length === 1 ? 'Translator' : 'Translators'}>
+        <Row label={pluralWord(book.translators.length, 'Translator')}>
           {book.translators.map((t, i) => (
             <span key={t.id}>
               {i > 0 && <span className="text-neutral-600">, </span>}
