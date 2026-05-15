@@ -40,7 +40,7 @@ export default function CoverPicker({
             — file input is disabled and BookForm.handlePaste bails early
             on the same lock, so advertising paste would mislead. Use an
             nbsp placeholder so the label's vertical size stays stable. */}
-        <span className="block text-neutral-600 mt-0.5">{coverBusy ? ' ' : 'or paste'}</span>
+        <span className="block text-neutral-600 mt-0.5">{coverBusy ? '\u00a0' : 'or paste'}</span>
         <input type="file" accept="image/*" className="hidden" disabled={coverBusy}
           onChange={(e) => { if (e.target.files[0]) onFileSelected(e.target.files[0]); }} />
       </label>
