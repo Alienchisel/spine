@@ -294,11 +294,13 @@ export default function CommandPalette() {
 
   // Reset query / results / selection without dismissing the palette
   // — used both by close() and by sub-prompt transitions, where we
-  // want a fresh input but want to stay open.
+  // want a fresh input but want to stay open. Resets cursorPos too so
+  // a stale value doesn't linger when the input mounts back fresh.
   const resetQuery = useCallback(() => {
     setQuery('');
     setBookResults([]);
     setSelected(0);
+    setCursorPos(0);
   }, []);
 
   const close = useCallback(() => {
@@ -362,13 +364,16 @@ export default function CommandPalette() {
     return () => { cancelled = true; };
   }, [open, listsLoaded]);
 
-  // Lazy-load facets on first open for qualifier-value autocomplete.
-  // Same retry-on-failure shape as the lists fetch above. Empty params
-  // → corpus-wide facets (every tag/author/etc. in the library), which
-  // is what autocomplete wants — filtered facets would silently hide
-  // values that don't match the current Library view's filters.
+  // Pre-fetch facets on mount (not on first open) for qualifier-value
+  // autocomplete. Eager so a fast user typing `tag:` immediately on first
+  // open isn't briefly thrown into the normal palette while the fetch
+  // races their keystrokes. Empty params → corpus-wide facets (every
+  // tag/author/etc. in the library), which is what autocomplete wants —
+  // filtered facets would silently hide values that don't match the
+  // current Library view's filters. Same retry-on-failure shape as the
+  // lists fetch.
   useEffect(() => {
-    if (!open || facetsLoaded) return;
+    if (facetsLoaded) return;
     let cancelled = false;
     (async () => {
       try {
@@ -381,7 +386,7 @@ export default function CommandPalette() {
       }
     })();
     return () => { cancelled = true; };
-  }, [open, facetsLoaded]);
+  }, [facetsLoaded]);
 
   // Fetch the current book whenever the palette opens on /books/:id.
   // Re-fetching per open (rather than caching) keeps the loved /
@@ -481,14 +486,14 @@ export default function CommandPalette() {
     return () => window.removeEventListener('spine:library-paging', onPaging);
   }, []);
 
-  // Request Library's current paging state whenever the palette opens.
-  // Library's mount-time publish may have fired before our listener
-  // attached (sibling-effect ordering) and state may have changed since
-  // the last published event we did capture.
+  // Request Library's current paging state once at mount. Library's
+  // mount-time publish may have fired before our listener was attached
+  // (sibling-effect ordering); this request closes that gap. Subsequent
+  // Library state changes propagate via the listener above, so we don't
+  // need to re-request on every palette open.
   useEffect(() => {
-    if (!open) return;
     window.dispatchEvent(new CustomEvent('spine:library-paging-request'));
-  }, [open]);
+  }, []);
 
   // Autocomplete context derived from cursor + query + cached facets.
   // Declared above the book search effect so the effect's deps can
@@ -501,15 +506,18 @@ export default function CommandPalette() {
 
   // Cap controls the visible suggestion count. Past ~15 the picker
   // dominates the surface and stops feeling like an inline aid; the
-  // long tail is reachable by typing more of the value.
+  // long tail is reachable by typing more of the value. `total` is
+  // exposed alongside the capped list so the section label and the
+  // AT live region can be honest about the truncation rather than
+  // silently saying "15 matches" when 200 actually exist.
   const SUGGESTION_CAP = 15;
-  const suggestions = useMemo(() => {
-    if (!context) return [];
+  const { items: suggestions, total: suggestionsTotal } = useMemo(() => {
+    if (!context) return { items: [], total: 0 };
     const key     = QUALIFIER_FACET_KEY[context.qualifier];
     const values  = facets?.[key] || [];
     const partial = context.partial.toLowerCase().trim();
     const matched = partial ? values.filter(v => matchesQuery(v, partial)) : values;
-    return matched.slice(0, SUGGESTION_CAP);
+    return { items: matched.slice(0, SUGGESTION_CAP), total: matched.length };
   }, [context, facets]);
 
   // Insert a picked suggestion back into the query. Handles two shapes:
@@ -870,10 +878,13 @@ export default function CommandPalette() {
       // "No matches." message surfaces — better than silently falling
       // back to the regular palette and giving the user no signal that
       // their qualifier matched nothing.
+      const truncated = suggestionsTotal > suggestions.length;
       _sections = [
         {
           kind: 'suggest',
-          label: `${context.qualifier}: matches`,
+          label: truncated
+            ? `${context.qualifier}: showing ${suggestions.length} of ${suggestionsTotal} — keep typing to narrow`
+            : `${context.qualifier}: matches`,
           entries: suggestions.map(v => ({
             id:       `suggest.${context.qualifier}.${v}`,
             kind:     'suggest',
@@ -946,7 +957,7 @@ export default function CommandPalette() {
 
     _sections = _sections.filter(s => s.entries.length > 0);
     return { sections: _sections, flat: _sections.flatMap(s => s.entries) };
-  }, [query, lists, bookResults, actionEntries, bookActions, continueEntries, recentEntries, subPrompt, context, suggestions, applyCompletion, libraryActions]);
+  }, [query, lists, bookResults, actionEntries, bookActions, continueEntries, recentEntries, subPrompt, context, suggestions, suggestionsTotal, applyCompletion, libraryActions]);
 
   // Clamp the selected index whenever the result set shrinks (e.g.
   // user typed a more restrictive query). Reset to 0 on each query
@@ -1090,7 +1101,9 @@ export default function CommandPalette() {
         <p role="status" className="sr-only">
           {context && !subPrompt
             ? (suggestions.length > 0
-                ? `${suggestions.length} ${context.qualifier} ${suggestions.length === 1 ? 'suggestion' : 'suggestions'}`
+                ? (suggestionsTotal > suggestions.length
+                    ? `Showing ${suggestions.length} of ${suggestionsTotal} ${context.qualifier} matches`
+                    : `${suggestions.length} ${context.qualifier} ${suggestions.length === 1 ? 'match' : 'matches'}`)
                 : `No ${context.qualifier} matches`)
             : ''}
         </p>
