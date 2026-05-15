@@ -566,19 +566,11 @@ export default function CommandPalette() {
 
   // Debounced book search. Empty query → no books (we still show the
   // nav directory; books wait for a real query because they're a
-  // round-trip). Skipped entirely while autocomplete is active —
-  // book results would be hidden behind the Suggestions section
-  // anyway, and the backend FTS hit is wasted bandwidth.
+  // round-trip). Runs even when autocomplete is active so books matching
+  // the current qualifier (e.g. `tag:manga`) sit alongside the value
+  // suggestions — the backend already parses qualifier syntax.
   useEffect(() => {
-    if (!open || context) {
-      // Clear stale book results from the prior non-autocomplete query
-      // so they don't briefly flash back when autocomplete ends.
-      if (context && (bookResults.length > 0 || bookLoading)) {
-        setBookResults([]);
-        setBookLoading(false);
-      }
-      return;
-    }
+    if (!open) return;
     const q = query.trim();
     if (!q) {
       setBookResults([]);
@@ -600,7 +592,7 @@ export default function CommandPalette() {
       }
     }, 200);
     return () => clearTimeout(t);
-  }, [query, open, context]);
+  }, [query, open]);
 
   // Clear any stale sub-prompt error when the user keeps typing or
   // when the sub-prompt itself toggles. Prevents a "failed" message
@@ -873,14 +865,23 @@ export default function CommandPalette() {
         { kind: 'pick', label: `Add "${subPrompt.bookTitle}" to…`, entries: matched },
       ];
     } else if (context) {
-      // Autocomplete mode — Suggestions section replaces the normal
-      // palette while the cursor is inside a qualifier value. Stays
-      // active even when no values match: the section drops out via
-      // the entries.length filter below, and the existing empty-state
-      // "No matches." message surfaces — better than silently falling
-      // back to the regular palette and giving the user no signal that
-      // their qualifier matched nothing.
+      // Autocomplete mode — Suggestions section sits above any Books
+      // matched by the current qualifier query. Both stay active even
+      // when no values match: each section drops out via the
+      // entries.length filter below, and the existing empty-state "No
+      // matches." message surfaces — better than silently falling back
+      // to the regular palette and giving the user no signal that their
+      // qualifier matched nothing.
       const truncated = suggestionsTotal > suggestions.length;
+      const bookEntries = bookResults.map(b => ({
+        id:     `book.${b.id}`,
+        kind:   'book',
+        label:  b.title,
+        hint:   b.authors?.map(a => a.name).join(', ') || null,
+        cover:  b.cover_path,
+        status: b.status,
+        path:   `/books/${b.id}`,
+      }));
       _sections = [
         {
           kind: 'suggest',
@@ -895,6 +896,7 @@ export default function CommandPalette() {
             perform:  () => applyCompletion(v),
           })),
         },
+        { kind: 'book', label: 'Books', entries: bookEntries },
       ];
     } else if (isEmpty) {
       // Pre-curated empty state. The full Library action set is suppressed
