@@ -225,6 +225,20 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
     navigate(`/books/${book.id}/edit`);
   }
 
+  // Archive / Restore. PATCH-based (archived is in the patchBook
+  // whitelist; the backend also auto-clears on_readlist when archiving).
+  async function handleArchive(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    setOpen(false);
+    try {
+      await api.patchBook(book.id, { archived: !book.archived });
+      window.dispatchEvent(new CustomEvent('spine:book-mutated', { detail: { id: book.id } }));
+    } catch {
+      // Phase 4 swallows archive errors silently — menu already closed.
+    }
+  }
+
   async function handleDelete(e) {
     e.preventDefault();
     e.stopPropagation();
@@ -336,6 +350,10 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
           <button type="button" onClick={handleEdit} role="menuitem"
             className="w-full px-3 py-2 text-left text-sm text-neutral-300 hover:bg-neutral-800 transition-colors">
             Edit book…
+          </button>
+          <button type="button" onClick={handleArchive} role="menuitem"
+            className="w-full px-3 py-2 text-left text-sm text-neutral-300 hover:bg-neutral-800 transition-colors">
+            {book.archived ? 'Restore from archive' : 'Archive book'}
           </button>
           <div className="my-1 border-t border-neutral-800" />
           <button type="button" onClick={handleDelete} role="menuitem"
