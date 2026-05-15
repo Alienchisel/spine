@@ -100,6 +100,96 @@ function sortAllowedForTab(sortKey, tab) {
   return true;
 }
 
+// Qualifiers we autocomplete values for. `title` is omitted intentionally —
+// titles are per-book, there's no facet to suggest from, and a flood of
+// title rows in an autocomplete picker would be more noise than signal.
+// Maps each qualifier to the facet array name returned by /api/books/facets.
+const QUALIFIER_FACET_KEY = {
+  tag:        'tags',
+  author:     'authors',
+  narrator:   'narrators',
+  translator: 'translators',
+  series:     'series',
+  publisher:  'publishers',
+};
+
+// Identify whether the cursor is sitting inside the value portion of a
+// known qualifier in the input string, and if so where the value's
+// replaceable range starts and ends. Returns null for any non-qualifier
+// position (bare terms, qualifier names being typed, terms after a closed
+// quoted value, etc.) so callers can treat null as "no autocomplete".
+//
+// Returned shape: { qualifier, partial, startIdx, endIdx, quoted }
+//   - qualifier: lowercased qualifier name (e.g. 'tag')
+//   - partial:   the text already typed in the value position
+//   - startIdx:  index in input where the value text begins (replacement target start)
+//   - endIdx:    index in input where the value text ends (replacement target end)
+//   - quoted:    true if the value is inside an open quoted string
+//
+// Examples:
+//   parseCursorContext('tag:man', 7)       → { qualifier: 'tag', partial: 'man', startIdx: 4, endIdx: 7, quoted: false }
+//   parseCursorContext('tag:', 4)          → { qualifier: 'tag', partial: '',    startIdx: 4, endIdx: 4, quoted: false }
+//   parseCursorContext('-tag:manga', 10)   → { qualifier: 'tag', partial: 'manga', startIdx: 5, endIdx: 10, quoted: false }
+//   parseCursorContext('tag:"New Sun', 12) → { qualifier: 'tag', partial: 'New Sun', startIdx: 5, endIdx: 12, quoted: true }
+//   parseCursorContext('foo bar', 7)       → null
+//   parseCursorContext('title:abc', 9)     → null  (title isn't in QUALIFIER_FACET_KEY)
+function parseCursorContext(input, cursorPos) {
+  // Walk the prefix tracking quote state and the position of the last
+  // token-boundary character. Boundaries (whitespace + parens) reset the
+  // token start so we can locate the qualifier:value pair the cursor is
+  // currently editing. Quote state is tracked so whitespace inside a
+  // quoted value doesn't end the token prematurely.
+  let tokenStart  = 0;
+  let quoteOpenAt = -1;
+  for (let i = 0; i < cursorPos; i++) {
+    const c = input[i];
+    if (quoteOpenAt !== -1) {
+      if (c === '"') quoteOpenAt = -1;
+      continue;
+    }
+    if (c === '"') { quoteOpenAt = i; continue; }
+    if (c === ' ' || c === '\t' || c === '\n' || c === '(' || c === ')') {
+      tokenStart = i + 1;
+    }
+  }
+
+  if (quoteOpenAt !== -1) {
+    // Inside an unclosed quoted value. The qualifier prefix is the
+    // characters between the token start and the opening quote.
+    const prefixRaw = input.slice(tokenStart, quoteOpenAt);
+    const prefix    = prefixRaw.startsWith('-') ? prefixRaw.slice(1) : prefixRaw;
+    if (!prefix.endsWith(':')) return null;
+    const qualifier = prefix.slice(0, -1).toLowerCase();
+    if (!QUALIFIER_FACET_KEY[qualifier]) return null;
+    const startIdx = quoteOpenAt + 1;
+    const partial  = input.slice(startIdx, cursorPos);
+    // The value ends at the next closing quote on the line if one exists,
+    // so a mid-edit replace cleanly swaps the contents instead of leaving
+    // a duplicate. With no closing quote yet, the range ends at the cursor.
+    let endIdx = cursorPos;
+    let k = cursorPos;
+    while (k < input.length && input[k] !== '"') k++;
+    if (k < input.length) endIdx = k;
+    return { qualifier, partial, startIdx, endIdx, quoted: true };
+  }
+
+  const tokenSoFar = input.slice(tokenStart, cursorPos);
+  const negOffset  = tokenSoFar.startsWith('-') ? 1 : 0;
+  const body       = negOffset ? tokenSoFar.slice(1) : tokenSoFar;
+  const colonIdx   = body.indexOf(':');
+  if (colonIdx === -1) return null;
+  const qualifier = body.slice(0, colonIdx).toLowerCase();
+  if (!QUALIFIER_FACET_KEY[qualifier]) return null;
+  const startIdx = tokenStart + negOffset + colonIdx + 1;
+  const partial  = body.slice(colonIdx + 1);
+  // Unquoted value runs to the next whitespace/paren/quote — same rule
+  // the backend tokenizer uses. Colons are allowed inside the value, so
+  // they don't terminate the range.
+  let k = cursorPos;
+  while (k < input.length && input[k] !== ' ' && input[k] !== '\t' && input[k] !== '\n' && input[k] !== '(' && input[k] !== ')' && input[k] !== '"') k++;
+  return { qualifier, partial, startIdx, endIdx: k, quoted: false };
+}
+
 // Case-insensitive token-AND match — every whitespace-separated token in
 // the query must appear somewhere in the text, in any order. Lets users
 // drop filler words ("sort author" matches "Sort by Author A–Z") without
