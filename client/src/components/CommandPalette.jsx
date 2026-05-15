@@ -519,6 +519,7 @@ export default function CommandPalette() {
       hint:   b.authors?.map(a => a.name).join(', ') || null,
       cover:  b.cover_path,
       status: b.status,
+      archived: b.archived,
       path:   `/books/${b.id}`,
     })), [reading, currentBookId]);
 
@@ -789,6 +790,9 @@ export default function CommandPalette() {
                   {section.entries.map(entry => {
                     const idx = flatIdx++;
                     const isSelected = idx === selected;
+                    // Mirror BookCard's archived dimming so the cue reads
+                    // the same on every surface where a book is listed.
+                    const archivedDim = entry.kind === 'book' && entry.archived ? 'opacity-60 saturate-50' : '';
                     return (
                       <li key={entry.id}>
                         <button
@@ -809,7 +813,7 @@ export default function CommandPalette() {
                           onMouseEnter={() => setSelected(idx)}
                           className={`w-full flex items-center gap-3 px-4 py-2 text-left transition-colors ${
                             isSelected ? 'bg-neutral-800' : 'hover:bg-neutral-800/60'
-                          }`}
+                          } ${archivedDim}`}
                         >
                           {entry.kind === 'book' ? (
                             entry.cover ? (
