@@ -80,7 +80,15 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
       if (dropdownRef.current?.contains(e.target)) return;
       setOpen(false);
     }
-    function onScroll() { setOpen(false); }
+    function onScroll(e) {
+      // Skip scrolls inside the menu itself — the dropdown has its own
+      // internal overflow scroll for tall sub-prompt lists, and the
+      // window-level capture listener catches those scroll events too.
+      // Without this guard, scrolling the list of lists would close the
+      // menu that's supposed to be scrolling.
+      if (dropdownRef.current?.contains(e.target)) return;
+      setOpen(false);
+    }
     function onKey(e) { if (e.key === 'Escape') {
       // Inside a sub-prompt, Escape returns to the root menu; from
       // the root menu, Escape closes the whole popover.
@@ -276,7 +284,7 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
       role="menu"
       aria-label={subPrompt === 'add-to-lists' ? 'Add to list' : 'Book actions'}
       style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left }}
-      className="z-[9999] w-56 bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl py-1"
+      className="z-[9999] w-56 max-h-[80vh] overflow-y-auto bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl py-1"
     >
       {subPrompt === 'add-to-lists' ? (
         <>
