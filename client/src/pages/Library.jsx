@@ -137,7 +137,10 @@ const VALID_TABS = new Set(['reading', 'finished', 'unread', 'owned', 'prev_owne
 
 export default function Library() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const prefs = getPrefs();
+  // useMemo with [] keeps the localStorage read + JSON.parse to a single
+  // mount-time cost. Previously this ran on every render even though
+  // only the three useState lazy initializers below consume it.
+  const prefs = useMemo(() => getPrefs(), []);
 
   // ── URL-derived view state (tab/sort/query/filters) ────────────────
   // tab/sort/query/filters all derive from searchParams. setters mutate
@@ -192,6 +195,12 @@ export default function Library() {
     // history entry for every tab switch. Compare the filter objects
     // directly so non-canonical URL param orders don't fool the check.
     if (filtersEqual(current, resolved)) return;
+    // Collapse series expansion state on filter change. Without this, a
+    // user-expanded series can outlive the filter that left it visible
+    // and re-appear pre-expanded once an un-filter brings it back —
+    // tab and sort changes already clear; doing it here for filters too
+    // keeps the behaviour consistent.
+    setExpandedSeries(new Set());
     const next = new URLSearchParams(searchParams);
     writeFiltersToParams(next, resolved);
     setSearchParams(next);
