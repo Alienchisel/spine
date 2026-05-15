@@ -201,26 +201,41 @@ function TagCloud({ tags }) {
   );
 }
 
+// Bookish palette for treemap tiles — warm umbers, oxblood, tan, slate.
+// Per-tag color is name-hashed so the same tag keeps the same color across
+// renders and sessions; the visualization becomes recognizable over time.
+const TREEMAP_COLORS = [
+  '#a97954', '#c29b87', '#6a5d4f', '#532c2e',
+  '#5a7a8a', '#7d6149', '#8c6f54', '#4a3d3a',
+];
+
+function colorForTag(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
+  return TREEMAP_COLORS[Math.abs(h) % TREEMAP_COLORS.length];
+}
+
 function TagTreemap({ tags }) {
   if (!tags || tags.length === 0) return null;
-  // Virtual coords match the rendered aspect ratio (aspect-[5/2]) so the
+  // Virtual coords match the rendered aspect ratio (square) so the
   // squarify algorithm's worst-case aspect ratio reflects what the user
-  // actually sees, not a normalised square that gets stretched at render.
-  const VW = 500, VH = 200;
-  const placed = squarify(tags.map(t => ({ name: t.name, value: t.count, count: t.count })), VW, VH);
+  // actually sees, not a normalised box that gets stretched at render.
+  const VS = 400;
+  const placed = squarify(tags.map(t => ({ name: t.name, value: t.count, count: t.count })), VS, VS);
   return (
-    <div className="bg-card rounded-lg p-1 aspect-[5/2] relative overflow-hidden">
+    <div className="bg-card rounded-lg p-1 max-w-xl mx-auto aspect-square relative overflow-hidden">
       {placed.map(t => (
         <Link
           key={t.name}
           to={`/browse/tag/${encodeURIComponent(t.name)}`}
           state={FROM_STATS}
-          className="absolute bg-leather/30 hover:bg-leather/60 border border-neutral-900 transition-colors flex items-center justify-center overflow-hidden text-center"
+          className="absolute border border-neutral-900 transition-[filter] hover:brightness-125 flex items-center justify-center overflow-hidden text-center"
           style={{
-            left:   `${(t.rect.x / VW) * 100}%`,
-            top:    `${(t.rect.y / VH) * 100}%`,
-            width:  `${(t.rect.w / VW) * 100}%`,
-            height: `${(t.rect.h / VH) * 100}%`,
+            left:       `${(t.rect.x / VS) * 100}%`,
+            top:        `${(t.rect.y / VS) * 100}%`,
+            width:      `${(t.rect.w / VS) * 100}%`,
+            height:     `${(t.rect.h / VS) * 100}%`,
+            background: colorForTag(t.name),
           }}
           title={`${t.name} · ${t.count} ${t.count === 1 ? 'book' : 'books'}`}
         >
