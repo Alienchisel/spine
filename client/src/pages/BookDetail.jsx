@@ -15,6 +15,7 @@ import ReadingLog from '../components/bookDetail/ReadingLog.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useLatest } from '../hooks/useLatest.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
+import { useActionGuard } from '../hooks/useActionGuard.js';
 
 const STATUS_LABEL = { reading: 'Reading', finished: 'Finished', unread: 'Unread' };
 const STATUS_COLOR = {
@@ -57,46 +58,20 @@ export default function BookDetail() {
   const [reads, setReads] = useState([]);
   const [descExpanded, setDescExpanded] = useState(false);
   const [ratingPrompt, setRatingPrompt] = useState(false);
-  const [finishing, setFinishing] = useState(false);
-  // Synchronous mirror of `finishing` — `finishing` (state) doesn't commit
-  // until the next render, so two same-tick "Mark as finished" clicks both
-  // see finishing === false and fire duplicate updateBook PUTs. The finish
-  // transition can auto-insert a read row, so a duplicate could land two
-  // reads. Mirrors the savingRef pattern in ReadsSection / QuickAdd /
-  // BookForm / BookCard.
-  const finishingRef = useRef(false);
-  // In-flight lockouts for the three quick toggles. Without these a fast
-  // double-click reads stale `book.loved` (etc.) before the first PUT's
-  // response has landed, so both intents resolve to the same target value
-  // and the toggle effectively no-ops the second click. Mirrors the
-  // pattern already used in BookCard.
-  const [loving, setLoving] = useState(false);
-  const [listing, setListing] = useState(false);
-  const [archiving, setArchiving] = useState(false);
-  // Synchronous mirrors — same shape as archivingRef. Without these, two
-  // same-tick clicks both read state=false and book.loved=stale, both fire
-  // duplicate PATCHes resolving to the same target value (idempotent end
-  // state but bumps updated_at twice and pollutes Recently updated).
-  const lovingRef = useRef(false);
-  const listingRef = useRef(false);
-  // Synchronous mirror of `archiving` — `archiving` (state) doesn't commit
-  // until the next render, and the Archive icon button isn't disabled
-  // mid-flight, so two same-tick clicks both see archiving === false and
-  // both fire `archived: book.archived ? 0 : 1` against the same stale
-  // `book.archived`. The PATCH is idempotent at the DB level but bumps
-  // updated_at twice and adds noise to Recently updated. Mirrors the
-  // savingRef / finishingRef pattern.
-  const archivingRef = useRef(false);
-  // Lockout for the Delete button. The navigate('/') on success makes the
-  // re-click window small but non-zero — without this, a second click
-  // between "confirm OK" and "navigate fires" produces a brief
-  // "Failed to delete book" flash on a book that did delete.
-  const [deleting, setDeleting] = useState(false);
-  // Synchronous mirror — same shape as the other refs. The button is
-  // disabled={deleting} and confirm() serialises modal input, so the
-  // practical race window is tiny (between "confirm OK resolved" and
-  // "setDeleting commit"), but the cost of closing it is one ref.
-  const deletingRef = useRef(false);
+  // In-flight lockouts for the action-column buttons. Without the sync
+  // ref half, a fast double-click reads stale `book.loved` (etc.) before
+  // the first PUT's response has landed, so both intents resolve to the
+  // same target value and the toggle effectively no-ops the second click.
+  // The PATCH is idempotent at the DB level but bumps updated_at twice
+  // and adds noise to Recently updated. finishing's stakes are higher —
+  // the finish transition can auto-insert a read row, so a duplicate
+  // could land two reads. delete's window is tiny (button is disabled
+  // and confirm() serialises modal input) but cheap to close.
+  const loveGuard     = useActionGuard();
+  const listGuard     = useActionGuard();
+  const archiveGuard  = useActionGuard();
+  const finishGuard   = useActionGuard();
+  const deleteGuard   = useActionGuard();
   const [finishError, setFinishError] = useState(null);
   const [loadError, setLoadError] = useState(false);
   // Surfaces failures from the three quick actions in the action column
@@ -265,10 +240,8 @@ export default function BookDetail() {
   // another. Each handler clears both on entry so the visible state always
   // reflects the most recent action — same shape as the Lists.jsx fix.
   async function toggleLoved() {
-    if (lovingRef.current || loving) return;
+    if (!loveGuard.begin()) return;
     const reqId = book.id;
-    lovingRef.current = true;
-    setLoving(true);
     setActionError(null);
     setFinishError(null);
     try {
@@ -279,16 +252,13 @@ export default function BookDetail() {
       if (!isStillCurrent(reqId)) return;
       setActionError('Failed to update loved');
     } finally {
-      lovingRef.current = false;
-      setLoving(false);
+      loveGuard.end();
     }
   }
 
   async function toggleReadlist() {
-    if (listingRef.current || listing) return;
+    if (!listGuard.begin()) return;
     const reqId = book.id;
-    listingRef.current = true;
-    setListing(true);
     setActionError(null);
     setFinishError(null);
     try {
@@ -299,16 +269,13 @@ export default function BookDetail() {
       if (!isStillCurrent(reqId)) return;
       setActionError('Failed to update readlist');
     } finally {
-      listingRef.current = false;
-      setListing(false);
+      listGuard.end();
     }
   }
 
   async function toggleArchived() {
-    if (archivingRef.current || archiving) return;
+    if (!archiveGuard.begin()) return;
     const reqId = book.id;
-    archivingRef.current = true;
-    setArchiving(true);
     setActionError(null);
     setFinishError(null);
     try {
@@ -319,16 +286,13 @@ export default function BookDetail() {
       if (!isStillCurrent(reqId)) return;
       setActionError('Failed to update archive state');
     } finally {
-      archivingRef.current = false;
-      setArchiving(false);
+      archiveGuard.end();
     }
   }
 
   async function handleFinish() {
-    if (finishingRef.current || finishing) return;
+    if (!finishGuard.begin()) return;
     const reqId = book.id;
-    finishingRef.current = true;
-    setFinishing(true);
     setFinishError(null);
     setActionError(null);
     try {
@@ -352,10 +316,9 @@ export default function BookDetail() {
       if (!isStillCurrent(reqId)) return;
       setFinishError('Failed to save — please try again');
     } finally {
-      // setFinishing always resets — it's a button-state flag, leaving it
-      // true after navigation just disables a button that's now unmounted.
-      finishingRef.current = false;
-      setFinishing(false);
+      // Always resets — it's a button-state flag, leaving it busy after
+      // navigation just disables a button that's now unmounted.
+      finishGuard.end();
     }
   }
 
@@ -380,12 +343,10 @@ export default function BookDetail() {
   }
 
   async function handleDelete() {
-    if (deletingRef.current || deleting) return;
+    if (deleteGuard.isBusy()) return;
     if (!await confirm(`Delete "${book.title}"?`)) return;
-    if (deletingRef.current || deleting) return;
+    if (!deleteGuard.begin()) return;
     const reqId = id;
-    deletingRef.current = true;
-    setDeleting(true);
     setDeleteError(null);
     try {
       await api.deleteBook(reqId);
@@ -398,8 +359,7 @@ export default function BookDetail() {
       setDeleteError('Failed to delete book. Please try again.');
       // Only reset on failure — on success the component unmounts via
       // navigate, so leaving the flag latched is moot.
-      deletingRef.current = false;
-      setDeleting(false);
+      deleteGuard.end();
     }
   }
 
@@ -447,7 +407,7 @@ export default function BookDetail() {
             <div className="flex justify-around items-start py-3 px-2">
               <button
                 onClick={toggleLoved}
-                disabled={loving}
+                disabled={loveGuard.busy}
                 className={`flex flex-col items-center gap-1.5 transition-colors disabled:opacity-50 ${book.loved ? 'text-red-400' : 'text-neutral-600 hover:text-neutral-300'}`}
                 title={book.loved ? 'Remove from loved' : 'Mark as loved'}
                 aria-pressed={!!book.loved}
@@ -457,7 +417,7 @@ export default function BookDetail() {
               </button>
               <button
                 onClick={toggleReadlist}
-                disabled={listing}
+                disabled={listGuard.busy}
                 className={`flex flex-col items-center gap-1.5 transition-colors disabled:opacity-50 ${book.on_readlist ? 'text-sky-400' : 'text-neutral-600 hover:text-neutral-300'}`}
                 title={book.on_readlist ? 'Remove from readlist' : 'Add to readlist'}
                 aria-pressed={!!book.on_readlist}
@@ -473,7 +433,7 @@ export default function BookDetail() {
               </div>
               <button
                 onClick={toggleArchived}
-                disabled={archiving}
+                disabled={archiveGuard.busy}
                 className={`flex flex-col items-center gap-1.5 transition-colors disabled:opacity-50 ${book.archived ? 'text-amber-500' : 'text-neutral-600 hover:text-neutral-300'}`}
                 title={book.archived ? 'Restore from archive' : 'Archive — hide from active library'}
                 aria-pressed={!!book.archived}
@@ -489,10 +449,10 @@ export default function BookDetail() {
               <div className="border-t border-neutral-800 py-2.5 px-3">
                 <button
                   onClick={handleFinish}
-                  disabled={finishing}
+                  disabled={finishGuard.busy}
                   className="w-full text-xs text-neutral-500 hover:text-parchment disabled:opacity-40 disabled:cursor-default transition-colors text-center"
                 >
-                  {finishing ? 'Saving…' : 'Mark as finished'}
+                  {finishGuard.busy ? 'Saving…' : 'Mark as finished'}
                 </button>
                 {finishError && <p role="alert" className="text-[10px] text-warn text-center mt-1">{finishError}</p>}
               </div>
@@ -816,10 +776,10 @@ export default function BookDetail() {
           <div className="mt-8 pt-6 border-t border-neutral-800/60">
             <button
               onClick={handleDelete}
-              disabled={deleting}
+              disabled={deleteGuard.busy}
               className="text-sm text-neutral-600 hover:text-warn disabled:opacity-50 disabled:cursor-wait transition-colors"
             >
-              {deleting ? 'Deleting…' : 'Delete'}
+              {deleteGuard.busy ? 'Deleting…' : 'Delete'}
             </button>
             {deleteError && <p role="alert" className="text-xs text-warn mt-2">{deleteError}</p>}
           </div>

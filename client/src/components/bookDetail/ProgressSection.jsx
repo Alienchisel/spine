@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { api } from '../../api.js';
+import { useActionGuard } from '../../hooks/useActionGuard.js';
 import { computeEta } from './eta.js';
 import { getModeKey, initialProgressMode, computeProgressPatch, syncProgressInputs, progressDerived, clampMinutes } from '../progressMode.js';
 
@@ -9,15 +10,8 @@ export default function ProgressSection({ book, onChange, log }) {
   const [mode, setMode] = useState(() => {
     return initialProgressMode(localStorage.getItem(modeKey), isAudiobook, hasPct);
   });
-  const [saving, setSaving] = useState(false);
+  const saveGuard = useActionGuard();
   const [error, setError] = useState(null);
-  // `saving` (React state) drives the disabled UI but doesn't commit until
-  // the next render — so two synchronous submit calls in the same tick
-  // (Enter-key autorepeat, programmatic dispatch) both see saving === false
-  // and fire duplicate patchBook calls. Ref mutates synchronously so the
-  // second call sees the first's marker. Mirrors the busyIdsRef pattern in
-  // ListPicker.
-  const savingRef = useRef(false);
 
   // Re-clamp the persisted mode when the book's format or totals change
   // out from under us at runtime — e.g., the user toggles format on the
@@ -65,9 +59,7 @@ export default function ProgressSection({ book, onChange, log }) {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    // Mirror the disabled button. Double-fire near the page_count boundary
-    // could double-trigger the auto-finish reads-row insert.
-    if (savingRef.current || saving || isEmpty) return;
+    if (isEmpty) return;
 
     // Compute the patch BEFORE arming the spinner. Splitting the
     // pure-compute step from the in-flight step avoids a stuck-spinner
@@ -77,9 +69,10 @@ export default function ProgressSection({ book, onChange, log }) {
     });
     if (patchError) { setError(patchError); return; }
 
+    // Double-fire near the page_count boundary could double-trigger the
+    // auto-finish reads-row insert.
+    if (!saveGuard.begin()) return;
     setError(null);
-    savingRef.current = true;
-    setSaving(true);
     try {
       const updated = await api.patchBook(book.id, patchData);
       onChange(updated);
@@ -90,8 +83,7 @@ export default function ProgressSection({ book, onChange, log }) {
     } catch {
       setError('Failed to save');
     } finally {
-      savingRef.current = false;
-      setSaving(false);
+      saveGuard.end();
     }
   }
 
@@ -179,9 +171,9 @@ export default function ProgressSection({ book, onChange, log }) {
             className="flex-1 bg-neutral-900 border border-neutral-700 rounded px-3 py-1.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-500 transition-colors"
           />
         )}
-        <button type="submit" disabled={saving || isEmpty}
+        <button type="submit" disabled={saveGuard.busy || isEmpty}
           className="text-sm bg-binding hover:bg-binding/80 motion-safe:active:scale-[0.98] disabled:opacity-40 disabled:cursor-default text-parchment px-4 py-1.5 rounded transition-[transform,background-color] ease-out duration-150">
-          {saving ? 'Saving…' : 'Update'}
+          {saveGuard.busy ? 'Saving…' : 'Update'}
         </button>
         {error && <p role="alert" className="w-full text-xs text-warn mt-1">{error}</p>}
       </form>

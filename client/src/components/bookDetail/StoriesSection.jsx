@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { api } from '../../api.js';
+import { useActionGuard } from '../../hooks/useActionGuard.js';
 import PartialDateInput from '../PartialDateInput.jsx';
 import StarRating from '../StarRating.jsx';
 import { useConfirm } from '../ConfirmModal.jsx';
@@ -91,11 +92,8 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
   const [adding, setAdding] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState(emptyForm);
-  const [saving, setSaving] = useState(false);
+  const saveGuard = useActionGuard();
   const [error, setError] = useState(null);
-  // Mirrors ReadsSection.savingRef — same-tick double-submit would otherwise
-  // create two stories before saving (state) commits.
-  const savingRef = useRef(false);
   const deletingIdsRef = useRef(new Set());
   // Tracks story ids whose cycleStatus PUT is in flight. Without this,
   // a rapid double-click on a status pill reads stale `s.status` from
@@ -131,10 +129,8 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
 
   async function handleAdd(e) {
     e.preventDefault();
-    if (savingRef.current || saving) return;
     if (!form.title.trim()) { setError('Title is required'); return; }
-    savingRef.current = true;
-    setSaving(true);
+    if (!saveGuard.begin()) return;
     setError(null);
     try {
       await api.addStory(bookId, toPayload(form));
@@ -143,17 +139,14 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
     } catch {
       setError(`Failed to add ${noun}`);
     } finally {
-      savingRef.current = false;
-      setSaving(false);
+      saveGuard.end();
     }
   }
 
   async function handleUpdate(e, storyId) {
     e.preventDefault();
-    if (savingRef.current || saving) return;
     if (!form.title.trim()) { setError('Title is required'); return; }
-    savingRef.current = true;
-    setSaving(true);
+    if (!saveGuard.begin()) return;
     setError(null);
     try {
       await api.updateStory(bookId, storyId, toPayload(form));
@@ -162,8 +155,7 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
     } catch {
       setError('Failed to save');
     } finally {
-      savingRef.current = false;
-      setSaving(false);
+      saveGuard.end();
     }
   }
 
@@ -302,7 +294,7 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
           {stories.map(s => editId === s.id ? (
             <form key={s.id} onSubmit={e => handleUpdate(e, s.id)} className="flex flex-wrap items-center gap-2">
               {formBody}
-              <button type="submit" disabled={saving} className="text-xs text-oak hover:text-oak/80 transition-colors disabled:opacity-40">Save</button>
+              <button type="submit" disabled={saveGuard.busy} className="text-xs text-oak hover:text-oak/80 transition-colors disabled:opacity-40">Save</button>
               <button type="button" onClick={cancel} className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors">Cancel</button>
             </form>
           ) : (
@@ -357,7 +349,7 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
       {adding ? (
         <form onSubmit={handleAdd} className="flex flex-wrap items-center gap-2">
           {formBody}
-          <button type="submit" disabled={saving} className="text-xs text-oak hover:text-oak/80 transition-colors disabled:opacity-40">Add</button>
+          <button type="submit" disabled={saveGuard.busy} className="text-xs text-oak hover:text-oak/80 transition-colors disabled:opacity-40">Add</button>
           <button type="button" onClick={cancel} className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors">Cancel</button>
         </form>
       ) : (

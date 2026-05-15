@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { api } from '../../api.js';
+import { useActionGuard } from '../../hooks/useActionGuard.js';
 import PartialDateInput from '../PartialDateInput.jsx';
 import { useConfirm } from '../ConfirmModal.jsx';
 import { formatPartialDate } from './dates.js';
@@ -8,7 +9,7 @@ export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBo
   const [adding, setAdding] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({ date_started: '', date_finished: '', did_not_finish: false });
-  const [saving, setSaving] = useState(false);
+  const saveGuard = useActionGuard();
   const [error, setError] = useState(null);
   // Tracks read ids whose delete is in flight. The ConfirmModal cancels
   // an overlapping confirm() so a rapid double-click on the same ✕ won't
@@ -18,13 +19,6 @@ export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBo
   // delete read" banner above a row that did delete. Mirrors the shape
   // of Readlist's removingIdsRef.
   const deletingIdsRef = useRef(new Set());
-  // Synchronous mirror of `saving` for handleAdd — `saving` (state) doesn't
-  // commit until the next render, so two same-tick Enter submits both see
-  // saving === false and fire duplicate addRead/rereadBook calls. /reads
-  // INSERT has no idempotency check, so duplicates land in the DB. The
-  // /reread path is even worse: a duplicate bumps read_count by 2 and
-  // inserts two reads rows. Mirrors the savingRef in BookCard / BookForm.
-  const savingRef = useRef(false);
   const confirm = useConfirm();
 
   // On a finished book, "log a read" means re-read: bump read_count + add row
@@ -63,12 +57,10 @@ export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBo
 
   async function handleAdd(e) {
     e.preventDefault();
-    // Mirror the disabled button. The re-read path is the load-bearing case:
-    // a double-fire would bump read_count by 2 and insert two reads rows.
-    if (savingRef.current || saving) return;
     if (!validateDates()) return;
-    savingRef.current = true;
-    setSaving(true);
+    // The re-read path is load-bearing: a double-fire would bump
+    // read_count by 2 and insert two reads rows.
+    if (!saveGuard.begin()) return;
     setError(null);
     try {
       const payload = { date_started: form.date_started || null, date_finished: form.date_finished || null, did_not_finish: form.did_not_finish };
@@ -87,17 +79,14 @@ export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBo
     } catch {
       setError(isReread ? 'Failed to log re-read' : 'Failed to add read');
     } finally {
-      savingRef.current = false;
-      setSaving(false);
+      saveGuard.end();
     }
   }
 
   async function handleUpdate(e, readId) {
     e.preventDefault();
-    if (savingRef.current || saving) return;
     if (!validateDates()) return;
-    savingRef.current = true;
-    setSaving(true);
+    if (!saveGuard.begin()) return;
     setError(null);
     try {
       await api.updateRead(bookId, readId, { date_started: form.date_started || null, date_finished: form.date_finished || null, did_not_finish: form.did_not_finish });
@@ -106,8 +95,7 @@ export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBo
     } catch {
       setError('Failed to save');
     } finally {
-      savingRef.current = false;
-      setSaving(false);
+      saveGuard.end();
     }
   }
 
@@ -141,7 +129,7 @@ export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBo
                 <input type="checkbox" checked={form.did_not_finish} onChange={e => setForm(f => ({ ...f, did_not_finish: e.target.checked }))} className="accent-warn" />
                 DNF
               </label>
-              <button type="submit" disabled={saving} className="text-xs text-oak hover:text-oak/80 transition-colors disabled:opacity-40">Save</button>
+              <button type="submit" disabled={saveGuard.busy} className="text-xs text-oak hover:text-oak/80 transition-colors disabled:opacity-40">Save</button>
               <button type="button" onClick={() => setEditId(null)} className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors">Cancel</button>
             </form>
           ) : (
@@ -173,7 +161,7 @@ export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBo
               DNF
             </label>
           )}
-          <button type="submit" disabled={saving} className="text-xs text-oak hover:text-oak/80 transition-colors disabled:opacity-40">Add</button>
+          <button type="submit" disabled={saveGuard.busy} className="text-xs text-oak hover:text-oak/80 transition-colors disabled:opacity-40">Add</button>
           <button type="button" onClick={() => { setAdding(false); setError(null); }} className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors">Cancel</button>
         </form>
       ) : (

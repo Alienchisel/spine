@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
+import { useActionGuard } from '../hooks/useActionGuard.js';
 import { realTagNames } from '../utils.js';
 import { getModeKey, initialProgressMode, computeProgressPatch, syncProgressInputs, progressDerived, clampMinutes } from './progressMode.js';
 import MoreMenu from './MoreMenu.jsx';
@@ -24,8 +25,8 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
   const navigate = useNavigate();
   const [book, setBook] = useState(initialBook);
   const [open, setOpen] = useState(false);
-  const [loving, setLoving] = useState(false);
-  const [listing, setListing] = useState(false);
+  const loveGuard = useActionGuard();
+  const listGuard = useActionGuard();
   const [inputVal, setInputVal] = useState('');
   const [inputH, setInputH] = useState('');
   const [inputM, setInputM] = useState('');
@@ -34,31 +35,9 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
     const initialHasPct = audio ? Boolean(initialBook.duration_minutes) : Boolean(initialBook.page_count);
     return initialProgressMode(localStorage.getItem(getModeKey(initialBook.id)), audio, initialHasPct);
   });
-  const [saving, setSaving] = useState(false);
+  const saveGuard = useActionGuard();
   const [error, setError] = useState(null);
   const inputRef = useRef(null);
-  // Bumped on every rating click so a slower-resolving earlier PUT can't
-  // setBook over a faster-resolving later PUT (e.g. user clicks 5 then 3
-  // and the 5 response lands last). Local-UI scoped — server-side last-
-  // write-wins is unaffected and could still differ in edge cases.
-  // `saving` (React state) drives the disabled UI but doesn't commit until
-  // the next render — so two synchronous submit calls in the same tick
-  // (Enter-key autorepeat, programmatic dispatch) both see saving === false
-  // and fire duplicate patchBook calls. At the page_count boundary the
-  // duplicate also fires a second updateBook(status='finished'); the
-  // server-side isFinishTransition check gates the second reads-row INSERT,
-  // but the duplicate setBook/onProgressUpdate still runs. Ref mutates
-  // synchronously so the second call sees the first's marker. Mirrors
-  // the busyIdsRef pattern in ListPicker.
-  const savingRef = useRef(false);
-  // Synchronous mirrors of `loving` and `listing` — same shape as
-  // savingRef. The buttons inside the hover tray have no disabled prop
-  // (they live behind a fade-in tray and the user can mash them), so two
-  // same-tick clicks both read state=false and fire duplicate PATCHes
-  // against stale book.loved / book.on_readlist. Idempotent end state
-  // but bumps updated_at twice and pollutes Recently updated.
-  const lovingRef = useRef(false);
-  const listingRef = useRef(false);
 
   useEffect(() => { setBook(initialBook); }, [initialBook]);
 
@@ -124,9 +103,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
 
   async function handleSubmit(e) {
     e.preventDefault();
-    // Mirror the disabled button. Double-fire near the page_count boundary
-    // could double-trigger the auto-finish reads-row insert.
-    if (savingRef.current || saving || isEmpty) return;
+    if (isEmpty) return;
 
     // Compute the patch BEFORE arming the spinner. Splitting the
     // pure-compute step from the in-flight step avoids a stuck-spinner
@@ -136,9 +113,10 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
     });
     if (patchError) { setError(patchError); return; }
 
+    // Double-fire near the page_count boundary could double-trigger the
+    // auto-finish reads-row insert.
+    if (!saveGuard.begin()) return;
     setError(null);
-    savingRef.current = true;
-    setSaving(true);
     try {
       const updated = await api.patchBook(book.id, patchData);
       // Inline until a second surface needs auto-finish — progressMode.js stays the home for shared progress logic.
@@ -176,16 +154,18 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
     } catch {
       setError('Failed to save');
     } finally {
-      savingRef.current = false;
-      setSaving(false);
+      saveGuard.end();
     }
   }
 
+  // Buttons inside the hover tray have no disabled prop (they live behind
+  // a fade-in tray and the user can mash them), so two same-tick clicks
+  // both read book.loved=stale and fire duplicate PATCHes resolving to
+  // the same target value — idempotent at the DB level but bumps
+  // updated_at twice and pollutes Recently updated.
   async function toggleLoved(e) {
     e.preventDefault();
-    if (lovingRef.current || loving) return;
-    lovingRef.current = true;
-    setLoving(true);
+    if (!loveGuard.begin()) return;
     setError(null);
     try {
       const updated = await api.patchBook(book.id, { loved: book.loved ? 0 : 1 });
@@ -194,16 +174,13 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
     } catch {
       setError('Failed to update loved');
     } finally {
-      lovingRef.current = false;
-      setLoving(false);
+      loveGuard.end();
     }
   }
 
   async function toggleReadlist(e) {
     e.preventDefault();
-    if (listingRef.current || listing) return;
-    listingRef.current = true;
-    setListing(true);
+    if (!listGuard.begin()) return;
     setError(null);
     try {
       const updated = await api.patchBook(book.id, { on_readlist: book.on_readlist ? 0 : 1 });
@@ -212,8 +189,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
     } catch {
       setError('Failed to update readlist');
     } finally {
-      listingRef.current = false;
-      setListing(false);
+      listGuard.end();
     }
   }
 
@@ -323,7 +299,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
             <div className="absolute inset-x-3 bottom-3 flex justify-center items-center gap-4 px-3 py-1.5 bg-black/65 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
               <button
                 onClick={toggleReadlist}
-                disabled={listing}
+                disabled={listGuard.busy}
                 className={`leading-none transition-colors disabled:opacity-50 ${book.on_readlist ? 'text-sky-400 hover:text-sky-300' : 'text-white hover:text-sky-300'}`}
                 title={book.on_readlist ? 'On readlist' : 'Add to readlist'}
                 aria-label={book.on_readlist ? 'Remove from readlist' : 'Add to readlist'}
@@ -335,7 +311,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
               </button>
               <button
                 onClick={toggleLoved}
-                disabled={loving}
+                disabled={loveGuard.busy}
                 className={`leading-none text-2xl transition-colors disabled:opacity-50 ${book.loved ? 'text-red-400 hover:text-red-300' : 'text-white hover:text-red-300'}`}
                 title={book.loved ? 'Loved' : 'Mark as loved'}
                 aria-label={book.loved ? 'Remove from loved' : 'Mark as loved'}
@@ -454,11 +430,11 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
               )}
               <button
                 type="submit"
-                disabled={saving || isEmpty}
-                aria-label={saving ? 'Saving progress' : 'Save progress'}
+                disabled={saveGuard.busy || isEmpty}
+                aria-label={saveGuard.busy ? 'Saving progress' : 'Save progress'}
                 className="text-xs bg-binding hover:bg-binding/80 motion-safe:active:scale-[0.98] disabled:opacity-40 text-parchment px-2 py-1 rounded transition-[transform,background-color] ease-out duration-150"
               >
-                {saving ? '…' : '✓'}
+                {saveGuard.busy ? '…' : '✓'}
               </button>
               <button
                 type="button"

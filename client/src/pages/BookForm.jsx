@@ -12,6 +12,7 @@ import AcquisitionFields from '../components/bookForm/AcquisitionFields.jsx';
 import PersonalFields from '../components/bookForm/PersonalFields.jsx';
 import { useConfirm } from '../components/ConfirmModal.jsx';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
+import { useActionGuard } from '../hooks/useActionGuard.js';
 
 const TABS = [
   { key: 'core',        label: 'Core' },
@@ -35,7 +36,7 @@ export default function BookForm() {
   const [uploading, setUploading] = useState(false);
   const [coverError, setCoverError] = useState(null);
   const [fetchingCover, setFetchingCover] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const saveGuard = useActionGuard();
   const [error, setError] = useState(null);
   // Setup-load warnings split per fetch so a later success of one doesn't
   // mask an earlier failure of the other. `error` above stays scoped to
@@ -63,7 +64,7 @@ export default function BookForm() {
   const editGuard = useStaleGuard();
   // True while the edit-mode getBook fetch is in flight. Disables submit
   // so a user clicking Save during the gap can't PUT the previous book's
-  // form data to the new id. Distinct from `saving` (which is the actual
+  // form data to the new id. Distinct from saveGuard.busy (the actual
   // save in progress) and `loadError` (set only on failure).
   const [loadingBook, setLoadingBook] = useState(false);
   // Stale-result guard for applyResult. Picking lookup result A, then
@@ -104,14 +105,6 @@ export default function BookForm() {
       tabRefs.current[TABS.length - 1]?.focus();
     }
   }
-  // `saving` (React state) drives the disabled UI but doesn't commit until
-  // the next render — so two synchronous submit calls in the same tick
-  // (Enter-key autorepeat, programmatic dispatch, double-click on Save)
-  // both see saving === false and fire duplicate POSTs on /books/new,
-  // creating two identical book records. Ref mutates synchronously so the
-  // second call sees the first's marker. Mirrors the savingRef pattern in
-  // BookCard / ProgressSection.
-  const savingRef = useRef(false);
   const [durationH, setDurationH] = useState('');
   const [durationM, setDurationM] = useState('');
   // Tracks whether the form has unsaved user edits since mount or last
@@ -225,15 +218,15 @@ export default function BookForm() {
   // out mid-edit silently leaks the file and discards other field edits.
   // Requires the data router defined in main.jsx (useBlocker only works
   // under createBrowserRouter / RouterProvider, not <BrowserRouter>).
-  // Gate on savingRef: handleSubmit does `setDirty(false); navigate(...)`
-  // in the same tick, but state updates are batched — when navigate fires
-  // the blocker callback's closure still sees dirty=true and the discard
-  // prompt would fire on a *successful* save. savingRef is mutated
-  // synchronously at the top of handleSubmit, so it's already true when
-  // the blocker callback evaluates and bypasses cleanly. Cleared on
+  // Gate on saveGuard.isBusy(): handleSubmit does `setDirty(false);
+  // navigate(...)` in the same tick, but state updates are batched —
+  // when navigate fires the blocker callback's closure still sees
+  // dirty=true and the discard prompt would fire on a *successful* save.
+  // begin() mutates the sync ref before the await, so isBusy() reads true
+  // when the blocker callback evaluates and bypasses cleanly. Cleared on
   // failure so a stuck-saving state can't permanently disable the guard.
   const blocker = useBlocker(({ currentLocation, nextLocation }) =>
-    dirty && !savingRef.current && currentLocation.pathname !== nextLocation.pathname
+    dirty && !saveGuard.isBusy() && currentLocation.pathname !== nextLocation.pathname
   );
   useEffect(() => {
     if (blocker.state !== 'blocked') return;
@@ -457,10 +450,9 @@ export default function BookForm() {
     // loadError / loadingBook cases are load-bearing: submitting during the
     // edit-load gap PUTs FORM_DEFAULTS over the real book, which is the
     // data-loss path we already plugged at the button level.
-    if (savingRef.current || saving || uploading || fetchingCover || loadingBook || loadError) return;
+    if (uploading || fetchingCover || loadingBook || loadError) return;
     if (!form.title.trim()) { setActiveTab('core'); return; }
-    savingRef.current = true;
-    setSaving(true);
+    if (!saveGuard.begin()) return;
     setError(null);
     try {
       const payload = formStateToPayload(form, { tagInput, narratorInput, authorInput, translatorInput });
@@ -478,9 +470,8 @@ export default function BookForm() {
       // the user from seeing a blank error banner on a save failure.
       setError(err?.message || 'Failed to save book.');
       // Clear only on failure — on success the component unmounts via
-      // navigate, so leaving the ref latched is moot.
-      savingRef.current = false;
-      setSaving(false);
+      // navigate, so leaving the guard latched is moot.
+      saveGuard.end();
     }
   }
 
@@ -598,10 +589,10 @@ export default function BookForm() {
         <button
           form="book-form"
           type="submit"
-          disabled={saving || uploading || fetchingCover || !!loadError || loadingBook}
+          disabled={saveGuard.busy || uploading || fetchingCover || !!loadError || loadingBook}
           className="ml-auto bg-oak hover:bg-leather motion-safe:active:scale-[0.98] disabled:opacity-40 text-neutral-950 font-semibold px-6 py-2 rounded-md transition-[transform,background-color] ease-out duration-150 text-sm"
         >
-          {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add to library'}
+          {saveGuard.busy ? 'Saving…' : isEdit ? 'Save changes' : 'Add to library'}
         </button>
       </div>
     </div>

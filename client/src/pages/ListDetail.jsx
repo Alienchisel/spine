@@ -21,6 +21,7 @@ import BookCard from '../components/BookCard.jsx';
 import CompletionIndicator from '../components/CompletionIndicator.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useLatest } from '../hooks/useLatest.js';
+import { useActionGuard } from '../hooks/useActionGuard.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 
 const PAGE_SIZE = 48;
@@ -96,7 +97,7 @@ function QuickAdd({ listId, onAdded }) {
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
   const [expanded, setExpanded] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const saveGuard = useActionGuard();
   const [error, setError] = useState(null);
   const titleRef = useRef(null);
   // Track the current listId so a submission whose awaits resolve after the
@@ -107,22 +108,16 @@ function QuickAdd({ listId, onAdded }) {
   // The form-state clears are gated too: they'd otherwise blank out fresh
   // text the user has started typing on List B's quick-add.
   const listIdRef = useLatest(listId);
-  // Synchronous mirror of `saving` — `saving` (state) doesn't commit until
-  // the next render, so two same-tick Enter submits both see saving === false
-  // and fire duplicate createBook + addToList calls. createBook with
-  // is_stub:true has no title-idempotency, so a duplicate lands as a real
-  // second book row plus a second list entry. Mirrors the savingRef in
-  // ReadsSection / BookCard / BookForm.
-  const savingRef = useRef(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
-    // Mirror the button's disabled predicate so an Enter-key submit while a
-    // save is in flight can't race a duplicate createBook + addToList.
-    if (savingRef.current || saving || !title.trim()) return;
+    if (!title.trim()) return;
+    // Mirror the button's disabled predicate so an Enter-key submit while
+    // a save is in flight can't race a duplicate createBook + addToList.
+    // createBook with is_stub:true has no title-idempotency, so a
+    // duplicate lands as a real second book row plus a second list entry.
+    if (!saveGuard.begin()) return;
     const submittedListId = listId;
-    savingRef.current = true;
-    setSaving(true);
     setError(null);
     try {
       const book = await api.createBook({ title: title.trim(), authors: author.trim() ? [author.trim()] : [], is_stub: true });
@@ -143,8 +138,7 @@ function QuickAdd({ listId, onAdded }) {
       if (listIdRef.current !== submittedListId) return;
       setError(err?.message || 'Failed to add book.');
     } finally {
-      savingRef.current = false;
-      setSaving(false);
+      saveGuard.end();
     }
   }
 
@@ -170,7 +164,7 @@ function QuickAdd({ listId, onAdded }) {
       )}
       <button
         type="submit"
-        disabled={saving || !title.trim()}
+        disabled={saveGuard.busy || !title.trim()}
         className="text-sm font-medium bg-oak hover:bg-leather disabled:opacity-40 motion-safe:active:scale-[0.98] text-neutral-950 px-4 py-2 rounded-lg transition-[transform,background-color] ease-out duration-150 whitespace-nowrap"
       >
         Add

@@ -4,13 +4,14 @@ import { api } from '../api.js';
 import { useConfirm } from '../components/ConfirmModal.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
+import { useActionGuard } from '../hooks/useActionGuard.js';
 
 export default function Lists() {
   const [lists, setLists] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [newName, setNewName] = useState('');
-  const [creating, setCreating] = useState(false);
+  const createGuard = useActionGuard();
   const [createError, setCreateError] = useState(null);
   const [deleteError, setDeleteError] = useState(null);
   const inputRef = useRef(null);
@@ -28,11 +29,6 @@ export default function Lists() {
   // list." on a list that did delete. Mirrors the pattern in ReadsSection
   // and Diary.
   const deletingIdsRef = useRef(new Set());
-  // Synchronous mirror of `creating` — state doesn't commit until next
-  // render, so two same-tick Enter submits both see creating === false
-  // and fire duplicate POST /lists, creating two lists with the same
-  // name. Ref mutates synchronously so the second call sees the marker.
-  const creatingRef = useRef(false);
   const refreshTick = useRefreshTick();
 
   useEffect(() => {
@@ -50,13 +46,11 @@ export default function Lists() {
 
   async function handleCreate(e) {
     e.preventDefault();
-    // Mirror the disabled button so an Enter-key submit while a create
-    // is in flight can't race a duplicate POST.
-    if (creatingRef.current || creating) return;
     const name = newName.trim();
     if (!name) return;
-    creatingRef.current = true;
-    setCreating(true);
+    // Mirror the disabled button so an Enter-key submit while a create
+    // is in flight can't race a duplicate POST.
+    if (!createGuard.begin()) return;
     setCreateError(null);
     // createError and deleteError both render in the strip just below the
     // create form, so a stale message from the other handler would sit
@@ -81,8 +75,7 @@ export default function Lists() {
       if (!guard.isFresh(epoch)) return;
       setCreateError(err?.message || 'Failed to create list.');
     } finally {
-      creatingRef.current = false;
-      setCreating(false);
+      createGuard.end();
     }
   }
 
@@ -122,7 +115,7 @@ export default function Lists() {
         />
         <button
           type="submit"
-          disabled={creating || !newName.trim()}
+          disabled={createGuard.busy || !newName.trim()}
           className="text-sm font-medium bg-oak hover:bg-leather disabled:opacity-40 motion-safe:active:scale-[0.98] text-neutral-950 px-4 py-2 rounded-lg transition-[transform,background-color] ease-out duration-150"
         >
           Create
