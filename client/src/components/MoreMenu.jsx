@@ -7,6 +7,7 @@ import { useConfirm } from './ConfirmModal.jsx';
 import StarRating from './StarRating.jsx';
 import { useClickOutside } from '../hooks/useClickOutside.js';
 import { useEscapeKey } from '../hooks/useEscapeKey.js';
+import { dispatchSpineEvent } from '../hooks/useSpineEvent.js';
 
 // Letterboxd-style 'more actions' button for BookCard's hover-tray
 // (the third slot, alongside readlist and loved). Opens a portal-
@@ -149,7 +150,7 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
         await api.addToList(listId, book.id);
         setMemberIds(s => new Set([...s, listId]));
       }
-      window.dispatchEvent(new CustomEvent('spine:book-mutated', { detail: { id: book.id } }));
+      dispatchSpineEvent('spine:book-mutated', { id: book.id });
     } catch {
       setError('Failed to update list');
     } finally {
@@ -174,7 +175,7 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
         tags:        realTagNames(book.tags),
         rating,
       });
-      window.dispatchEvent(new CustomEvent('spine:book-mutated', { detail: { id: book.id } }));
+      dispatchSpineEvent('spine:book-mutated', { id: book.id });
     } catch {
       setLocalRating(prior);
     }
@@ -210,7 +211,7 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
     }
     try {
       await api.updateBook(book.id, payload);
-      window.dispatchEvent(new CustomEvent('spine:book-mutated', { detail: { id: book.id } }));
+      dispatchSpineEvent('spine:book-mutated', { id: book.id });
     } catch {
       // Phase 2 swallows status-mutation errors silently — the menu
       // already closed. Future: surface via a toast or a BookCard
@@ -245,7 +246,7 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
     setOpen(false);
     try {
       await api.patchBook(book.id, { archived: !book.archived });
-      window.dispatchEvent(new CustomEvent('spine:book-mutated', { detail: { id: book.id } }));
+      dispatchSpineEvent('spine:book-mutated', { id: book.id });
     } catch {
       // Phase 4 swallows archive errors silently — menu already closed.
     }
@@ -263,7 +264,7 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
     if (!ok) return;
     try {
       await api.deleteBook(book.id);
-      window.dispatchEvent(new CustomEvent('spine:book-deleted', { detail: { id: book.id } }));
+      dispatchSpineEvent('spine:book-deleted', { id: book.id });
     } catch {
       // Phase 1 swallows delete errors silently — confirm flow already
       // closed the menu. Future: surface via a toast or BookCard error.

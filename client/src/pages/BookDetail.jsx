@@ -16,6 +16,7 @@ import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useLatest } from '../hooks/useLatest.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import { useActionGuard } from '../hooks/useActionGuard.js';
+import { useSpineEvent } from '../hooks/useSpineEvent.js';
 
 const STATUS_LABEL = { reading: 'Reading', finished: 'Finished', unread: 'Unread' };
 const STATUS_COLOR = {
@@ -219,21 +220,17 @@ export default function BookDetail() {
   // without a navigation. Same-id check guards against listening for
   // mutations on other books while this page is mounted (e.g. background
   // tabs sharing the same window).
-  useEffect(() => {
-    function onMutate(e) {
-      if (Number(e.detail?.id) !== Number(id)) return;
-      // Stale-navigation guard: api.getBook is async, and the user may
-      // have moved on to a different book before the response arrives.
-      // Without the check, book A's data could land as `book` state on
-      // book B's page. Mirrors the guards on every other async path
-      // below.
-      api.getBook(id)
-        .then(b => { if (isStillCurrent(id)) setBook(b); })
-        .catch(() => {});
-    }
-    window.addEventListener('spine:book-mutated', onMutate);
-    return () => window.removeEventListener('spine:book-mutated', onMutate);
-  }, [id]);
+  useSpineEvent('spine:book-mutated', (e) => {
+    if (Number(e.detail?.id) !== Number(id)) return;
+    // Stale-navigation guard: api.getBook is async, and the user may
+    // have moved on to a different book before the response arrives.
+    // Without the check, book A's data could land as `book` state on
+    // book B's page. Mirrors the guards on every other async path
+    // below.
+    api.getBook(id)
+      .then(b => { if (isStillCurrent(id)) setBook(b); })
+      .catch(() => {});
+  });
 
   // Both finishError and actionError render inside the action panel, so a
   // stale message from one handler can sit next to a successful action from

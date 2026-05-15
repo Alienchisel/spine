@@ -29,6 +29,7 @@ import { useGridCols, COMFORTABLE_BPS, COMPACT_BPS } from '../hooks/useGridCols.
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useLatest } from '../hooks/useLatest.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
+import { useSpineEvent, dispatchSpineEvent } from '../hooks/useSpineEvent.js';
 
 const TABS = [
   { key: 'reading',     label: 'Reading' },
@@ -302,17 +303,13 @@ export default function Library() {
   // palette's book.delete action) dispatch spine:book-deleted after a
   // successful api.deleteBook. Filtering in place is much cheaper than
   // refetching the whole page, and keeps the user's scroll position.
-  useEffect(() => {
-    function onDeleted(e) {
-      const id = Number(e.detail?.id);
-      if (!id) return;
-      setBooks(prev => prev.filter(b => b.id !== id));
-      setTotal(prev => Math.max(0, prev - 1));
-      loadedRef.current = Math.max(0, loadedRef.current - 1);
-    }
-    window.addEventListener('spine:book-deleted', onDeleted);
-    return () => window.removeEventListener('spine:book-deleted', onDeleted);
-  }, []);
+  useSpineEvent('spine:book-deleted', (e) => {
+    const id = Number(e.detail?.id);
+    if (!id) return;
+    setBooks(prev => prev.filter(b => b.id !== id));
+    setTotal(prev => Math.max(0, prev - 1));
+    loadedRef.current = Math.max(0, loadedRef.current - 1);
+  });
 
   // Refetch-and-replace on mutation: BookCard's MoreMenu (and the
   // command palette's status toggles, list adds, etc.) dispatch
@@ -323,39 +320,24 @@ export default function Library() {
   // Reading tab), the book stays visible until the next full refetch
   // — minor inconsistency we accept in exchange for not nuking scroll
   // position on every mutation.
-  useEffect(() => {
-    function onMutated(e) {
-      const id = Number(e.detail?.id);
-      if (!id) return;
-      api.getBook(id)
-        .then(updated => {
-          setBooks(prev => prev.map(b => b.id === id ? updated : b));
-        })
-        .catch(() => {});
-    }
-    window.addEventListener('spine:book-mutated', onMutated);
-    return () => window.removeEventListener('spine:book-mutated', onMutated);
-  }, []);
+  useSpineEvent('spine:book-mutated', (e) => {
+    const id = Number(e.detail?.id);
+    if (!id) return;
+    api.getBook(id)
+      .then(updated => {
+        setBooks(prev => prev.map(b => b.id === id ? updated : b));
+      })
+      .catch(() => {});
+  });
 
   // Bridge to the command palette: respond to a paging-state request and
-  // listen for invocations of Load more / Load all. Calls go through refs
-  // so the listeners always see the latest handlers + state without
-  // re-attaching every render.
-  useEffect(() => {
-    function onRequest() {
-      window.dispatchEvent(new CustomEvent('spine:library-paging', { detail: pagingStateRef.current }));
-    }
-    function onLoadMore() { loadHandlersRef.current.loadMore?.(); }
-    function onLoadAll()  { loadHandlersRef.current.loadAll?.(); }
-    window.addEventListener('spine:library-paging-request', onRequest);
-    window.addEventListener('spine:library-load-more',      onLoadMore);
-    window.addEventListener('spine:library-load-all',       onLoadAll);
-    return () => {
-      window.removeEventListener('spine:library-paging-request', onRequest);
-      window.removeEventListener('spine:library-load-more',      onLoadMore);
-      window.removeEventListener('spine:library-load-all',       onLoadAll);
-    };
-  }, []);
+  // listen for invocations of Load more / Load all. Refs carry the
+  // latest handlers + state so we don't need to re-subscribe.
+  useSpineEvent('spine:library-paging-request', () => {
+    dispatchSpineEvent('spine:library-paging', pagingStateRef.current);
+  });
+  useSpineEvent('spine:library-load-more', () => loadHandlersRef.current.loadMore?.());
+  useSpineEvent('spine:library-load-all',  () => loadHandlersRef.current.loadAll?.());
 
   // '/' focuses search
   useEffect(() => {
@@ -635,7 +617,7 @@ export default function Library() {
   const loadHandlersRef = useLatest({ loadMore: handleLoadMore, loadAll: handleLoadAll });
   const pagingStateRef  = useLatest({ hasMore, loadingMore, loadingAll, loaded: loadedRef.current, total });
   useEffect(() => {
-    window.dispatchEvent(new CustomEvent('spine:library-paging', { detail: pagingStateRef.current }));
+    dispatchSpineEvent('spine:library-paging', pagingStateRef.current);
   }, [hasMore, loadingMore, loadingAll, total]);
   // Mid-pagination, hide a trailing partial row so the visible grid always
   // ends on a full row of real books. The hidden stragglers re-emerge on the

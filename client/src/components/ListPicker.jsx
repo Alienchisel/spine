@@ -6,6 +6,7 @@ import { useLatest } from '../hooks/useLatest.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import { useClickOutside } from '../hooks/useClickOutside.js';
 import { useEscapeKey } from '../hooks/useEscapeKey.js';
+import { useSpineEvent } from '../hooks/useSpineEvent.js';
 
 function ListsIcon({ className }) {
   return (
@@ -59,25 +60,21 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
   // listener, ListPicker's cached memberIds would keep its check-marks
   // stale until the dropdown was reopened. Always listens (not just
   // when open) so the cache is current on the next open too.
-  useEffect(() => {
-    function onMutate(e) {
-      const evtBookId = Number(e.detail?.id);
-      if (evtBookId !== Number(bookId)) return;
-      api.getBookLists(bookId)
-        .then(ids => {
-          // Drop the response if the user has navigated to a different
-          // book in the meantime — without this, an in-flight refetch
-          // started while bookId was still X could land setMemberIds on
-          // the component now showing Y. Same shape as BookDetail's
-          // isStillCurrent pattern.
-          if (Number(currentBookIdRef.current) !== evtBookId) return;
-          setMemberIds(new Set(ids));
-        })
-        .catch(() => {});
-    }
-    window.addEventListener('spine:book-mutated', onMutate);
-    return () => window.removeEventListener('spine:book-mutated', onMutate);
-  }, [bookId]);
+  useSpineEvent('spine:book-mutated', (e) => {
+    const evtBookId = Number(e.detail?.id);
+    if (evtBookId !== Number(bookId)) return;
+    api.getBookLists(bookId)
+      .then(ids => {
+        // Drop the response if the user has navigated to a different
+        // book in the meantime — without this, an in-flight refetch
+        // started while bookId was still X could land setMemberIds on
+        // the component now showing Y. Same shape as BookDetail's
+        // isStillCurrent pattern.
+        if (Number(currentBookIdRef.current) !== evtBookId) return;
+        setMemberIds(new Set(ids));
+      })
+      .catch(() => {});
+  });
 
   useClickOutside([buttonRef, dropdownRef], () => setOpen(false), open);
   // Escape closes the popover without losing focus on the trigger, which

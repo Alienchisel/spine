@@ -4,6 +4,7 @@ import { api } from '../api.js';
 import { plural, pluralWord } from '../utils.js';
 import { useConfirm } from './ConfirmModal.jsx';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
+import { useSpineEvent, dispatchSpineEvent } from '../hooks/useSpineEvent.js';
 
 // Global command palette, opened with Ctrl/Cmd+K (universal) or
 // Ctrl/Cmd+Shift+P (VS Code muscle memory; Chrome/Edge/Safari only —
@@ -462,32 +463,24 @@ export default function CommandPalette() {
   // deletions performed *through* the palette were pruned — anything
   // deleted elsewhere left a stale `book.${id}` entry that would 404
   // when clicked from Recent.
-  useEffect(() => {
-    function onBookDeleted(e) {
-      const id = e.detail?.id;
-      if (id == null) return;
-      forget(`book.${id}`);
-    }
-    window.addEventListener('spine:book-deleted', onBookDeleted);
-    return () => window.removeEventListener('spine:book-deleted', onBookDeleted);
-  }, [forget]);
+  useSpineEvent('spine:book-deleted', (e) => {
+    const id = e.detail?.id;
+    if (id == null) return;
+    forget(`book.${id}`);
+  });
 
   // Track Library's paging state so we can surface Load more / Load all
   // entries — and only when those buttons would otherwise be visible.
-  useEffect(() => {
-    function onPaging(e) {
-      const d = e.detail || {};
-      setPaging({
-        hasMore:     !!d.hasMore,
-        loadingMore: !!d.loadingMore,
-        loadingAll:  !!d.loadingAll,
-        loaded:      d.loaded ?? 0,
-        total:       d.total  ?? 0,
-      });
-    }
-    window.addEventListener('spine:library-paging', onPaging);
-    return () => window.removeEventListener('spine:library-paging', onPaging);
-  }, []);
+  useSpineEvent('spine:library-paging', (e) => {
+    const d = e.detail || {};
+    setPaging({
+      hasMore:     !!d.hasMore,
+      loadingMore: !!d.loadingMore,
+      loadingAll:  !!d.loadingAll,
+      loaded:      d.loaded ?? 0,
+      total:       d.total  ?? 0,
+    });
+  });
 
   // Request Library's current paging state once at mount. Library's
   // mount-time publish may have fired before our listener was attached
@@ -495,7 +488,7 @@ export default function CommandPalette() {
   // Library state changes propagate via the listener above, so we don't
   // need to re-request on every palette open.
   useEffect(() => {
-    window.dispatchEvent(new CustomEvent('spine:library-paging-request'));
+    dispatchSpineEvent('spine:library-paging-request');
   }, []);
 
   // Autocomplete context derived from cursor + query + cached facets.
@@ -650,14 +643,14 @@ export default function CommandPalette() {
         kind: 'action',
         label: remaining > 0 ? `Load more · ${remaining} remaining` : 'Load more',
         hint: 'Library',
-        perform: () => window.dispatchEvent(new CustomEvent('spine:library-load-more')),
+        perform: () => dispatchSpineEvent('spine:library-load-more'),
       });
       pagingEntries.push({
         id: 'action.load-all',
         kind: 'action',
         label: 'Load all',
         hint: 'Library',
-        perform: () => window.dispatchEvent(new CustomEvent('spine:library-load-all')),
+        perform: () => dispatchSpineEvent('spine:library-load-all'),
       });
     }
 
@@ -690,7 +683,7 @@ export default function CommandPalette() {
     if (!currentBook) return [];
     const id = currentBook.id;
     const title = currentBook.title;
-    const fireMutation = () => window.dispatchEvent(new CustomEvent('spine:book-mutated', { detail: { id } }));
+    const fireMutation = () => dispatchSpineEvent('spine:book-mutated', { id });
 
     return [
       {
@@ -753,7 +746,7 @@ export default function CommandPalette() {
           // this book is gone so they can drop it from their visible
           // lists without a refetch. Same event the BookCard MoreMenu
           // dispatches after its delete.
-          window.dispatchEvent(new CustomEvent('spine:book-deleted', { detail: { id } }));
+          dispatchSpineEvent('spine:book-deleted', { id });
           navigate('/');
         },
       },
@@ -853,7 +846,7 @@ export default function CommandPalette() {
             setSubPromptError(null);
             try {
               await api.addToList(l.id, subPrompt.bookId);
-              window.dispatchEvent(new CustomEvent('spine:book-mutated', { detail: { id: subPrompt.bookId } }));
+              dispatchSpineEvent('spine:book-mutated', { id: subPrompt.bookId });
             } catch (err) {
               // Surface the failure inline so the user knows the add
               // didn't take, then re-throw so pick() skips its close().
