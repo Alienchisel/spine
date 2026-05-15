@@ -174,33 +174,6 @@ function layoutRect(items, x, y, w, h, out) {
   }
 }
 
-function TagCloud({ tags }) {
-  if (!tags || tags.length === 0) return null;
-  const max = Math.max(...tags.map(t => t.count));
-  const min = Math.min(...tags.map(t => t.count));
-  const range = max - min || 1;
-  // Linear scale from 0.8rem (least common in view) to 2rem (most common).
-  // A square-root scale would compress the dominant tags less, but the
-  // linear feel matches what users intuit when reading proportions.
-  const fontSize = (count) => 0.8 + ((count - min) / range) * 1.2;
-  return (
-    <div className="bg-card rounded-lg p-6 flex flex-wrap items-baseline justify-center gap-x-3 gap-y-2">
-      {tags.map(t => (
-        <Link
-          key={t.name}
-          to={`/browse/tag/${encodeURIComponent(t.name)}`}
-          state={FROM_STATS}
-          style={{ fontSize: `${fontSize(t.count)}rem`, lineHeight: 1 }}
-          className="text-neutral-400 hover:text-leather transition-colors"
-          title={`${t.count} ${t.count === 1 ? 'book' : 'books'}`}
-        >
-          {t.name}
-        </Link>
-      ))}
-    </div>
-  );
-}
-
 // Bookish palette for treemap tiles — warm umbers, oxblood, tan, slate.
 // Per-tag color is name-hashed so the same tag keeps the same color across
 // renders and sessions; the visualization becomes recognizable over time.
@@ -653,10 +626,7 @@ export default function Stats() {
 
       {topTags?.length > 0 && (
         <Section title="Tag composition">
-          <div className="space-y-3">
-            <TagCloud tags={topTags} />
-            <TagTreemap tags={topTags} />
-          </div>
+          <TagTreemap tags={topTags} />
         </Section>
       )}
 
