@@ -19,7 +19,7 @@ export default function SearchHelp() {
   }, [open]);
 
   return (
-    <div ref={wrapperRef} className="relative">
+    <div ref={wrapperRef} className={`relative ${open ? 'z-30' : ''}`}>
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
