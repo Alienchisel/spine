@@ -329,9 +329,20 @@ export default function Diary() {
         )}
       </div>
 
+      {/* First-load failure (no data ever loaded) replaces the view; a
+          refresh-tick failure on an already-loaded year surfaces as a
+          dismissible inline banner alongside the existing days. Same
+          shape as ShelfView's error banner. */}
+      {error && days.length > 0 && (
+        <div className="flex items-center justify-between bg-warn/10 border border-warn/30 rounded px-3 py-2 mb-4">
+          <p role="alert" className="text-xs text-warn">{error}</p>
+          <button onClick={() => setError(null)} className="text-xs text-warn/60 hover:text-warn ml-4">×</button>
+        </div>
+      )}
+
       {loading ? (
         <div role="status" className="text-neutral-700 text-sm">Loading…</div>
-      ) : error ? (
+      ) : days.length === 0 && error ? (
         <div role="alert" className="text-red-500 text-sm">{error}</div>
       ) : days.length === 0 ? (
         <div className="text-center py-32">

@@ -362,7 +362,11 @@ export default function Stats() {
     }
   }
 
-  if (error) return <div role="alert" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-warn text-sm">{error}</div>;
+  // Only replace the whole page when there's no data to show. Once stats
+  // are loaded, a subsequent refresh-tick failure surfaces as a dismissible
+  // banner above the existing data rather than wiping it — mirrors
+  // ShelfView's pattern.
+  if (!stats && error) return <div role="alert" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-warn text-sm">{error}</div>;
   if (!stats) return null;
 
   const { totals, formats, fiction, ownedStatus, ratings, acquisitionSources, pagesRead, minutesListened, byYear, byMonth = [], topAuthors, topNarrators, languages, streaks, todayPages, thisYearBooks, thisYearPages, topTags, topSeries, avgPagesPerDay, avgDaysToFinish, inProgressPace = [], decadesPublished = [], records } = stats;
@@ -377,6 +381,12 @@ export default function Stats() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
       <h1 className="font-slab text-2xl text-parchment tracking-wide uppercase">Stats</h1>
 
+      {error && (
+        <div className="flex items-center justify-between bg-warn/10 border border-warn/30 rounded px-3 py-2">
+          <p role="alert" className="text-xs text-warn">{error}</p>
+          <button onClick={() => setError(null)} className="text-xs text-warn/60 hover:text-warn ml-4">×</button>
+        </div>
+      )}
       {actionError && <p role="alert" className="text-xs text-warn">{actionError}</p>}
 
       {inProgressPace.length > 0 && (
