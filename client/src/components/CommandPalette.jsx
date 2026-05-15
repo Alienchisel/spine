@@ -225,17 +225,23 @@ export default function CommandPalette() {
   // lived tab will see stale list names if they're renamed elsewhere,
   // but that's a tolerable cost vs. fetching on every open. Phase 5
   // can revisit if it matters.
+  //
+  // Only mark loaded on success — a transient fetch failure on first
+  // open would otherwise permanently disable the Lists section (and the
+  // add-to-list sub-prompt picker) for the rest of the session, since
+  // the gate at the top of the effect would short-circuit subsequent
+  // opens.
   useEffect(() => {
     if (!open || listsLoaded) return;
     let cancelled = false;
     (async () => {
       try {
         const data = await api.getLists();
-        if (!cancelled) setLists(Array.isArray(data) ? data : []);
+        if (cancelled) return;
+        setLists(Array.isArray(data) ? data : []);
+        setListsLoaded(true);
       } catch {
         if (!cancelled) setLists([]);
-      } finally {
-        if (!cancelled) setListsLoaded(true);
       }
     })();
     return () => { cancelled = true; };
@@ -306,6 +312,21 @@ export default function CommandPalette() {
       return next;
     });
   }, []);
+
+  // Listen for book deletions from any surface (BookCard MoreMenu,
+  // BookDetail, etc.) so the MRU stays in sync. Without this, only
+  // deletions performed *through* the palette were pruned — anything
+  // deleted elsewhere left a stale `book.${id}` entry that would 404
+  // when clicked from Recent.
+  useEffect(() => {
+    function onBookDeleted(e) {
+      const id = e.detail?.id;
+      if (id == null) return;
+      forget(`book.${id}`);
+    }
+    window.addEventListener('spine:book-deleted', onBookDeleted);
+    return () => window.removeEventListener('spine:book-deleted', onBookDeleted);
+  }, [forget]);
 
   // Debounced book search. Empty query → no books (we still show the
   // nav directory; books wait for a real query because they're a
@@ -508,6 +529,16 @@ export default function CommandPalette() {
         if (r.kind === 'action') {
           const live = actionEntries.find(a => a.id === r.id);
           return live || null;
+        }
+        // Nav entries are also rebound from the live registry so path /
+        // label changes (e.g. nav.library swapping `/` → `/?tab=all`)
+        // take effect on stored MRU entries instead of dispatching the
+        // user to a stale URL. Nav entries that have since been removed
+        // drop from Recent. Book and list entries stay self-described —
+        // their target is the resource id, not a code-side definition.
+        if (r.kind === 'nav') {
+          const live = NAV_ENTRIES.find(n => n.id === r.id);
+          return live ? { ...live, kind: 'nav' } : null;
         }
         return r;
       })
