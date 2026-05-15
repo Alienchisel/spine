@@ -47,6 +47,10 @@ export default function ProgressSection({ book, onChange, log }) {
   const [inputM, setInputM] = useState(_initial.inputM);
 
   function changeMode(m) {
+    // Clear any prior save-error so a stale "Failed to save" doesn't
+    // sit next to inputs the user has just re-keyed for a different
+    // mode. Other input-change handlers already clear it on edit.
+    setError(null);
     setMode(m);
     localStorage.setItem(modeKey, m);
     const inputs = syncProgressInputs({ book, isAudiobook, mode: m, pct });

@@ -97,6 +97,13 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
   // create two stories before saving (state) commits.
   const savingRef = useRef(false);
   const deletingIdsRef = useRef(new Set());
+  // Tracks story ids whose cycleStatus PUT is in flight. Without this,
+  // a rapid double-click on a status pill reads stale `s.status` from
+  // the closure both times, computes the same `next`, and fires two
+  // duplicate PUTs that each bump updated_at and pollute Recently
+  // updated. The result is idempotent at the DB level but the noise
+  // shows up in any updated_at-sorted view.
+  const cyclingIdsRef = useRef(new Set());
   const confirm = useConfirm();
 
   function startAdd() {
@@ -179,6 +186,8 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
   // Quick-toggle finished: clicking the status pill cycles unread → reading
   // → finished (and back). Bypasses the edit form for the common case.
   async function cycleStatus(s) {
+    if (cyclingIdsRef.current.has(s.id)) return;
+    cyclingIdsRef.current.add(s.id);
     const next = s.status === 'unread' ? 'reading' : s.status === 'reading' ? 'finished' : 'unread';
     try {
       await api.updateStory(bookId, s.id, {
@@ -189,6 +198,8 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
       onUpdate();
     } catch {
       setError('Failed to update status');
+    } finally {
+      cyclingIdsRef.current.delete(s.id);
     }
   }
 
