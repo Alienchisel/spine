@@ -42,7 +42,14 @@ export default function CoverPicker({
             nbsp placeholder so the label's vertical size stays stable. */}
         <span className="block text-neutral-600 mt-0.5">{coverBusy ? '\u00a0' : 'or paste'}</span>
         <input type="file" accept="image/*" className="hidden" disabled={coverBusy}
-          onChange={(e) => { if (e.target.files[0]) onFileSelected(e.target.files[0]); }} />
+          onChange={(e) => {
+            const file = e.target.files[0];
+            // Reset the input value so re-selecting the same file (e.g.
+            // after a failed upload) fires onChange again. Browsers
+            // dedupe identical selections otherwise.
+            e.target.value = '';
+            if (file) onFileSelected(file);
+          }} />
       </label>
       {coverError && (
         <p role="alert" className="mt-2 text-xs text-warn text-center">{coverError}</p>

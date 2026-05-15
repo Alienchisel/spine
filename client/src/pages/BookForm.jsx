@@ -153,8 +153,22 @@ export default function BookForm() {
       // resolve, and clear loadingBook so the submit button isn't gated
       // forever. Without these, the new-book form could end up populated
       // with X's data, AND the submit button stays disabled latently.
+      // Also wipe form/cover/duration/filledByLookup — React Router 6
+      // reuses the BookForm instance across /books/:id/edit ↔ /books/new
+      // (same element type at the same route depth), so without an
+      // explicit reset here, edit-X data would carry over into the
+      // "Add book" form. The wipes are no-ops on initial /books/new
+      // mounts where the state is already at defaults.
       ++editGenRef.current;
       setLoadingBook(false);
+      setLoadError(null);
+      setForm(FORM_DEFAULTS);
+      setDurationH('');
+      setDurationM('');
+      setCoverPreview(null);
+      setCoverError(null);
+      setFilledByLookup(new Set());
+      setDirty(false);
       return;
     }
     const gen = ++editGenRef.current;
@@ -312,6 +326,13 @@ export default function BookForm() {
     if (coverActionRef.current) return;
     coverActionRef.current = true;
     const gen = ++coverActionGenRef.current;
+    // Mark dirty before the network call so the navigation blocker
+    // fires if the user backs out mid-fetch. Without this, a fetch
+    // started on an otherwise-clean form leaks the cover file to
+    // /uploads/ on completion if navigation happened during the
+    // in-flight window. Same rationale for uploadFile and
+    // fetchAndSetCover below.
+    setDirty(true);
     setCoverError(null);
     setFetchingCover(true);
     try {
@@ -336,6 +357,7 @@ export default function BookForm() {
     if (coverActionRef.current) return;
     coverActionRef.current = true;
     const gen = ++coverActionGenRef.current;
+    setDirty(true);
     setCoverPreview(URL.createObjectURL(file));
     setCoverError(null);
     setUploading(true);
@@ -359,6 +381,7 @@ export default function BookForm() {
       if (coverActionRef.current) return;
       coverActionRef.current = true;
       const gen = ++coverActionGenRef.current;
+      setDirty(true);
       setCoverPreview(url);
       setCoverError(null);
       setUploading(true);
@@ -450,7 +473,9 @@ export default function BookForm() {
         navigate(`/books/${book.id}`, { state: navState });
       }
     } catch (err) {
-      setError(err.message);
+      // Generic fallback if the thrown error has no `.message` — keeps
+      // the user from seeing a blank error banner on a save failure.
+      setError(err?.message || 'Failed to save book.');
       // Clear only on failure — on success the component unmounts via
       // navigate, so leaving the ref latched is moot.
       savingRef.current = false;

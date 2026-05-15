@@ -18,8 +18,13 @@ export default function ChipInput({
 }) {
   const inputId = useId();
   function commit() {
-    const value = inputValue.trim().replace(/,$/, '');
-    if (value && !items.includes(value)) onItemsChange([...items, value]);
+    // Split on commas so pasting "a, b, c" + Enter commits three chips
+    // rather than one. Matches the keyhandler's per-comma commit. Each
+    // part is trimmed individually, empties dropped, and the unique-set
+    // check still skips chips already present.
+    const parts = inputValue.split(',').map(s => s.trim()).filter(Boolean);
+    const additions = parts.filter(p => !items.includes(p));
+    if (additions.length > 0) onItemsChange([...items, ...additions]);
     onInputChange('');
   }
 
