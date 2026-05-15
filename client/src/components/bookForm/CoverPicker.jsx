@@ -20,7 +20,7 @@ export default function CoverPicker({
       <p className={labelClass}>Cover</p>
       <div className={`${format === 'audiobook' ? 'aspect-square' : 'aspect-[2/3]'} bg-neutral-800 rounded overflow-hidden ring-1 ring-white/5 mb-3`}>
         {coverPreview
-          ? <img src={coverPreview} alt="Preview" className="w-full h-full object-cover" />
+          ? <img src={coverPreview} alt="" className="w-full h-full object-cover" />
           : <div className="w-full h-full" />}
       </div>
       <label className={`block text-center text-xs border border-dashed rounded-md px-2 py-2 transition-colors ${
