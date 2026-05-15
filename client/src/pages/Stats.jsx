@@ -196,7 +196,7 @@ function TagTreemap({ tags }) {
   const VS = 400;
   const placed = squarify(tags.map(t => ({ name: t.name, value: t.count, count: t.count })), VS, VS);
   return (
-    <div className="bg-card rounded-lg p-1 max-w-xl mx-auto aspect-square relative overflow-hidden">
+    <div className="bg-card rounded-lg p-1 aspect-square relative overflow-hidden">
       {placed.map(t => (
         <Link
           key={t.name}
@@ -425,51 +425,60 @@ export default function Stats() {
       </Section>
 
       <Section title="Library breakdown">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <DonutChart
-            title="Fiction / Non-fiction"
-            data={[
-              { name: 'Fiction',     value: fiction.fiction    ?? 0, color: '#a97954' },
-              { name: 'Non-fiction', value: fiction.nonfiction ?? 0, color: '#c29b87' },
-              { name: 'Unknown',     value: fiction.unset      ?? 0, color: '#404040' },
-            ].filter(d => d.value > 0)}
-          />
-          <DonutChart
-            title="Format"
-            data={formats.map((f, i) => ({
-              name:  FORMAT_LABEL[f.format] || (f.format ? f.format.charAt(0).toUpperCase() + f.format.slice(1) : 'Unknown'),
-              value: f.count,
-              color: ['#a97954', '#c29b87', '#532c2e', '#404040'][i % 4],
-            }))}
-          />
-          <DonutChart
-            // Slices are over owned-purchased media (custom + Internet
-            // excluded) — same scope as every other donut in this section,
-            // captured once at the section title. The Library "Reading"
-            // tile above is corpus-wide and counts a different population.
-            title="Reading status"
-            data={[
-              { name: 'Finished', value: ownedStatus?.finished ?? 0, color: '#a97954' },
-              { name: 'Reading',  value: ownedStatus?.reading  ?? 0, color: '#c29b87' },
-              { name: 'Unread',   value: ownedStatus?.unread   ?? 0, color: '#404040' },
-            ].filter(d => d.value > 0)}
-          />
-          {acquisitionSources && (
-            // Where does my library come from? Includes Internet-sourced
-            // even though the Owned tab/count excludes them — this chart's
-            // explicit purpose is the purchased-vs-downloaded distinction.
+        {/* Donut row on the left (responsive 2×2 on the breakpoint that the
+            treemap appears alongside), tag treemap on the right. The two
+            sub-views complement each other: donuts cover the four
+            structural taxonomies (fiction / format / status / source),
+            the treemap covers the long-tail tag composition. Stacks on
+            mobile so neither gets squeezed. */}
+        <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-4 items-start">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-3">
             <DonutChart
-              title="Source"
+              title="Fiction / Non-fiction"
               data={[
-                { name: 'Kindle',   value: acquisitionSources.kindle   ?? 0, color: '#a97954' },
-                { name: 'Audible',  value: acquisitionSources.audible  ?? 0, color: '#c29b87' },
-                { name: 'Amazon',   value: acquisitionSources.amazon   ?? 0, color: '#532c2e' },
-                { name: 'Other',    value: acquisitionSources.other    ?? 0, color: '#6a5d4f' },
-                { name: 'Internet', value: acquisitionSources.internet ?? 0, color: '#5a7a8a' },
-                { name: 'Unknown',  value: acquisitionSources.unknown  ?? 0, color: '#404040' },
+                { name: 'Fiction',     value: fiction.fiction    ?? 0, color: '#a97954' },
+                { name: 'Non-fiction', value: fiction.nonfiction ?? 0, color: '#c29b87' },
+                { name: 'Unknown',     value: fiction.unset      ?? 0, color: '#404040' },
               ].filter(d => d.value > 0)}
             />
-          )}
+            <DonutChart
+              title="Format"
+              data={formats.map((f, i) => ({
+                name:  FORMAT_LABEL[f.format] || (f.format ? f.format.charAt(0).toUpperCase() + f.format.slice(1) : 'Unknown'),
+                value: f.count,
+                color: ['#a97954', '#c29b87', '#532c2e', '#404040'][i % 4],
+              }))}
+            />
+            <DonutChart
+              // Slices are over owned-purchased media (custom + Internet
+              // excluded) — same scope as every other donut in this section,
+              // captured once at the section title. The Library "Reading"
+              // tile above is corpus-wide and counts a different population.
+              title="Reading status"
+              data={[
+                { name: 'Finished', value: ownedStatus?.finished ?? 0, color: '#a97954' },
+                { name: 'Reading',  value: ownedStatus?.reading  ?? 0, color: '#c29b87' },
+                { name: 'Unread',   value: ownedStatus?.unread   ?? 0, color: '#404040' },
+              ].filter(d => d.value > 0)}
+            />
+            {acquisitionSources && (
+              // Where does my library come from? Includes Internet-sourced
+              // even though the Owned tab/count excludes them — this chart's
+              // explicit purpose is the purchased-vs-downloaded distinction.
+              <DonutChart
+                title="Source"
+                data={[
+                  { name: 'Kindle',   value: acquisitionSources.kindle   ?? 0, color: '#a97954' },
+                  { name: 'Audible',  value: acquisitionSources.audible  ?? 0, color: '#c29b87' },
+                  { name: 'Amazon',   value: acquisitionSources.amazon   ?? 0, color: '#532c2e' },
+                  { name: 'Other',    value: acquisitionSources.other    ?? 0, color: '#6a5d4f' },
+                  { name: 'Internet', value: acquisitionSources.internet ?? 0, color: '#5a7a8a' },
+                  { name: 'Unknown',  value: acquisitionSources.unknown  ?? 0, color: '#404040' },
+                ].filter(d => d.value > 0)}
+              />
+            )}
+          </div>
+          {topTags?.length > 0 && <TagTreemap tags={topTags} />}
         </div>
       </Section>
 
@@ -624,12 +633,6 @@ export default function Stats() {
         </div>
       </Section>
 
-      {topTags?.length > 0 && (
-        <Section title="Tag composition">
-          <TagTreemap tags={topTags} />
-        </Section>
-      )}
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
         <Section title="Format">
           <div className="space-y-2.5">
@@ -706,16 +709,6 @@ export default function Stats() {
             <div className="space-y-2.5">
               {topSeries.map(s => (
                 <Bar key={s.series} label={s.series} count={s.count} max={topSeries[0].count} color="bg-leather" href={`/browse/series/${encodeURIComponent(s.series)}`} />
-              ))}
-            </div>
-          </Section>
-        )}
-
-        {topTags?.length > 0 && (
-          <Section title="Top tags">
-            <div className="space-y-2.5">
-              {topTags.map(t => (
-                <Bar key={t.name} label={t.name} count={t.count} max={topTags[0].count} color="bg-oak" href={`/browse/tag/${encodeURIComponent(t.name)}`} />
               ))}
             </div>
           </Section>
