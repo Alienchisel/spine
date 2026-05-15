@@ -295,6 +295,11 @@ export default function CommandPalette() {
   // automatically on input change and on sub-prompt entry/exit so it
   // doesn't sit stale after a retry.
   const [subPromptError, setSubPromptError] = useState(null);
+  // Root-level action error — bubble for failures of book.toggle-* /
+  // book.delete etc. Without this, pick()'s catch silently absorbed the
+  // throw and the palette stayed open with no signal that the action
+  // failed. Same clear semantics as subPromptError.
+  const [actionError, setActionError] = useState(null);
 
   // Reset query / results / selection without dismissing the palette
   // — used both by close() and by sub-prompt transitions, where we
@@ -311,6 +316,8 @@ export default function CommandPalette() {
     setOpen(false);
     resetQuery();
     setSubPrompt(null);
+    setActionError(null);
+    setSubPromptError(null);
     const target = returnFocusRef.current;
     returnFocusRef.current = null;
     if (target && typeof target.focus === 'function') {
@@ -588,10 +595,13 @@ export default function CommandPalette() {
     return () => clearTimeout(t);
   }, [query, open]);
 
-  // Clear any stale sub-prompt error when the user keeps typing or
-  // when the sub-prompt itself toggles. Prevents a "failed" message
+  // Clear any stale sub-prompt / action error when the user keeps typing
+  // or when the sub-prompt itself toggles. Prevents a "failed" message
   // from sitting next to an unrelated filter the user has narrowed to.
-  useEffect(() => { setSubPromptError(null); }, [query, subPrompt]);
+  useEffect(() => {
+    setSubPromptError(null);
+    setActionError(null);
+  }, [query, subPrompt]);
 
   // Library actions are URL-driven and only meaningful when the user is
   // on Library — there's no "current tab" to sort or "current filters"
@@ -684,6 +694,16 @@ export default function CommandPalette() {
     const id = currentBook.id;
     const title = currentBook.title;
     const fireMutation = () => dispatchSpineEvent('spine:book-mutated', { id });
+    // Wrap a perform body in try/catch: on failure, surface an inline
+    // error and re-throw so pick()'s catch keeps the palette open
+    // instead of silently closing. Matches the contract in pick()'s
+    // comment ("perform sets the visible error state and re-throws").
+    const guarded = (label, fn) => async () => {
+      try { await fn(); } catch {
+        setActionError(`Failed to ${label}.`);
+        throw new Error('palette-stay');
+      }
+    };
 
     return [
       {
@@ -691,21 +711,30 @@ export default function CommandPalette() {
         kind: 'action',
         label: currentBook.loved ? 'Remove from loved' : 'Mark as loved',
         hint: title,
-        perform: async () => { await api.patchBook(id, { loved: !currentBook.loved }); fireMutation(); },
+        perform: guarded(currentBook.loved ? 'remove from loved' : 'mark as loved', async () => {
+          await api.patchBook(id, { loved: !currentBook.loved });
+          fireMutation();
+        }),
       },
       {
         id: 'book.toggle-readlist',
         kind: 'action',
         label: currentBook.on_readlist ? 'Remove from readlist' : 'Add to readlist',
         hint: title,
-        perform: async () => { await api.patchBook(id, { on_readlist: !currentBook.on_readlist }); fireMutation(); },
+        perform: guarded(currentBook.on_readlist ? 'remove from readlist' : 'add to readlist', async () => {
+          await api.patchBook(id, { on_readlist: !currentBook.on_readlist });
+          fireMutation();
+        }),
       },
       {
         id: 'book.toggle-archive',
         kind: 'action',
         label: currentBook.archived ? 'Restore from archive' : 'Archive book',
         hint: title,
-        perform: async () => { await api.patchBook(id, { archived: !currentBook.archived }); fireMutation(); },
+        perform: guarded(currentBook.archived ? 'restore from archive' : 'archive book', async () => {
+          await api.patchBook(id, { archived: !currentBook.archived });
+          fireMutation();
+        }),
       },
       {
         id: 'book.add-to-list',
@@ -739,15 +768,20 @@ export default function CommandPalette() {
             message: `Delete "${title}"? This is permanent.`,
             confirmLabel: 'Delete',
           });
-          if (!ok) return;
-          await api.deleteBook(id);
-          forget(`book.${id}`);
-          // Tell other live surfaces (Library card grid, etc.) that
-          // this book is gone so they can drop it from their visible
-          // lists without a refetch. Same event the BookCard MoreMenu
-          // dispatches after its delete.
-          dispatchSpineEvent('spine:book-deleted', { id });
-          navigate('/');
+          // User cancelled the confirm — throw so pick()'s catch keeps
+          // the palette open. Without this, "Delete book…" → "No" still
+          // dismissed the palette via pick's fall-through.
+          if (!ok) throw new Error('palette-stay');
+          await guarded('delete book', async () => {
+            await api.deleteBook(id);
+            forget(`book.${id}`);
+            // Tell other live surfaces (Library card grid, etc.) that
+            // this book is gone so they can drop it from their visible
+            // lists without a refetch. Same event the BookCard MoreMenu
+            // dispatches after its delete.
+            dispatchSpineEvent('spine:book-deleted', { id });
+            navigate('/');
+          })();
         },
       },
     ];
@@ -1087,6 +1121,11 @@ export default function CommandPalette() {
         {subPrompt && subPromptError && (
           <p role="alert" className="px-4 py-2 text-xs text-warn border-b border-neutral-800">
             {subPromptError}
+          </p>
+        )}
+        {!subPrompt && actionError && (
+          <p role="alert" className="px-4 py-2 text-xs text-warn border-b border-neutral-800">
+            {actionError}
           </p>
         )}
         {/* Live region announcing autocomplete match counts. role="status"
