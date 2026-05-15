@@ -118,7 +118,7 @@ export default function LookupPanel({ onApply, coverInFlight }) {
         // typed text uses the full width.
         className={`w-full bg-neutral-800 border border-neutral-700 rounded-lg py-2.5 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-oak/60 focus:ring-1 focus:ring-oak/25 transition-colors duration-150 ${searching ? 'pl-4 pr-24' : 'px-4'}`}
       />
-      {searching && <p role="status" className="absolute right-3 top-2.5 text-xs text-neutral-600">Searching…</p>}
+      {searching && <p role="status" className="absolute right-3 top-2.5 text-xs text-neutral-600 pointer-events-none">Searching…</p>}
       {error && results.length === 0 && (
         <p role="alert" className="absolute z-10 w-full mt-1 px-4 py-2 text-xs text-warn bg-neutral-900 border border-neutral-700 rounded-lg">
           {error}
