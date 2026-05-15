@@ -5,6 +5,8 @@ import { api } from '../api.js';
 import { realTagNames } from '../utils.js';
 import { useConfirm } from './ConfirmModal.jsx';
 import StarRating from './StarRating.jsx';
+import { useClickOutside } from '../hooks/useClickOutside.js';
+import { useEscapeKey } from '../hooks/useEscapeKey.js';
 
 // Letterboxd-style 'more actions' button for BookCard's hover-tray
 // (the third slot, alongside readlist and loved). Opens a portal-
@@ -73,37 +75,27 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
   const navigate = useNavigate();
   const confirm = useConfirm();
 
+  useClickOutside([buttonRef, dropdownRef], () => setOpen(false), open);
+  // Inside a sub-prompt, Escape returns to the root menu; from the root
+  // menu, Escape closes the whole popover and returns focus to the
+  // trigger.
+  useEscapeKey(() => {
+    if (subPrompt) setSubPrompt(null);
+    else { setOpen(false); buttonRef.current?.focus(); }
+  }, open);
+
+  // Scroll-close: portaled popover misaligns from its trigger when the
+  // page scrolls. Inner-overflow scroll is excluded so scrolling the
+  // sub-prompt list doesn't close the menu around it. Mirrored in ListPicker.
   useEffect(() => {
     if (!open) return;
-    function onMouseDown(e) {
-      if (buttonRef.current?.contains(e.target)) return;
-      if (dropdownRef.current?.contains(e.target)) return;
-      setOpen(false);
-    }
     function onScroll(e) {
-      // Skip scrolls inside the menu itself — the dropdown has its own
-      // internal overflow scroll for tall sub-prompt lists, and the
-      // window-level capture listener catches those scroll events too.
-      // Without this guard, scrolling the list of lists would close the
-      // menu that's supposed to be scrolling.
       if (dropdownRef.current?.contains(e.target)) return;
       setOpen(false);
     }
-    function onKey(e) { if (e.key === 'Escape') {
-      // Inside a sub-prompt, Escape returns to the root menu; from
-      // the root menu, Escape closes the whole popover.
-      if (subPrompt) setSubPrompt(null);
-      else { setOpen(false); buttonRef.current?.focus(); }
-    }}
-    document.addEventListener('mousedown', onMouseDown);
-    document.addEventListener('keydown', onKey);
     window.addEventListener('scroll', onScroll, true);
-    return () => {
-      document.removeEventListener('mousedown', onMouseDown);
-      document.removeEventListener('keydown', onKey);
-      window.removeEventListener('scroll', onScroll, true);
-    };
-  }, [open, subPrompt]);
+    return () => window.removeEventListener('scroll', onScroll, true);
+  }, [open]);
 
   function handleOpen(e) {
     e.preventDefault();

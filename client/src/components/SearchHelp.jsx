@@ -1,22 +1,13 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
+import { useClickOutside } from '../hooks/useClickOutside.js';
+import { useEscapeKey } from '../hooks/useEscapeKey.js';
 
 export default function SearchHelp() {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef(null);
 
-  useEffect(() => {
-    if (!open) return;
-    function handleClickOutside(e) {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setOpen(false);
-    }
-    function handleEscape(e) { if (e.key === 'Escape') setOpen(false); }
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleEscape);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleEscape);
-    };
-  }, [open]);
+  useClickOutside(wrapperRef, () => setOpen(false), open);
+  useEscapeKey(() => setOpen(false), open);
 
   return (
     <div ref={wrapperRef} className="relative">

@@ -1,4 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
+import { useClickOutside } from '../../hooks/useClickOutside.js';
+import { useEscapeKey } from '../../hooks/useEscapeKey.js';
 
 const CONDITION_GRADES = [
   { grade: 'New',       desc: 'Unread, no defects whatsoever' },
@@ -14,19 +16,8 @@ export default function ConditionGuide() {
   const ref = useRef(null);
   const buttonRef = useRef(null);
 
-  useEffect(() => {
-    if (!open) return;
-    function handleMouseDown(e) {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-    }
-    function handleKey(e) { if (e.key === 'Escape') { setOpen(false); buttonRef.current?.focus(); } }
-    document.addEventListener('mousedown', handleMouseDown);
-    document.addEventListener('keydown', handleKey);
-    return () => {
-      document.removeEventListener('mousedown', handleMouseDown);
-      document.removeEventListener('keydown', handleKey);
-    };
-  }, [open]);
+  useClickOutside(ref, () => setOpen(false), open);
+  useEscapeKey(() => { setOpen(false); buttonRef.current?.focus(); }, open);
 
   return (
     <div ref={ref} className="relative inline-flex">

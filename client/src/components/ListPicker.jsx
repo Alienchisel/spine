@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { useLatest } from '../hooks/useLatest.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
+import { useClickOutside } from '../hooks/useClickOutside.js';
+import { useEscapeKey } from '../hooks/useEscapeKey.js';
 
 function ListsIcon({ className }) {
   return (
@@ -77,33 +79,25 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
     return () => window.removeEventListener('spine:book-mutated', onMutate);
   }, [bookId]);
 
+  useClickOutside([buttonRef, dropdownRef], () => setOpen(false), open);
+  // Escape closes the popover without losing focus on the trigger, which
+  // keeps the keyboard user oriented (Tab continues from where they were
+  // before opening).
+  useEscapeKey(() => { setOpen(false); buttonRef.current?.focus(); }, open);
+
+  // Scroll-close: portaled popover misaligns from its trigger when the
+  // page scrolls, so close it. Inline because it's specific to this
+  // shape and the inner-overflow guard is non-obvious. Mirrored in MoreMenu.
   useEffect(() => {
     if (!open) return;
-    function onMouseDown(e) {
-      if (
-        buttonRef.current && !buttonRef.current.contains(e.target) &&
-        dropdownRef.current && !dropdownRef.current.contains(e.target)
-      ) setOpen(false);
-    }
     function onScroll(e) {
-      // Skip scrolls inside the dropdown — internal overflow scroll for
-      // a tall list shouldn't close the very menu the user is scrolling.
-      // Mirrors MoreMenu's scroll-close guard.
+      // Internal overflow scroll for a tall list shouldn't close the
+      // very menu the user is scrolling.
       if (dropdownRef.current?.contains(e.target)) return;
       setOpen(false);
     }
-    // Escape closes the popover without losing focus on the trigger,
-    // which keeps the keyboard user oriented (Tab continues from where
-    // they were before opening).
-    function onKey(e) { if (e.key === 'Escape') { setOpen(false); buttonRef.current?.focus(); } }
-    document.addEventListener('mousedown', onMouseDown);
-    document.addEventListener('keydown', onKey);
     window.addEventListener('scroll', onScroll, true);
-    return () => {
-      document.removeEventListener('mousedown', onMouseDown);
-      document.removeEventListener('keydown', onKey);
-      window.removeEventListener('scroll', onScroll, true);
-    };
+    return () => window.removeEventListener('scroll', onScroll, true);
   }, [open]);
 
   async function handleOpen(e) {
