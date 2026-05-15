@@ -172,6 +172,12 @@ export default function CommandPalette() {
   // bookId, bookTitle } describing the parameter-picker currently
   // active. Escape returns to root before closing the whole palette.
   const [subPrompt, setSubPrompt] = useState(null);
+  // Mirror of Library's paging state, kept in sync via the
+  // spine:library-paging event Library dispatches on mount, on state
+  // change, and in response to spine:library-paging-request (which the
+  // palette fires on every open). When off Library the values stay
+  // stale, but `isOnLibrary` gates the rendered entries anyway.
+  const [paging, setPaging] = useState({ hasMore: false, loadingMore: false, loadingAll: false, loaded: 0, total: 0 });
   // Inline error surfaced in sub-prompt mode when a pick fails. Cleared
   // automatically on input change and on sub-prompt entry/exit so it
   // doesn't sit stale after a retry.
@@ -328,6 +334,32 @@ export default function CommandPalette() {
     return () => window.removeEventListener('spine:book-deleted', onBookDeleted);
   }, [forget]);
 
+  // Track Library's paging state so we can surface Load more / Load all
+  // entries — and only when those buttons would otherwise be visible.
+  useEffect(() => {
+    function onPaging(e) {
+      const d = e.detail || {};
+      setPaging({
+        hasMore:     !!d.hasMore,
+        loadingMore: !!d.loadingMore,
+        loadingAll:  !!d.loadingAll,
+        loaded:      d.loaded ?? 0,
+        total:       d.total  ?? 0,
+      });
+    }
+    window.addEventListener('spine:library-paging', onPaging);
+    return () => window.removeEventListener('spine:library-paging', onPaging);
+  }, []);
+
+  // Request Library's current paging state whenever the palette opens.
+  // Library's mount-time publish may have fired before our listener
+  // attached (sibling-effect ordering) and state may have changed since
+  // the last published event we did capture.
+  useEffect(() => {
+    if (!open) return;
+    window.dispatchEvent(new CustomEvent('spine:library-paging-request'));
+  }, [open]);
+
   // Debounced book search. Empty query → no books (we still show the
   // nav directory; books wait for a real query because they're a
   // round-trip).
@@ -399,6 +431,29 @@ export default function CommandPalette() {
       setSearchParams(next);
     };
 
+    // Load more / Load all mirror Library's two paging buttons — only
+    // surfaced when those buttons would themselves be visible (hasMore)
+    // and not already in flight. Picking either dispatches an event
+    // Library listens for and runs the existing handler.
+    const pagingEntries = [];
+    if (paging.hasMore && !paging.loadingMore && !paging.loadingAll) {
+      const remaining = Math.max(0, paging.total - paging.loaded);
+      pagingEntries.push({
+        id: 'action.load-more',
+        kind: 'action',
+        label: remaining > 0 ? `Load more · ${remaining} remaining` : 'Load more',
+        hint: 'Library',
+        perform: () => window.dispatchEvent(new CustomEvent('spine:library-load-more')),
+      });
+      pagingEntries.push({
+        id: 'action.load-all',
+        kind: 'action',
+        label: 'Load all',
+        hint: 'Library',
+        perform: () => window.dispatchEvent(new CustomEvent('spine:library-load-all')),
+      });
+    }
+
     return [
       {
         id: 'action.clear',
@@ -407,6 +462,7 @@ export default function CommandPalette() {
         hint: 'Library',
         perform: clearAll,
       },
+      ...pagingEntries,
       ...SORTS.filter(s => sortAllowedForTab(s.key, currentTab)).map(s => ({
         id: `action.sort.${s.key}`,
         kind: 'action',
@@ -415,7 +471,7 @@ export default function CommandPalette() {
         perform: changeSort(s.key),
       })),
     ];
-  }, [isOnLibrary, searchParams, setSearchParams]);
+  }, [isOnLibrary, searchParams, setSearchParams, paging]);
 
   // Book-detail actions — only present when on /books/:id and the book
   // has loaded. Mutating actions hit the PATCH endpoint and then
@@ -587,11 +643,13 @@ export default function CommandPalette() {
         { kind: 'pick', label: `Add "${subPrompt.bookTitle}" to…`, entries: matched },
       ];
     } else if (isEmpty) {
-      // Pre-curated empty state. Library actions are suppressed here —
-      // they'd add 10 similar-looking 'Sort by ...' rows and dominate
-      // the surface. Users discover them by typing or via Recent once
-      // they've used them. Book actions stay visible when on a detail
-      // page since they're the obvious thing to reach for there.
+      // Pre-curated empty state. The full Library action set is suppressed
+      // here — it'd add 10 similar-looking 'Sort by ...' rows and dominate
+      // the surface. Paging entries (Load more / Load all) are the
+      // exception: they're contextual to the current view (only present
+      // when there's more to load), capped at two, and the obvious thing
+      // to reach for on a partially-loaded Library. Book actions stay
+      // visible when on a detail page for the same reason.
       const listEntries = lists.map(l => ({
         id: `list.${l.id}`,
         kind: 'list',
@@ -599,11 +657,13 @@ export default function CommandPalette() {
         hint: l.book_count != null ? `${l.book_count} book${l.book_count === 1 ? '' : 's'}` : null,
         path: `/lists/${l.id}`,
       }));
+      const pagingEmptyEntries = libraryActions.filter(a => a.id === 'action.load-more' || a.id === 'action.load-all');
 
       _sections = [
         { kind: 'continue', label: 'Continue reading', entries: continueEntries },
         { kind: 'recent',   label: 'Recent',           entries: recentEntries },
         { kind: 'action',   label: 'Book actions',     entries: bookActions },
+        { kind: 'library',  label: 'Library',          entries: pagingEmptyEntries },
         { kind: 'nav',      label: 'Navigate',         entries: NAV_ENTRIES.map(e => ({ ...e, kind: 'nav' })) },
         { kind: 'list',     label: 'Lists',            entries: listEntries },
       ];

@@ -272,6 +272,13 @@ export default function Library() {
   // books from another window/process appear without a manual reload.
   const refreshTick = useRefreshTick();
 
+  // Bridge for the command palette's Load more / Load all entries: handler
+  // refs let the global event listeners call the *latest* closures without
+  // re-attaching on every render, and a state ref keeps the response to
+  // 'paging-request' events from going stale.
+  const loadHandlersRef = useRef({ loadMore: null, loadAll: null });
+  const pagingStateRef  = useRef({ hasMore: false, loadingMore: false, loadingAll: false, loaded: 0, total: 0 });
+
   // Local-remove-on-delete: BookCard's MoreMenu (and the command
   // palette's book.delete action) dispatch spine:book-deleted after a
   // successful api.deleteBook. Filtering in place is much cheaper than
@@ -309,6 +316,26 @@ export default function Library() {
     }
     window.addEventListener('spine:book-mutated', onMutated);
     return () => window.removeEventListener('spine:book-mutated', onMutated);
+  }, []);
+
+  // Bridge to the command palette: respond to a paging-state request and
+  // listen for invocations of Load more / Load all. Calls go through refs
+  // so the listeners always see the latest handlers + state without
+  // re-attaching every render.
+  useEffect(() => {
+    function onRequest() {
+      window.dispatchEvent(new CustomEvent('spine:library-paging', { detail: pagingStateRef.current }));
+    }
+    function onLoadMore() { loadHandlersRef.current.loadMore?.(); }
+    function onLoadAll()  { loadHandlersRef.current.loadAll?.(); }
+    window.addEventListener('spine:library-paging-request', onRequest);
+    window.addEventListener('spine:library-load-more',      onLoadMore);
+    window.addEventListener('spine:library-load-all',       onLoadAll);
+    return () => {
+      window.removeEventListener('spine:library-paging-request', onRequest);
+      window.removeEventListener('spine:library-load-more',      onLoadMore);
+      window.removeEventListener('spine:library-load-all',       onLoadAll);
+    };
   }, []);
 
   // '/' focuses search
@@ -574,6 +601,15 @@ export default function Library() {
   }, [searchParams]);
   const gridCols        = useGridCols(density === 'compact' ? COMPACT_BPS : COMFORTABLE_BPS);
   const hasMore         = loadedRef.current < total;
+
+  // Bridge: keep refs in sync with the latest handlers and paging state so
+  // the global listeners attached above invoke the current closures, and
+  // publish state changes for the command palette to mirror.
+  loadHandlersRef.current = { loadMore: handleLoadMore, loadAll: handleLoadAll };
+  pagingStateRef.current  = { hasMore, loadingMore, loadingAll, loaded: loadedRef.current, total };
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('spine:library-paging', { detail: pagingStateRef.current }));
+  }, [hasMore, loadingMore, loadingAll, total]);
   // Mid-pagination, hide a trailing partial row so the visible grid always
   // ends on a full row of real books. The hidden stragglers re-emerge on the
   // next Load more when their row is filled in by fresh books. At end of
