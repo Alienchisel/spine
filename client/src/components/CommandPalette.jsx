@@ -225,6 +225,7 @@ function saveMRU(items) {
 // surface them as Recent items the user can't directly invoke.
 function isPersistableForRecent(entry) {
   if (entry.id.startsWith('pick-')) return false;
+  if (entry.id.startsWith('suggest.')) return false;
   if (entry.kind === 'action' && entry.id.startsWith('book.')) return false;
   return true;
 }
@@ -245,6 +246,11 @@ export default function CommandPalette() {
   // autocomplete affordance.
   const [facets, setFacets] = useState(null);
   const [facetsLoaded, setFacetsLoaded] = useState(false);
+  // Cursor position inside the search input. Re-synced via onChange,
+  // onKeyUp, onClick, onFocus — covers typing, arrow navigation, mouse
+  // clicks, and focus restoration. parseCursorContext consumes this
+  // alongside `query` to decide whether to surface autocomplete.
+  const [cursorPos, setCursorPos] = useState(0);
   const [selected, setSelected] = useState(0);
   const inputRef = useRef(null);
   const listRef = useRef(null);
@@ -736,6 +742,57 @@ export default function CommandPalette() {
   //   2. Empty root: pre-curated discovery (Continue reading, Recent,
   //      Book actions, the static directory).
   //   3. Query root: everything filtered by the input.
+  //   4. Autocomplete: the cursor is sitting inside a qualifier value
+  //      (tag:|, author:foo, etc.) with at least one matching facet —
+  //      a single Suggestions section replaces everything else.
+  //
+  // parseCursorContext returns null when there's nothing to autocomplete,
+  // so the autocomplete branch silently degrades to normal mode whenever
+  // the user moves the cursor elsewhere or the partial matches nothing.
+  const context = useMemo(() => {
+    if (!facets) return null;
+    return parseCursorContext(query, cursorPos);
+  }, [query, cursorPos, facets]);
+
+  const suggestions = useMemo(() => {
+    if (!context) return [];
+    const key    = QUALIFIER_FACET_KEY[context.qualifier];
+    const values = facets?.[key] || [];
+    const partial = context.partial.toLowerCase().trim();
+    if (!partial) return values;
+    return values.filter(v => matchesQuery(v, partial));
+  }, [context, facets]);
+
+  // Insert a picked suggestion back into the query. Handles two shapes:
+  // (a) quoted value the user already opened — the closing quote is
+  // appended if missing, and the cursor lands past it; (b) unquoted —
+  // values containing whitespace or syntax characters are auto-quoted
+  // so the backend tokenizer still parses them as a single value.
+  const applyCompletion = useCallback((value) => {
+    if (!context) return;
+    let replacement;
+    let cursorAfterClosingQuote = false;
+    if (context.quoted) {
+      const hasClosing = query[context.endIdx] === '"';
+      replacement = hasClosing ? value : value + '"';
+      cursorAfterClosingQuote = hasClosing;
+    } else {
+      replacement = /[\s()"]/.test(value) ? `"${value}"` : value;
+    }
+    const newQuery  = query.slice(0, context.startIdx) + replacement + query.slice(context.endIdx);
+    const newCursor = context.startIdx + replacement.length + (cursorAfterClosingQuote ? 1 : 0);
+    setQuery(newQuery);
+    // Restore selection after React commits the new value. Without the
+    // rAF the controlled-input re-render snaps the cursor (sometimes to
+    // the end of the new string) before our setSelectionRange runs.
+    requestAnimationFrame(() => {
+      if (inputRef.current) {
+        inputRef.current.setSelectionRange(newCursor, newCursor);
+        setCursorPos(newCursor);
+      }
+    });
+  }, [context, query]);
+
   const { sections, flat } = useMemo(() => {
     const q = query.trim().toLowerCase();
     const isEmpty = q === '';
@@ -765,6 +822,25 @@ export default function CommandPalette() {
         }));
       _sections = [
         { kind: 'pick', label: `Add "${subPrompt.bookTitle}" to…`, entries: matched },
+      ];
+    } else if (context && suggestions.length > 0) {
+      // Autocomplete mode — single Suggestions section replaces the
+      // normal palette while the cursor is inside a qualifier value
+      // with at least one matching facet. keepOpen on each entry so
+      // picking inserts the value and leaves the palette ready for
+      // further typing instead of closing.
+      _sections = [
+        {
+          kind: 'suggest',
+          label: `${context.qualifier}: matches`,
+          entries: suggestions.map(v => ({
+            id:       `suggest.${context.qualifier}.${v}`,
+            kind:     'suggest',
+            label:    v,
+            keepOpen: true,
+            perform:  () => applyCompletion(v),
+          })),
+        },
       ];
     } else if (isEmpty) {
       // Pre-curated empty state. The full Library action set is suppressed
@@ -829,7 +905,7 @@ export default function CommandPalette() {
 
     _sections = _sections.filter(s => s.entries.length > 0);
     return { sections: _sections, flat: _sections.flatMap(s => s.entries) };
-  }, [query, lists, bookResults, actionEntries, bookActions, continueEntries, recentEntries, subPrompt]);
+  }, [query, lists, bookResults, actionEntries, bookActions, continueEntries, recentEntries, subPrompt, context, suggestions, applyCompletion, libraryActions]);
 
   // Clamp the selected index whenever the result set shrinks (e.g.
   // user typed a more restrictive query). Reset to 0 on each query
@@ -948,7 +1024,10 @@ export default function CommandPalette() {
         <input
           ref={inputRef}
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => { setQuery(e.target.value); setCursorPos(e.target.selectionStart ?? 0); }}
+          onKeyUp={(e) => setCursorPos(e.target.selectionStart ?? 0)}
+          onClick={(e) => setCursorPos(e.target.selectionStart ?? 0)}
+          onFocus={(e) => setCursorPos(e.target.selectionStart ?? 0)}
           onKeyDown={handleKey}
           placeholder={subPrompt ? 'Pick a list…' : 'Search library, lists, or navigate…'}
           aria-label={subPrompt ? 'Pick a list' : 'Command palette search'}
@@ -1007,8 +1086,9 @@ export default function CommandPalette() {
                             )
                           ) : (
                             <div className="w-6 flex-shrink-0 text-neutral-600 text-xs">
-                              {entry.kind === 'nav'    ? '→'
-                                : entry.kind === 'action' ? '⚡'
+                              {entry.kind === 'nav'     ? '→'
+                                : entry.kind === 'action'  ? '⚡'
+                                : entry.kind === 'suggest' ? ':'
                                 : '☰'}
                             </div>
                           )}
