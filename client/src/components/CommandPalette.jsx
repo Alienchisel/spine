@@ -601,6 +601,18 @@ export default function CommandPalette() {
     if (entry.path) navigate(entry.path);
   }
 
+  // Ctrl/Cmd+Enter on a path-based entry opens it in a new browser tab
+  // while keeping the palette open at the user's current query and
+  // selection. Lets the user fan out into multiple tabs from one search
+  // without losing their place. Only path entries support this — action
+  // entries (perform-only) and sub-prompt picks aren't navigation, so
+  // 'open in new tab' isn't meaningful for them.
+  function openInNewTab(entry) {
+    if (!entry || !entry.path) return;
+    remember(entry);
+    window.open(entry.path, '_blank', 'noopener,noreferrer');
+  }
+
   function handleKey(e) {
     if (e.key === 'Escape') {
       e.preventDefault();
@@ -624,7 +636,12 @@ export default function CommandPalette() {
       setSelected(i => Math.max(i - 1, 0));
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      pick(flat[selected]);
+      const entry = flat[selected];
+      if (e.ctrlKey || e.metaKey) {
+        openInNewTab(entry);
+      } else {
+        pick(entry);
+      }
     }
   }
 
@@ -688,7 +705,18 @@ export default function CommandPalette() {
                         <button
                           type="button"
                           data-row-index={idx}
-                          onClick={() => pick(entry)}
+                          onClick={(e) => {
+                            // Ctrl/Cmd+Click mirrors Ctrl+Enter — open
+                            // the entry's target in a new tab while
+                            // leaving the palette open. Only meaningful
+                            // for path-based entries; openInNewTab is a
+                            // no-op for action / perform-only rows.
+                            if ((e.ctrlKey || e.metaKey) && entry.path) {
+                              openInNewTab(entry);
+                            } else {
+                              pick(entry);
+                            }
+                          }}
                           onMouseEnter={() => setSelected(idx)}
                           className={`w-full flex items-center gap-3 px-4 py-2 text-left transition-colors ${
                             isSelected ? 'bg-neutral-800' : 'hover:bg-neutral-800/60'
@@ -726,7 +754,7 @@ export default function CommandPalette() {
           <p role="status" className="px-4 py-3 text-xs text-neutral-600">No matches.</p>
         )}
         <div className="border-t border-neutral-800 px-4 py-2 text-[10px] text-neutral-600 flex items-center justify-between">
-          <span>{subPrompt ? '↑↓ navigate · ↵ select · esc back' : '↑↓ navigate · ↵ open · esc close'}</span>
+          <span>{subPrompt ? '↑↓ navigate · ↵ select · esc back' : '↑↓ navigate · ↵ open · ⌘↵ new tab · esc close'}</span>
           <span>Ctrl+K</span>
         </div>
       </div>
