@@ -78,19 +78,3 @@ export function filtersEqual(a, b) {
   return true;
 }
 
-// Convenience: produce a fresh URLSearchParams reflecting the given
-// view state. Used when fully replacing the URL (e.g. tab switch
-// re-keys sort from per-tab memory).
-export function buildLibraryParams({ tab, sort, query, filters, custom }) {
-  const params = new URLSearchParams();
-  if (tab && tab !== 'reading') params.set('tab', tab);
-  if (sort && sort !== 'updated') params.set('sort', sort);
-  if (query) params.set('q', query);
-  // The `?custom=true|false` deep-link from the Stats Custom tile
-  // round-trips through here so callers can build a fully-formed URL
-  // without losing the custom hint.
-  if (custom === true)  params.set('custom', 'true');
-  if (custom === false) params.set('custom', 'false');
-  writeFiltersToParams(params, filters || EMPTY_FILTERS);
-  return params;
-}
