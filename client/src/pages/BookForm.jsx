@@ -11,6 +11,7 @@ import DetailsFields from '../components/bookForm/DetailsFields.jsx';
 import AcquisitionFields from '../components/bookForm/AcquisitionFields.jsx';
 import PersonalFields from '../components/bookForm/PersonalFields.jsx';
 import { useConfirm } from '../components/ConfirmModal.jsx';
+import { useStaleGuard } from '../hooks/useStaleGuard.js';
 
 const TABS = [
   { key: 'core',        label: 'Core' },
@@ -59,7 +60,7 @@ export default function BookForm() {
   // Stale-response guard for the edit-mode getBook fetch. Quick navigation
   // between two edit pages could otherwise let an older response clobber
   // the form populated for a newer book id.
-  const editGenRef = useRef(0);
+  const editGuard = useStaleGuard();
   // True while the edit-mode getBook fetch is in flight. Disables submit
   // so a user clicking Save during the gap can't PUT the previous book's
   // form data to the new id. Distinct from `saving` (which is the actual
@@ -68,12 +69,12 @@ export default function BookForm() {
   // Stale-result guard for applyResult. Picking lookup result A, then
   // quickly picking B, used to let A's slower description/cover awaits
   // resolve after B's and overwrite B's form fields and cover state.
-  const lookupApplyGenRef = useRef(0);
+  const lookupApplyGuard = useStaleGuard();
   // Stale-result guard for any cover-affecting action — fetchCoverFromIsbn,
   // uploadFile, the paste/drag fetchAndSetCover, AND applyResult's cover
   // branch. Shared across all four so any combo (paste-then-upload,
   // ISBN-then-pick, etc.) drops the slower one's writes and finally.
-  const coverActionGenRef = useRef(0);
+  const coverActionGuard = useStaleGuard();
   // Synchronous in-flight lock shared by every cover-mutating action
   // above. The genRef handles late-resolution races (latest writer wins),
   // but doesn't dedupe in-flight calls — two same-tick clicks on the
@@ -159,7 +160,7 @@ export default function BookForm() {
       // explicit reset here, edit-X data would carry over into the
       // "Add book" form. The wipes are no-ops on initial /books/new
       // mounts where the state is already at defaults.
-      ++editGenRef.current;
+      editGuard.next();
       setLoadingBook(false);
       setLoadError(null);
       setForm(FORM_DEFAULTS);
@@ -171,7 +172,7 @@ export default function BookForm() {
       setDirty(false);
       return;
     }
-    const gen = ++editGenRef.current;
+    const epoch = editGuard.next();
     // Reset all form state tied to the previous id so the form doesn't
     // briefly show A's fields under B's URL during the in-flight gap.
     // Combined with loadingBook → disabled submit, this also closes the
@@ -186,7 +187,7 @@ export default function BookForm() {
     setCoverError(null);
     setFilledByLookup(new Set());
     api.getBook(id).then((book) => {
-      if (gen !== editGenRef.current) return;
+      if (!editGuard.isFresh(epoch)) return;
       setForm(bookToFormState(book));
       if (book.duration_minutes) {
         setDurationH(String(Math.floor(book.duration_minutes / 60)));
@@ -194,8 +195,8 @@ export default function BookForm() {
       }
       if (book.cover_path) setCoverPreview(book.cover_path);
     })
-      .catch(() => { if (gen === editGenRef.current) setLoadError('Failed to load book.'); })
-      .finally(() => { if (gen === editGenRef.current) setLoadingBook(false); });
+      .catch(() => { if (editGuard.isFresh(epoch)) setLoadError('Failed to load book.'); })
+      .finally(() => { if (editGuard.isFresh(epoch)) setLoadingBook(false); });
   }, [id, isEdit]);
 
   function set(field, value) {
@@ -273,9 +274,9 @@ export default function BookForm() {
   }, [coverPreview]);
 
   async function applyResult(result) {
-    const gen = ++lookupApplyGenRef.current;
+    const lookupEpoch = lookupApplyGuard.next();
     const { description } = result.key ? await api.fetchBookDescription(result.key).catch(() => ({ description: null })) : { description: null };
-    if (gen !== lookupApplyGenRef.current) return;
+    if (!lookupApplyGuard.isFresh(lookupEpoch)) return;
     const filled = new Set();
     if (result.title)           filled.add('title');
     if (result.authors?.length) filled.add('authors');
@@ -298,13 +299,13 @@ export default function BookForm() {
     setDirty(true);
     if (result.cover_url && !coverActionRef.current) {
       coverActionRef.current = true;
-      const coverGen = ++coverActionGenRef.current;
+      const coverEpoch = coverActionGuard.next();
       setCoverError(null);
       setCoverPreview(result.cover_url);
       setUploading(true);
       try {
         const { path } = await api.fetchCover(result.cover_url);
-        if (gen !== lookupApplyGenRef.current || coverGen !== coverActionGenRef.current) return;
+        if (!lookupApplyGuard.isFresh(lookupEpoch) || !coverActionGuard.isFresh(coverEpoch)) return;
         setCoverPreview(path);
         set('cover_path', path);
       } catch {
@@ -312,12 +313,12 @@ export default function BookForm() {
         // via toCoverUrl(), so cover_path must stay empty. Clearing the
         // preview too — leaving the external URL up would look like the
         // cover was applied when in fact nothing will persist on save.
-        if (gen !== lookupApplyGenRef.current || coverGen !== coverActionGenRef.current) return;
+        if (!lookupApplyGuard.isFresh(lookupEpoch) || !coverActionGuard.isFresh(coverEpoch)) return;
         setCoverPreview(null);
         setCoverError('Could not save lookup cover. Choose or paste another image.');
       } finally {
         coverActionRef.current = false;
-        if (coverGen === coverActionGenRef.current) setUploading(false);
+        if (coverActionGuard.isFresh(coverEpoch)) setUploading(false);
       }
     }
   }
@@ -325,7 +326,7 @@ export default function BookForm() {
   async function fetchCoverFromIsbn() {
     if (coverActionRef.current) return;
     coverActionRef.current = true;
-    const gen = ++coverActionGenRef.current;
+    const epoch = coverActionGuard.next();
     // Mark dirty before the network call so the navigation blocker
     // fires if the user backs out mid-fetch. Without this, a fetch
     // started on an otherwise-clean form leaks the cover file to
@@ -337,42 +338,42 @@ export default function BookForm() {
     setFetchingCover(true);
     try {
       const updated = await api.fetchBookCover(id);
-      if (gen !== coverActionGenRef.current) return;
+      if (!coverActionGuard.isFresh(epoch)) return;
       setCoverPreview(updated.cover_path);
       set('cover_path', updated.cover_path);
     } catch (e) {
-      if (gen !== coverActionGenRef.current) return;
+      if (!coverActionGuard.isFresh(epoch)) return;
       setCoverError(e.message || 'Failed to fetch cover');
     } finally {
       // Clear the lock unconditionally so a stranded ref can't block
-      // future cover ops if this gen has been superseded.
+      // future cover ops if this epoch has been superseded.
       coverActionRef.current = false;
       // Only clear the spinner if this action is still current — otherwise
       // we'd kill a newer action's in-flight indicator.
-      if (gen === coverActionGenRef.current) setFetchingCover(false);
+      if (coverActionGuard.isFresh(epoch)) setFetchingCover(false);
     }
   }
 
   async function uploadFile(file) {
     if (coverActionRef.current) return;
     coverActionRef.current = true;
-    const gen = ++coverActionGenRef.current;
+    const epoch = coverActionGuard.next();
     setDirty(true);
     setCoverPreview(URL.createObjectURL(file));
     setCoverError(null);
     setUploading(true);
     try {
       const result = await api.uploadCover(file);
-      if (gen !== coverActionGenRef.current) return;
+      if (!coverActionGuard.isFresh(epoch)) return;
       set('cover_path', result.path);
       setCoverPreview(result.path);
     } catch (e) {
-      if (gen !== coverActionGenRef.current) return;
+      if (!coverActionGuard.isFresh(epoch)) return;
       setCoverPreview(null);
       setCoverError(e.message || 'Upload failed');
     } finally {
       coverActionRef.current = false;
-      if (gen === coverActionGenRef.current) setUploading(false);
+      if (coverActionGuard.isFresh(epoch)) setUploading(false);
     }
   }
 
@@ -380,23 +381,23 @@ export default function BookForm() {
     async function fetchAndSetCover(url) {
       if (coverActionRef.current) return;
       coverActionRef.current = true;
-      const gen = ++coverActionGenRef.current;
+      const epoch = coverActionGuard.next();
       setDirty(true);
       setCoverPreview(url);
       setCoverError(null);
       setUploading(true);
       try {
         const result = await api.fetchCover(url);
-        if (gen !== coverActionGenRef.current) return;
+        if (!coverActionGuard.isFresh(epoch)) return;
         set('cover_path', result.path);
         setCoverPreview(result.path);
       } catch (e) {
-        if (gen !== coverActionGenRef.current) return;
+        if (!coverActionGuard.isFresh(epoch)) return;
         setCoverPreview(null);
         setCoverError(e.message || 'Failed to fetch cover');
       } finally {
         coverActionRef.current = false;
-        if (gen === coverActionGenRef.current) setUploading(false);
+        if (coverActionGuard.isFresh(epoch)) setUploading(false);
       }
     }
 

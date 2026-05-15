@@ -14,6 +14,7 @@ import EditionsSection from '../components/bookDetail/EditionsSection.jsx';
 import ReadingLog from '../components/bookDetail/ReadingLog.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useLatest } from '../hooks/useLatest.js';
+import { useStaleGuard } from '../hooks/useStaleGuard.js';
 
 const STATUS_LABEL = { reading: 'Reading', finished: 'Finished', unread: 'Unread' };
 const STATUS_COLOR = {
@@ -126,8 +127,8 @@ export default function BookDetail() {
   // otherwise let an older response from book A clobber the page for the
   // newly-loaded book B. Two independent gens because the second effect
   // re-fires on book?.id, which is downstream of the first effect's setBook.
-  const idGenRef = useRef(0);
-  const bookGenRef = useRef(0);
+  const idGuard   = useStaleGuard();
+  const bookGuard = useStaleGuard();
   // Tracks the id from the previous render of the load effect. Lets us
   // distinguish a real navigation (new id → wipe visible state) from a
   // refresh-tick refetch at the same id (silently swap data, preserving
@@ -138,7 +139,7 @@ export default function BookDetail() {
   // setBook over a faster-resolving later PUT (e.g. user clicks 5 then 3
   // and the 5 response lands last). Local-UI scoped — server-side last-
   // write-wins is unaffected and could still differ in edge cases.
-  const ratingSeqRef = useRef(0);
+  const ratingGuard = useStaleGuard();
   // Tracks the URL's current id every render so callbacks fired by child
   // components (e.g. ProgressSection.onChange after an async save) can
   // tell whether their result still belongs to the page being viewed.
@@ -150,19 +151,19 @@ export default function BookDetail() {
   const refreshTick = useRefreshTick();
 
   function loadReads() {
-    // Capture the current id-generation so a slow response can't clobber
+    // Capture the current id-epoch so a slow response can't clobber
     // the reads list for a book the user has since navigated away from.
     // (handleFinish and ReadsSection.onUpdate also call this; if the user
-    // navigates mid-flight, idGenRef bumps and this response is dropped.)
-    const gen = idGenRef.current;
+    // navigates mid-flight, idGuard bumps and this response is dropped.)
+    const epoch = idGuard.current();
     setReadsError(null);
     api.getBookReads(id)
-      .then(r => { if (gen === idGenRef.current) setReads(r); })
-      .catch(() => { if (gen === idGenRef.current) setReadsError('Failed to load read history.'); });
+      .then(r => { if (idGuard.isFresh(epoch)) setReads(r); })
+      .catch(() => { if (idGuard.isFresh(epoch)) setReadsError('Failed to load read history.'); });
   }
 
   useEffect(() => {
-    const gen = ++idGenRef.current;
+    const epoch = idGuard.next();
     const isIdChange = prevIdRef.current !== id;
     prevIdRef.current = id;
     // Only wipe visible state on a real navigation (id change). On a
@@ -190,7 +191,7 @@ export default function BookDetail() {
 
     api.getBook(id)
       .then(b => {
-        if (gen !== idGenRef.current) return;
+        if (!idGuard.isFresh(epoch)) return;
         setBook(b);
         // Auto-finish from Library's progress quick-edit navigates here
         // with state.justFinished so the rating prompt — which would
@@ -199,17 +200,17 @@ export default function BookDetail() {
         // rating; revisits of the same already-rated book stay quiet.
         if (navState?.justFinished && !b.rating) setRatingPrompt(true);
       })
-      .catch(() => { if (gen === idGenRef.current) setLoadError(true); })
-      .finally(() => { if (gen === idGenRef.current) setLoading(false); });
+      .catch(() => { if (idGuard.isFresh(epoch)) setLoadError(true); })
+      .finally(() => { if (idGuard.isFresh(epoch)) setLoading(false); });
     api.getBookLog(id)
-      .then(l => { if (gen === idGenRef.current) setLog(l); })
-      .catch(() => { if (gen === idGenRef.current) setLogError('Failed to load reading log.'); });
+      .then(l => { if (idGuard.isFresh(epoch)) setLog(l); })
+      .catch(() => { if (idGuard.isFresh(epoch)) setLogError('Failed to load reading log.'); });
     loadReads();
   }, [id, refreshTick]);
 
   useEffect(() => {
     if (!book?.id) return;
-    const gen = ++bookGenRef.current;
+    const epoch = bookGuard.next();
     setLocationError(null);
     // Clear seriesError unconditionally — if the new book has no series,
     // we still need to wipe a stale seriesError from the previous book.
@@ -217,16 +218,16 @@ export default function BookDetail() {
     // navigating from a series-book (failed series load) to a standalone.
     setSeriesError(null);
     api.getShelfLocation(book.id)
-      .then(loc => { if (gen === bookGenRef.current) setLocation(loc); })
+      .then(loc => { if (bookGuard.isFresh(epoch)) setLocation(loc); })
       .catch(() => {
-        if (gen !== bookGenRef.current) return;
+        if (!bookGuard.isFresh(epoch)) return;
         setLocation(null);
         setLocationError('Failed to load shelf location.');
       });
     if (book.series) {
       api.getBooks({ series: book.series, field: 'series', limit: 100 })
-        .then(r => { if (gen === bookGenRef.current) setSeriesSiblings(r.books || []); })
-        .catch(() => { if (gen === bookGenRef.current) setSeriesError('Failed to load series navigation.'); });
+        .then(r => { if (bookGuard.isFresh(epoch)) setSeriesSiblings(r.books || []); })
+        .catch(() => { if (bookGuard.isFresh(epoch)) setSeriesError('Failed to load series navigation.'); });
     }
   }, [book?.id]);
 
@@ -362,18 +363,18 @@ export default function BookDetail() {
     const reqId = book.id;
     setActionError(null);
     setFinishError(null);
-    const seq = ++ratingSeqRef.current;
+    const epoch = ratingGuard.next();
     try {
       const updated = await api.updateBook(reqId, {
         ...book,
         rating,
         tags: realTagNames(book.tags),
       });
-      if (!isStillCurrent(reqId) || seq !== ratingSeqRef.current) return;
+      if (!isStillCurrent(reqId) || !ratingGuard.isFresh(epoch)) return;
       setBook(updated);
       setRatingPrompt(false);
     } catch {
-      if (!isStillCurrent(reqId) || seq !== ratingSeqRef.current) return;
+      if (!isStillCurrent(reqId) || !ratingGuard.isFresh(epoch)) return;
       setActionError('Failed to save rating');
     }
   }

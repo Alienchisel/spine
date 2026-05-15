@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../api.js';
+import { useStaleGuard } from '../../hooks/useStaleGuard.js';
 
 const FORMAT_LABEL = { physical: 'Physical', ebook: 'Digital', audiobook: 'Audiobook' };
 
@@ -72,18 +73,19 @@ export default function EditionsSection({ book, onChange, linkState }) {
   const inputRef = useRef(null);
   // Bumped on every search dispatch — late responses for stale terms are
   // dropped instead of clobbering the visible list with old matches.
-  const searchGenRef = useRef(0);
+  // useStaleGuard's unmount listener also catches the "navigate away
+  // mid-fetch" case the manual cleanup used to handle.
+  const searchGuard = useStaleGuard();
   // Bumped on every link/unlink dispatch so an earlier mutation's onChange
   // (or the second-leg getBook in handleUnlink) can be dropped if a newer
   // mutation has already applied — without this, A's stale `updated`
-  // snapshot can clobber B's already-applied edition list. Mirrors the
-  // seq guard pattern used across Spine's async actions.
-  const mutationSeqRef = useRef(0);
+  // snapshot can clobber B's already-applied edition list.
+  const mutationGuard = useStaleGuard();
   // Visual lockout for the row whose mutation is in flight; lets us
   // disable that button so a fast double-click can't re-fire the same
   // PUT before the first resolves.
   const [mutatingId, setMutatingId] = useState(null);
-  // Synchronous mirror of `mutatingId` keyed per row. The mutationSeqRef
+  // Synchronous mirror of `mutatingId` keyed per row. The mutationGuard
   // protects state cleanup from stale .then() effects, but `mutatingId ===
   // otherId` reads stale state — two same-tick clicks on the same row
   // both pass the guard and fire duplicate linkEdition / unlinkEdition
@@ -94,33 +96,23 @@ export default function EditionsSection({ book, onChange, linkState }) {
     if (picking) setTimeout(() => inputRef.current?.focus(), 0);
   }, [picking]);
 
-  // Unmount cleanup. The debounce-with-cleanup below catches the
-  // window where the 200ms timer hasn't fired yet, but an API call
-  // that has already left the wire still resolves and would setState
-  // on a dead component. Bumping searchGenRef invalidates any
-  // in-flight response so the guards in the .then/.catch/.finally
-  // all hit.
-  useEffect(() => () => {
-    searchGenRef.current++;
-  }, []);
-
   useEffect(() => {
     if (!picking) return;
     const term = query.trim();
     if (!term) { setResults([]); setSearching(false); return; }
-    const gen = ++searchGenRef.current;
+    const epoch = searchGuard.next();
     setSearching(true);
     const debounce = setTimeout(() => {
       api.getBooks({ q: term, limit: 10 })
         .then(({ books }) => {
-          if (gen !== searchGenRef.current) return;
+          if (!searchGuard.isFresh(epoch)) return;
           // Hide the current book and books already in this group — they
           // can't be link targets and would just clutter the result list.
           const hidden = new Set([book.id, ...editions.map(e => e.id)]);
           setResults(books.filter(b => !hidden.has(b.id)));
         })
-        .catch(() => { if (gen === searchGenRef.current) setError('Search failed.'); })
-        .finally(() => { if (gen === searchGenRef.current) setSearching(false); });
+        .catch(() => { if (searchGuard.isFresh(epoch)) setError('Search failed.'); })
+        .finally(() => { if (searchGuard.isFresh(epoch)) setSearching(false); });
     }, 200);
     return () => clearTimeout(debounce);
   }, [query, picking, book.id, editions]);
@@ -130,23 +122,23 @@ export default function EditionsSection({ book, onChange, linkState }) {
     mutatingIdsRef.current.add(otherId);
     setError(null);
     setMutatingId(otherId);
-    const seq = ++mutationSeqRef.current;
+    const epoch = mutationGuard.next();
     try {
       const updated = await api.linkEdition(book.id, otherId);
-      if (seq !== mutationSeqRef.current) return;
+      if (!mutationGuard.isFresh(epoch)) return;
       onChange(updated);
       setPicking(false);
       setQuery('');
       setResults([]);
     } catch {
-      if (seq !== mutationSeqRef.current) return;
+      if (!mutationGuard.isFresh(epoch)) return;
       setError('Failed to link edition.');
     } finally {
       mutatingIdsRef.current.delete(otherId);
       // Only clear the visual lock if THIS mutation is still the latest;
       // otherwise a newer mutation has already overwritten mutatingId for
       // its own row and we'd un-disable the wrong button.
-      if (seq === mutationSeqRef.current) setMutatingId(null);
+      if (mutationGuard.isFresh(epoch)) setMutatingId(null);
     }
   }
 
@@ -155,22 +147,22 @@ export default function EditionsSection({ book, onChange, linkState }) {
     mutatingIdsRef.current.add(otherId);
     setError(null);
     setMutatingId(otherId);
-    const seq = ++mutationSeqRef.current;
+    const epoch = mutationGuard.next();
     try {
       // Unlink the SIBLING, not self — the visible effect (sibling row
       // disappears from this book's list) is what the ✕ click implies.
       // Self stays in the group if other siblings remain.
       await api.unlinkEdition(otherId);
-      if (seq !== mutationSeqRef.current) return;
+      if (!mutationGuard.isFresh(epoch)) return;
       const refreshed = await api.getBook(book.id);
-      if (seq !== mutationSeqRef.current) return;
+      if (!mutationGuard.isFresh(epoch)) return;
       onChange(refreshed);
     } catch {
-      if (seq !== mutationSeqRef.current) return;
+      if (!mutationGuard.isFresh(epoch)) return;
       setError('Failed to unlink edition.');
     } finally {
       mutatingIdsRef.current.delete(otherId);
-      if (seq === mutationSeqRef.current) setMutatingId(null);
+      if (mutationGuard.isFresh(epoch)) setMutatingId(null);
     }
   }
 
