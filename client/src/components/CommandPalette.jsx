@@ -490,11 +490,81 @@ export default function CommandPalette() {
     window.dispatchEvent(new CustomEvent('spine:library-paging-request'));
   }, [open]);
 
+  // Autocomplete context derived from cursor + query + cached facets.
+  // Declared above the book search effect so the effect's deps can
+  // include it and skip wasted backend fetches while the user is
+  // editing a qualifier value.
+  const context = useMemo(() => {
+    if (!facets) return null;
+    return parseCursorContext(query, cursorPos);
+  }, [query, cursorPos, facets]);
+
+  // Cap controls the visible suggestion count. Past ~15 the picker
+  // dominates the surface and stops feeling like an inline aid; the
+  // long tail is reachable by typing more of the value.
+  const SUGGESTION_CAP = 15;
+  const suggestions = useMemo(() => {
+    if (!context) return [];
+    const key     = QUALIFIER_FACET_KEY[context.qualifier];
+    const values  = facets?.[key] || [];
+    const partial = context.partial.toLowerCase().trim();
+    const matched = partial ? values.filter(v => matchesQuery(v, partial)) : values;
+    return matched.slice(0, SUGGESTION_CAP);
+  }, [context, facets]);
+
+  // Insert a picked suggestion back into the query. Handles two shapes:
+  // (a) quoted value the user already opened — the closing quote is
+  // appended if missing, and the cursor lands past it; (b) unquoted —
+  // values containing whitespace or syntax characters are auto-quoted
+  // so the backend tokenizer still parses them as a single value.
+  // A trailing space is inserted unless one already follows, so the
+  // user can immediately type the next term without first deleting an
+  // accidentally-concatenated character.
+  const applyCompletion = useCallback((value) => {
+    if (!context) return;
+    let replacement;
+    let cursorAfterClosingQuote = false;
+    if (context.quoted) {
+      const hasClosing = query[context.endIdx] === '"';
+      replacement = hasClosing ? value : value + '"';
+      cursorAfterClosingQuote = hasClosing;
+    } else {
+      replacement = /[\s()"]/.test(value) ? `"${value}"` : value;
+    }
+    let newQuery   = query.slice(0, context.startIdx) + replacement + query.slice(context.endIdx);
+    let newCursor  = context.startIdx + replacement.length + (cursorAfterClosingQuote ? 1 : 0);
+    const charAfter = newQuery[newCursor];
+    if (charAfter == null || (charAfter !== ' ' && charAfter !== '\t' && charAfter !== '\n')) {
+      newQuery  = newQuery.slice(0, newCursor) + ' ' + newQuery.slice(newCursor);
+      newCursor = newCursor + 1;
+    }
+    setQuery(newQuery);
+    // Restore selection after React commits the new value. Without the
+    // rAF the controlled-input re-render snaps the cursor (sometimes to
+    // the end of the new string) before our setSelectionRange runs.
+    requestAnimationFrame(() => {
+      if (inputRef.current) {
+        inputRef.current.setSelectionRange(newCursor, newCursor);
+        setCursorPos(newCursor);
+      }
+    });
+  }, [context, query]);
+
   // Debounced book search. Empty query → no books (we still show the
   // nav directory; books wait for a real query because they're a
-  // round-trip).
+  // round-trip). Skipped entirely while autocomplete is active —
+  // book results would be hidden behind the Suggestions section
+  // anyway, and the backend FTS hit is wasted bandwidth.
   useEffect(() => {
-    if (!open) return;
+    if (!open || context) {
+      // Clear stale book results from the prior non-autocomplete query
+      // so they don't briefly flash back when autocomplete ends.
+      if (context && (bookResults.length > 0 || bookLoading)) {
+        setBookResults([]);
+        setBookLoading(false);
+      }
+      return;
+    }
     const q = query.trim();
     if (!q) {
       setBookResults([]);
@@ -516,7 +586,7 @@ export default function CommandPalette() {
       }
     }, 200);
     return () => clearTimeout(t);
-  }, [query, open]);
+  }, [query, open, context]);
 
   // Clear any stale sub-prompt error when the user keeps typing or
   // when the sub-prompt itself toggles. Prevents a "failed" message
@@ -743,55 +813,14 @@ export default function CommandPalette() {
   //      Book actions, the static directory).
   //   3. Query root: everything filtered by the input.
   //   4. Autocomplete: the cursor is sitting inside a qualifier value
-  //      (tag:|, author:foo, etc.) with at least one matching facet —
-  //      a single Suggestions section replaces everything else.
+  //      (tag:|, author:foo, etc.). The Suggestions section replaces
+  //      everything else, even when no values match (shows "No matches"
+  //      via the normal empty-state message rather than falling through
+  //      to the regular palette and surprising the user).
   //
-  // parseCursorContext returns null when there's nothing to autocomplete,
-  // so the autocomplete branch silently degrades to normal mode whenever
-  // the user moves the cursor elsewhere or the partial matches nothing.
-  const context = useMemo(() => {
-    if (!facets) return null;
-    return parseCursorContext(query, cursorPos);
-  }, [query, cursorPos, facets]);
-
-  const suggestions = useMemo(() => {
-    if (!context) return [];
-    const key    = QUALIFIER_FACET_KEY[context.qualifier];
-    const values = facets?.[key] || [];
-    const partial = context.partial.toLowerCase().trim();
-    if (!partial) return values;
-    return values.filter(v => matchesQuery(v, partial));
-  }, [context, facets]);
-
-  // Insert a picked suggestion back into the query. Handles two shapes:
-  // (a) quoted value the user already opened — the closing quote is
-  // appended if missing, and the cursor lands past it; (b) unquoted —
-  // values containing whitespace or syntax characters are auto-quoted
-  // so the backend tokenizer still parses them as a single value.
-  const applyCompletion = useCallback((value) => {
-    if (!context) return;
-    let replacement;
-    let cursorAfterClosingQuote = false;
-    if (context.quoted) {
-      const hasClosing = query[context.endIdx] === '"';
-      replacement = hasClosing ? value : value + '"';
-      cursorAfterClosingQuote = hasClosing;
-    } else {
-      replacement = /[\s()"]/.test(value) ? `"${value}"` : value;
-    }
-    const newQuery  = query.slice(0, context.startIdx) + replacement + query.slice(context.endIdx);
-    const newCursor = context.startIdx + replacement.length + (cursorAfterClosingQuote ? 1 : 0);
-    setQuery(newQuery);
-    // Restore selection after React commits the new value. Without the
-    // rAF the controlled-input re-render snaps the cursor (sometimes to
-    // the end of the new string) before our setSelectionRange runs.
-    requestAnimationFrame(() => {
-      if (inputRef.current) {
-        inputRef.current.setSelectionRange(newCursor, newCursor);
-        setCursorPos(newCursor);
-      }
-    });
-  }, [context, query]);
+  // parseCursorContext returns null whenever there's nothing to
+  // autocomplete, so the autocomplete branch silently steps aside as
+  // soon as the user moves the cursor out of a qualifier value.
 
   const { sections, flat } = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -823,12 +852,14 @@ export default function CommandPalette() {
       _sections = [
         { kind: 'pick', label: `Add "${subPrompt.bookTitle}" to…`, entries: matched },
       ];
-    } else if (context && suggestions.length > 0) {
-      // Autocomplete mode — single Suggestions section replaces the
-      // normal palette while the cursor is inside a qualifier value
-      // with at least one matching facet. keepOpen on each entry so
-      // picking inserts the value and leaves the palette ready for
-      // further typing instead of closing.
+    } else if (context) {
+      // Autocomplete mode — Suggestions section replaces the normal
+      // palette while the cursor is inside a qualifier value. Stays
+      // active even when no values match: the section drops out via
+      // the entries.length filter below, and the existing empty-state
+      // "No matches." message surfaces — better than silently falling
+      // back to the regular palette and giving the user no signal that
+      // their qualifier matched nothing.
       _sections = [
         {
           kind: 'suggest',
@@ -1039,6 +1070,17 @@ export default function CommandPalette() {
             {subPromptError}
           </p>
         )}
+        {/* Live region announcing autocomplete match counts. role="status"
+            implies aria-live="polite" so screen readers wait for a natural
+            pause before reading. Empty when not autocompleting, so it
+            stays silent during normal palette use. */}
+        <p role="status" className="sr-only">
+          {context
+            ? (suggestions.length > 0
+                ? `${suggestions.length} ${context.qualifier} ${suggestions.length === 1 ? 'suggestion' : 'suggestions'}`
+                : `No ${context.qualifier} matches`)
+            : ''}
+        </p>
         {bookLoading && bookResults.length === 0 && query.trim() && (
           <p role="status" className="px-4 py-3 text-xs text-neutral-600">Searching…</p>
         )}
