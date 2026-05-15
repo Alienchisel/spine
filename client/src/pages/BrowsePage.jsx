@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
 import BookCard from '../components/BookCard.jsx';
+import ErrorBanner from '../components/ErrorBanner.jsx';
 import { useGridCols, BROWSE_BPS } from '../hooks/useGridCols.js';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 
@@ -179,11 +180,12 @@ export default function BrowsePage() {
           books. The books-fetch effect's same-target branch already
           skips setBooks([]), so books survive a failed refetch — the
           render just has to acknowledge them. */}
-      {fetchError && books.length > 0 && (
-        <div className="flex items-center justify-between bg-warn/10 border border-warn/30 rounded px-3 py-2 mb-4">
-          <p role="alert" className="text-xs text-warn">Failed to refresh. Showing the last loaded results.</p>
-          <button onClick={() => setFetchError(false)} className="text-xs text-warn/60 hover:text-warn ml-4">×</button>
-        </div>
+      {books.length > 0 && (
+        <ErrorBanner
+          message={fetchError ? 'Failed to refresh. Showing the last loaded results.' : null}
+          onDismiss={() => setFetchError(false)}
+          className="mb-4"
+        />
       )}
 
       {loading ? (

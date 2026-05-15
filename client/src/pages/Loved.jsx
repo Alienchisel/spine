@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import BookCard from '../components/BookCard.jsx';
+import ErrorBanner from '../components/ErrorBanner.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 
 const FROM_LOVED = { from: 'Loved', fromPath: '/loved' };
@@ -39,11 +40,8 @@ export default function Loved() {
       {/* First-load failure (no data) replaces the view; refresh-tick
           failure on an already-loaded page surfaces as a dismissible
           banner above the existing books. Mirrors Stats / Diary. */}
-      {error && books.length > 0 && (
-        <div className="flex items-center justify-between bg-warn/10 border border-warn/30 rounded px-3 py-2 mb-4">
-          <p role="alert" className="text-xs text-warn">{error}</p>
-          <button onClick={() => setError(null)} className="text-xs text-warn/60 hover:text-warn ml-4">×</button>
-        </div>
+      {books.length > 0 && (
+        <ErrorBanner message={error} onDismiss={() => setError(null)} className="mb-4" />
       )}
 
       {loading ? (

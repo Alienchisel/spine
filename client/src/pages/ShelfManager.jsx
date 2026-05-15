@@ -10,6 +10,7 @@ import { api } from '../api.js';
 import SortableBuilding from '../components/shelfManager/BuildingSection.jsx';
 import { PROXIMITY_LABEL, PROXIMITY_OPTIONS } from '../components/shelfManager/proximity.js';
 import { useConfirm } from '../components/ConfirmModal.jsx';
+import ErrorBanner from '../components/ErrorBanner.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 
 export default function ShelfManager() {
@@ -330,12 +331,7 @@ export default function ShelfManager() {
       </Link>
       <h1 className="font-slab text-2xl text-parchment tracking-wide uppercase mb-8">Shelves</h1>
 
-      {error && (
-        <div className="mb-4 flex items-center justify-between bg-warn/10 border border-warn/30 rounded px-3 py-2">
-          <p role="alert" className="text-xs text-warn">{error}</p>
-          <button onClick={() => setError(null)} className="text-xs text-warn/60 hover:text-warn ml-4">×</button>
-        </div>
-      )}
+      <ErrorBanner message={error} onDismiss={() => setError(null)} className="mb-4" />
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleBuildingDragEnd}>
       <SortableContext items={tree.map(b => b.id)} strategy={verticalListSortingStrategy}>

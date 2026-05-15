@@ -4,6 +4,7 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { api } from '../api.js';
 import { fmtShortDate, fmtShortMonth, fmtIsoWeekMonday, formatYear } from '../utils.js';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
+import ErrorBanner from '../components/ErrorBanner.jsx';
 
 function DonutChart({ title, data }) {
   const total = data.reduce((s, d) => s + d.value, 0);
@@ -381,12 +382,7 @@ export default function Stats() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
       <h1 className="font-slab text-2xl text-parchment tracking-wide uppercase">Stats</h1>
 
-      {error && (
-        <div className="flex items-center justify-between bg-warn/10 border border-warn/30 rounded px-3 py-2">
-          <p role="alert" className="text-xs text-warn">{error}</p>
-          <button onClick={() => setError(null)} className="text-xs text-warn/60 hover:text-warn ml-4">×</button>
-        </div>
-      )}
+      <ErrorBanner message={error} onDismiss={() => setError(null)} />
       {actionError && <p role="alert" className="text-xs text-warn">{actionError}</p>}
 
       {inProgressPace.length > 0 && (

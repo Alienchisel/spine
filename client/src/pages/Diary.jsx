@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { formatAuthors, fmtShortDate } from '../utils.js';
 import { useConfirm } from '../components/ConfirmModal.jsx';
+import ErrorBanner from '../components/ErrorBanner.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 
 const FROM_DIARY = { from: 'Diary', fromPath: '/diary' };
@@ -333,11 +334,8 @@ export default function Diary() {
           refresh-tick failure on an already-loaded year surfaces as a
           dismissible inline banner alongside the existing days. Same
           shape as ShelfView's error banner. */}
-      {error && days.length > 0 && (
-        <div className="flex items-center justify-between bg-warn/10 border border-warn/30 rounded px-3 py-2 mb-4">
-          <p role="alert" className="text-xs text-warn">{error}</p>
-          <button onClick={() => setError(null)} className="text-xs text-warn/60 hover:text-warn ml-4">×</button>
-        </div>
+      {days.length > 0 && (
+        <ErrorBanner message={error} onDismiss={() => setError(null)} className="mb-4" />
       )}
 
       {loading ? (

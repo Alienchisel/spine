@@ -18,6 +18,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { api } from '../api.js';
 import BookCard from '../components/BookCard.jsx';
+import ErrorBanner from '../components/ErrorBanner.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 
 function SortableShelfCover({ book, linkState }) {
@@ -408,12 +409,7 @@ export default function ShelfView() {
 
   return (
     <div>
-      {error && (
-        <div className="mb-4 flex items-center justify-between bg-warn/10 border border-warn/30 rounded px-3 py-2">
-          <p role="alert" className="text-xs text-warn">{error}</p>
-          <button onClick={() => setError(null)} className="text-xs text-warn/60 hover:text-warn ml-4">×</button>
-        </div>
-      )}
+      <ErrorBanner message={error} onDismiss={() => setError(null)} className="mb-4" />
       <div className="flex items-center justify-between mb-6">
         <nav className="flex items-center gap-1.5 text-sm text-neutral-500">
           {crumbs.map((c, i) => (
