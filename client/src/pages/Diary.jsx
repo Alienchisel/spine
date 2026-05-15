@@ -5,6 +5,7 @@ import { formatAuthors, fmtShortDate } from '../utils.js';
 import { useConfirm } from '../components/ConfirmModal.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
+import { useStaleGuard } from '../hooks/useStaleGuard.js';
 
 const FROM_DIARY = { from: 'Diary', fromPath: '/diary' };
 
@@ -250,7 +251,7 @@ export default function Diary() {
   // Stale-response guard for getDiary on year change. Quick clicking
   // through years could otherwise let an older year's response clobber
   // the displayed days/years/stats for a newly-selected year.
-  const yearGenRef = useRef(0);
+  const guard = useStaleGuard();
   // Tracks diary entry ids whose delete is in flight. The confirm modal
   // cancels overlapping confirms, but a re-click *after* confirming —
   // while the API call is pending and setDays hasn't yet removed the row
@@ -268,7 +269,7 @@ export default function Diary() {
   const lastYearRef = useRef(null);
 
   useEffect(() => {
-    const gen = ++yearGenRef.current;
+    const epoch = guard.next();
     const isSameYear = year === lastYearRef.current;
     lastYearRef.current = year;
     // Real year change: wipe to a loading state so stale days don't
@@ -281,13 +282,13 @@ export default function Diary() {
     setDeleteError(null);
     api.getDiary(year)
       .then(({ days: d, years: ys, stats: s }) => {
-        if (gen !== yearGenRef.current) return;
+        if (!guard.isFresh(epoch)) return;
         setDays(d);
         setYears(ys);
         setStats(s);
       })
-      .catch(() => { if (gen === yearGenRef.current) setError('Failed to load diary.'); })
-      .finally(() => { if (gen === yearGenRef.current) setLoading(false); });
+      .catch(() => { if (guard.isFresh(epoch)) setError('Failed to load diary.'); })
+      .finally(() => { if (guard.isFresh(epoch)) setLoading(false); });
   }, [year, refreshTick]);
 
   async function handleDelete(entryId, title) {

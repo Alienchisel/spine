@@ -12,6 +12,7 @@ import { PROXIMITY_LABEL, PROXIMITY_OPTIONS } from '../components/shelfManager/p
 import { useConfirm } from '../components/ConfirmModal.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
+import { useStaleGuard } from '../hooks/useStaleGuard.js';
 
 export default function ShelfManager() {
   const [tree, setTree] = useState([]);
@@ -26,7 +27,7 @@ export default function ShelfManager() {
   // overwrite a later reload's already-applied tree (e.g. "the room I just
   // added vanished"). Each reload captures its gen and drops setTree if a
   // newer reload has bumped the ref.
-  const treeGenRef = useRef(0);
+  const guard = useStaleGuard();
   // Per-namespace reorder seq counters. Each drag's .catch checks "is my
   // seq still the latest?" — if not, the drag has been superseded and
   // the catch returns silently. Was previously a single shared counter,
@@ -90,14 +91,14 @@ export default function ShelfManager() {
   }
 
   async function reload() {
-    const gen = ++treeGenRef.current;
+    const epoch = guard.next();
     try {
       const t = await api.getShelfTree();
-      if (gen !== treeGenRef.current) return;
+      if (!guard.isFresh(epoch)) return;
       setTree(t);
       setError(null);
     } catch {
-      if (gen !== treeGenRef.current) return;
+      if (!guard.isFresh(epoch)) return;
       setError('Failed to load shelves.');
     }
   }

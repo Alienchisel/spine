@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { useConfirm } from '../components/ConfirmModal.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
+import { useStaleGuard } from '../hooks/useStaleGuard.js';
 
 export default function Lists() {
   const [lists, setLists] = useState([]);
@@ -19,7 +20,7 @@ export default function Lists() {
   // can detect the change and skip the optimistic append — without this,
   // the success-path setLists would graft `created` onto a fresh list that
   // already contains it, producing a duplicate row until the next reload.
-  const genRef = useRef(0);
+  const guard = useStaleGuard();
   // Tracks list ids whose delete is in flight. The confirm modal cancels
   // overlapping confirms, but a re-click *after* confirming — while the
   // API call is pending and setLists hasn't yet filtered the row out —
@@ -35,21 +36,16 @@ export default function Lists() {
   const refreshTick = useRefreshTick();
 
   useEffect(() => {
-    genRef.current += 1;
+    const epoch = guard.next();
     // Drop any lingering create/delete banner at the start of a fresh
     // load so a refresh-tick reload doesn't leave a stale "Failed to …"
     // sitting in the strip below the create form.
     setCreateError(null);
     setDeleteError(null);
-    // Stale flag drops the response if the user navigates away before
-    // getLists resolves — setLists / setError / setLoading otherwise fire
-    // on an unmounted component.
-    let stale = false;
     api.getLists()
-      .then(ls => { if (!stale) { setLists(ls); setError(null); } })
-      .catch(() => { if (!stale) setError('Failed to load lists.'); })
-      .finally(() => { if (!stale) setLoading(false); });
-    return () => { stale = true; };
+      .then(ls => { if (guard.isFresh(epoch)) { setLists(ls); setError(null); } })
+      .catch(() => { if (guard.isFresh(epoch)) setError('Failed to load lists.'); })
+      .finally(() => { if (guard.isFresh(epoch)) setLoading(false); });
   }, [refreshTick]);
 
   async function handleCreate(e) {
@@ -67,13 +63,13 @@ export default function Lists() {
     // visible alongside a successful action. Clear both on entry from each
     // handler so the visible state always matches the most recent action.
     setDeleteError(null);
-    const gen = genRef.current;
+    const epoch = guard.current();
     try {
       const created = await api.createList(name);
       // If a refresh-tick reload landed mid-flight, it already includes
       // `created` — appending again would duplicate the row. The reload
       // is the authoritative source so just trust it and skip the append.
-      if (gen !== genRef.current) {
+      if (!guard.isFresh(epoch)) {
         setNewName('');
         inputRef.current?.focus();
         return;
@@ -82,7 +78,7 @@ export default function Lists() {
       setNewName('');
       inputRef.current?.focus();
     } catch (err) {
-      if (gen !== genRef.current) return;
+      if (!guard.isFresh(epoch)) return;
       setCreateError(err?.message || 'Failed to create list.');
     } finally {
       creatingRef.current = false;

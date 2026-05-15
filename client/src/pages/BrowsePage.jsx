@@ -5,6 +5,7 @@ import BookCard from '../components/BookCard.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 import { useGridCols, BROWSE_BPS } from '../hooks/useGridCols.js';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
+import { useStaleGuard } from '../hooks/useStaleGuard.js';
 
 const FIELD_LABEL = {
   author: 'Author', translator: 'Translator', publisher: 'Publisher',
@@ -58,7 +59,7 @@ export default function BrowsePage() {
   // Pagination failure: leaves loaded books visible, shows near Load more.
   const [actionError, setActionError] = useState(null);
   const loadedRef = useRef(0);
-  const genRef    = useRef(0);
+  const guard     = useStaleGuard();
   // Synchronous mirror of the loadingMore/loadingAll *pair*. State setters
   // don't commit until next render — so two same-tick clicks (or Load
   // more + Load all together) all pass the `loadingMore || loadingAll`
@@ -77,9 +78,9 @@ export default function BrowsePage() {
   useEffect(() => {
     // Capture this navigation's generation. If the user navigates to a
     // different field/value before the fetch resolves, a later useEffect
-    // run will increment genRef again and these guards will short-circuit
+    // run will bump the guard's epoch and these guards will short-circuit
     // the stale response so it can't overwrite the new browse target.
-    const gen = ++genRef.current;
+    const epoch = guard.next();
     const target = `${field}|${decoded}`;
     const isSameTarget = target === lastTargetRef.current;
     lastTargetRef.current = target;
@@ -91,7 +92,7 @@ export default function BrowsePage() {
     // Reset pagination flags + action banner: a refresh-tick / nav between
     // browse targets that fires while loadMore/loadAll is in flight would
     // otherwise strand the flags at true (their finally clauses are gated
-    // on gen match) and leave the previous failure banner sitting above
+    // on epoch match) and leave the previous failure banner sitting above
     // the new browse view.
     setLoadingMore(false);
     setLoadingAll(false);
@@ -99,51 +100,51 @@ export default function BrowsePage() {
     loadedRef.current = 0;
     api.getBooks({ field, value: decoded, sort: browseSort(field), limit: PAGE_SIZE, offset: 0 })
       .then(({ books: b, total: t }) => {
-        if (gen !== genRef.current) return;
+        if (!guard.isFresh(epoch)) return;
         setBooks(b);
         setTotal(t);
         loadedRef.current = b.length;
       })
-      .catch(() => { if (gen === genRef.current) setFetchError(true); })
-      .finally(() => { if (gen === genRef.current) setLoading(false); });
+      .catch(() => { if (guard.isFresh(epoch)) setFetchError(true); })
+      .finally(() => { if (guard.isFresh(epoch)) setLoading(false); });
   }, [field, decoded, refreshTick]);
 
   function handleLoadMore() {
     if (pagingRef.current || loadingMore || loadingAll) return;
-    const gen = genRef.current;
+    const epoch = guard.current();
     pagingRef.current = true;
     setLoadingMore(true);
     setActionError(null);
     api.getBooks({ field, value: decoded, sort: browseSort(field), limit: PAGE_SIZE, offset: loadedRef.current })
       .then(({ books: b, total: t }) => {
-        if (gen !== genRef.current) return;
+        if (!guard.isFresh(epoch)) return;
         setBooks(prev => [...prev, ...b]);
         setTotal(t);
         loadedRef.current += b.length;
       })
       .catch(() => {
-        if (gen === genRef.current) setActionError('Failed to load more books.');
+        if (guard.isFresh(epoch)) setActionError('Failed to load more books.');
       })
       .finally(() => {
         // Clear unconditionally — a nav between browse targets bumps gen
         // and resets loadingMore via setState; a stranded ref would
         // block all future paging on the new view.
         pagingRef.current = false;
-        if (gen === genRef.current) setLoadingMore(false);
+        if (guard.isFresh(epoch)) setLoadingMore(false);
       });
   }
 
   async function handleLoadAll() {
     if (pagingRef.current || loadingMore || loadingAll) return;
-    const gen = genRef.current;
+    const epoch = guard.current();
     pagingRef.current = true;
     setLoadingAll(true);
     setActionError(null);
     try {
       let serverTotal = total;
-      while (gen === genRef.current && loadedRef.current < serverTotal) {
+      while (guard.isFresh(epoch) && loadedRef.current < serverTotal) {
         const { books: b, total: t } = await api.getBooks({ field, value: decoded, sort: browseSort(field), limit: PAGE_SIZE, offset: loadedRef.current });
-        if (gen !== genRef.current) break;
+        if (!guard.isFresh(epoch)) break;
         setBooks(prev => [...prev, ...b]);
         setTotal(t);
         loadedRef.current += b.length;
@@ -151,10 +152,10 @@ export default function BrowsePage() {
         if (b.length === 0) break;
       }
     } catch {
-      if (gen === genRef.current) setActionError('Failed to load more books.');
+      if (guard.isFresh(epoch)) setActionError('Failed to load more books.');
     } finally {
       pagingRef.current = false;
-      if (gen === genRef.current) setLoadingAll(false);
+      if (guard.isFresh(epoch)) setLoadingAll(false);
     }
   }
 

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { useLatest } from '../hooks/useLatest.js';
+import { useStaleGuard } from '../hooks/useStaleGuard.js';
 
 function ListsIcon({ className }) {
   return (
@@ -26,7 +27,7 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
   // before the first Promise.all resolves; the first response then writes
   // lists/memberIds for a now-stale open. Each handleOpen bumps the ref
   // and captures its gen; earlier in-flight calls drop their state writes.
-  const openGenRef = useRef(0);
+  const openGuard = useStaleGuard();
   // `busy` (React state) drives the disabled UI but doesn't commit until
   // the next render — so two synchronous handleToggle calls in the same
   // tick (mobile touch+click pair, programmatic dispatch, repeated event
@@ -123,7 +124,7 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
     setOpen(true);
     setLoading(true);
     setError(null);
-    const gen = ++openGenRef.current;
+    const epoch = openGuard.next();
     // Promise.allSettled splits the two failure modes: getLists is
     // load-bearing (no lists = nothing to pick from), getBookLists is
     // supplementary (just the check-mark state). With Promise.all, a
@@ -134,7 +135,7 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
     const [listsR, idsR] = await Promise.allSettled([api.getLists(), api.getBookLists(bookId)]);
     // Spinner only flips off for the LATEST open; a stale response that
     // arrives while a newer open is still in flight must leave it on.
-    if (gen !== openGenRef.current) return;
+    if (!openGuard.isFresh(epoch)) return;
     if (listsR.status === 'fulfilled') {
       setLists(listsR.value);
     } else {

@@ -20,6 +20,7 @@ import { api } from '../api.js';
 import BookCard from '../components/BookCard.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
+import { useStaleGuard } from '../hooks/useStaleGuard.js';
 
 function SortableShelfCover({ book, linkState }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: book.id });
@@ -179,7 +180,7 @@ export default function ShelfView() {
   // Stale-response guard for the location-books fetch. Bumped on every
   // location change AND on returns to the root view so an in-flight
   // request from a prior location can't setBooks after navigation.
-  const booksGenRef = useRef(0);
+  const booksGuard = useStaleGuard();
   // Snapshot of the previous location so the books-fetch effect can
   // tell a navigation (clear stale books) apart from a refresh-tick
   // refetch at the same location (keep books visible so the user's
@@ -283,10 +284,10 @@ export default function ShelfView() {
   }, [treeLoaded, tree, buildingId, roomId, unitId, shelfId, params, setParams]);
 
   useEffect(() => {
-    // Bump the gen unconditionally — also on the root-view branch — so any
-    // previous location's in-flight fetch is dropped when its response
-    // arrives.
-    const gen = ++booksGenRef.current;
+    // Bump the epoch unconditionally — also on the root-view branch —
+    // so any previous location's in-flight fetch is dropped when its
+    // response arrives.
+    const epoch = booksGuard.next();
     // Same-location refetches (refreshTick fires on alt-tab) skip the
     // setBooks([]) intermediate. With it, the scrollable container
     // briefly has no content, the browser clamps scrollLeft to 0, and
@@ -336,9 +337,9 @@ export default function ShelfView() {
       : roomId              ? api.getRoomBooks(roomId)
       : api.getBuildingBooks(buildingId);
     fetch
-      .then(b => { if (gen === booksGenRef.current) setBooks(b); })
-      .catch(() => { if (gen === booksGenRef.current) setError('Failed to load books at this location.'); })
-      .finally(() => { if (gen === booksGenRef.current) setBooksLoading(false); });
+      .then(b => { if (booksGuard.isFresh(epoch)) setBooks(b); })
+      .catch(() => { if (booksGuard.isFresh(epoch)) setError('Failed to load books at this location.'); })
+      .finally(() => { if (booksGuard.isFresh(epoch)) setBooksLoading(false); });
   }, [buildingId, roomId, unitId, shelfId, treeLoaded, pathOk, refreshTick]);
 
   const sensors = useSensors(
@@ -355,19 +356,19 @@ export default function ShelfView() {
     const reordered = arrayMove(books, oldIndex, newIndex);
     setBooks(reordered);
     setError(null);
-    // Capture the location-load gen so the recovery refetch (and its error
-    // setters) can be dropped if the user has navigated to a different
-    // shelf/room/etc. by the time the reorder PUT resolves. Without this,
-    // a stale `setBooks(...)` from the recovery would clobber the new
-    // location's just-loaded books.
-    const gen = booksGenRef.current;
+    // Capture the location-load epoch so the recovery refetch (and its
+    // error setters) can be dropped if the user has navigated to a
+    // different shelf/room/etc. by the time the reorder PUT resolves.
+    // Without this, a stale `setBooks(...)` from the recovery would
+    // clobber the new location's just-loaded books.
+    const epoch = booksGuard.current();
     // Capture the reorder seq so an earlier failed PUT whose recovery
     // refetch lands after a later drag's optimistic apply doesn't snap
     // pre-A server state over B's newer order.
     const reorderSeq = ++reorderSeqRef.current;
     api.reorderShelf(shelfId, reordered.map(b => b.id))
       .catch(() => {
-        if (gen !== booksGenRef.current || reorderSeq !== reorderSeqRef.current) return;
+        if (!booksGuard.isFresh(epoch) || reorderSeq !== reorderSeqRef.current) return;
         // Always tell the user their reorder didn't save — even when the
         // recovery refetch succeeds and the canonical order snaps back into
         // place, otherwise the snap-back looks like the drag never
@@ -375,8 +376,8 @@ export default function ShelfView() {
         // the user knows to refresh manually.
         setError('Failed to save reorder.');
         api.getShelfBooks(shelfId)
-          .then(b => { if (gen === booksGenRef.current && reorderSeq === reorderSeqRef.current) setBooks(b); })
-          .catch(() => { if (gen === booksGenRef.current && reorderSeq === reorderSeqRef.current) setError('Reorder failed and could not be reverted — refresh the page.'); });
+          .then(b => { if (booksGuard.isFresh(epoch) && reorderSeq === reorderSeqRef.current) setBooks(b); })
+          .catch(() => { if (booksGuard.isFresh(epoch) && reorderSeq === reorderSeqRef.current) setError('Reorder failed and could not be reverted — refresh the page.'); });
       });
   }
 
@@ -555,15 +556,15 @@ export default function ShelfView() {
                     // against overlapping drags within this view (across
                     // any shelf row): A's failure recovery shouldn't snap
                     // pre-A unit-books over B's newer optimistic state.
-                    const gen = booksGenRef.current;
+                    const epoch = booksGuard.current();
                     const reorderSeq = ++reorderSeqRef.current;
                     api.reorderShelf(shelfId, reordered.map(b => b.id))
                       .catch(() => {
-                        if (gen !== booksGenRef.current || reorderSeq !== reorderSeqRef.current) return;
+                        if (!booksGuard.isFresh(epoch) || reorderSeq !== reorderSeqRef.current) return;
                         setError('Failed to save reorder.');
                         api.getUnitBooks(unitId)
-                          .then(b => { if (gen === booksGenRef.current && reorderSeq === reorderSeqRef.current) setBooks(b); })
-                          .catch(() => { if (gen === booksGenRef.current && reorderSeq === reorderSeqRef.current) setError('Reorder failed and could not be reverted — refresh the page.'); });
+                          .then(b => { if (booksGuard.isFresh(epoch) && reorderSeq === reorderSeqRef.current) setBooks(b); })
+                          .catch(() => { if (booksGuard.isFresh(epoch) && reorderSeq === reorderSeqRef.current) setError('Reorder failed and could not be reverted — refresh the page.'); });
                       });
                   }}
                 />

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { api } from '../../api.js';
+import { useStaleGuard } from '../../hooks/useStaleGuard.js';
 
 // Top-of-page Open Library search. Owns its own query/results state and
 // debounces the search call. Calls `onApply(result)` when a result is picked.
@@ -17,42 +18,37 @@ export default function LookupPanel({ onApply, coverInFlight }) {
   // Stale-response guard: a slow Open Library response from an earlier
   // keystroke can land AFTER a newer request finished, repopulating the
   // dropdown with results for a query the user has since revised, cleared,
-  // or already picked from. Each runSearch captures its gen and drops its
-  // own state writes if a newer call (or a clear/pick) has bumped the ref.
-  const searchGenRef = useRef(0);
+  // or already picked from. Each runSearch claims an epoch and drops its
+  // own state writes if a newer call (or a clear/pick) has bumped it.
+  // useStaleGuard's unmount-detection also covers the "navigate away
+  // within the debounce window" case below.
+  const searchGuard = useStaleGuard();
   // Synchronous in-flight guard: handlePick is async (awaits onApply), and the
   // setResults([]) that hides the dropdown doesn't take effect until after the
   // handler returns. A same-tick double-click on a result would otherwise fire
   // onApply twice and race two description-fetch / form-fill passes.
   const pickingRef = useRef(false);
 
-  // Unmount cleanup. Without this, navigating away within the 400ms
-  // debounce window fires runSearch on a dead component, and any
-  // already in-flight Open Library response lands as a setState on
-  // an unmounted instance. Clearing the timer kills the pending
-  // search, and bumping searchGenRef invalidates any response still
-  // in flight so the guards in runSearch all hit.
-  useEffect(() => () => {
-    clearTimeout(debounce.current);
-    searchGenRef.current++;
-  }, []);
+  // Clear the pending debounce timer on unmount. (searchGuard handles the
+  // in-flight response invalidation via its own unmount listener.)
+  useEffect(() => () => { clearTimeout(debounce.current); }, []);
 
   async function runSearch(q) {
     if (!q.trim()) return;
-    const gen = ++searchGenRef.current;
+    const epoch = searchGuard.next();
     setSearching(true);
     setError(null);
     try {
       const r = await api.searchBooks(q);
-      if (gen !== searchGenRef.current) return;
+      if (!searchGuard.isFresh(epoch)) return;
       setResults(r);
     } catch {
-      if (gen !== searchGenRef.current) return;
+      if (!searchGuard.isFresh(epoch)) return;
       setError('Open Library search failed — please try again.');
     } finally {
       // Spinner only flips off for the LATEST request; a stale response that
       // arrives while a newer one is still in flight must leave it on.
-      if (gen === searchGenRef.current) setSearching(false);
+      if (searchGuard.isFresh(epoch)) setSearching(false);
     }
   }
 
@@ -63,9 +59,9 @@ export default function LookupPanel({ onApply, coverInFlight }) {
     setError(null);
     clearTimeout(debounce.current);
     if (!q.trim()) {
-      // Bump gen so any in-flight request can't repopulate the dropdown
+      // Bump epoch so any in-flight request can't repopulate the dropdown
       // after the user has emptied the field.
-      searchGenRef.current++;
+      searchGuard.next();
       setSearching(false);
       return;
     }
@@ -90,9 +86,9 @@ export default function LookupPanel({ onApply, coverInFlight }) {
     // slip through.
     if (coverInFlight) return;
     pickingRef.current = true;
-    // Same gen-bump rationale: an earlier in-flight search must not pop the
-    // dropdown back open after the user has already chosen a result.
-    searchGenRef.current++;
+    // Same epoch-bump rationale: an earlier in-flight search must not pop
+    // the dropdown back open after the user has already chosen a result.
+    searchGuard.next();
     setQuery('');
     setResults([]);
     setSearching(false);

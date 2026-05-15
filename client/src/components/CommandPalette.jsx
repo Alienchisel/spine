@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate, useLocation, useSearchParams, useMatch } from 'react-router-dom';
 import { api } from '../api.js';
 import { useConfirm } from './ConfirmModal.jsx';
+import { useStaleGuard } from '../hooks/useStaleGuard.js';
 
 // Global command palette, opened with Ctrl/Cmd+K (universal) or
 // Ctrl/Cmd+Shift+P (VS Code muscle memory; Chrome/Edge/Safari only —
@@ -260,7 +261,7 @@ export default function CommandPalette() {
   const returnFocusRef = useRef(null);
   // Stale-response guard: rapid typing fires multiple in-flight searches;
   // earlier ones must not overwrite results from a later query.
-  const queryGenRef = useRef(0);
+  const queryGuard = useStaleGuard();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -584,17 +585,17 @@ export default function CommandPalette() {
       return;
     }
     setBookLoading(true);
-    const gen = ++queryGenRef.current;
+    const epoch = queryGuard.next();
     const t = setTimeout(async () => {
       try {
         const { books } = await api.getBooks({ q, limit: 20 });
-        if (gen !== queryGenRef.current) return;
+        if (!queryGuard.isFresh(epoch)) return;
         setBookResults(books);
       } catch {
-        if (gen !== queryGenRef.current) return;
+        if (!queryGuard.isFresh(epoch)) return;
         setBookResults([]);
       } finally {
-        if (gen === queryGenRef.current) setBookLoading(false);
+        if (queryGuard.isFresh(epoch)) setBookLoading(false);
       }
     }, 200);
     return () => clearTimeout(t);

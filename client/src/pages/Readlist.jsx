@@ -19,6 +19,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { api } from '../api.js';
 import { formatAuthors } from '../utils.js';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
+import { useStaleGuard } from '../hooks/useStaleGuard.js';
 
 const FROM_READLIST = { from: 'Readlist', fromPath: '/readlist' };
 
@@ -125,7 +126,7 @@ export default function Readlist() {
   // *after* a refresh-tick reload can detect that books has been replaced
   // with fresh server state — without this, the rollback to `previous`
   // would clobber the just-loaded readlist with a stale snapshot.
-  const genRef = useRef(0);
+  const guard = useStaleGuard();
   // Bumped on every drag so an earlier failed reorder whose .catch lands
   // *after* a later drag has already applied optimistically can detect
   // that it's stale — without this, A's rollback to its pre-A snapshot
@@ -139,7 +140,7 @@ export default function Readlist() {
   );
 
   useEffect(() => {
-    genRef.current += 1;
+    const epoch = guard.next();
     // Drop any lingering reorder/remove banner at the start of a fresh
     // load. Without this, a "Failed to save readlist order" or
     // "Failed to remove book…" banner can sit above an already-refreshed
@@ -148,15 +149,10 @@ export default function Readlist() {
     // and the more pressing setError('Failed to load readlist.') replaces
     // it instead of two banners stacking.
     setActionError(null);
-    // Stale flag drops the response if the user navigates away before
-    // getReadlist resolves — setBooks / setError / setLoading otherwise
-    // fire on an unmounted component.
-    let stale = false;
     api.getReadlist()
-      .then(b => { if (!stale) { setBooks(b); setError(null); } })
-      .catch(() => { if (!stale) setError('Failed to load readlist.'); })
-      .finally(() => { if (!stale) setLoading(false); });
-    return () => { stale = true; };
+      .then(b => { if (guard.isFresh(epoch)) { setBooks(b); setError(null); } })
+      .catch(() => { if (guard.isFresh(epoch)) setError('Failed to load readlist.'); })
+      .finally(() => { if (guard.isFresh(epoch)) setLoading(false); });
   }, [refreshTick]);
 
   const counts = useMemo(() => {
@@ -193,13 +189,13 @@ export default function Readlist() {
     // optimistic setBooks above and the .catch below isn't overwritten by
     // a stale rollback. Also gates the actionError so a failed-old-order
     // banner doesn't appear above an already-fresh readlist.
-    const gen = genRef.current;
+    const epoch = guard.current();
     // Capture the reorder seq so an earlier failed PUT whose .catch lands
     // after a later drag's optimistic apply doesn't restore a now-stale
     // pre-A snapshot over B's newer order.
     const reorderSeq = ++reorderSeqRef.current;
     api.reorderReadlist(reorderedAll.map(b => b.id)).catch(() => {
-      if (gen !== genRef.current || reorderSeq !== reorderSeqRef.current) return;
+      if (!guard.isFresh(epoch) || reorderSeq !== reorderSeqRef.current) return;
       setBooks(previous);
       setActionError('Failed to save readlist order.');
     });

@@ -21,6 +21,7 @@ import BookCard from '../components/BookCard.jsx';
 import CompletionIndicator from '../components/CompletionIndicator.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useLatest } from '../hooks/useLatest.js';
+import { useStaleGuard } from '../hooks/useStaleGuard.js';
 
 const PAGE_SIZE = 48;
 
@@ -205,7 +206,7 @@ export default function ListDetail() {
   // (custom order); entering edit mode in any other sort coerces back.
   const [editMode, setEditMode] = useState(false);
   const loadedRef = useRef(0);
-  const genRef = useRef(0);
+  const guard = useStaleGuard();
   // Synchronous mirror of the loadingMore/loadingAll *pair*. The button
   // disabled props gate user clicks but the state setters don't commit
   // until next render — so two same-tick clicks (or Load more + Load all
@@ -251,8 +252,7 @@ export default function ListDetail() {
   }
 
   useEffect(() => {
-    let stale = false;
-    genRef.current += 1;
+    const epoch = guard.next();
     const key = `${id}|${sort}`;
     const isRealChange = prevKeyRef.current !== key;
     prevKeyRef.current = key;
@@ -270,8 +270,8 @@ export default function ListDetail() {
     }
     // Action banner and pagination flags clear on every fire — they're
     // transient state that shouldn't persist across any refetch (the
-    // genRef bump above also orphans in-flight loadMore/loadAll whose
-    // finally clauses would otherwise strand the flags).
+    // guard.next() bump above also orphans in-flight loadMore/loadAll
+    // whose finally clauses would otherwise strand the flags).
     setActionError(null);
     setLoadingMore(false);
     setLoadingAll(false);
@@ -279,57 +279,56 @@ export default function ListDetail() {
     const params = sort === 'added' ? { sort } : { sort, limit: PAGE_SIZE, offset: 0 };
     api.getList(id, params)
       .then(data => {
-        if (stale) return;
+        if (!guard.isFresh(epoch)) return;
         setList(data);
         setTotal(data.total);
         loadedRef.current = data.books.length;
       })
-      .catch(() => { if (!stale) setError('Failed to load list.'); })
-      .finally(() => { if (!stale) setLoading(false); });
-    return () => { stale = true; };
+      .catch(() => { if (guard.isFresh(epoch)) setError('Failed to load list.'); })
+      .finally(() => { if (guard.isFresh(epoch)) setLoading(false); });
   }, [id, sort, refreshTick]);
 
   const loadMore = useCallback(async () => {
     if (pagingRef.current || loadingMore || loadingAll) return;
-    const gen = genRef.current;
+    const epoch = guard.current();
     pagingRef.current = true;
     setLoadingMore(true);
     setActionError(null);
     try {
       const data = await api.getList(id, { sort, limit: PAGE_SIZE, offset: loadedRef.current });
-      if (gen !== genRef.current) return;
+      if (!guard.isFresh(epoch)) return;
       setList(l => ({ ...l, books: [...l.books, ...data.books] }));
       loadedRef.current += data.books.length;
     } catch {
-      if (gen === genRef.current) setActionError('Failed to load more books.');
+      if (guard.isFresh(epoch)) setActionError('Failed to load more books.');
     } finally {
-      // Clear unconditionally — if gen has bumped, the new load effect
+      // Clear unconditionally — if epoch has bumped, the new load effect
       // already reset loadingMore via setState, so leaving the ref stuck
       // would block all future paging on the new list.
       pagingRef.current = false;
-      if (gen === genRef.current) setLoadingMore(false);
+      if (guard.isFresh(epoch)) setLoadingMore(false);
     }
   }, [id, sort, loadingMore, loadingAll]);
 
   const loadAll = useCallback(async () => {
     if (pagingRef.current || loadingMore || loadingAll) return;
-    const gen = genRef.current;
+    const epoch = guard.current();
     pagingRef.current = true;
     setLoadingAll(true);
     setActionError(null);
     try {
-      while (gen === genRef.current && loadedRef.current < total) {
+      while (guard.isFresh(epoch) && loadedRef.current < total) {
         const data = await api.getList(id, { sort, limit: PAGE_SIZE, offset: loadedRef.current });
-        if (gen !== genRef.current) break;
+        if (!guard.isFresh(epoch)) break;
         setList(l => ({ ...l, books: [...l.books, ...data.books] }));
         loadedRef.current += data.books.length;
         if (data.books.length === 0) break;
       }
     } catch {
-      if (gen === genRef.current) setActionError('Failed to load more books.');
+      if (guard.isFresh(epoch)) setActionError('Failed to load more books.');
     } finally {
       pagingRef.current = false;
-      if (gen === genRef.current) setLoadingAll(false);
+      if (guard.isFresh(epoch)) setLoadingAll(false);
     }
   }, [id, sort, total, loadingMore, loadingAll]);
 
@@ -408,18 +407,18 @@ export default function ListDetail() {
     const name = renameValue.trim();
     if (!name || name === list.name) { setRenaming(false); return; }
     setRenameError(null);
-    // Capture gen so a rename for list A whose PUT resolves after the user
-    // has navigated to list B doesn't slam A's new name onto B's display
-    // (or surface A's error on B's view).
-    const gen = genRef.current;
+    // Capture epoch so a rename for list A whose PUT resolves after the
+    // user has navigated to list B doesn't slam A's new name onto B's
+    // display (or surface A's error on B's view).
+    const epoch = guard.current();
     renamingInFlightRef.current = true;
     try {
       const updated = await api.renameList(id, name);
-      if (gen !== genRef.current) return;
+      if (!guard.isFresh(epoch)) return;
       setList(l => ({ ...l, name: updated.name }));
       setRenaming(false);
     } catch (err) {
-      if (gen !== genRef.current) return;
+      if (!guard.isFresh(epoch)) return;
       setRenameError(err?.message || 'Failed to rename list.');
     } finally {
       renamingInFlightRef.current = false;
@@ -441,17 +440,17 @@ export default function ListDetail() {
     const reordered = arrayMove(previousBooks, oldIndex, newIndex);
     setActionError(null);
     setList(l => ({ ...l, books: reordered }));
-    // Capture the load gen so the rollback + error message are dropped if
-    // the user has navigated to a different list by the time the reorder
-    // PUT resolves. Without this, a failed PUT for list A would apply a
-    // stale snapshot to list B's books and surface A's error on B.
-    const gen = genRef.current;
+    // Capture the load epoch so the rollback + error message are dropped
+    // if the user has navigated to a different list by the time the
+    // reorder PUT resolves. Without this, a failed PUT for list A would
+    // apply a stale snapshot to list B's books and surface A's error on B.
+    const epoch = guard.current();
     // Capture the reorder seq so an earlier failed PUT whose .catch lands
     // after a later drag's optimistic apply doesn't restore a now-stale
     // pre-A snapshot over B's newer order.
     const reorderSeq = ++reorderSeqRef.current;
     api.reorderList(id, reordered.map(b => b.id)).catch(() => {
-      if (gen !== genRef.current || reorderSeq !== reorderSeqRef.current) return;
+      if (!guard.isFresh(epoch) || reorderSeq !== reorderSeqRef.current) return;
       setList(l => ({ ...l, books: previousBooks }));
       setActionError('Failed to save list order.');
     });

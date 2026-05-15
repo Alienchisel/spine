@@ -27,6 +27,7 @@ import { buildDisplayItems, sortVolumes } from '../components/library/grouping.j
 import { useGridCols, COMFORTABLE_BPS, COMPACT_BPS } from '../hooks/useGridCols.js';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useLatest } from '../hooks/useLatest.js';
+import { useStaleGuard } from '../hooks/useStaleGuard.js';
 
 const TABS = [
   { key: 'reading',     label: 'Reading' },
@@ -249,7 +250,7 @@ export default function Library() {
   const [editMode, setEditMode] = useState(false);
 
   const loadedRef  = useRef(0);
-  const genRef     = useRef(0);
+  const guard      = useStaleGuard();
   const prevTabRef = useRef(null);
   const searchRef  = useRef(null);
   // Bumped on every drag so a failed PUT whose .catch lands after a later
@@ -440,8 +441,7 @@ export default function Library() {
 
   // Fetch books on tab / sort / filter / query change — always reset to page 1
   useEffect(() => {
-    let stale = false;
-    genRef.current += 1;
+    const epoch = guard.next();
     setFetchError(false);
     // Distinguish a real state change from a refresh-tick refetch.
     // On real changes (tab/sort/filters/query/randomSeed moved), wipe
@@ -470,12 +470,11 @@ export default function Library() {
     pagingRef.current = false;
     loadedRef.current = 0;
     api.getBooks(buildApiParams(tab, sort, filters, query, 0, randomSeed)).then(({ books: b, total: t }) => {
-      if (stale) return;
+      if (!guard.isFresh(epoch)) return;
       setBooks(b);
       setTotal(t);
       loadedRef.current = b.length;
-    }).catch(() => { if (!stale) setFetchError(true); }).finally(() => { if (!stale) setLoading(false); });
-    return () => { stale = true; };
+    }).catch(() => { if (guard.isFresh(epoch)) setFetchError(true); }).finally(() => { if (guard.isFresh(epoch)) setLoading(false); });
   }, [tab, sort, filters, query, refreshTick, randomSeed]);
 
   function handleLoadMore() {
@@ -486,37 +485,37 @@ export default function Library() {
     // (synchronous) closes that gap and also catches the cross-handler
     // race (Load more + Load all in the same tick).
     if (pagingRef.current || loadingMore || loadingAll) return;
-    const gen = genRef.current;
+    const epoch = guard.current();
     pagingRef.current = true;
     setLoadingMore(true);
     setActionError(null);
     api.getBooks(buildApiParams(tab, sort, filters, query, loadedRef.current, randomSeed)).then(({ books: b, total: t }) => {
-      if (gen !== genRef.current) return;
+      if (!guard.isFresh(epoch)) return;
       setBooks(prev => [...prev, ...b]);
       setTotal(t);
       loadedRef.current += b.length;
     }).catch(() => {
-      if (gen === genRef.current) setActionError('Failed to load more books.');
+      if (guard.isFresh(epoch)) setActionError('Failed to load more books.');
     }).finally(() => {
       // Clear the ref unconditionally — if the gen has bumped, the new
       // load effect already reset loadingMore via setState, so leaving
       // the ref stuck would block all future paging on the new tab.
       pagingRef.current = false;
-      if (gen === genRef.current) setLoadingMore(false);
+      if (guard.isFresh(epoch)) setLoadingMore(false);
     });
   }
 
   async function handleLoadAll() {
     if (pagingRef.current || loadingMore || loadingAll) return;
-    const gen = genRef.current;
+    const epoch = guard.current();
     pagingRef.current = true;
     setLoadingAll(true);
     setActionError(null);
     try {
       let serverTotal = total;
-      while (gen === genRef.current && loadedRef.current < serverTotal) {
+      while (guard.isFresh(epoch) && loadedRef.current < serverTotal) {
         const { books: b, total: t } = await api.getBooks(buildApiParams(tab, sort, filters, query, loadedRef.current, randomSeed));
-        if (gen !== genRef.current) break;
+        if (!guard.isFresh(epoch)) break;
         setBooks(prev => [...prev, ...b]);
         setTotal(t);
         loadedRef.current += b.length;
@@ -524,10 +523,10 @@ export default function Library() {
         if (b.length === 0) break; // guard against unexpected 0-length response
       }
     } catch {
-      if (gen === genRef.current) setActionError('Failed to load more books.');
+      if (guard.isFresh(epoch)) setActionError('Failed to load more books.');
     } finally {
       pagingRef.current = false;
-      if (gen === genRef.current) setLoadingAll(false);
+      if (guard.isFresh(epoch)) setLoadingAll(false);
     }
   }
 
@@ -600,10 +599,10 @@ export default function Library() {
     const reordered = arrayMove(previousBooks, oldIndex, newIndex);
     setActionError(null);
     setBooks(reordered);
-    const gen = genRef.current;
+    const epoch = guard.current();
     const reorderSeq = ++reorderSeqRef.current;
     api.setDesireOrder(reordered.map(b => b.id)).catch(() => {
-      if (gen !== genRef.current || reorderSeq !== reorderSeqRef.current) return;
+      if (!guard.isFresh(epoch) || reorderSeq !== reorderSeqRef.current) return;
       setBooks(previousBooks);
       setActionError('Failed to save order.');
     });
