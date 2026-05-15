@@ -341,14 +341,33 @@ export default function CommandPalette() {
       }
     };
 
-    const clearAll = () => navigate('/');
+    // Strip everything paramsToFilters / the search field reads, but
+    // preserve view state (tab, sort). The label says "filters and
+    // search" — tab and sort aren't filters, and silently switching the
+    // user off their current tab is the same shape of bug as the
+    // 'nav.library' entry that used to land on Reading instead of All.
+    const FILTER_PARAM_KEYS = [
+      'q',
+      'missing', 'formats', 'ratings', 'publishers', 'sources', 'series', 'tags', 'statuses',
+      'tagsMode',
+      'owned', 'previouslyOwned', 'custom', 'loved',
+    ];
+    const clearAll = () => {
+      if (onLibrary) {
+        const next = new URLSearchParams(currentParams);
+        for (const k of FILTER_PARAM_KEYS) next.delete(k);
+        setSearchParams(next);
+      } else {
+        navigate('/');
+      }
+    };
 
     return [
       {
         id: 'action.clear',
         kind: 'action',
         label: 'Clear filters and search',
-        hint: 'Library — reset to default view',
+        hint: 'Library',
         perform: clearAll,
       },
       ...SORTS.map(s => ({
