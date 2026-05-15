@@ -20,6 +20,7 @@ import { api } from '../api.js';
 import BookCard from '../components/BookCard.jsx';
 import CompletionIndicator from '../components/CompletionIndicator.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
+import { useLatest } from '../hooks/useLatest.js';
 
 const PAGE_SIZE = 48;
 
@@ -104,8 +105,7 @@ function QuickAdd({ listId, onAdded }) {
   // resolution would graft List A's just-added book onto List B's display.
   // The form-state clears are gated too: they'd otherwise blank out fresh
   // text the user has started typing on List B's quick-add.
-  const listIdRef = useRef(listId);
-  useEffect(() => { listIdRef.current = listId; }, [listId]);
+  const listIdRef = useLatest(listId);
   // Synchronous mirror of `saving` — `saving` (state) doesn't commit until
   // the next render, so two same-tick Enter submits both see saving === false
   // and fire duplicate createBook + addToList calls. createBook with

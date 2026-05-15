@@ -26,6 +26,7 @@ import { paramsToFilters, writeFiltersToParams, filtersEqual } from '../componen
 import { buildDisplayItems, sortVolumes } from '../components/library/grouping.js';
 import { useGridCols, COMFORTABLE_BPS, COMPACT_BPS } from '../hooks/useGridCols.js';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
+import { useLatest } from '../hooks/useLatest.js';
 
 const TABS = [
   { key: 'reading',     label: 'Reading' },
@@ -277,10 +278,8 @@ export default function Library() {
   // be stale and could remove a book from the NEW tab's freshly-fetched
   // list. Reading from refs ensures the latest values are used regardless
   // of which render's function instance gets invoked.
-  const tabRef  = useRef(tab);
-  const sortRef = useRef(sort);
-  tabRef.current  = tab;
-  sortRef.current = sort;
+  const tabRef  = useLatest(tab);
+  const sortRef = useLatest(sort);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -291,12 +290,11 @@ export default function Library() {
   // books from another window/process appear without a manual reload.
   const refreshTick = useRefreshTick();
 
-  // Bridge for the command palette's Load more / Load all entries: handler
-  // refs let the global event listeners call the *latest* closures without
-  // re-attaching on every render, and a state ref keeps the response to
-  // 'paging-request' events from going stale.
-  const loadHandlersRef = useRef({ loadMore: null, loadAll: null });
-  const pagingStateRef  = useRef({ hasMore: false, loadingMore: false, loadingAll: false, loaded: 0, total: 0 });
+  // Bridge for the command palette's Load more / Load all entries — the
+  // refs themselves are declared further down (where the handler /
+  // paging-state values exist), but the listener effect below references
+  // them via closure. JS hoists the const bindings and the closures only
+  // read .current after commit, by which point useLatest has populated it.
 
   // Local-remove-on-delete: BookCard's MoreMenu (and the command
   // palette's book.delete action) dispatch spine:book-deleted after a
@@ -634,8 +632,8 @@ export default function Library() {
   // Bridge: keep refs in sync with the latest handlers and paging state so
   // the global listeners attached above invoke the current closures, and
   // publish state changes for the command palette to mirror.
-  loadHandlersRef.current = { loadMore: handleLoadMore, loadAll: handleLoadAll };
-  pagingStateRef.current  = { hasMore, loadingMore, loadingAll, loaded: loadedRef.current, total };
+  const loadHandlersRef = useLatest({ loadMore: handleLoadMore, loadAll: handleLoadAll });
+  const pagingStateRef  = useLatest({ hasMore, loadingMore, loadingAll, loaded: loadedRef.current, total });
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('spine:library-paging', { detail: pagingStateRef.current }));
   }, [hasMore, loadingMore, loadingAll, total]);

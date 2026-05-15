@@ -13,6 +13,7 @@ import MetadataList from '../components/bookDetail/MetadataList.jsx';
 import EditionsSection from '../components/bookDetail/EditionsSection.jsx';
 import ReadingLog from '../components/bookDetail/ReadingLog.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
+import { useLatest } from '../hooks/useLatest.js';
 
 const STATUS_LABEL = { reading: 'Reading', finished: 'Finished', unread: 'Unread' };
 const STATUS_COLOR = {
@@ -144,8 +145,7 @@ export default function BookDetail() {
   // Compared against `updated.id` rather than via the gen counters because
   // the child triggers its own out-of-band fetch — gen capture would need
   // to live inside the child.
-  const latestIdRef = useRef(id);
-  latestIdRef.current = id;
+  const latestIdRef = useLatest(id);
   const [seriesSiblings, setSeriesSiblings] = useState([]);
   const refreshTick = useRefreshTick();
 

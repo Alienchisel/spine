@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
+import { useLatest } from '../hooks/useLatest.js';
 
 function ListsIcon({ className }) {
   return (
@@ -36,10 +37,9 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
   const busyIdsRef = useRef(new Set());
   // Tracks the current bookId so the spine:book-mutated listener's
   // in-flight getBookLists can drop its setMemberIds when the user has
-  // navigated to a different book mid-flight. Assigned every render so
-  // the ref is always fresh by the time any handler closure reads it.
-  const currentBookIdRef = useRef(bookId);
-  currentBookIdRef.current = bookId;
+  // navigated to a different book mid-flight. useLatest keeps it fresh
+  // by the time any handler closure reads it.
+  const currentBookIdRef = useLatest(bookId);
 
   // Reset memberIds when the bookId prop changes so the old book's
   // memberships don't briefly color the icon or seed stale check marks
