@@ -55,6 +55,17 @@ const NAV_ENTRIES = [
   { id: 'nav.new',                  label: 'Add a new book',       hint: 'Open the new-book form',   path: '/books/new' },
 ];
 
+// Small status-dot palette used on book rows. The three book statuses
+// (reading / finished / unread) get a 1.5×1.5 dot before the title so
+// the user can scan a result set and instantly tell which books are
+// in which state. Colours are chosen for contrast against the dark
+// row background without competing with the cover thumbnail.
+const STATUS_DOT_CLASS = {
+  reading:  'bg-sky-400',
+  finished: 'bg-emerald-500',
+  unread:   'bg-neutral-700',
+};
+
 // Mirror of the SORTS array in pages/Library.jsx. Kept as a local copy
 // rather than imported to keep the palette decoupled from page internals
 // — if Library renames a sort key, both files need updating, but the
@@ -245,13 +256,18 @@ export default function CommandPalette() {
     // Strip non-serializable bits (perform fn closures); we re-bind the
     // action's perform() from the live registry when rendering Recent.
     const stripped = {
-      id:    entry.id,
-      kind:  entry.kind,
-      label: entry.label,
-      hint:  entry.hint ?? null,
-      path:  entry.path ?? null,
-      cover: entry.cover ?? null,
-      ts:    Date.now(),
+      id:     entry.id,
+      kind:   entry.kind,
+      label:  entry.label,
+      hint:   entry.hint ?? null,
+      path:   entry.path ?? null,
+      cover:  entry.cover ?? null,
+      // Status is captured so Recent book rows can show their dot.
+      // Mildly stale: if the user finishes the book after picking it,
+      // the next palette open shows the old status in Recent until
+      // the book is picked again. Acceptable — better than no signal.
+      status: entry.status ?? null,
+      ts:     Date.now(),
     };
     setRecent(prev => {
       const filtered = prev.filter(p => p.id !== stripped.id);
@@ -436,12 +452,13 @@ export default function CommandPalette() {
   const continueEntries = useMemo(() => reading
     .filter(b => b.id !== currentBookId)
     .map(b => ({
-      id:    `book.${b.id}`,
-      kind:  'book',
-      label: b.title,
-      hint:  b.authors?.map(a => a.name).join(', ') || null,
-      cover: b.cover_path,
-      path:  `/books/${b.id}`,
+      id:     `book.${b.id}`,
+      kind:   'book',
+      label:  b.title,
+      hint:   b.authors?.map(a => a.name).join(', ') || null,
+      cover:  b.cover_path,
+      status: b.status,
+      path:   `/books/${b.id}`,
     })), [reading, currentBookId]);
 
   const recentEntries = useMemo(() => {
@@ -537,12 +554,13 @@ export default function CommandPalette() {
         }));
 
       const bookEntries = bookResults.map(b => ({
-        id: `book.${b.id}`,
-        kind: 'book',
-        label: b.title,
-        hint: b.authors?.map(a => a.name).join(', ') || null,
-        cover: b.cover_path,
-        path: `/books/${b.id}`,
+        id:     `book.${b.id}`,
+        kind:   'book',
+        label:  b.title,
+        hint:   b.authors?.map(a => a.name).join(', ') || null,
+        cover:  b.cover_path,
+        status: b.status,
+        path:   `/books/${b.id}`,
       }));
 
       _sections = [
@@ -736,7 +754,18 @@ export default function CommandPalette() {
                             </div>
                           )}
                           <div className="min-w-0 flex-1">
-                            <p className="text-sm text-white truncate">{entry.label}</p>
+                            <p className="text-sm text-white truncate">
+                              {entry.kind === 'book' && entry.status && STATUS_DOT_CLASS[entry.status] && (
+                                <>
+                                  <span
+                                    aria-hidden="true"
+                                    className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle ${STATUS_DOT_CLASS[entry.status]}`}
+                                  />
+                                  <span className="sr-only">Status: {entry.status}. </span>
+                                </>
+                              )}
+                              {entry.label}
+                            </p>
                             {entry.hint && (
                               <p className="text-xs text-neutral-500 truncate">{entry.hint}</p>
                             )}
