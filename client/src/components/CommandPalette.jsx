@@ -36,7 +36,7 @@ import { useConfirm } from './ConfirmModal.jsx';
 // Library tabs reuse the same path with a query string the existing
 // urlState reader picks up.
 const NAV_ENTRIES = [
-  { id: 'nav.library',              label: 'Library',              hint: 'All books',                path: '/' },
+  { id: 'nav.library',              label: 'Library',              hint: 'All books',                path: '/?tab=all' },
   { id: 'nav.library.reading',      label: 'Reading',              hint: 'Library — Reading tab',    path: '/?tab=reading' },
   { id: 'nav.library.finished',     label: 'Finished',             hint: 'Library — Finished tab',   path: '/?tab=finished' },
   { id: 'nav.library.unread',       label: 'Unread',               hint: 'Library — Unread tab',     path: '/?tab=unread' },
