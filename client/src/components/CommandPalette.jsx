@@ -430,6 +430,11 @@ export default function CommandPalette() {
           if (!ok) return;
           await api.deleteBook(id);
           forget(`book.${id}`);
+          // Tell other live surfaces (Library card grid, etc.) that
+          // this book is gone so they can drop it from their visible
+          // lists without a refetch. Same event the BookCard MoreMenu
+          // dispatches after its delete.
+          window.dispatchEvent(new CustomEvent('spine:book-deleted', { detail: { id } }));
           navigate('/');
         },
       },

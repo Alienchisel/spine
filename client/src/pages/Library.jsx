@@ -272,6 +272,22 @@ export default function Library() {
   // books from another window/process appear without a manual reload.
   const refreshTick = useRefreshTick();
 
+  // Local-remove-on-delete: BookCard's MoreMenu (and the command
+  // palette's book.delete action) dispatch spine:book-deleted after a
+  // successful api.deleteBook. Filtering in place is much cheaper than
+  // refetching the whole page, and keeps the user's scroll position.
+  useEffect(() => {
+    function onDeleted(e) {
+      const id = Number(e.detail?.id);
+      if (!id) return;
+      setBooks(prev => prev.filter(b => b.id !== id));
+      setTotal(prev => Math.max(0, prev - 1));
+      loadedRef.current = Math.max(0, loadedRef.current - 1);
+    }
+    window.addEventListener('spine:book-deleted', onDeleted);
+    return () => window.removeEventListener('spine:book-deleted', onDeleted);
+  }, []);
+
   // '/' focuses search
   useEffect(() => {
     function onKeyDown(e) {

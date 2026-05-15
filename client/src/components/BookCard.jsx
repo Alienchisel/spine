@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { realTagNames, formatAuthors } from '../utils.js';
 import { getModeKey, initialProgressMode, computeProgressPatch, syncProgressInputs, progressDerived, clampMinutes } from './progressMode.js';
-import ListPicker from './ListPicker.jsx';
+import MoreMenu from './MoreMenu.jsx';
 
 const STATUS_BAR = {
   reading:  'bg-oak',
@@ -327,11 +327,10 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
               >
                 {book.loved ? '♥' : '♡'}
               </button>
-              <ListPicker
-                bookId={book.id}
+              <MoreMenu
+                book={book}
                 dropUp
                 iconClassName="w-5 h-5"
-                buttonClassName="text-white hover:text-sky-300 transition-colors"
               />
             </div>
           )}
