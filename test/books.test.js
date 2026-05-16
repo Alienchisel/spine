@@ -4499,5 +4499,21 @@ describe('books', () => {
       assert.ok(names.includes('Tome'),  'expected Tome at 1680 min');
       assert.ok(!names.includes('Long'), 'did not expect Long at 1680 min');
     });
+
+    it('field=tag filter resolves virtual tags (Tome)', async () => {
+      // Regression: /browse/tag/Tome was returning 0 because the
+      // field=tag branch JOINed the real tags table only. Virtual tags
+      // need the rule's predicate.
+      const { body: tome } = await req('POST', '/api/books', {
+        title: 'BoundaryTomeBrowse', page_count: 1200,
+      });
+      const { body: notTome } = await req('POST', '/api/books', {
+        title: 'BoundaryNotTome', page_count: 200,
+      });
+      const { body: results } = await req('GET', '/api/books?field=tag&value=Tome&limit=500');
+      const ids = new Set(results.books.map(b => b.id));
+      assert.ok(ids.has(tome.id),     'Tome book should appear');
+      assert.ok(!ids.has(notTome.id), 'short book should not appear');
+    });
   });
 });
