@@ -464,6 +464,74 @@ export default function Stats() {
         </div>
       </Section>
 
+      <Section title="Streaks">
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-card rounded-lg p-4 space-y-3">
+            <p className="text-xs text-neutral-500 uppercase tracking-wider font-semibold">Daily</p>
+            <div className="flex justify-between items-end">
+              <div>
+                <div className="text-2xl font-semibold text-parchment">{streaks.days.current}</div>
+                <div className="text-xs text-neutral-500 mt-0.5">
+                  {streaks.days.current > 0 && streaks.days.currentStart
+                    ? `since ${fmtShortDate(streaks.days.currentStart)}`
+                    : 'current'}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-lg font-semibold text-neutral-400">{streaks.days.longest}</div>
+                <div className="text-xs text-neutral-600 mt-0.5">
+                  {streaks.days.longest > 0 && streaks.days.longestStart
+                    ? `${fmtShortDate(streaks.days.longestStart)} – ${fmtShortDate(streaks.days.longestEnd)}`
+                    : 'longest'}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="bg-card rounded-lg p-4 space-y-3">
+            <p className="text-xs text-neutral-500 uppercase tracking-wider font-semibold">Weekly</p>
+            <div className="flex justify-between items-end">
+              <div>
+                <div className="text-2xl font-semibold text-parchment">{streaks.weeks.current}</div>
+                <div className="text-xs text-neutral-500 mt-0.5">
+                  {streaks.weeks.current > 0 && streaks.weeks.currentStart
+                    ? `since ${fmtIsoWeekMonday(streaks.weeks.currentStart)}`
+                    : 'current'}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-lg font-semibold text-neutral-400">{streaks.weeks.longest}</div>
+                <div className="text-xs text-neutral-600 mt-0.5">
+                  {streaks.weeks.longest > 0 && streaks.weeks.longestStart
+                    ? `${fmtIsoWeekMonday(streaks.weeks.longestStart)} – ${fmtIsoWeekMonday(streaks.weeks.longestEnd)}`
+                    : 'longest'}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="bg-card rounded-lg p-4 space-y-3">
+            <p className="text-xs text-neutral-500 uppercase tracking-wider font-semibold">Monthly</p>
+            <div className="flex justify-between items-end">
+              <div>
+                <div className="text-2xl font-semibold text-parchment">{streaks.months.current}</div>
+                <div className="text-xs text-neutral-500 mt-0.5">
+                  {streaks.months.current > 0 && streaks.months.currentStart
+                    ? `since ${fmtShortMonth(streaks.months.currentStart)}`
+                    : 'current'}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-lg font-semibold text-neutral-400">{streaks.months.longest}</div>
+                <div className="text-xs text-neutral-600 mt-0.5">
+                  {streaks.months.longest > 0 && streaks.months.longestStart
+                    ? `${fmtShortMonth(streaks.months.longestStart)} – ${fmtShortMonth(streaks.months.longestEnd)}`
+                    : 'longest'}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Section>
+
       <Section title="Library">
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
           <StatCard label="Owned" value={totals.owned?.toLocaleString()} href="/?tab=owned" />
@@ -541,6 +609,55 @@ export default function Stats() {
         </div>
       </Section>
 
+      {decadesPublished.length > 0 && (() => {
+        // Fill in zero-count buckets between min and max so gaps in the
+        // timeline read visually instead of getting compressed away. Each
+        // column gets the native title for exact decade + count.
+        const sorted = [...decadesPublished].sort((a, b) => a.decade - b.decade);
+        const minDecade = sorted[0].decade;
+        const maxDecade = sorted[sorted.length - 1].decade;
+        const counts = new Map(sorted.map(d => [d.decade, d.count]));
+        const buckets = [];
+        for (let d = minDecade; d <= maxDecade; d += 10) {
+          buckets.push({ decade: d, count: counts.get(d) ?? 0 });
+        }
+        const maxCount = Math.max(...buckets.map(b => b.count), 1);
+        // 0 belongs on the CE side ("0s" = years 0–9 CE), not BCE — only
+        // strictly negative bucket ids are pre-Common-Era.
+        const decadeLabel = (d) => d >= 0 ? `${d}s` : `${-d - 9}–${-d} BCE`;
+        return (
+          <Section title="First published by decade">
+            <div>
+              <div className="flex items-end gap-px h-24">
+                {buckets.map(b => (
+                  <div
+                    key={b.decade}
+                    className={`flex-1 rounded-t transition-colors min-h-[1px] ${b.count > 0 ? 'bg-binding/70 hover:bg-binding' : 'bg-neutral-800'}`}
+                    style={{ height: `${(b.count / maxCount) * 100}%` }}
+                    title={`${decadeLabel(b.decade)} · ${plural(b.count, 'book')}`}
+                  />
+                ))}
+              </div>
+              <div className="flex justify-between text-[10px] text-neutral-600 tabular-nums mt-1.5">
+                <span>{decadeLabel(minDecade)}</span>
+                <span>{decadeLabel(maxDecade)}</span>
+              </div>
+            </div>
+          </Section>
+        );
+      })()}
+
+      {languages.length > 1 && (
+        <Section title="Languages">
+          <div className="space-y-2.5">
+            {languages.map(l => (
+              <Bar key={l.language} label={l.language} count={l.count}
+                max={Math.max(...languages.map(x => x.count))} color="bg-binding" href={`/browse/language/${encodeURIComponent(l.language)}`} />
+            ))}
+          </div>
+        </Section>
+      )}
+
       {(avgPagesPerDay != null || avgDaysToFinish != null) && (
         <Section title="Reading averages">
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -550,6 +667,49 @@ export default function Stats() {
             {avgDaysToFinish != null && (
               <StatCard label="Avg days to finish" value={avgDaysToFinish?.toLocaleString()} />
             )}
+          </div>
+        </Section>
+      )}
+
+      {byMonth.length > 0 && (
+        <Section title="Days read per month">
+          <div className="space-y-2.5">
+            {byMonth.map(m => {
+              const [y, mo] = m.month.split('-').map(Number);
+              const label = new Date(y, mo - 1, 1).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
+              return (
+                <Bar
+                  key={m.month}
+                  label={label}
+                  count={m.days}
+                  max={maxMonth}
+                  color="bg-oak"
+                  caption={plural(m.days, 'day')}
+                />
+              );
+            })}
+          </div>
+        </Section>
+      )}
+
+      {byYear.length > 0 && (
+        <Section title="Finished by year">
+          <div className="space-y-2.5">
+            {byYear.map(y => {
+              const parts = [plural(y.count, 'book')];
+              if (y.pages > 0) parts.push(`${y.pages.toLocaleString()} pages`);
+              return (
+                <Bar
+                  key={y.year}
+                  label={y.year}
+                  count={y.count}
+                  max={maxYear}
+                  color="bg-leather"
+                  href={`/browse/year_finished/${y.year}`}
+                  caption={parts.join(' · ')}
+                />
+              );
+            })}
           </div>
         </Section>
       )}
@@ -624,74 +784,6 @@ export default function Stats() {
         );
       })()}
 
-      <Section title="Streaks">
-        <div className="grid grid-cols-3 gap-3">
-          <div className="bg-card rounded-lg p-4 space-y-3">
-            <p className="text-xs text-neutral-500 uppercase tracking-wider font-semibold">Daily</p>
-            <div className="flex justify-between items-end">
-              <div>
-                <div className="text-2xl font-semibold text-parchment">{streaks.days.current}</div>
-                <div className="text-xs text-neutral-500 mt-0.5">
-                  {streaks.days.current > 0 && streaks.days.currentStart
-                    ? `since ${fmtShortDate(streaks.days.currentStart)}`
-                    : 'current'}
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-lg font-semibold text-neutral-400">{streaks.days.longest}</div>
-                <div className="text-xs text-neutral-600 mt-0.5">
-                  {streaks.days.longest > 0 && streaks.days.longestStart
-                    ? `${fmtShortDate(streaks.days.longestStart)} – ${fmtShortDate(streaks.days.longestEnd)}`
-                    : 'longest'}
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="bg-card rounded-lg p-4 space-y-3">
-            <p className="text-xs text-neutral-500 uppercase tracking-wider font-semibold">Weekly</p>
-            <div className="flex justify-between items-end">
-              <div>
-                <div className="text-2xl font-semibold text-parchment">{streaks.weeks.current}</div>
-                <div className="text-xs text-neutral-500 mt-0.5">
-                  {streaks.weeks.current > 0 && streaks.weeks.currentStart
-                    ? `since ${fmtIsoWeekMonday(streaks.weeks.currentStart)}`
-                    : 'current'}
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-lg font-semibold text-neutral-400">{streaks.weeks.longest}</div>
-                <div className="text-xs text-neutral-600 mt-0.5">
-                  {streaks.weeks.longest > 0 && streaks.weeks.longestStart
-                    ? `${fmtIsoWeekMonday(streaks.weeks.longestStart)} – ${fmtIsoWeekMonday(streaks.weeks.longestEnd)}`
-                    : 'longest'}
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="bg-card rounded-lg p-4 space-y-3">
-            <p className="text-xs text-neutral-500 uppercase tracking-wider font-semibold">Monthly</p>
-            <div className="flex justify-between items-end">
-              <div>
-                <div className="text-2xl font-semibold text-parchment">{streaks.months.current}</div>
-                <div className="text-xs text-neutral-500 mt-0.5">
-                  {streaks.months.current > 0 && streaks.months.currentStart
-                    ? `since ${fmtShortMonth(streaks.months.currentStart)}`
-                    : 'current'}
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-lg font-semibold text-neutral-400">{streaks.months.longest}</div>
-                <div className="text-xs text-neutral-600 mt-0.5">
-                  {streaks.months.longest > 0 && streaks.months.longestStart
-                    ? `${fmtShortMonth(streaks.months.longestStart)} – ${fmtShortMonth(streaks.months.longestEnd)}`
-                    : 'longest'}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Section>
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
         <Section title="Ratings">
           <div className="space-y-2.5">
@@ -751,99 +843,7 @@ export default function Stats() {
             </div>
           </Section>
         )}
-
-        {languages.length > 1 && (
-          <Section title="Languages">
-            <div className="space-y-2.5">
-              {languages.map(l => (
-                <Bar key={l.language} label={l.language} count={l.count}
-                  max={Math.max(...languages.map(x => x.count))} color="bg-binding" href={`/browse/language/${encodeURIComponent(l.language)}`} />
-              ))}
-            </div>
-          </Section>
-        )}
       </div>
-
-      {byMonth.length > 0 && (
-        <Section title="Days read per month">
-          <div className="space-y-2.5">
-            {byMonth.map(m => {
-              const [y, mo] = m.month.split('-').map(Number);
-              const label = new Date(y, mo - 1, 1).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
-              return (
-                <Bar
-                  key={m.month}
-                  label={label}
-                  count={m.days}
-                  max={maxMonth}
-                  color="bg-oak"
-                  caption={plural(m.days, 'day')}
-                />
-              );
-            })}
-          </div>
-        </Section>
-      )}
-
-      {decadesPublished.length > 0 && (() => {
-        // Fill in zero-count buckets between min and max so gaps in the
-        // timeline read visually instead of getting compressed away. Each
-        // column gets the native title for exact decade + count.
-        const sorted = [...decadesPublished].sort((a, b) => a.decade - b.decade);
-        const minDecade = sorted[0].decade;
-        const maxDecade = sorted[sorted.length - 1].decade;
-        const counts = new Map(sorted.map(d => [d.decade, d.count]));
-        const buckets = [];
-        for (let d = minDecade; d <= maxDecade; d += 10) {
-          buckets.push({ decade: d, count: counts.get(d) ?? 0 });
-        }
-        const maxCount = Math.max(...buckets.map(b => b.count), 1);
-        // 0 belongs on the CE side ("0s" = years 0–9 CE), not BCE — only
-        // strictly negative bucket ids are pre-Common-Era.
-        const decadeLabel = (d) => d >= 0 ? `${d}s` : `${-d - 9}–${-d} BCE`;
-        return (
-          <Section title="First published by decade">
-            <div>
-              <div className="flex items-end gap-px h-24">
-                {buckets.map(b => (
-                  <div
-                    key={b.decade}
-                    className={`flex-1 rounded-t transition-colors min-h-[1px] ${b.count > 0 ? 'bg-binding/70 hover:bg-binding' : 'bg-neutral-800'}`}
-                    style={{ height: `${(b.count / maxCount) * 100}%` }}
-                    title={`${decadeLabel(b.decade)} · ${plural(b.count, 'book')}`}
-                  />
-                ))}
-              </div>
-              <div className="flex justify-between text-[10px] text-neutral-600 tabular-nums mt-1.5">
-                <span>{decadeLabel(minDecade)}</span>
-                <span>{decadeLabel(maxDecade)}</span>
-              </div>
-            </div>
-          </Section>
-        );
-      })()}
-
-      {byYear.length > 0 && (
-        <Section title="Finished by year">
-          <div className="space-y-2.5">
-            {byYear.map(y => {
-              const parts = [plural(y.count, 'book')];
-              if (y.pages > 0) parts.push(`${y.pages.toLocaleString()} pages`);
-              return (
-                <Bar
-                  key={y.year}
-                  label={y.year}
-                  count={y.count}
-                  max={maxYear}
-                  color="bg-leather"
-                  href={`/browse/year_finished/${y.year}`}
-                  caption={parts.join(' · ')}
-                />
-              );
-            })}
-          </div>
-        </Section>
-      )}
     </div>
   );
 }
