@@ -251,6 +251,12 @@ export default function Library() {
   // Never owned tab. Mirrors ListDetail.editMode. Only meaningful when
   // tab='never_owned' && sort='custom' — entering edit mode coerces both.
   const [editMode, setEditMode] = useState(false);
+  // 2-step intent for entering edit mode: a click on Edit first switches
+  // sort to Custom and triggers Load all if needed. Once both are
+  // settled, the useEffect below promotes the intent to actual editMode.
+  // The intermediate state lets the button reflect "Loading…" so the
+  // user knows the click took effect even when there's a pause.
+  const [enteringEdit, setEnteringEdit] = useState(false);
 
   const loadedRef  = useRef(0);
   const guard      = useStaleGuard();
@@ -556,13 +562,49 @@ export default function Library() {
     // Edit mode is only meaningful on the Never owned tab in Custom-order
     // sort. Mirrors ListDetail.toggleEditMode: entering edit mode coerces
     // the sort (and tab, here) so the drag-and-drop you're about to do
-    // matches the order being persisted.
-    if (!editMode) {
-      if (tab !== 'never_owned') setTab('never_owned');
-      if (sort !== 'custom')     setSort('custom');
+    // matches the order being persisted. If the library is partially
+    // paginated, also kicks off Load all — the desire-order PUT stamps
+    // ranks on the ids it receives and leaves the rest untouched, so
+    // ranking a subset would let unloaded books carry stale ranks that
+    // outrank user-dragged top books. The useEffect below progresses
+    // the intent through Load all → editMode = true once everything
+    // is in place.
+    if (editMode) {
+      setEditMode(false);
+      return;
     }
-    setEditMode(m => !m);
+    if (enteringEdit) return;
+    setActionError(null);
+    setEnteringEdit(true);
+    if (tab !== 'never_owned') setTab('never_owned');
+    if (sort !== 'custom')     setSort('custom');
   }
+
+  // Drives the enteringEdit → editMode transition: waits for tab + sort
+  // to settle on (never_owned, custom), triggers Load all if there are
+  // unloaded books, then activates editMode once everything is loaded.
+  useEffect(() => {
+    if (!enteringEdit) return;
+    if (tab !== 'never_owned' || sort !== 'custom') return;
+    if (loading || loadingMore || loadingAll) return;
+    if (loadedRef.current < total) {
+      handleLoadAll();
+      return;
+    }
+    setEditMode(true);
+    setEnteringEdit(false);
+  }, [enteringEdit, tab, sort, loading, loadingMore, loadingAll, total]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Cancel an in-flight enter-edit intent when the user navigates away
+  // from Never owned or away from Custom sort, since the intent only
+  // makes sense in that combination.
+  useEffect(() => {
+    if (enteringEdit && (tab !== 'never_owned' || sort !== 'custom') && !loading) {
+      // sort might still be settling immediately after the click; only
+      // cancel if both tab and sort have settled to a different combo.
+      if (tab !== 'never_owned') setEnteringEdit(false);
+    }
+  }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleDragEnd(event) {
     const { active, over } = event;
@@ -708,25 +750,23 @@ export default function Library() {
             {tab === 'never_owned' && (
               <button
                 onClick={toggleEditMode}
-                // Edit is gated on the full corpus being loaded. The PUT
-                // /books/desire-order route stamps `desire_rank = i` on
-                // exactly the ids it receives and leaves all other rows
-                // untouched, so a reorder against a paginated subset (the
-                // 48-book first page) leaves stale ranks on un-loaded
-                // books to collide with the freshly-stamped 0..47 — books
-                // the user just dragged to the top can be silently
-                // outranked by a higher-id book holding an old rank.
-                // Forcing Load all first keeps every rank in one
-                // consistent batch.
-                disabled={!editMode && loadedRef.current < total}
-                title={!editMode && loadedRef.current < total ? 'Load all books first to rank' : ''}
-                className={`text-sm px-3 py-2 rounded-lg whitespace-nowrap transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                // Always clickable. A click that isn't already in
+                // editMode triggers the enteringEdit flow: switch to
+                // Custom sort + Load all + then activate edit mode.
+                // The PUT /books/desire-order route stamps `desire_rank
+                // = i` on exactly the ids it receives, so it MUST run
+                // against the full corpus — partial-load ranking
+                // leaves un-loaded books with stale ranks that
+                // outrank freshly-stamped top picks.
+                disabled={enteringEdit}
+                title={enteringEdit ? 'Loading all books to rank…' : ''}
+                className={`text-sm px-3 py-2 rounded-lg whitespace-nowrap transition-colors disabled:opacity-60 disabled:cursor-wait ${
                   editMode
                     ? 'bg-binding/25 text-parchment'
                     : 'bg-neutral-800 text-neutral-400 hover:text-neutral-200'
                 }`}
               >
-                {editMode ? 'Done' : 'Edit'}
+                {editMode ? 'Done' : enteringEdit ? 'Loading…' : 'Edit'}
               </button>
             )}
             <div className="relative w-full sm:w-80">
