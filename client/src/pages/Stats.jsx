@@ -121,45 +121,6 @@ function Bar({ label, count, max, color = 'bg-oak', href, caption }) {
   );
 }
 
-// Vertical bar histogram. Renders count-above bars sized proportionally
-// to the max bucket. Used for the pages-per-reading-day distribution
-// (and reusable for any one-dim distribution that comes up later).
-function Histogram({ data, valueKey = 'days', labelKey = 'label', barColor = 'bg-oak', caption }) {
-  const max = Math.max(0, ...data.map(d => d[valueKey] ?? 0));
-  const total = data.reduce((s, d) => s + (d[valueKey] ?? 0), 0);
-  if (!total) return <p className="text-xs text-neutral-600">No data yet.</p>;
-  return (
-    <div>
-      <div className="flex items-end gap-3 h-40">
-        {data.map(d => {
-          const v = d[valueKey] ?? 0;
-          const pct = max > 0 ? (v / max) * 100 : 0;
-          return (
-            <div key={d[labelKey]} className="flex-1 flex flex-col items-center justify-end h-full min-w-0">
-              <span className="text-[10px] text-neutral-500 tabular-nums mb-1">{v.toLocaleString()}</span>
-              <div className="w-full bg-neutral-800 rounded-t" style={{ height: '100%' }}>
-                <div
-                  className={`${barColor} rounded-t w-full transition-all`}
-                  style={{ height: `${pct}%`, marginTop: `${100 - pct}%` }}
-                  title={`${d[labelKey]} · ${v.toLocaleString()}`}
-                />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      <div className="flex gap-3 mt-2">
-        {data.map(d => (
-          <div key={d[labelKey]} className="flex-1 text-center text-[10px] text-neutral-500 tabular-nums min-w-0 truncate">
-            {d[labelKey]}
-          </div>
-        ))}
-      </div>
-      {caption && <p className="text-[11px] text-neutral-600 mt-3">{caption}</p>}
-    </div>
-  );
-}
-
 // Squarified treemap layout (Bruls, Huijsen, van Wijk 2000) for a flat
 // list of weighted items. Returns each input augmented with a normalised
 // rect = { x, y, w, h } in the virtual coordinate space (vw × vh).
@@ -409,7 +370,7 @@ export default function Stats() {
   if (!stats && error) return <div role="alert" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-warn text-sm">{error}</div>;
   if (!stats) return null;
 
-  const { totals, formats, fiction, ownedStatus, ratings, acquisitionSources, pagesRead, minutesListened, byYear, byMonth = [], topAuthors, topNarrators, languages, streaks, todayPages, thisYearBooks, thisYearPages, topTags, topSeries, avgPagesPerDay, avgDaysToFinish, inProgressPace = [], decadesPublished = [], pagesPerDayDistribution = [], records } = stats;
+  const { totals, formats, fiction, ownedStatus, ratings, acquisitionSources, pagesRead, minutesListened, byYear, byMonth = [], topAuthors, topNarrators, languages, streaks, todayPages, thisYearBooks, thisYearPages, topTags, topSeries, avgPagesPerDay, avgDaysToFinish, inProgressPace = [], decadesPublished = [], records } = stats;
 
   const maxRating = Math.max(...ratings.map(r => r.count), 1);
   const maxYear   = Math.max(...byYear.map(y => y.count), 1);
@@ -593,19 +554,6 @@ export default function Stats() {
           )}
         </div>
       </Section>
-
-      {pagesPerDayDistribution.some(b => b.days > 0) && (
-        <Section title="Pages per reading day">
-          <div className="bg-card rounded-lg p-5">
-            <Histogram
-              data={pagesPerDayDistribution}
-              valueKey="days"
-              labelKey="label"
-              caption={`Distribution of your ${pagesPerDayDistribution.reduce((s, b) => s + b.days, 0).toLocaleString()} page-logged reading days.`}
-            />
-          </div>
-        </Section>
-      )}
 
       {Object.values(records).some(Boolean) && (() => {
         const pages = (b) => b ? `${b.page_count.toLocaleString()} pages` : null;
