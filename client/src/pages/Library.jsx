@@ -25,7 +25,8 @@ import SeriesCard from '../components/library/SeriesCard.jsx';
 import { EMPTY_FILTERS, countFilters, pruneFilters, buildApiParams } from '../components/library/filters.js';
 import { paramsToFilters, writeFiltersToParams, filtersEqual } from '../components/library/urlState.js';
 import { buildDisplayItems, sortVolumes } from '../components/library/grouping.js';
-import { useGridCols, COMFORTABLE_BPS, COMPACT_BPS } from '../hooks/useGridCols.js';
+import { useCoverSize } from '../hooks/useCoverSize.js';
+import CoverSizeSlider from '../components/CoverSizeSlider.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useLatest } from '../hooks/useLatest.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
@@ -43,8 +44,10 @@ const TABS = [
 ];
 
 // localStorage holds only UI preferences that aren't part of "this
-// view": per-tab sort memory, grid density, filter-panel open state.
-// View state (tab/sort/query/filters) lives in the URL — see urlState.js.
+// view": per-tab sort memory, filter-panel open state. Cover-size
+// has its own key (spine-cover-size) via useCoverSize so other
+// cover-first grids can share it. View state (tab/sort/query/filters)
+// lives in the URL — see urlState.js.
 const PREFS_KEY = 'spine-library-prefs';
 
 const SORTS = [
@@ -81,11 +84,6 @@ function sortAllowedForTab(sort, tab) {
   if (def.tabs && !def.tabs.includes(tab)) return 'updated';
   return sort;
 }
-
-const GRID = {
-  comfortable: 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-x-3 gap-y-5 items-start',
-  compact:     'grid grid-cols-6 sm:grid-cols-9 md:grid-cols-12 gap-0.5 items-start',
-};
 
 function getPrefs() {
   try { return JSON.parse(localStorage.getItem(PREFS_KEY)) ?? {}; }
@@ -163,8 +161,11 @@ export default function Library() {
   const [sortByTab, setSortByTab] = useState(() => {
     return (prefs.sortByTab && typeof prefs.sortByTab === 'object') ? prefs.sortByTab : {};
   });
-  const [density,     setDensity]     = useState(() => prefs.density === 'compact' ? 'compact' : 'comfortable');
   const [filtersOpen, setFiltersOpen] = useState(() => typeof prefs.filtersOpen === 'boolean' ? prefs.filtersOpen : false);
+  // Cover-size dial — Plex-style 9-stop slider. Stored under its own
+  // localStorage key (not in library prefs) so other cover-first grids
+  // (Loved, ShelfView, BrowsePage) can share it on a later pass.
+  const { size: coverSize, setSize: setCoverSize, cols: coverCols, compact, gridStyle, gridClassName, MIN: coverMin, MAX: coverMax } = useCoverSize();
 
   // Sort is URL-encoded but defaults to the per-tab remembered sort
   // when absent. This preserves the "each tab has its own preferred
@@ -389,12 +390,13 @@ export default function Library() {
     setSortByTab(prev => prev[tab] === urlSort ? prev : { ...prev, [tab]: urlSort });
   }, [urlSort, tab]);
 
-  // Persist UI preferences (sort memory, density, filter-panel state)
-  // to localStorage so they survive across tabs and sessions. View
-  // state (tab/sort/query/filters) lives in the URL, not here.
+  // Persist UI preferences (sort memory, filter-panel state) to
+  // localStorage so they survive across tabs and sessions. Cover-size
+  // is stored under its own key by useCoverSize. View state
+  // (tab/sort/query/filters) lives in the URL, not here.
   useEffect(() => {
-    localStorage.setItem(PREFS_KEY, JSON.stringify({ sortByTab, density, filtersOpen }));
-  }, [sortByTab, density, filtersOpen]);
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ sortByTab, filtersOpen }));
+  }, [sortByTab, filtersOpen]);
 
   // Tab counts badge
   useEffect(() => {
@@ -608,7 +610,7 @@ export default function Library() {
     const qs = searchParams.toString();
     return { from: 'Library', fromPath: qs ? `/?${qs}` : '/' };
   }, [searchParams]);
-  const gridCols        = useGridCols(density === 'compact' ? COMPACT_BPS : COMFORTABLE_BPS);
+  const gridCols        = coverCols;
   const hasMore         = loadedRef.current < total;
 
   // Bridge: keep refs in sync with the latest handlers and paging state so
@@ -788,21 +790,7 @@ export default function Library() {
             <span className="text-xs text-neutral-600 tabular-nums whitespace-nowrap">
               {plural(total, 'book')}
             </span>
-            <div className="flex items-center gap-1">
-              <button onClick={() => setDensity('comfortable')} title="Comfortable grid" aria-label="Comfortable grid" aria-pressed={density === 'comfortable'} className={`transition-colors ${density === 'comfortable' ? 'text-neutral-300' : 'text-neutral-700 hover:text-neutral-400'}`}>
-                <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4">
-                  <rect x="1" y="1" width="4" height="4" rx="0.5"/><rect x="6" y="1" width="4" height="4" rx="0.5"/><rect x="11" y="1" width="4" height="4" rx="0.5"/>
-                  <rect x="1" y="6" width="4" height="4" rx="0.5"/><rect x="6" y="6" width="4" height="4" rx="0.5"/><rect x="11" y="6" width="4" height="4" rx="0.5"/>
-                  <rect x="1" y="11" width="4" height="4" rx="0.5"/><rect x="6" y="11" width="4" height="4" rx="0.5"/><rect x="11" y="11" width="4" height="4" rx="0.5"/>
-                </svg>
-              </button>
-              <button onClick={() => setDensity('compact')} title="Compact grid" aria-label="Compact grid" aria-pressed={density === 'compact'} className={`transition-colors ${density === 'compact' ? 'text-neutral-300' : 'text-neutral-700 hover:text-neutral-400'}`}>
-                <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4">
-                  <rect x="1" y="1" width="6.5" height="6.5" rx="0.5"/><rect x="8.5" y="1" width="6.5" height="6.5" rx="0.5"/>
-                  <rect x="1" y="8.5" width="6.5" height="6.5" rx="0.5"/><rect x="8.5" y="8.5" width="6.5" height="6.5" rx="0.5"/>
-                </svg>
-              </button>
-            </div>
+            <CoverSizeSlider size={coverSize} onChange={setCoverSize} min={coverMin} max={coverMax} />
           </div>
         </div>
 
@@ -846,15 +834,15 @@ export default function Library() {
             // mode — the user is here to reorder, not to admire the grid).
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext items={books.map(b => b.id)} strategy={rectSortingStrategy}>
-                <div className={GRID[density]}>
+                <div className={gridClassName} style={gridStyle}>
                   {books.map(book => (
-                    <SortableBookCard key={book.id} book={book} compact={density === 'compact'} />
+                    <SortableBookCard key={book.id} book={book} compact={compact} />
                   ))}
                 </div>
               </SortableContext>
             </DndContext>
           ) : (
-            <div className={GRID[density]}>
+            <div className={gridClassName} style={gridStyle}>
               {displayItems.map(item =>
                 item.type === 'series' ? (
                   <SeriesCard
@@ -863,14 +851,14 @@ export default function Library() {
                     books={item.books}
                     expanded={expandedSeries.has(item.name)}
                     onToggle={() => toggleSeries(item.name)}
-                    compact={density === 'compact'}
+                    compact={compact}
                   />
                 ) : (
                   <BookCard
                     key={item.book.id}
                     book={item.book}
                     onProgressUpdate={handleProgressUpdate}
-                    compact={density === 'compact'}
+                    compact={compact}
                     linkState={fromState}
                   />
                 )
