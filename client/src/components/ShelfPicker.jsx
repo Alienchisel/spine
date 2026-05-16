@@ -49,33 +49,44 @@ export default function ShelfPicker({ shelfId, buildingId, roomId, unitId, onCha
   const units   = rooms.find(r => r.id === sel.roomId)?.units       ?? [];
   const shelves = units.find(u => u.id === sel.unitId)?.shelves     ?? [];
 
+  // Send the full hierarchy on every change. The backend's
+  // normalizeBookLocation picks the most-specific non-null id and stores
+  // only that, so emitting parent ids alongside is harmless. Critically,
+  // this preserves the parent context when the user blanks a more-specific
+  // level — picking the empty Shelf option used to send all-nulls and
+  // wipe the visible Building / Room / Unit too.
   function setBuilding(bid) {
     const id = bid ? Number(bid) : null;
-    setSel({ buildingId: id, roomId: null, unitId: null, shelfId: null });
-    onChange({ buildingId: id, roomId: null, unitId: null, shelfId: null });
+    const next = { buildingId: id, roomId: null, unitId: null, shelfId: null };
+    setSel(next);
+    onChange(next);
   }
 
   function setRoom(rid) {
     const id = rid ? Number(rid) : null;
-    setSel(s => ({ ...s, roomId: id, unitId: null, shelfId: null }));
-    onChange({ buildingId: null, roomId: id, unitId: null, shelfId: null });
+    const next = { ...sel, roomId: id, unitId: null, shelfId: null };
+    setSel(next);
+    onChange(next);
   }
 
   function setUnit(uid) {
     const id = uid ? Number(uid) : null;
-    setSel(s => ({ ...s, unitId: id, shelfId: null }));
-    onChange({ buildingId: null, roomId: null, unitId: id, shelfId: null });
+    const next = { ...sel, unitId: id, shelfId: null };
+    setSel(next);
+    onChange(next);
   }
 
   function setShelf(sid) {
     const id = sid ? Number(sid) : null;
-    setSel(s => ({ ...s, shelfId: id }));
-    onChange({ buildingId: null, roomId: null, unitId: null, shelfId: id });
+    const next = { ...sel, shelfId: id };
+    setSel(next);
+    onChange(next);
   }
 
   function clear() {
-    setSel({ buildingId: null, roomId: null, unitId: null, shelfId: null });
-    onChange({ buildingId: null, roomId: null, unitId: null, shelfId: null });
+    const next = { buildingId: null, roomId: null, unitId: null, shelfId: null };
+    setSel(next);
+    onChange(next);
   }
 
   if (!tree.length) return null;
