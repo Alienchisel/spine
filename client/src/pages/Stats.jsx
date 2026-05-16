@@ -417,12 +417,33 @@ export default function Stats() {
   const maxAuthor   = Math.max(...topAuthors.map(a => a.count), 1);
   const maxNarrator = Math.max(...(topNarrators?.map(n => n.count) || []), 1);
 
+  // Hero numbers up top: the four headline figures the user is most
+  // likely to want to glance at — library size, lifetime pages,
+  // lifetime listening, and current day streak. Big monospace numbers
+  // with a small uppercase descriptor above, no card chrome — gives
+  // the page a "dashboard" first impression.
+  const hero = [
+    { label: 'Books in library', value: totals?.total?.toLocaleString() ?? '—' },
+    { label: 'Pages read',       value: pagesRead?.toLocaleString() ?? '—' },
+    { label: 'Hours listened',   value: minutesListened > 0 ? Math.floor(minutesListened / 60).toLocaleString() : '—' },
+    { label: 'Day streak',       value: streaks?.days?.current?.toLocaleString() ?? '0' },
+  ];
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
       <h1 className="font-slab text-2xl text-parchment tracking-wide uppercase">Stats</h1>
 
       <ErrorBanner message={error} onDismiss={() => setError(null)} />
       {actionError && <p role="alert" className="text-xs text-warn">{actionError}</p>}
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-10 py-4">
+        {hero.map(h => (
+          <div key={h.label} className="text-center sm:text-left">
+            <p className="text-[10px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">{h.label}</p>
+            <p className="font-slab text-4xl sm:text-5xl text-parchment tabular-nums leading-none">{h.value}</p>
+          </div>
+        ))}
+      </div>
 
       {inProgressPace.length > 0 && (
         <Section title="Currently reading">
