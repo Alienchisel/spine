@@ -423,7 +423,7 @@ export default function Stats() {
   // with a small uppercase descriptor above, no card chrome — gives
   // the page a "dashboard" first impression.
   const hero = [
-    { label: 'Books in library', value: totals?.total?.toLocaleString() ?? '—' },
+    { label: 'Books in library', value: totals?.books?.toLocaleString() ?? '—' },
     { label: 'Pages read',       value: pagesRead?.toLocaleString() ?? '—' },
     { label: 'Hours listened',   value: minutesListened > 0 ? Math.floor(minutesListened / 60).toLocaleString() : '—' },
     { label: 'Day streak',       value: streaks?.days?.current?.toLocaleString() ?? '0' },
