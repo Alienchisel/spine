@@ -4468,4 +4468,36 @@ describe('books', () => {
       assert.equal(body.year_approximate, 0);
     });
   });
+
+  describe('Long / Tome virtual-tag boundary', () => {
+    // Long is 500-999 pages, Tome is 1000+. Mutually exclusive — mirrors
+    // the Antique/Vintage split. Audio-equivalent thresholds: Long
+    // 840-1679 minutes, Tome 1680+.
+    it('500-page book gets Long, not Tome', async () => {
+      const { body } = await req('POST', '/api/books', { title: 'BoundaryLong', page_count: 500 });
+      const names = body.tags.map(t => t.name);
+      assert.ok(names.includes('Long'),  'expected Long');
+      assert.ok(!names.includes('Tome'), 'did not expect Tome at 500');
+    });
+    it('999-page book gets Long, not Tome', async () => {
+      const { body } = await req('POST', '/api/books', { title: 'BoundaryLongMax', page_count: 999 });
+      const names = body.tags.map(t => t.name);
+      assert.ok(names.includes('Long'),  'expected Long at 999');
+      assert.ok(!names.includes('Tome'), 'did not expect Tome at 999');
+    });
+    it('1000-page book gets Tome, not Long', async () => {
+      const { body } = await req('POST', '/api/books', { title: 'BoundaryTome', page_count: 1000 });
+      const names = body.tags.map(t => t.name);
+      assert.ok(names.includes('Tome'),  'expected Tome at 1000');
+      assert.ok(!names.includes('Long'), 'did not expect Long at 1000');
+    });
+    it('long audiobook (28h) gets Tome, not Long', async () => {
+      const { body } = await req('POST', '/api/books', {
+        title: 'BoundaryTomeAudio', format: 'audiobook', duration_minutes: 1680,
+      });
+      const names = body.tags.map(t => t.name);
+      assert.ok(names.includes('Tome'),  'expected Tome at 1680 min');
+      assert.ok(!names.includes('Long'), 'did not expect Long at 1680 min');
+    });
+  });
 });
