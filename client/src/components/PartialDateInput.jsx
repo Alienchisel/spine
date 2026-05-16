@@ -16,12 +16,12 @@ const SIZES = {
   md: {
     input:  'bg-neutral-800 border border-neutral-700 rounded-md px-3 py-2.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 transition-colors duration-150',
     yearW:  'w-24',
-    dayW:   'w-16',
+    dayW:   'w-20',
   },
   sm: {
     input:  'bg-neutral-900 border border-neutral-700 text-neutral-300 text-xs rounded px-2 py-1 focus:outline-none focus:border-neutral-500 transition-colors',
     yearW:  'w-20',
-    dayW:   'w-14',
+    dayW:   'w-16',
   },
 };
 
