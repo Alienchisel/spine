@@ -41,6 +41,7 @@ export function bookToFormState(book) {
     asin: book.asin || '',
     year_published: book.year_published ?? '',
     year_approximate: Boolean(book.year_approximate),
+    year_published_approximate: Boolean(book.year_published_approximate),
     year_edition: book.year_edition ?? '',
     abridged: Boolean(book.abridged),
     description: book.description || '',
@@ -100,7 +101,9 @@ export function formStateToPayload(form, { tagInput, narratorInput, authorInput,
   }
 
   // year_approximate is only meaningful when year_edition is set.
-  out.year_approximate = form.year_edition ? form.year_approximate : false;
+  // year_published_approximate is only meaningful when year_published is set.
+  out.year_approximate           = form.year_edition   ? form.year_approximate           : false;
+  out.year_published_approximate = form.year_published ? form.year_published_approximate : false;
 
   return out;
 }

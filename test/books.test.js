@@ -4440,4 +4440,32 @@ describe('books', () => {
       assert.ok(ids.has(hit.id));
     });
   });
+
+  describe('year_published_approximate', () => {
+    it('saves and returns the flag independently of year_approximate', async () => {
+      // Ancient works: published year is approximate, edition year is exact.
+      // year_approximate / year_published_approximate are independent so the
+      // form can mark each on its own. Placed at end-of-file so this
+      // fixture's row doesn't bump prior sort-tests' fixtures past the
+      // global GET /api/books limit cap.
+      async function req(method, path, body) {
+        const res = await fetch(`${url}${path}`, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: body != null ? JSON.stringify(body) : undefined,
+        });
+        const data = res.status === 204 ? null : await res.json();
+        return { status: res.status, body: data };
+      }
+      const { status, body } = await req('POST', '/api/books', {
+        title: 'YPA Letters', year_published: 65, year_edition: 2017,
+        year_published_approximate: true, year_approximate: false,
+      });
+      assert.equal(status, 201);
+      assert.equal(body.year_published, 65);
+      assert.equal(body.year_edition, 2017);
+      assert.equal(body.year_published_approximate, 1);
+      assert.equal(body.year_approximate, 0);
+    });
+  });
 });

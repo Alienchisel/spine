@@ -59,6 +59,14 @@ export default function DetailsFields({ form, set, ic, pastLanguages, pastTransl
           <input id={idFor('year_published')} type="number" min="-9999" max="9999" className={input}
             value={form.year_published} onChange={(e) => set('year_published', e.target.value)}
             placeholder="e.g. 1965 (BCE: -800)" />
+          {form.year_published && (
+            <label className="flex items-center gap-1.5 mt-1.5 cursor-pointer select-none">
+              <input type="checkbox" checked={form.year_published_approximate}
+                onChange={(e) => set('year_published_approximate', e.target.checked)}
+                className="w-3.5 h-3.5 rounded border-neutral-700 bg-neutral-900 text-oak focus:ring-0 focus:ring-offset-0" />
+              <span className="text-xs text-neutral-500">approximate (ca.)</span>
+            </label>
+          )}
         </div>
         <div>
           <label htmlFor={idFor('year_edition')} className={label}>Edition year</label>

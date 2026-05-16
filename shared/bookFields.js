@@ -27,7 +27,7 @@ export const FORM_DEFAULTS = Object.freeze({
 
   // Booleans.
   owned: false, previously_owned: false, is_custom: false, is_stub: false,
-  loved: false, year_approximate: false, abridged: false, archived: false,
+  loved: false, year_approximate: false, year_published_approximate: false, abridged: false, archived: false,
 
   // Tri-state.
   fiction: null,
@@ -86,7 +86,7 @@ export const BOOK_TABLE_COLUMNS = Object.freeze([
   'publisher', 'series', 'series_number',
   'isbn_10', 'isbn_13', 'asin',
   'language', 'original_language',
-  'year_published', 'year_approximate', 'year_edition',
+  'year_published', 'year_approximate', 'year_published_approximate', 'year_edition',
   'abridged',
   'archived',
   'shelf_id', 'building_id', 'room_id', 'unit_id',

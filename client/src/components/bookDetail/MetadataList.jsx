@@ -50,7 +50,7 @@ export default function MetadataList({ book, location, linkState }) {
       )}
       {book.year_published != null && (
         <Row label="Published">
-          {formatYear(book.year_published)}
+          {book.year_published_approximate ? 'ca. ' : ''}{formatYear(book.year_published)}
           {book.year_edition && book.year_edition !== book.year_published
             ? ` (this edition ${book.year_approximate ? 'ca. ' : ''}${formatYear(book.year_edition)})`
             : ''}
