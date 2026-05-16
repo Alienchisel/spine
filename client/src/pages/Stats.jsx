@@ -465,8 +465,7 @@ export default function Stats() {
       </Section>
 
       <Section title="Library">
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-          <StatCard label="Total books" value={totals.books?.toLocaleString()} href="/?tab=all" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
           <StatCard label="Owned" value={totals.owned?.toLocaleString()} href="/?tab=owned" />
           <StatCard label="Prev. owned" value={totals.previously_owned?.toLocaleString()} href="/?tab=prev_owned" />
           <StatCard label="Never owned" value={totals.never_owned?.toLocaleString()} href="/?tab=never_owned" />
@@ -542,18 +541,18 @@ export default function Stats() {
         </div>
       </Section>
 
-      <Section title="Reading">
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <StatCard label="Pages read" value={pagesRead?.toLocaleString()} />
-          <StatCard label="Time listened" value={formatHours(minutesListened)} />
-          {avgPagesPerDay != null && (
-            <StatCard label="Avg pages / reading day" value={avgPagesPerDay?.toLocaleString()} />
-          )}
-          {avgDaysToFinish != null && (
-            <StatCard label="Avg days to finish" value={avgDaysToFinish?.toLocaleString()} />
-          )}
-        </div>
-      </Section>
+      {(avgPagesPerDay != null || avgDaysToFinish != null) && (
+        <Section title="Reading averages">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {avgPagesPerDay != null && (
+              <StatCard label="Avg pages / reading day" value={avgPagesPerDay?.toLocaleString()} />
+            )}
+            {avgDaysToFinish != null && (
+              <StatCard label="Avg days to finish" value={avgDaysToFinish?.toLocaleString()} />
+            )}
+          </div>
+        </Section>
+      )}
 
       {Object.values(records).some(Boolean) && (() => {
         const pages = (b) => b ? `${b.page_count.toLocaleString()} pages` : null;
