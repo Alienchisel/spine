@@ -88,10 +88,16 @@ function toPayload(form) {
   };
 }
 
+// Long collections (e.g. the Bible's 1,189 chapters) collapse to the
+// first N entries by position with a "Show all" toggle, mirroring
+// ReadingLog. Below the threshold the list renders in full.
+const COLLAPSED_LIMIT = 25;
+
 export default function StoriesSection({ bookId, stories, bookAuthors = [], onUpdate, noun = 'story' }) {
   const [adding, setAdding] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const [expanded, setExpanded] = useState(false);
   const saveGuard = useActionGuard();
   const [error, setError] = useState(null);
   const deletingIdsRef = useRef(new Set());
@@ -279,6 +285,13 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
   // collection at a glance. DNF counts as accounted-for, so the count
   // reflects "stories closed out" rather than "stories rated 5 stars."
   const accounted = stories.filter(s => s.status === 'finished' || s.did_not_finish).length;
+  // Always show the entry being edited or any new fresh add, even when
+  // it lives past the collapse window — otherwise the user clicks Edit
+  // on Genesis 47 and the form vanishes off-screen.
+  const overLimit = stories.length > COLLAPSED_LIMIT;
+  const visibleStories = (expanded || !overLimit)
+    ? stories
+    : stories.filter((s, i) => i < COLLAPSED_LIMIT || s.id === editId);
   return (
     <div className="border-t border-neutral-800 pt-5 mb-6">
       <div className="flex items-baseline justify-between mb-3">
@@ -291,7 +304,7 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
       </div>
       {stories.length > 0 ? (
         <div className="space-y-2 mb-3">
-          {stories.map(s => editId === s.id ? (
+          {visibleStories.map(s => editId === s.id ? (
             <form key={s.id} onSubmit={e => handleUpdate(e, s.id)} className="flex flex-wrap items-center gap-2">
               {formBody}
               <button type="submit" disabled={saveGuard.busy} className="text-xs text-oak hover:text-oak/80 transition-colors disabled:opacity-40">Save</button>
@@ -345,6 +358,14 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
         </div>
       ) : (
         <p className="text-xs text-neutral-600 mb-3">No {noun === 'story' ? 'stories' : 'entries'} logged yet.</p>
+      )}
+      {overLimit && (
+        <button
+          onClick={() => setExpanded(e => !e)}
+          className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors mb-3"
+        >
+          {expanded ? 'Show less' : `Show all (${stories.length})`}
+        </button>
       )}
       {adding ? (
         <form onSubmit={handleAdd} className="flex flex-wrap items-center gap-2">
