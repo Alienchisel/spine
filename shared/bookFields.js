@@ -66,7 +66,7 @@ export const VIRTUAL_TAG_NAMES = Object.freeze(['Antique', 'Vintage', 'Translate
 export const ENUM_VALUES = Object.freeze({
   status:      ['reading', 'finished', 'unread'],
   format:      ['physical', 'ebook', 'audiobook'],
-  binding:     ['paperback', 'hardcover'],
+  binding:     ['paperback', 'hardcover', 'other'],
   condition:   ['new', 'fine', 'very good', 'good', 'fair', 'poor'],
   source_type: ['primary', 'secondary'],
 });

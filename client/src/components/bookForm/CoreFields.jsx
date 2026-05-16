@@ -172,6 +172,7 @@ export default function CoreFields({
                 <option value="">—</option>
                 <option value="paperback">Paperback</option>
                 <option value="hardcover">Hardcover</option>
+                <option value="other">Other</option>
               </select>
             </div>
             {form.owned && (
