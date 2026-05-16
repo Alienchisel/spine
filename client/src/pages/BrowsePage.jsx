@@ -3,8 +3,9 @@ import { useParams, Link, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
 import { plural } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
+import CoverSizeSlider from '../components/CoverSizeSlider.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
-import { useGridCols, BROWSE_BPS } from '../hooks/useGridCols.js';
+import { useCoverSize } from '../hooks/useCoverSize.js';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 
@@ -67,7 +68,7 @@ export default function BrowsePage() {
   // check, fire duplicate getBooks at the same offset, and double-bump
   // loadedRef.current. Mirrors Library.pagingRef.
   const pagingRef = useRef(false);
-  const gridCols  = useGridCols(BROWSE_BPS);
+  const { size: coverSize, setSize: setCoverSize, cols: gridCols, compact, gridStyle, gridClassName, MIN: coverMin, MAX: coverMax } = useCoverSize();
   const refreshTick = useRefreshTick();
   // Snapshot of the browse target so we can distinguish navigation
   // (different field/value → wipe to loading) from refresh-tick
@@ -170,10 +171,15 @@ export default function BrowsePage() {
       <Link to={backPath} className="text-sm text-neutral-600 hover:text-neutral-300 mb-8 inline-block transition-colors">
         {backLabel}
       </Link>
-      <div className="mb-8">
-        {label && <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1">{label}</p>}
-        <h1 className="text-2xl font-bold text-white">{heading}</h1>
-        {!loading && <p className="text-sm text-neutral-500 mt-1">{plural(total, 'book')}</p>}
+      <div className="mb-8 flex items-start justify-between gap-4">
+        <div>
+          {label && <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1">{label}</p>}
+          <h1 className="text-2xl font-bold text-white">{heading}</h1>
+          {!loading && <p className="text-sm text-neutral-500 mt-1">{plural(total, 'book')}</p>}
+        </div>
+        {!loading && books.length > 0 && (
+          <CoverSizeSlider size={coverSize} onChange={setCoverSize} min={coverMin} max={coverMax} />
+        )}
       </div>
 
       {/* First-load failure (no books yet) replaces the view with an
@@ -204,8 +210,8 @@ export default function BrowsePage() {
         const trim = hasMore && gridCols > 0 && books.length > gridCols ? books.length % gridCols : 0;
         const visible = trim > 0 ? books.slice(0, -trim) : books;
         return (
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-3 gap-y-5 items-start">
-            {visible.map(book => <BookCard key={book.id} book={book} linkState={fromState} />)}
+          <div className={gridClassName} style={gridStyle}>
+            {visible.map(book => <BookCard key={book.id} book={book} compact={compact} linkState={fromState} />)}
           </div>
         );
       })()}

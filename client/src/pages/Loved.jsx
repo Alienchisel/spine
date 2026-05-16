@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import BookCard from '../components/BookCard.jsx';
+import CoverSizeSlider from '../components/CoverSizeSlider.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
+import { useCoverSize } from '../hooks/useCoverSize.js';
 
 const FROM_LOVED = { from: 'Loved', fromPath: '/loved' };
 
@@ -12,6 +14,7 @@ export default function Loved() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const refreshTick = useRefreshTick();
+  const { size: coverSize, setSize: setCoverSize, compact, gridStyle, gridClassName, MIN: coverMin, MAX: coverMax } = useCoverSize();
 
   useEffect(() => {
     let stale = false;
@@ -35,7 +38,12 @@ export default function Loved() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-white mb-6">Loved</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-xl font-bold text-white">Loved</h1>
+        {books.length > 0 && (
+          <CoverSizeSlider size={coverSize} onChange={setCoverSize} min={coverMin} max={coverMax} />
+        )}
+      </div>
 
       {/* First-load failure (no data) replaces the view; refresh-tick
           failure on an already-loaded page surfaces as a dismissible
@@ -56,9 +64,9 @@ export default function Loved() {
           </Link>
         </div>
       ) : (
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-3 gap-y-5">
+        <div className={gridClassName} style={gridStyle}>
           {books.map(book => (
-            <BookCard key={book.id} book={book} onProgressUpdate={handleUpdate} linkState={FROM_LOVED} />
+            <BookCard key={book.id} book={book} onProgressUpdate={handleUpdate} compact={compact} linkState={FROM_LOVED} />
           ))}
         </div>
       )}

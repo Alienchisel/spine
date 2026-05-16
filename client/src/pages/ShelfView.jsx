@@ -19,7 +19,9 @@ import { CSS } from '@dnd-kit/utilities';
 import { api } from '../api.js';
 import { plural } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
+import CoverSizeSlider from '../components/CoverSizeSlider.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
+import { useCoverSize } from '../hooks/useCoverSize.js';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 
@@ -178,6 +180,7 @@ export default function ShelfView() {
   // location change AND on returns to the root view so an in-flight
   // request from a prior location can't setBooks after navigation.
   const booksGuard = useStaleGuard();
+  const { size: coverSize, setSize: setCoverSize, compact, gridStyle, gridClassName, MIN: coverMin, MAX: coverMax } = useCoverSize();
   // Snapshot of the previous location so the books-fetch effect can
   // tell a navigation (clear stale books) apart from a refresh-tick
   // refetch at the same location (keep books visible so the user's
@@ -423,12 +426,15 @@ export default function ShelfView() {
             </span>
           ))}
         </nav>
-        <Link
-          to="/shelf"
-          className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors"
-        >
-          Manage shelves →
-        </Link>
+        <div className="flex items-center gap-4">
+          <CoverSizeSlider size={coverSize} onChange={setCoverSize} min={coverMin} max={coverMax} />
+          <Link
+            to="/shelf"
+            className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors"
+          >
+            Manage shelves →
+          </Link>
+        </div>
       </div>
 
       {/* Buildings */}
@@ -463,9 +469,9 @@ export default function ShelfView() {
                 <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-4 pb-2 border-b border-neutral-800">
                   No location assigned · {unshelfed.length}
                 </h2>
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-3 gap-y-5">
+                <div className={gridClassName} style={gridStyle}>
                   {unshelfed.map(book => (
-                    <BookCard key={book.id} book={book} linkState={fromState} />
+                    <BookCard key={book.id} book={book} compact={compact} linkState={fromState} />
                   ))}
                 </div>
               </div>
@@ -491,8 +497,8 @@ export default function ShelfView() {
         {booksLoading ? (
           <div role="status" className="text-neutral-700 text-sm mt-6">Loading…</div>
         ) : books.length > 0 && (
-          <div className={`grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-3 gap-y-5 ${rooms.length > 0 ? 'mt-8' : ''}`}>
-            {books.map(book => <BookCard key={book.id} book={book} linkState={fromState} />)}
+          <div className={`${gridClassName} ${rooms.length > 0 ? 'mt-8' : ''}`} style={gridStyle}>
+            {books.map(book => <BookCard key={book.id} book={book} compact={compact} linkState={fromState} />)}
           </div>
         )}
         {!booksLoading && rooms.length === 0 && books.length === 0 && (
@@ -517,8 +523,8 @@ export default function ShelfView() {
         {booksLoading ? (
           <div role="status" className="text-neutral-700 text-sm mt-6">Loading…</div>
         ) : books.length > 0 && (
-          <div className={`grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-3 gap-y-5 ${units.length > 0 ? 'mt-8' : ''}`}>
-            {books.map(book => <BookCard key={book.id} book={book} linkState={fromState} />)}
+          <div className={`${gridClassName} ${units.length > 0 ? 'mt-8' : ''}`} style={gridStyle}>
+            {books.map(book => <BookCard key={book.id} book={book} compact={compact} linkState={fromState} />)}
           </div>
         )}
         {!booksLoading && units.length === 0 && books.length === 0 && (
@@ -576,8 +582,8 @@ export default function ShelfView() {
                 {shelves.length > 0 && (
                   <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-4">Not on a shelf</h2>
                 )}
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-3 gap-y-5">
-                  {unitOnly.map(book => <BookCard key={book.id} book={book} linkState={fromState} />)}
+                <div className={gridClassName} style={gridStyle}>
+                  {unitOnly.map(book => <BookCard key={book.id} book={book} compact={compact} linkState={fromState} />)}
                 </div>
               </div>
             );
