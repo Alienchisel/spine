@@ -111,7 +111,7 @@ export default function MetadataList({ book, location, linkState }) {
             <span className="text-neutral-400 text-xs">{locationCrumb(location)}</span>
             {location.building_id && (
               <Link
-                to={`/shelf-view?b=${location.building_id}${location.room_id ? `&r=${location.room_id}` : ''}${location.unit_id ? `&u=${location.unit_id}` : ''}${location.shelf_id ? `&s=${location.shelf_id}` : ''}`}
+                to={`/shelf-view?b=${location.building_id}${location.room_id ? `&r=${location.room_id}` : ''}${location.unit_id ? `&u=${location.unit_id}` : ''}${location.shelf_id ? `&s=${location.shelf_id}` : ''}&focus=${book.id}`}
                 className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors"
               >
                 Reveal →

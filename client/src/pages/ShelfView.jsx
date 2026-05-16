@@ -25,7 +25,7 @@ import { useCoverSize } from '../hooks/useCoverSize.js';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 
-function SortableShelfCover({ book, linkState }) {
+function SortableShelfCover({ book, linkState, focused }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: book.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
 
@@ -34,7 +34,8 @@ function SortableShelfCover({ book, linkState }) {
       ref={setNodeRef}
       style={style}
       {...attributes}
-      className={`flex-shrink-0 select-none transition-opacity ${isDragging ? 'opacity-40' : ''}`}
+      data-book-id={book.id}
+      className={`flex-shrink-0 select-none transition-opacity ${isDragging ? 'opacity-40' : ''} ${focused ? 'ring-2 ring-oak rounded animate-pulse' : ''}`}
     >
       <div className="relative group">
         <Link to={`/books/${book.id}`} state={linkState} draggable={false} className="block">
@@ -181,6 +182,29 @@ export default function ShelfView() {
   // request from a prior location can't setBooks after navigation.
   const booksGuard = useStaleGuard();
   const { size: coverSize, setSize: setCoverSize, compact, gridStyle, gridClassName, MIN: coverMin, MAX: coverMax } = useCoverSize();
+  // Reveal-from-BookDetail target. When a book detail's "Reveal" link
+  // navigates here it appends &focus=<bookId>; we scroll that book into
+  // view once it's rendered and ring it briefly so the eye lands on it
+  // inside a long shelf row.
+  const focusId = params.get('focus');
+  // True for ~2s after the focus scroll fires — drives the ring pulse
+  // on the matching cover. Cleared via timeout so the highlight doesn't
+  // persist once the user has visually anchored to it.
+  const [showFocusRing, setShowFocusRing] = useState(false);
+  // Scroll-to-focus: once books are rendered and the focus target is
+  // among them, scroll the row to center it. Runs only on first render
+  // for a given focusId so navigating within the page doesn't keep
+  // re-centering.
+  useEffect(() => {
+    if (!focusId) return;
+    if (booksLoading) return;
+    const el = document.querySelector(`[data-book-id="${focusId}"]`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    setShowFocusRing(true);
+    const t = setTimeout(() => setShowFocusRing(false), 2000);
+    return () => clearTimeout(t);
+  }, [focusId, booksLoading, books]);
   // Snapshot of the previous location so the books-fetch effect can
   // tell a navigation (clear stale books) apart from a refresh-tick
   // refetch at the same location (keep books visible so the user's
@@ -275,11 +299,19 @@ export default function ShelfView() {
         }
       }
     }
+    // Preserve any non-location params (e.g. `focus` from a BookDetail
+    // Reveal link) — those aren't managed by this prune pass.
+    const preserveKeys = ['focus'];
+    for (const k of preserveKeys) {
+      const v = params.get(k);
+      if (v != null) next[k] = v;
+    }
     // Compare against raw params (not the parsed ids) so that "?b=abc"
     // — which yields buildingId=null but isn't an empty URL — gets
     // rewritten too. Without the diff check this effect would loop on
     // every render that already matches.
-    const diff = ['b', 'r', 'u', 's'].some(k => (params.get(k) ?? '') !== (next[k] ?? ''));
+    const keys = ['b', 'r', 'u', 's', ...preserveKeys];
+    const diff = keys.some(k => (params.get(k) ?? '') !== (next[k] ?? ''));
     if (diff) setParams(next, { replace: true });
   }, [treeLoaded, tree, buildingId, roomId, unitId, shelfId, params, setParams]);
 
@@ -608,7 +640,14 @@ export default function ShelfView() {
                     cover bottoms visibly cover the plank's top edge — that's
                     what makes them read as "standing on" the surface. */}
                 <div className="relative z-10 flex gap-4 overflow-x-auto pb-7 px-4 sm:px-6 lg:px-8 [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-track]:bg-neutral-800 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-neutral-600 [&::-webkit-scrollbar-thumb]:rounded-full">
-                  {books.map(book => <SortableShelfCover key={book.id} book={book} linkState={fromState} />)}
+                  {books.map(book => (
+                    <SortableShelfCover
+                      key={book.id}
+                      book={book}
+                      linkState={fromState}
+                      focused={showFocusRing && String(book.id) === focusId}
+                    />
+                  ))}
                 </div>
                 {/* Skeuomorphic wood plank — disabled while we evaluate whether
                     the bookish surface earns its visual weight. To re-enable,
