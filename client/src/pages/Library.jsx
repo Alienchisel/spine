@@ -583,17 +583,21 @@ export default function Library() {
   // Drives the enteringEdit → editMode transition: waits for tab + sort
   // to settle on (never_owned, custom), triggers Load all if there are
   // unloaded books, then activates editMode once everything is loaded.
+  // Bails out (clears the intent) if Load all surfaced an actionError —
+  // otherwise the effect would retry handleLoadAll on every state-tick
+  // and the button would stay "Loading…" forever after a network blip.
   useEffect(() => {
     if (!enteringEdit) return;
     if (tab !== 'never_owned' || sort !== 'custom') return;
     if (loading || loadingMore || loadingAll) return;
+    if (actionError) { setEnteringEdit(false); return; }
     if (loadedRef.current < total) {
       handleLoadAll();
       return;
     }
     setEditMode(true);
     setEnteringEdit(false);
-  }, [enteringEdit, tab, sort, loading, loadingMore, loadingAll, total]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [enteringEdit, tab, sort, loading, loadingMore, loadingAll, total, actionError]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cancel an in-flight enter-edit intent when the user navigates away
   // from Never owned or away from Custom sort, since the intent only

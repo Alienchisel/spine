@@ -191,15 +191,20 @@ export default function ShelfView() {
   // on the matching cover. Cleared via timeout so the highlight doesn't
   // persist once the user has visually anchored to it.
   const [showFocusRing, setShowFocusRing] = useState(false);
+  // Track which focusId we've already revealed, so a refresh-tick
+  // re-fetch of `books` doesn't re-scroll the user back after they've
+  // manually scrolled away. Reset when `focusId` itself changes (new
+  // Reveal click) so a different target lands correctly.
+  const revealedRef = useRef(null);
   // Scroll-to-focus: once books are rendered and the focus target is
-  // among them, scroll the row to center it. Runs only on first render
-  // for a given focusId so navigating within the page doesn't keep
-  // re-centering.
+  // among them, scroll the row to center it. Fires once per focusId.
   useEffect(() => {
     if (!focusId) return;
     if (booksLoading) return;
+    if (revealedRef.current === focusId) return;
     const el = document.querySelector(`[data-book-id="${focusId}"]`);
     if (!el) return;
+    revealedRef.current = focusId;
     el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     setShowFocusRing(true);
     const t = setTimeout(() => setShowFocusRing(false), 2000);
