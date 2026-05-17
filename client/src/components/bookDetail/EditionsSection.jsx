@@ -209,26 +209,27 @@ export default function EditionsSection({ book, onChange, linkState }) {
           )}
           {results.length > 0 && (
             <div className="border border-neutral-800 rounded max-h-64 overflow-y-auto">
-              {results.map(r => (
-                <button
-                  key={r.id}
-                  onClick={() => handlePick(r.id)}
-                  disabled={mutatingId === r.id}
-                  className="w-full text-left flex items-center gap-3 px-2 py-1.5 hover:bg-neutral-800/60 disabled:opacity-50 disabled:cursor-wait transition-colors"
-                >
-                  <div className="w-7 h-[42px] flex-shrink-0 rounded overflow-hidden bg-neutral-800">
-                    {r.cover_path
-                      ? <img src={r.cover_path} alt="" className="w-full h-full object-cover" />
-                      : <div className="w-full h-full bg-gradient-to-br from-neutral-700 to-neutral-900" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-neutral-200 truncate" title={r.title}>{r.title}</p>
-                    <p className="text-xs text-neutral-500 truncate" title={FORMAT_LABEL[r.format] ?? r.format}>
-                      {FORMAT_LABEL[r.format] ?? r.format}
-                    </p>
-                  </div>
-                </button>
-              ))}
+              {results.map(r => {
+                const formatLabel = FORMAT_LABEL[r.format] ?? r.format;
+                return (
+                  <button
+                    key={r.id}
+                    onClick={() => handlePick(r.id)}
+                    disabled={mutatingId === r.id}
+                    className="w-full text-left flex items-center gap-3 px-2 py-1.5 hover:bg-neutral-800/60 disabled:opacity-50 disabled:cursor-wait transition-colors"
+                  >
+                    <div className="w-7 h-[42px] flex-shrink-0 rounded overflow-hidden bg-neutral-800">
+                      {r.cover_path
+                        ? <img src={r.cover_path} alt="" className="w-full h-full object-cover" />
+                        : <div className="w-full h-full bg-gradient-to-br from-neutral-700 to-neutral-900" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-neutral-200 truncate" title={r.title}>{r.title}</p>
+                      <p className="text-xs text-neutral-500 truncate" title={formatLabel}>{formatLabel}</p>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           )}
           <button
