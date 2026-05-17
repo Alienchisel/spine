@@ -93,10 +93,13 @@ function StatCard({ label, value, sub, href }) {
     : <div className="bg-card rounded-lg p-4">{inner}</div>;
 }
 
-function Section({ title, children }) {
+function Section({ title, children, action }) {
   return (
     <div>
-      <h2 className="text-xs font-semibold text-neutral-600 uppercase tracking-wider mb-3">{title}</h2>
+      <div className="mb-3 flex items-baseline justify-between gap-3">
+        <h2 className="text-xs font-semibold text-neutral-600 uppercase tracking-wider">{title}</h2>
+        {action}
+      </div>
       {children}
     </div>
   );
@@ -398,7 +401,12 @@ export default function Stats() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
-      <h1 className="font-slab text-2xl text-parchment tracking-wide uppercase">Stats</h1>
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="font-slab text-2xl text-parchment tracking-wide uppercase">Stats</h1>
+        <Link to="/collage" className="text-xs text-neutral-500 hover:text-neutral-200 transition-colors">
+          Reading collage →
+        </Link>
+      </div>
 
       <ErrorBanner message={error} onDismiss={() => setError(null)} />
       {actionError && <p role="alert" className="text-xs text-warn">{actionError}</p>}
@@ -814,7 +822,14 @@ export default function Stats() {
         </Section>
 
         {topAuthors.length > 0 && (
-          <Section title="Top authors">
+          <Section
+            title="Top authors"
+            action={
+              <Link to="/collage?mode=top_authors" className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors">
+                View as collage →
+              </Link>
+            }
+          >
             <div className="space-y-2.5">
               {topAuthors.map(a => (
                 <Bar
