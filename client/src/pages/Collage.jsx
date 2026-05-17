@@ -18,10 +18,9 @@ import ErrorBanner from '../components/ErrorBanner.jsx';
 const STORAGE_KEY = 'spine.collage.lastConfig';
 
 // Last.fm-style reading-collage grid. URL knobs (mode / period / size /
-// series / year / theme / title / labels) round-trip so a chosen view
-// is bookmarkable. PNG export captures the framed grid + title +
-// footer; theme switches frame background + text colors so the export
-// can match the share context (dark / parchment / sepia).
+// series / year / title / quote / labels / books) round-trip so a chosen
+// view is bookmarkable. PNG export captures the framed grid + title +
+// quote + footer at the dark Spine palette.
 const MODE_OPTIONS = [
   { key: 'top_books',         label: 'Top books' },
   { key: 'top_authors',       label: 'Top authors' },
@@ -42,37 +41,6 @@ const PERIOD_OPTIONS = [
 ];
 const SIZE_OPTIONS = [2, 3, 4, 5];
 
-// Theme map. `bg`/`text`/`subText` are Tailwind classes applied to the
-// captured frame; `canvasBg` is the hex html2canvas paints behind any
-// transparent regions (rounded corners, gaps) so the PNG seams match.
-const THEMES = {
-  dark: {
-    label:    'Dark',
-    bg:       'bg-neutral-950',
-    text:     'text-parchment',
-    subText:  'text-neutral-700',
-    canvasBg: '#080e0d',
-    blank:    'bg-neutral-900/40',
-  },
-  parchment: {
-    label:    'Parchment',
-    bg:       'bg-parchment',
-    text:     'text-neutral-900',
-    subText:  'text-neutral-600',
-    canvasBg: '#f6f2ea',
-    blank:    'bg-neutral-200',
-  },
-  sepia: {
-    label:    'Sepia',
-    bg:       'bg-[#2a1810]',
-    text:     'text-parchment',
-    subText:  'text-amber-200/40',
-    canvasBg: '#2a1810',
-    blank:    'bg-[#3a2418]',
-  },
-};
-const THEME_KEYS = Object.keys(THEMES);
-
 export default function Collage() {
   const [params, setParams] = useSearchParams();
   const mode    = MODE_OPTIONS.some(m => m.key === params.get('mode'))     ? params.get('mode')     : 'top_books';
@@ -92,9 +60,6 @@ export default function Collage() {
     .filter(n => Number.isInteger(n) && n > 0);
   const seen = new Set();
   const orderedBooks = books.filter(id => seen.has(id) ? false : (seen.add(id), true));
-  const themeKey = THEME_KEYS.includes(params.get('theme')) ? params.get('theme') : 'dark';
-  const theme = THEMES[themeKey];
-
   const needsSeries = mode === 'series_spotlight';
   const needsYear   = mode === 'year_in_review';
   const needsBooks  = mode === 'hand_curated';
@@ -218,7 +183,7 @@ export default function Collage() {
       // for the font registry to settle before snapshotting.
       if (document.fonts?.ready) await document.fonts.ready;
       const canvas = await html2canvas(exportRef.current, {
-        backgroundColor: theme.canvasBg,
+        backgroundColor: '#080e0d',  // bg-neutral-950
         scale: 2,
         useCORS: true,
         logging: false,
@@ -330,17 +295,6 @@ export default function Collage() {
             {SIZE_OPTIONS.map(n => <option key={n} value={n}>{n}×{n}</option>)}
           </select>
         </label>
-        <label className="inline-flex items-center gap-1.5 text-neutral-500">
-          <span>Theme:</span>
-          <select
-            value={themeKey}
-            onChange={(e) => update('theme', e.target.value)}
-            className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-neutral-300 hover:text-neutral-100 focus:outline-none focus:border-oak/50 cursor-pointer transition-colors"
-            aria-label="Collage theme"
-          >
-            {THEME_KEYS.map(k => <option key={k} value={k}>{THEMES[k].label}</option>)}
-          </select>
-        </label>
         <label className="inline-flex items-center gap-1.5 text-neutral-500 cursor-pointer">
           <input
             type="checkbox"
@@ -430,12 +384,12 @@ export default function Collage() {
         // edge. Theme classes control bg + text so the export adopts
         // the selected aesthetic; canvasBg keeps html2canvas's seam
         // color consistent with the frame.
-        <div ref={exportRef} className={`${theme.bg} ${theme.text} p-6 rounded`}>
+        <div ref={exportRef} className="bg-neutral-950 text-parchment p-6 rounded">
           {title && (
             <h2 className="font-slab text-xl mb-1 tracking-wide">{title}</h2>
           )}
           {quote && (
-            <p className={`text-sm italic mb-4 ${theme.subText} line-clamp-2`}>{quote}</p>
+            <p className="text-sm italic mb-4 text-neutral-700 line-clamp-2">{quote}</p>
           )}
           {needsBooks ? (
             // Sortable wrapper only when the user is curating — for
@@ -453,7 +407,7 @@ export default function Collage() {
                     />
                   ))}
                   {Array.from({ length: blanks }).map((_, i) => (
-                    <div key={`blank-${i}`} className={`aspect-[2/3] ${theme.blank} rounded`} />
+                    <div key={`blank-${i}`} className="aspect-[2/3] bg-neutral-900/40 rounded" />
                   ))}
                 </div>
               </SortableContext>
@@ -472,14 +426,14 @@ export default function Collage() {
                   the user sees their actual coverage relative to the
                   chosen grid. */}
               {Array.from({ length: blanks }).map((_, i) => (
-                <div key={`blank-${i}`} className={`aspect-[2/3] ${theme.blank} rounded`} />
+                <div key={`blank-${i}`} className="aspect-[2/3] bg-neutral-900/40 rounded" />
               ))}
             </div>
           )}
           {/* Footer is the attribution stamp on the exported PNG so
               shared screenshots aren't anonymous. Visible on-page too
               as part of the captured layout. */}
-          <p className={`mt-4 text-[10px] ${theme.subText} text-right tracking-wide`}>
+          <p className="mt-4 text-[10px] text-neutral-700 text-right tracking-wide">
             spine · {footerStamp} · {todayIso}
           </p>
         </div>
