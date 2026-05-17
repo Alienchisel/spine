@@ -9,9 +9,8 @@ import ErrorBanner from '../components/ErrorBanner.jsx';
 const STORAGE_KEY = 'spine.collage.lastConfig';
 
 // Last.fm-style reading-collage grid. URL knobs (mode / period / size /
-// series / year / title / quote / labels) round-trip so a chosen view
-// is bookmarkable. PNG export captures the framed grid + title +
-// quote + footer at the dark Spine palette.
+// series / year / labels) round-trip so a chosen view is bookmarkable.
+// PNG export captures the framed grid + footer at the dark Spine palette.
 const MODE_OPTIONS = [
   { key: 'top_books',         label: 'Top books' },
   { key: 'top_authors',       label: 'Top authors' },
@@ -37,8 +36,6 @@ export default function Collage() {
   const period  = PERIOD_OPTIONS.some(p => p.key === params.get('period')) ? params.get('period')   : '30d';
   const size    = SIZE_OPTIONS.includes(Number(params.get('size')))        ? Number(params.get('size')) : 3;
   const showLabels = params.get('labels') !== '0'; // default on; user can turn off via URL
-  const title  = params.get('title') ?? '';
-  const quote  = params.get('quote') ?? '';
   const series = params.get('series') ?? '';
   const year   = parseInt(params.get('year'), 10);
 
@@ -268,38 +265,6 @@ export default function Collage() {
         </button>
       </div>
 
-      {/* Title + quote fields below the controls so they sit closer to
-          where they'll appear in the captured frame. Round-trip via
-          the URL like the other knobs. */}
-      <div className="mb-3 flex items-center gap-2 text-xs">
-        <label className="inline-flex items-center gap-1.5 text-neutral-500 flex-1 max-w-md">
-          <span className="flex-shrink-0">Title:</span>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => update('title', e.target.value)}
-            placeholder="Optional — appears on the PNG export"
-            maxLength={80}
-            className="flex-1 bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-neutral-300 placeholder-neutral-700 focus:outline-none focus:border-oak/50 transition-colors"
-            aria-label="Collage title"
-          />
-        </label>
-      </div>
-      <div className="mb-6 flex items-center gap-2 text-xs">
-        <label className="inline-flex items-center gap-1.5 text-neutral-500 flex-1 max-w-md">
-          <span className="flex-shrink-0">Quote:</span>
-          <input
-            type="text"
-            value={quote}
-            onChange={(e) => update('quote', e.target.value)}
-            placeholder="Optional — a short quote or note under the title"
-            maxLength={200}
-            className="flex-1 bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-neutral-300 placeholder-neutral-700 focus:outline-none focus:border-oak/50 transition-colors"
-            aria-label="Collage quote"
-          />
-        </label>
-      </div>
-
       <ErrorBanner message={error} onDismiss={() => setError(null)} />
 
       {loading ? (
@@ -317,12 +282,6 @@ export default function Collage() {
         // gives the PNG breathing room so it doesn't read as edge-to-
         // edge.
         <div ref={exportRef} className="bg-neutral-950 text-parchment p-6 rounded">
-          {title && (
-            <h2 className="font-slab text-xl mb-1 tracking-wide">{title}</h2>
-          )}
-          {quote && (
-            <p className="text-sm italic mb-4 text-neutral-700 line-clamp-2">{quote}</p>
-          )}
           <div className="grid gap-2" style={gridStyle}>
             {tiles.map(t => (
               <Tile
