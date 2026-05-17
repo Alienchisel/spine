@@ -7,6 +7,7 @@ import { useConfirm } from './ConfirmModal.jsx';
 import StarRating from './StarRating.jsx';
 import { useClickOutside } from '../hooks/useClickOutside.js';
 import { useEscapeKey } from '../hooks/useEscapeKey.js';
+import { useListMembership } from '../hooks/useListMembership.js';
 import { dispatchSpineEvent } from '../hooks/useSpineEvent.js';
 
 // Letterboxd-style 'more actions' button for BookCard's hover-tray
@@ -18,6 +19,8 @@ import { dispatchSpineEvent } from '../hooks/useSpineEvent.js';
 // handlers). The 'Add to lists' branch opens a sub-state within the
 // same menu rather than nesting a separate ListPicker popover — keeps
 // the visual model simple and the keyboard contract one-level deep.
+// The lists/memberships/toggle logic is shared with ListPicker via
+// useListMembership.
 //
 // Status mutations (Mark as finished / reading / unread) hit
 // api.updateBook (PUT — status isn't in the PATCH whitelist) and
@@ -50,16 +53,6 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState(null);
   const [subPrompt, setSubPrompt] = useState(null);  // null | 'add-to-lists'
-  const [lists, setLists] = useState([]);
-  const [memberIds, setMemberIds] = useState(new Set());
-  const [loadingLists, setLoadingLists] = useState(false);
-  const [busy, setBusy] = useState(new Set());
-  // Synchronous mirror of busy — state setters don't commit until the
-  // next render, so two same-tick toggle clicks on the same list both
-  // see busy as empty and fire duplicate add/remove PUTs. Mirrors the
-  // busyIdsRef pattern in ListPicker.
-  const busyIdsRef = useRef(new Set());
-  const [error, setError] = useState(null);
   // Optimistic local rating: lets the star widget react instantly to
   // a click even though the PUT round-trip + Library refetch takes
   // ~100-300ms before book.rating reflects the new value. Reset to
@@ -69,12 +62,11 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
   useEffect(() => { setLocalRating(book.rating ?? null); }, [book.rating, book.id]);
   const buttonRef = useRef(null);
   const dropdownRef = useRef(null);
-  // Stale-response guard on the lists fetch — rapid open/close before
-  // the first response resolves shouldn't let an older response
-  // overwrite a newer state.
-  const openGenRef = useRef(0);
   const navigate = useNavigate();
   const confirm = useConfirm();
+  const { lists, memberIds, busyIds, loading: loadingLists, error, load, toggle, clearError } = useListMembership(book.id, {
+    onToggled: () => dispatchSpineEvent('spine:book-mutated', { id: book.id }),
+  });
 
   useClickOutside([buttonRef, dropdownRef], () => setOpen(false), open);
   // Inside a sub-prompt, Escape returns to the root menu; from the root
@@ -113,50 +105,20 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
     });
     setOpen(true);
     setSubPrompt(null);
-    setError(null);
+    clearError();
   }
 
   async function openListsSubPrompt(e) {
     e.preventDefault();
     e.stopPropagation();
     setSubPrompt('add-to-lists');
-    setLoadingLists(true);
-    setError(null);
-    const gen = ++openGenRef.current;
-    const [listsR, idsR] = await Promise.allSettled([
-      api.getLists(),
-      api.getBookLists(book.id),
-    ]);
-    if (gen !== openGenRef.current) return;
-    if (listsR.status === 'fulfilled') setLists(listsR.value);
-    else { setLists([]); setError('Failed to load lists'); }
-    if (idsR.status === 'fulfilled') setMemberIds(new Set(idsR.value));
-    else setMemberIds(new Set());
-    setLoadingLists(false);
+    await load();
   }
 
   async function toggleList(e, listId) {
     e.preventDefault();
     e.stopPropagation();
-    if (busyIdsRef.current.has(listId)) return;
-    busyIdsRef.current.add(listId);
-    setBusy(s => new Set([...s, listId]));
-    setError(null);
-    try {
-      if (memberIds.has(listId)) {
-        await api.removeFromList(listId, book.id);
-        setMemberIds(s => { const n = new Set(s); n.delete(listId); return n; });
-      } else {
-        await api.addToList(listId, book.id);
-        setMemberIds(s => new Set([...s, listId]));
-      }
-      dispatchSpineEvent('spine:book-mutated', { id: book.id });
-    } catch {
-      setError('Failed to update list');
-    } finally {
-      busyIdsRef.current.delete(listId);
-      setBusy(s => { const n = new Set(s); n.delete(listId); return n; });
-    }
+    toggle(listId);
   }
 
   // Apply a rating change via a full PUT. Same payload shape as
@@ -189,7 +151,7 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
     e.preventDefault();
     e.stopPropagation();
     setOpen(false);
-    setError(null);
+    clearError();
     const today = new Date().toLocaleDateString('en-CA');
     let payload = {
       ...book,
@@ -306,7 +268,7 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
                   key={list.id}
                   type="button"
                   onClick={(e) => toggleList(e, list.id)}
-                  disabled={busy.has(list.id)}
+                  disabled={busyIds.has(list.id)}
                   role="menuitemcheckbox"
                   aria-checked={checked}
                   className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-neutral-800 transition-colors disabled:opacity-50"

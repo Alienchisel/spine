@@ -1,12 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
-import { api } from '../api.js';
-import { useLatest } from '../hooks/useLatest.js';
-import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import { useClickOutside } from '../hooks/useClickOutside.js';
 import { useEscapeKey } from '../hooks/useEscapeKey.js';
-import { useSpineEvent } from '../hooks/useSpineEvent.js';
+import { useListMembership } from '../hooks/useListMembership.js';
 
 function ListsIcon({ className }) {
   return (
@@ -19,62 +16,9 @@ function ListsIcon({ className }) {
 export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-5 h-5', buttonClassName = '' }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState(null);
-  const [lists, setLists] = useState([]);
-  const [memberIds, setMemberIds] = useState(new Set());
-  const [loading, setLoading] = useState(false);
-  const [busy, setBusy] = useState(new Set());
-  const [error, setError] = useState(null);
   const buttonRef = useRef(null);
   const dropdownRef = useRef(null);
-  // Stale-response guard for handleOpen. User can open → close → open
-  // before the first Promise.all resolves; the first response then writes
-  // lists/memberIds for a now-stale open. Each handleOpen bumps the ref
-  // and captures its gen; earlier in-flight calls drop their state writes.
-  const openGuard = useStaleGuard();
-  // `busy` (React state) drives the disabled UI but doesn't commit until
-  // the next render — so two synchronous handleToggle calls in the same
-  // tick (mobile touch+click pair, programmatic dispatch, repeated event
-  // misfires) both see the pre-commit busy and fire duplicate add/remove
-  // PUTs. The ref mutates synchronously so the second call sees the
-  // first's marker immediately. Mirrors the deletingIdsRef pattern in
-  // ReadsSection.
-  const busyIdsRef = useRef(new Set());
-  // Tracks the current bookId so the spine:book-mutated listener's
-  // in-flight getBookLists can drop its setMemberIds when the user has
-  // navigated to a different book mid-flight. useLatest keeps it fresh
-  // by the time any handler closure reads it.
-  const currentBookIdRef = useLatest(bookId);
-
-  // Reset memberIds when the bookId prop changes so the old book's
-  // memberships don't briefly color the icon or seed stale check marks
-  // before handleOpen's next fetch lands. Without this, navigating
-  // between books on BookDetail shows the previous book's "in any list"
-  // state until the user opens the picker.
-  useEffect(() => {
-    setMemberIds(new Set());
-  }, [bookId]);
-
-  // Stay in sync with palette-driven (or any external) mutations on
-  // this book. The command palette's 'Add to list…' sub-prompt
-  // dispatches spine:book-mutated after a successful add; without this
-  // listener, ListPicker's cached memberIds would keep its check-marks
-  // stale until the dropdown was reopened. Always listens (not just
-  // when open) so the cache is current on the next open too.
-  useSpineEvent('spine:book-mutated', (e) => {
-    const evtBookId = Number(e.detail?.id);
-    if (evtBookId !== Number(bookId)) return;
-    api.getBookLists(bookId)
-      .then(ids => {
-        // Drop the response if the user has navigated to a different
-        // book in the meantime — without this, an in-flight refetch
-        // started while bookId was still X could land setMemberIds on
-        // the component now showing Y. Same shape as BookDetail's
-        // isStillCurrent pattern.
-        if (Number(currentBookIdRef.current) !== evtBookId) return;
-        setMemberIds(new Set(ids));
-      })
-      .catch(() => {});
-  });
+  const { lists, memberIds, busyIds, loading, error, load, toggle } = useListMembership(bookId);
 
   useClickOutside([buttonRef, dropdownRef], () => setOpen(false), open);
   // Escape closes the popover without losing focus on the trigger, which
@@ -113,58 +57,13 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
     });
 
     setOpen(true);
-    setLoading(true);
-    setError(null);
-    const epoch = openGuard.next();
-    // Promise.allSettled splits the two failure modes: getLists is
-    // load-bearing (no lists = nothing to pick from), getBookLists is
-    // supplementary (just the check-mark state). With Promise.all, a
-    // failed memberships fetch would discard the successfully-loaded
-    // lists and surface as "Failed to load lists" — misleading. Now the
-    // picker still works on a memberships failure, just without showing
-    // which lists this book already belongs to.
-    const [listsR, idsR] = await Promise.allSettled([api.getLists(), api.getBookLists(bookId)]);
-    // Spinner only flips off for the LATEST open; a stale response that
-    // arrives while a newer open is still in flight must leave it on.
-    if (!openGuard.isFresh(epoch)) return;
-    if (listsR.status === 'fulfilled') {
-      setLists(listsR.value);
-    } else {
-      setLists([]);
-      setError('Failed to load lists');
-    }
-    if (idsR.status === 'fulfilled') {
-      setMemberIds(new Set(idsR.value));
-    } else {
-      // Clear stale memberships from a prior open so the picker doesn't
-      // show wrong check-marks; failure is silent (user can still toggle,
-      // and addToList is INSERT OR IGNORE so re-adds are safe).
-      setMemberIds(new Set());
-    }
-    setLoading(false);
+    await load();
   }
 
   async function handleToggle(e, listId) {
     e.preventDefault();
     e.stopPropagation();
-    if (busyIdsRef.current.has(listId)) return;
-    busyIdsRef.current.add(listId);
-    setBusy(s => new Set([...s, listId]));
-    setError(null);
-    try {
-      if (memberIds.has(listId)) {
-        await api.removeFromList(listId, bookId);
-        setMemberIds(s => { const n = new Set(s); n.delete(listId); return n; });
-      } else {
-        await api.addToList(listId, bookId);
-        setMemberIds(s => new Set([...s, listId]));
-      }
-    } catch {
-      setError('Failed to update list');
-    } finally {
-      busyIdsRef.current.delete(listId);
-      setBusy(s => { const n = new Set(s); n.delete(listId); return n; });
-    }
+    toggle(listId);
   }
 
   const inAny = memberIds.size > 0;
@@ -200,7 +99,7 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
             <button
               key={list.id}
               onClick={(e) => handleToggle(e, list.id)}
-              disabled={busy.has(list.id)}
+              disabled={busyIds.has(list.id)}
               role="menuitemcheckbox"
               aria-checked={checked}
               className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-neutral-800 transition-colors disabled:opacity-50"
