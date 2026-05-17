@@ -46,8 +46,8 @@ function EditionRow({ edition, onUnlink, disabled, linkState }) {
             : <div className="w-full h-full bg-gradient-to-br from-neutral-700 to-neutral-900" />}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm text-neutral-200 group-hover:text-white truncate transition-colors">{edition.title}</p>
-          <p className="text-xs text-neutral-500 truncate">{meta}</p>
+          <p className="text-sm text-neutral-200 group-hover:text-white truncate transition-colors" title={edition.title}>{edition.title}</p>
+          <p className="text-xs text-neutral-500 truncate" title={meta}>{meta}</p>
         </div>
       </Link>
       <button
