@@ -236,11 +236,15 @@ export default function BookDetail() {
   // stale message from one handler can sit next to a successful action from
   // another. Each handler clears both on entry so the visible state always
   // reflects the most recent action — same shape as the Lists.jsx fix.
+  function clearActionErrors() {
+    setActionError(null);
+    setFinishError(null);
+  }
+
   async function toggleLoved() {
     if (!loveGuard.begin()) return;
     const reqId = book.id;
-    setActionError(null);
-    setFinishError(null);
+    clearActionErrors();
     try {
       const updated = await api.patchBook(reqId, { loved: book.loved ? 0 : 1 });
       if (!isStillCurrent(reqId)) return;
@@ -256,8 +260,7 @@ export default function BookDetail() {
   async function toggleReadlist() {
     if (!listGuard.begin()) return;
     const reqId = book.id;
-    setActionError(null);
-    setFinishError(null);
+    clearActionErrors();
     try {
       const updated = await api.patchBook(reqId, { on_readlist: book.on_readlist ? 0 : 1 });
       if (!isStillCurrent(reqId)) return;
@@ -273,8 +276,7 @@ export default function BookDetail() {
   async function toggleArchived() {
     if (!archiveGuard.begin()) return;
     const reqId = book.id;
-    setActionError(null);
-    setFinishError(null);
+    clearActionErrors();
     try {
       const updated = await api.patchBook(reqId, { archived: book.archived ? 0 : 1 });
       if (!isStillCurrent(reqId)) return;
@@ -290,8 +292,7 @@ export default function BookDetail() {
   async function handleFinish() {
     if (!finishGuard.begin()) return;
     const reqId = book.id;
-    setFinishError(null);
-    setActionError(null);
+    clearActionErrors();
     try {
       const today = new Date().toLocaleDateString('en-CA');
       // Previously-owned books are typically a historical read with an
@@ -321,8 +322,7 @@ export default function BookDetail() {
 
   async function handleRate(rating) {
     const reqId = book.id;
-    setActionError(null);
-    setFinishError(null);
+    clearActionErrors();
     const epoch = ratingGuard.next();
     try {
       const updated = await api.updateBook(reqId, {
