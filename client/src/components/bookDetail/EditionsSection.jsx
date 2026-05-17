@@ -121,6 +121,7 @@ export default function EditionsSection({ book, onChange, linkState }) {
   function closePicker() {
     setPicking(false);
     setQuery('');
+    setResults([]);
     setError(null);
   }
 
@@ -134,9 +135,7 @@ export default function EditionsSection({ book, onChange, linkState }) {
       const updated = await api.linkEdition(book.id, otherId);
       if (!mutationGuard.isFresh(epoch)) return;
       onChange(updated);
-      setPicking(false);
-      setQuery('');
-      setResults([]);
+      closePicker();
     } catch {
       if (!mutationGuard.isFresh(epoch)) return;
       setError('Failed to link edition.');
