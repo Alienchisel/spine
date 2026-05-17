@@ -186,6 +186,7 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
   async function cycleStatus(s) {
     if (cyclingIdsRef.current.has(s.id)) return;
     cyclingIdsRef.current.add(s.id);
+    setError(null);
     const next = s.status === 'unread' ? 'reading' : s.status === 'reading' ? 'finished' : 'unread';
     try {
       await api.updateStory(bookId, s.id, {
