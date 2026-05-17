@@ -306,6 +306,16 @@ describe('workflows', () => {
       assert.ok(stats.authorsByGender, 'authorsByGender missing on stats');
       assert.ok(stats.authorsByGender.female >= 1, 'female bucket should include Jones');
       assert.ok(stats.authorsByGender.unassigned >= 1, 'unassigned bucket should include cleared Smith');
+
+      // field=author_gender filter on /api/books surfaces books whose
+      // authors include the given gender. Smith got cleared back to null
+      // (unassigned); Jones is female.
+      const { body: femaleBooks } = await req('GET', '/api/books?field=author_gender&value=female&limit=50');
+      assert.ok(femaleBooks.books.some(b => b.id === b2.id), 'female filter should include Jones book');
+      assert.ok(!femaleBooks.books.some(b => b.id === b1.id), 'female filter should not include Smith book');
+
+      const { body: unassignedBooks } = await req('GET', '/api/books?field=author_gender&value=unassigned&limit=50');
+      assert.ok(unassignedBooks.books.some(b => b.id === b1.id), 'unassigned filter should include Smith book');
     });
   });
 });

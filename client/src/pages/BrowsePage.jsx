@@ -13,6 +13,11 @@ const FIELD_LABEL = {
   author: 'Author', translator: 'Translator', publisher: 'Publisher',
   series: 'Series', tag: 'Tag', fiction: '', format: '', language: 'Language',
   narrator: 'Narrator', rating: 'Rating', year_finished: 'Finished',
+  author_gender: 'Author gender',
+};
+
+const AUTHOR_GENDER_LABEL = {
+  male: 'Male', female: 'Female', other: 'Other', unassigned: 'Unassigned',
 };
 
 const FORMAT_LABEL = { physical: 'Physical', ebook: 'Digital', audiobook: 'Audiobook' };
@@ -45,6 +50,7 @@ export default function BrowsePage() {
     ? (decoded === 'fiction' ? 'Fiction' : decoded === 'nonfiction' ? 'Non-fiction' : 'Fiction / NF unset')
     : field === 'format'        ? (FORMAT_LABEL[decoded] ?? decoded)
     : field === 'rating'        ? starsLabel(parseFloat(decoded))
+    : field === 'author_gender' ? (AUTHOR_GENDER_LABEL[decoded] ?? decoded)
     : decoded;
   const fromState = useMemo(
     () => ({ from: fromLabel, fromPath: pathname }),

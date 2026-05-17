@@ -863,6 +863,7 @@ export default function Stats() {
                     count={r.count}
                     max={max}
                     color={r.key === 'unassigned' ? 'bg-neutral-700' : 'bg-binding'}
+                    href={`/browse/author_gender/${r.key}`}
                   />
                 ))}
               </div>
