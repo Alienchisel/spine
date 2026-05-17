@@ -134,6 +134,40 @@ describe('authors — Open Library refresh', () => {
     assert.ok(refresh.body.bio_fetched_at, 'bio_fetched_at should bump on miss');
   });
 
+  it('PATCH bio persists the text and bumps bio_fetched_at to suppress auto-refresh', async () => {
+    const { body: book } = await req('POST', '/api/books', {
+      title: 'Bio Edit Book', authors: ['Bio Edit Author'], fiction: true,
+    });
+    const aid = book.authors[0].id;
+
+    // Pre-edit: no bio, bio_fetched_at null (would normally trigger
+    // the auto-refresh effect on next visit).
+    const { body: pre } = await req('GET', `/api/authors/${aid}`);
+    assert.equal(pre.bio, null);
+    assert.equal(pre.bio_fetched_at, null);
+
+    const set = await req('PATCH', `/api/authors/${aid}`, { bio: '  A bio with leading whitespace.  ' });
+    assert.equal(set.status, 200);
+    assert.equal(set.body.bio, 'A bio with leading whitespace.', 'bio should be trimmed');
+    assert.ok(set.body.bio_fetched_at, 'bio_fetched_at should bump so auto-refresh stops retrying');
+
+    // Empty string clears back to null.
+    const cleared = await req('PATCH', `/api/authors/${aid}`, { bio: '' });
+    assert.equal(cleared.status, 200);
+    assert.equal(cleared.body.bio, null);
+
+    // Non-string body → 400.
+    const bad = await req('PATCH', `/api/authors/${aid}`, { bio: 42 });
+    assert.equal(bad.status, 400);
+
+    // Combined gender + bio update still works (the PATCH is intentionally
+    // additive rather than one-field-at-a-time).
+    const combo = await req('PATCH', `/api/authors/${aid}`, { gender: 'female', bio: 'Final bio.' });
+    assert.equal(combo.status, 200);
+    assert.equal(combo.body.gender, 'female');
+    assert.equal(combo.body.bio,    'Final bio.');
+  });
+
   it('manual upload writes a portrait and overrides any OL-fetched one', async () => {
     const { body: book } = await req('POST', '/api/books', {
       title: 'Upload Test Book', authors: ['Manual Portrait Author'], fiction: true,

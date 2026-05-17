@@ -49,25 +49,51 @@ router.get('/:id', (req, res) => {
   res.json({ ...author, aliases, books, total });
 });
 
-// PATCH author: currently only gender is editable. Empty string / null
-// clears it back to "unassigned". CHECK constraint on the column would
-// reject any other value, but validate here too so the error is a clean
-// 400 instead of a generic 500.
+// PATCH author: gender + bio are editable. Empty string / null on
+// either clears the field. CHECK constraint on gender would reject
+// invalid values anyway, but we validate here too so the error is a
+// clean 400 instead of a generic 500.
+//
+// A manual bio edit bumps `bio_fetched_at` so the auto-refresh effect
+// on /authors/:id won't undo the user's edit on next visit — the
+// gate's semantic shifts slightly from "last OL fetch" to "this row
+// has been looked at"; both cases stop the auto-retry. The manual
+// "↻ Refresh from Open Library" button still overwrites, by design.
 const ALLOWED_GENDERS = new Set(['male', 'female', 'other']);
 router.patch('/:id', (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid author id' });
   const author = db.prepare('SELECT id FROM authors WHERE id = ?').get(id);
   if (!author) return res.status(404).json({ error: 'Author not found' });
-  if (!('gender' in (req.body ?? {}))) return res.status(400).json({ error: 'No supported fields to update' });
-  const raw = req.body.gender;
-  const next = raw === '' || raw == null ? null : String(raw);
-  if (next !== null && !ALLOWED_GENDERS.has(next)) {
-    return res.status(400).json({ error: 'Invalid gender' });
+  const body = req.body ?? {};
+  const hasGender = 'gender' in body;
+  const hasBio    = 'bio'    in body;
+  if (!hasGender && !hasBio) {
+    return res.status(400).json({ error: 'No supported fields to update' });
   }
-  db.prepare('UPDATE authors SET gender = ? WHERE id = ?').run(next, id);
-  const updated = db.prepare('SELECT id, name, gender, alias_group_id FROM authors WHERE id = ?').get(id);
-  res.json(updated);
+  const sets = [];
+  const params = [];
+  if (hasGender) {
+    const raw = body.gender;
+    const next = raw === '' || raw == null ? null : String(raw);
+    if (next !== null && !ALLOWED_GENDERS.has(next)) {
+      return res.status(400).json({ error: 'Invalid gender' });
+    }
+    sets.push('gender = ?');
+    params.push(next);
+  }
+  if (hasBio) {
+    const raw = body.bio;
+    if (raw != null && typeof raw !== 'string') {
+      return res.status(400).json({ error: 'Bio must be a string' });
+    }
+    const next = raw == null ? null : raw.trim() || null;
+    sets.push('bio = ?');
+    params.push(next);
+    sets.push("bio_fetched_at = datetime('now', 'localtime')");
+  }
+  db.prepare(`UPDATE authors SET ${sets.join(', ')} WHERE id = ?`).run(...params, id);
+  res.json(loadAuthor(id));
 });
 
 // Symmetric pen-name linking: POST with {other_id: N} groups this author

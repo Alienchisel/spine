@@ -55,6 +55,10 @@ export default function Author() {
   const [errorKind, setErrorKind] = useState(null);
   const [sort, setSort] = useState('year_published');
   const [bioExpanded, setBioExpanded] = useState(false);
+  const [bioEditing, setBioEditing] = useState(false);
+  const [bioDraft, setBioDraft] = useState('');
+  const [bioSaving, setBioSaving] = useState(false);
+  const [bioError, setBioError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoError, setPhotoError] = useState(null);
@@ -81,7 +85,7 @@ export default function Author() {
   // Reset the bio collapse + auto-refresh memo when navigating to a
   // different author — otherwise we'd carry the previous author's
   // expanded state into a new visit.
-  useEffect(() => { setBioExpanded(false); }, [id]);
+  useEffect(() => { setBioExpanded(false); setBioEditing(false); setBioError(null); }, [id]);
 
   // Auto-refresh on first visit: if the author has never been looked up
   // (bio_fetched_at is null), fire the refresh and merge in the result.
@@ -103,6 +107,27 @@ export default function Author() {
         // recovery path. Logged in the server-side response anyway.
       });
   }, [author]);
+
+  function startBioEdit() {
+    setBioDraft(author?.bio ?? '');
+    setBioError(null);
+    setBioEditing(true);
+  }
+
+  async function saveBio() {
+    if (bioSaving) return;
+    setBioSaving(true);
+    setBioError(null);
+    try {
+      const updated = await api.updateAuthor(author.id, { bio: bioDraft });
+      setAuthor(a => a ? { ...a, ...updated } : a);
+      setBioEditing(false);
+    } catch {
+      setBioError('Failed to save bio.');
+    } finally {
+      setBioSaving(false);
+    }
+  }
 
   async function handleManualRefresh() {
     if (refreshing) return;
@@ -294,21 +319,75 @@ export default function Author() {
               )}
             </p>
           )}
-          {author?.bio && (
-            <div className="mt-3">
-              <p className={`text-sm text-neutral-400 whitespace-pre-line ${bioExpanded ? '' : 'line-clamp-4'}`}>
-                {author.bio}
-              </p>
-              {/* "Show more" only when the rendered text overflows the
-                  4-line clamp. We approximate "long" by character count
-                  to avoid a brittle DOM-measurement pass — bios over
-                  ~280 chars almost always need the toggle. */}
-              {author.bio.length > 280 && (
+          {!loading && author && (
+            <div className="mt-3 group">
+              {bioEditing ? (
+                <div className="space-y-2">
+                  <textarea
+                    value={bioDraft}
+                    onChange={(e) => setBioDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') { setBioEditing(false); setBioError(null); }
+                      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); saveBio(); }
+                    }}
+                    autoFocus
+                    rows={6}
+                    placeholder="Author bio…"
+                    className="w-full bg-neutral-900 border border-neutral-700 rounded px-3 py-2 text-sm text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-oak/50"
+                    aria-label="Author bio"
+                  />
+                  <div className="flex items-center gap-3 text-xs">
+                    <button
+                      onClick={saveBio}
+                      disabled={bioSaving}
+                      className="text-oak hover:text-leather transition-colors disabled:opacity-50 disabled:cursor-wait"
+                    >
+                      {bioSaving ? 'Saving…' : 'Save'}
+                    </button>
+                    <button
+                      onClick={() => { setBioEditing(false); setBioError(null); }}
+                      disabled={bioSaving}
+                      className="text-neutral-600 hover:text-neutral-300 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <span className="text-neutral-700">⌘↵ to save · Esc to cancel</span>
+                    {bioError && <span role="alert" className="text-warn ml-auto">{bioError}</span>}
+                  </div>
+                </div>
+              ) : author.bio ? (
+                <>
+                  <p className={`text-sm text-neutral-400 whitespace-pre-line ${bioExpanded ? '' : 'line-clamp-4'}`}>
+                    {author.bio}
+                  </p>
+                  <div className="flex items-center gap-3 mt-1 text-xs">
+                    {/* "Show more" only when the rendered text overflows
+                        the 4-line clamp. We approximate "long" by char
+                        count to avoid a brittle DOM-measurement pass —
+                        bios over ~280 chars almost always need the
+                        toggle. */}
+                    {author.bio.length > 280 && (
+                      <button
+                        onClick={() => setBioExpanded(b => !b)}
+                        className="text-oak hover:text-leather transition-colors"
+                      >
+                        {bioExpanded ? 'Show less' : 'Show more'}
+                      </button>
+                    )}
+                    <button
+                      onClick={startBioEdit}
+                      className="text-neutral-700 hover:text-neutral-400 transition-colors opacity-60 group-hover:opacity-100 group-focus-within:opacity-100"
+                    >
+                      ✎ Edit bio
+                    </button>
+                  </div>
+                </>
+              ) : (
                 <button
-                  onClick={() => setBioExpanded(b => !b)}
-                  className="text-xs text-oak hover:text-leather mt-1 transition-colors"
+                  onClick={startBioEdit}
+                  className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors"
                 >
-                  {bioExpanded ? 'Show less' : 'Show more'}
+                  + Add bio
                 </button>
               )}
             </div>
