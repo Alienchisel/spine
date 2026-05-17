@@ -5,25 +5,23 @@ import { plural } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
 
 // Inline gender picker. Stores 'male' | 'female' | 'other' | null;
-// empty string in the select maps back to null so the user can clear the
-// field. Optimistic update is handled by the parent so the rollback
-// path stays close to whatever local state owns the author.
+// empty string in the select maps back to null so the user can clear
+// the field. Styled to blend into the surrounding meta line — native
+// chevron suppressed, padding stripped, underline-on-hover signals
+// it's interactive without screaming "form control".
 function GenderPicker({ value, onChange }) {
   return (
-    <label className="inline-flex items-center gap-1">
-      <span className="sr-only">Gender</span>
-      <select
-        value={value ?? ''}
-        onChange={(e) => onChange(e.target.value === '' ? null : e.target.value)}
-        className="bg-transparent text-xs text-neutral-500 hover:text-neutral-300 focus:text-neutral-300 border-none outline-none focus:ring-0 cursor-pointer transition-colors"
-        aria-label="Author gender"
-      >
-        <option value="">unassigned</option>
-        <option value="male">male</option>
-        <option value="female">female</option>
-        <option value="other">other</option>
-      </select>
-    </label>
+    <select
+      value={value ?? ''}
+      onChange={(e) => onChange(e.target.value === '' ? null : e.target.value)}
+      className="appearance-none bg-transparent border-0 p-0 m-0 text-sm text-neutral-500 hover:text-neutral-300 hover:underline focus:text-neutral-300 focus:underline focus:outline-none cursor-pointer transition-colors"
+      aria-label="Author gender"
+    >
+      <option value="">unassigned</option>
+      <option value="male">male</option>
+      <option value="female">female</option>
+      <option value="other">other</option>
+    </select>
   );
 }
 
