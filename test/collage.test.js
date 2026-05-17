@@ -187,6 +187,75 @@ describe('collage', () => {
     assert.equal(bad3.status, 400);
   });
 
+  it('hand_curated returns tiles in the requested order', async () => {
+    const created = [];
+    for (let i = 0; i < 3; i++) {
+      const { body } = await req('POST', '/api/books', {
+        title: `Curated Book ${i} ${Date.now()}`, authors: ['Curator'], fiction: true,
+      });
+      created.push(body.id);
+    }
+    const order = [created[2], created[0], created[1]];
+    const { body } = await req('GET', `/api/collage?mode=hand_curated&books=${order.join(',')}&size=3`);
+    assert.deepEqual(body.tiles.map(t => t.id), order, 'tiles should follow URL order');
+  });
+
+  it('hand_curated silently drops unknown book IDs', async () => {
+    const { body: real } = await req('POST', '/api/books', {
+      title: `Real Curated Book ${Date.now()}`, authors: ['Curator'], fiction: true,
+    });
+    const { body } = await req('GET', `/api/collage?mode=hand_curated&books=99999999,${real.id}&size=3`);
+    assert.equal(body.tiles.length, 1);
+    assert.equal(body.tiles[0].id, real.id);
+  });
+
+  it('hand_curated caps at size*size books', async () => {
+    const ids = [];
+    for (let i = 0; i < 30; i++) {
+      const { body } = await req('POST', '/api/books', {
+        title: `Cap Book ${i} ${Date.now()}`, authors: ['Cap'], fiction: true,
+      });
+      ids.push(body.id);
+    }
+    const { body } = await req('GET', `/api/collage?mode=hand_curated&books=${ids.join(',')}&size=2`);
+    assert.equal(body.tiles.length, 4, 'size=2 should cap at 4 tiles even with 30 IDs');
+  });
+
+  it('top_loved returns only loved books, most recently loved first', async () => {
+    const { body: a } = await req('POST', '/api/books', {
+      title: `Love Test A ${Date.now()}`, authors: ['Lover'], fiction: true,
+    });
+    const { body: b } = await req('POST', '/api/books', {
+      title: `Love Test B ${Date.now()}`, authors: ['Lover'], fiction: true,
+    });
+    await req('PATCH', `/api/books/${a.id}`, { loved: 1 });
+    await req('PATCH', `/api/books/${b.id}`, { loved: 1 });
+
+    const { body } = await req('GET', '/api/collage?mode=top_loved&size=5');
+    const indexA = body.tiles.findIndex(t => t.id === a.id);
+    const indexB = body.tiles.findIndex(t => t.id === b.id);
+    assert.notEqual(indexA, -1, 'A should be in top_loved');
+    assert.notEqual(indexB, -1, 'B should be in top_loved');
+    assert.ok(indexB < indexA, 'B (loved later, higher id) should sort before A');
+  });
+
+  it('top_rated returns books rated 4+, sublabel is a star glyph', async () => {
+    const { body } = await req('POST', '/api/books', {
+      title: `Rated Test ${Date.now()}`, authors: ['Rater'], fiction: true,
+      status: 'finished',
+    });
+    // PUT (not PATCH) sets rating since rating isn't in the patchBook whitelist
+    await req('PUT', `/api/books/${body.id}`, {
+      title: body.title, authors: ['Rater'], fiction: true,
+      status: 'finished', rating: 4.5,
+    });
+
+    const { body: collage } = await req('GET', '/api/collage?mode=top_rated&size=5');
+    const tile = collage.tiles.find(t => t.id === body.id);
+    assert.ok(tile, 'expected 4.5-rated book to appear in top_rated');
+    assert.match(tile.sublabel, /^★+½?$/, `sublabel should be star glyphs, got: ${tile.sublabel}`);
+  });
+
   it('facets endpoint returns series + years arrays', async () => {
     const { status, body } = await req('GET', '/api/collage/facets');
     assert.equal(status, 200);

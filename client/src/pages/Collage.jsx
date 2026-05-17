@@ -17,6 +17,9 @@ const MODE_OPTIONS = [
   { key: 'recently_finished', label: 'Recently finished' },
   { key: 'series_spotlight',  label: 'Series spotlight' },
   { key: 'year_in_review',    label: 'Year in review' },
+  { key: 'top_loved',         label: 'Top loved' },
+  { key: 'top_rated',         label: 'Top rated' },
+  { key: 'hand_curated',      label: 'Hand-curated' },
 ];
 const PERIOD_OPTIONS = [
   { key: '7d',   label: 'Last 7 days' },
@@ -68,12 +71,23 @@ export default function Collage() {
   const title  = params.get('title') ?? '';
   const series = params.get('series') ?? '';
   const year   = parseInt(params.get('year'), 10);
+  // Hand-curated book IDs: comma-separated in URL, parsed to a deduped
+  // ordered array. Dedupe protects against a book getting added twice
+  // by an over-eager click; order is preserved (first occurrence wins).
+  const books = (params.get('books') ?? '')
+    .split(',')
+    .map(s => parseInt(s, 10))
+    .filter(n => Number.isInteger(n) && n > 0);
+  const seen = new Set();
+  const orderedBooks = books.filter(id => seen.has(id) ? false : (seen.add(id), true));
   const themeKey = THEME_KEYS.includes(params.get('theme')) ? params.get('theme') : 'dark';
   const theme = THEMES[themeKey];
 
   const needsSeries = mode === 'series_spotlight';
   const needsYear   = mode === 'year_in_review';
-  const usesPeriod  = !needsSeries && !needsYear;
+  const needsBooks  = mode === 'hand_curated';
+  const usesPeriod  = !needsSeries && !needsYear && !needsBooks
+    && mode !== 'top_loved' && mode !== 'top_rated';
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -97,12 +111,18 @@ export default function Collage() {
 
   useEffect(() => {
     // Skip the fetch when the mode needs a parameter that isn't set
-    // yet — would otherwise hit the server with an inevitable 400.
+    // yet — would otherwise hit the server with an inevitable 400 (or
+    // an empty response we already know to expect for hand_curated).
     if (needsSeries && !series) { setData({ tiles: [] }); setLoading(false); return; }
     if (needsYear   && !Number.isInteger(year)) { setData({ tiles: [] }); setLoading(false); return; }
+    if (needsBooks  && orderedBooks.length === 0) { setData({ tiles: [] }); setLoading(false); return; }
     const epoch = loadGuard.next();
     setLoading(true);
-    api.getCollage({ mode, period, size, series, year: Number.isInteger(year) ? year : undefined })
+    api.getCollage({
+      mode, period, size, series,
+      year:  Number.isInteger(year) ? year : undefined,
+      books: needsBooks && orderedBooks.length ? orderedBooks.join(',') : undefined,
+    })
       .then(d => {
         if (!loadGuard.isFresh(epoch)) return;
         setData(d);
@@ -113,7 +133,21 @@ export default function Collage() {
         setError(`Failed to load collage${err?.message ? `: ${err.message}` : '.'}`);
       })
       .finally(() => { if (loadGuard.isFresh(epoch)) setLoading(false); });
-  }, [mode, period, size, series, year]);
+  }, [mode, period, size, series, year, params.get('books')]);
+
+  function addBookToCuration(bookId) {
+    if (orderedBooks.includes(bookId)) return;
+    if (orderedBooks.length >= size * size) return; // already at cap
+    const next = [...orderedBooks, bookId];
+    update('books', next.join(','));
+  }
+  function removeBookFromCuration(bookId) {
+    const next = orderedBooks.filter(id => id !== bookId);
+    update('books', next.length ? next.join(',') : '');
+  }
+  function clearCuration() {
+    update('books', '');
+  }
 
   function update(key, value) {
     const next = new URLSearchParams(params);
@@ -166,8 +200,11 @@ export default function Collage() {
   const blanks = Math.max(0, size * size - tiles.length);
   const todayIso = new Date().toLocaleDateString('en-CA');
   const footerStamp =
-    needsSeries ? `Series · ${series || '—'}`
-    : needsYear  ? `Year · ${Number.isInteger(year) ? year : '—'}`
+      needsSeries ? `Series · ${series || '—'}`
+    : needsYear   ? `Year · ${Number.isInteger(year) ? year : '—'}`
+    : needsBooks  ? 'Hand-curated'
+    : mode === 'top_loved' ? 'Loved'
+    : mode === 'top_rated' ? 'Top-rated'
     : (PERIOD_OPTIONS.find(p => p.key === period)?.label ?? period);
 
   return (
@@ -290,6 +327,16 @@ export default function Collage() {
         </label>
       </div>
 
+      {needsBooks && (
+        <CurationSearch
+          onPick={addBookToCuration}
+          onClear={clearCuration}
+          atCap={orderedBooks.length >= size * size}
+          curatedCount={orderedBooks.length}
+          maxCount={size * size}
+        />
+      )}
+
       <ErrorBanner message={error} onDismiss={() => setError(null)} />
 
       {loading ? (
@@ -298,6 +345,9 @@ export default function Collage() {
         <p className="text-sm text-neutral-600">
           {needsSeries && !series ? 'Pick a series to spotlight.'
             : needsYear && !Number.isInteger(year) ? 'Pick a year to review.'
+            : needsBooks ? 'Search to add books to your collage.'
+            : mode === 'top_loved' ? 'No loved books yet.'
+            : mode === 'top_rated' ? 'No books rated 4★ or higher yet.'
             : 'No reading activity in this period.'}
         </p>
       ) : (
@@ -312,7 +362,12 @@ export default function Collage() {
           )}
           <div className="grid gap-2" style={gridStyle}>
             {tiles.map(t => (
-              <Tile key={`${t.href}-${t.id}`} tile={t} showLabel={showLabels} />
+              <Tile
+                key={`${t.href}-${t.id}`}
+                tile={t}
+                showLabel={showLabels}
+                onRemove={needsBooks ? () => removeBookFromCuration(t.id) : undefined}
+              />
             ))}
             {/* Blank placeholders fill the grid when the data set is
                 smaller than size*size — keeps the rectangle's shape so
@@ -334,7 +389,7 @@ export default function Collage() {
   );
 }
 
-function Tile({ tile, showLabel }) {
+function Tile({ tile, showLabel, onRemove }) {
   return (
     <Link
       to={tile.href}
@@ -363,6 +418,99 @@ function Tile({ tile, showLabel }) {
           )}
         </div>
       )}
+      {onRemove && (
+        // Hover-revealed remove badge for hand_curated mode. preventDefault +
+        // stopPropagation so the click doesn't navigate to the book page.
+        <button
+          type="button"
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRemove(); }}
+          className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 text-white text-xs leading-none flex items-center justify-center opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-warn transition-opacity"
+          title="Remove from collage"
+          aria-label="Remove from collage"
+        >
+          ×
+        </button>
+      )}
     </Link>
+  );
+}
+
+// Inline book-search dropdown for the hand-curated mode. Debounced
+// 200ms against api.getBooks; result list disables when the curation
+// is already at the size-cap. A "Clear all" affordance only appears
+// when there's something to clear.
+function CurationSearch({ onPick, onClear, atCap, curatedCount, maxCount }) {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const searchGuard = useStaleGuard();
+
+  useEffect(() => {
+    const term = query.trim();
+    if (!term) { setResults([]); setBusy(false); return; }
+    const epoch = searchGuard.next();
+    setBusy(true);
+    const timer = setTimeout(() => {
+      api.getBooks({ q: term, limit: 8 })
+        .then(({ books }) => {
+          if (!searchGuard.isFresh(epoch)) return;
+          setResults(books);
+        })
+        .catch(() => { if (searchGuard.isFresh(epoch)) setResults([]); })
+        .finally(() => { if (searchGuard.isFresh(epoch)) setBusy(false); });
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  return (
+    <div className="mb-6">
+      <div className="flex items-center gap-3 text-xs mb-2">
+        <span className="text-neutral-500">
+          {curatedCount} of {maxCount} books picked
+        </span>
+        {curatedCount > 0 && (
+          <button
+            onClick={onClear}
+            className="text-neutral-600 hover:text-warn transition-colors"
+          >
+            Clear all
+          </button>
+        )}
+      </div>
+      <div className="relative max-w-md">
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={atCap ? `At cap (${maxCount}) — remove a tile to add another` : 'Search to add books…'}
+          disabled={atCap}
+          className="w-full bg-neutral-900 border border-neutral-700 rounded px-3 py-1.5 text-sm text-white placeholder-neutral-600 disabled:opacity-50 focus:outline-none focus:border-oak/50"
+          aria-label="Search to add books"
+        />
+        {busy && <p role="status" className="absolute right-3 top-1.5 text-xs text-neutral-600 pointer-events-none">…</p>}
+        {results.length > 0 && !atCap && (
+          <div className="absolute z-10 mt-1 w-full max-h-64 overflow-y-auto bg-neutral-900 border border-neutral-700 rounded shadow-lg">
+            {results.map(b => (
+              <button
+                key={b.id}
+                type="button"
+                onClick={() => { onPick(b.id); setQuery(''); setResults([]); }}
+                className="w-full text-left flex items-center gap-2.5 px-2 py-1.5 hover:bg-neutral-800 transition-colors"
+              >
+                <div className="w-7 h-[42px] flex-shrink-0 rounded overflow-hidden bg-neutral-800">
+                  {b.cover_path && <img src={b.cover_path} alt="" className="w-full h-full object-cover" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-neutral-200 truncate">{b.title}</p>
+                  <p className="text-xs text-neutral-500 truncate">
+                    {b.authors?.map(a => a.name).join(', ')}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
