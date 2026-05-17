@@ -10,13 +10,12 @@ import ErrorBanner from '../components/ErrorBanner.jsx';
 const STORAGE_KEY = 'spine.collage.lastConfig';
 
 // Last.fm-style reading-collage grid. URL knobs (mode / period / size /
-// series / year / labels) round-trip so a chosen view is bookmarkable.
+// year / labels) round-trip so a chosen view is bookmarkable.
 // PNG export captures the framed grid + footer at the dark Spine palette.
 const MODE_OPTIONS = [
   { key: 'top_books',         label: 'Top books' },
   { key: 'top_authors',       label: 'Top authors' },
   { key: 'recently_finished', label: 'Recently finished' },
-  { key: 'series_spotlight',  label: 'Series spotlight' },
   { key: 'year_in_review',    label: 'Year in review' },
 ];
 const PERIOD_OPTIONS = [
@@ -35,23 +34,21 @@ export default function Collage() {
   const period  = PERIOD_OPTIONS.some(p => p.key === params.get('period')) ? params.get('period')   : '30d';
   const size    = SIZE_OPTIONS.includes(Number(params.get('size')))        ? Number(params.get('size')) : 3;
   const showLabels = params.get('labels') !== '0'; // default on; user can turn off via URL
-  const series = params.get('series') ?? '';
   // Year in review defaults to the current year if no ?year= is set —
   // matches the "what have I read this year so far" use case that
   // dominates January/early-year visits.
   const yearParam = parseInt(params.get('year'), 10);
   const year = Number.isInteger(yearParam) ? yearParam : new Date().getFullYear();
 
-  const needsSeries = mode === 'series_spotlight';
   const needsYear   = mode === 'year_in_review';
   // recently_finished ignores period (always returns the N most-recent
-  // finishes); series/year have their own scope pickers instead.
-  const usesPeriod  = !needsSeries && !needsYear && mode !== 'recently_finished';
+  // finishes); year_in_review has its own year picker instead.
+  const usesPeriod  = !needsYear && mode !== 'recently_finished';
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [facets, setFacets] = useState({ series: [], years: [] });
+  const [facets, setFacets] = useState({ years: [] });
   const loadGuard = useStaleGuard();
   // Single-flight guard on the PNG export so a double-click can't fire
   // two parallel html2canvas passes (each is heavy — ~1 MB raster).
@@ -83,9 +80,9 @@ export default function Collage() {
   }
 
   // Lazy-fetch facets on first mount. Cached for the session — a long-
-  // lived tab will see stale data if the user adds/removes series or
-  // logs a new year mid-session, but the cost (one-off refetch) isn't
-  // worth a refresh-tick subscription.
+  // lived tab will see stale data if the user logs a new year mid-
+  // session, but the cost (one-off refetch) isn't worth a refresh-
+  // tick subscription.
   useEffect(() => {
     api.getCollageFacets().then(setFacets).catch(() => {});
   }, []);
@@ -93,11 +90,10 @@ export default function Collage() {
   useEffect(() => {
     // Skip the fetch when the mode needs a parameter that isn't set
     // yet — would otherwise hit the server with an inevitable 400.
-    if (needsSeries && !series) { setData({ tiles: [] }); setLoading(false); return; }
     const epoch = loadGuard.next();
     setLoading(true);
     api.getCollage({
-      mode, period, size, series,
+      mode, period, size,
       year: needsYear ? year : undefined,
     })
       .then(d => {
@@ -110,7 +106,7 @@ export default function Collage() {
         setError(`Failed to load collage${err?.message ? `: ${err.message}` : '.'}`);
       })
       .finally(() => { if (loadGuard.isFresh(epoch)) setLoading(false); });
-  }, [mode, period, size, series, year]);
+  }, [mode, period, size, year]);
 
   function update(key, value) {
     const next = new URLSearchParams(params);
@@ -135,7 +131,7 @@ export default function Collage() {
         logging: false,
       });
       const stamp = new Date().toLocaleDateString('en-CA').replace(/-/g, '');
-      const slug = mode + (needsSeries ? `-${series}` : '') + (needsYear ? `-${year}` : `-${period}`);
+      const slug = mode + (needsYear ? `-${year}` : `-${period}`);
       const filename = `spine-collage-${slug.replace(/[^a-z0-9-]/gi, '_')}-${stamp}.png`;
       canvas.toBlob((blob) => {
         if (!blob) { setError('Failed to render PNG.'); return; }
@@ -182,8 +178,7 @@ export default function Collage() {
     fromPath: `/collage${params.toString() ? `?${params.toString()}` : ''}`,
   };
   const footerStamp =
-      needsSeries ? `Series · ${series || '—'}`
-    : needsYear   ? `Year · ${year}`
+      needsYear ? `Year · ${year}`
     : mode === 'recently_finished' ? 'Recently finished'
     : (PERIOD_OPTIONS.find(p => p.key === period)?.label ?? period);
 
@@ -214,23 +209,6 @@ export default function Collage() {
             >
               {PERIOD_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
             </select>
-          </label>
-        )}
-        {needsSeries && (
-          <label className="inline-flex items-center gap-1.5 text-neutral-500">
-            <span>Series:</span>
-            <input
-              type="text"
-              list="collage-series"
-              value={series}
-              onChange={(e) => update('series', e.target.value)}
-              placeholder="Type or pick…"
-              className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-neutral-300 placeholder-neutral-700 focus:outline-none focus:border-oak/50 transition-colors w-48"
-              aria-label="Series for spotlight"
-            />
-            <datalist id="collage-series">
-              {facets.series.map(s => <option key={s} value={s} />)}
-            </datalist>
           </label>
         )}
         {needsYear && (
@@ -299,8 +277,7 @@ export default function Collage() {
         <div role="status" className="text-neutral-700 text-sm">Loading…</div>
       ) : tiles.length === 0 ? (
         <p className="text-sm text-neutral-600">
-          {needsSeries && !series ? 'Pick a series to spotlight.'
-            : needsYear ? `No books finished in ${year}.`
+          {needsYear ? `No books finished in ${year}.`
             : 'No reading activity in this period.'}
         </p>
       ) : (

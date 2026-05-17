@@ -125,31 +125,6 @@ describe('collage', () => {
     assert.equal(r3.body.size, 3);
   });
 
-  it('series_spotlight orders by series_number then title', async () => {
-    const seriesName = `Collage Spotlight Series ${Date.now()}`;
-    for (const [n, title] of [[3, 'Volume Three'], [1, 'Volume One'], [2, 'Volume Two']]) {
-      await req('POST', '/api/books', {
-        title, authors: ['Spotlight Author'], fiction: true,
-        series: seriesName, series_number: n,
-      });
-    }
-    const { body } = await req('GET', `/api/collage?mode=series_spotlight&series=${encodeURIComponent(seriesName)}&size=5`);
-    const titles = body.tiles.map(t => t.label);
-    assert.deepEqual(titles, ['Volume One', 'Volume Two', 'Volume Three'], 'tiles should be in reading order');
-    assert.equal(body.tiles[0].sublabel, '#1');
-  });
-
-  it('series_spotlight rejects missing series with 400', async () => {
-    const r = await req('GET', '/api/collage?mode=series_spotlight');
-    assert.equal(r.status, 400);
-  });
-
-  it('series_spotlight returns empty tiles for an unknown series', async () => {
-    const r = await req('GET', '/api/collage?mode=series_spotlight&series=DefinitelyNotARealSeries123');
-    assert.equal(r.status, 200);
-    assert.deepEqual(r.body.tiles, []);
-  });
-
   it('year_in_review bounds to books finished in the chosen calendar year', async () => {
     // Seed a book finished this year and one finished last year. Each
     // year's query should only include its own finishes.
@@ -196,10 +171,9 @@ describe('collage', () => {
     assert.equal(bad3.status, 400);
   });
 
-  it('facets endpoint returns series + years arrays', async () => {
+  it('facets endpoint returns years array', async () => {
     const { status, body } = await req('GET', '/api/collage/facets');
     assert.equal(status, 200);
-    assert.ok(Array.isArray(body.series), 'series should be an array');
     assert.ok(Array.isArray(body.years),  'years should be an array');
     // Years come back as strings (substr of date column); descending.
     if (body.years.length > 1) {

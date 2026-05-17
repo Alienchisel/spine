@@ -6,9 +6,8 @@ const router = express.Router();
 // Grid-collage data for /collage. Knobs the client passes via query
 // string:
 //   mode    — what's being ranked
-//   period  — over what window (top_books / top_authors / recently_finished)
+//   period  — over what window (top_books / top_authors)
 //   size    — grid edge, 2..5 (4..25 tiles)
-//   series  — required when mode=series_spotlight
 //   year    — required when mode=year_in_review (YYYY)
 // All inputs validated before touching the DB so bad input is a
 // clean 400 instead of a generic 500.
@@ -19,12 +18,7 @@ router.get('/', (req, res) => {
   if (!ALLOWED_MODES.includes(mode))     return res.status(400).json({ error: `Invalid mode: ${mode}` });
   if (!ALLOWED_PERIODS.includes(period)) return res.status(400).json({ error: `Invalid period: ${period}` });
 
-  let series = null;
-  let year   = null;
-  if (mode === 'series_spotlight') {
-    series = String(req.query.series || '').trim();
-    if (!series) return res.status(400).json({ error: 'series is required for series_spotlight' });
-  }
+  let year = null;
   if (mode === 'year_in_review') {
     const raw = parseInt(req.query.year, 10);
     const currentYear = new Date().getFullYear();
@@ -35,7 +29,7 @@ router.get('/', (req, res) => {
   }
 
   try {
-    res.json(computeCollage({ mode, period, size, series, year }));
+    res.json(computeCollage({ mode, period, size, year }));
   } catch (err) {
     res.status(500).json({ error: 'Failed to compute collage', detail: String(err.message || err) });
   }
