@@ -383,8 +383,14 @@ export default function Stats() {
   // lifetime listening, and current day streak. Big monospace numbers
   // with a small uppercase descriptor above, no card chrome — gives
   // the page a "dashboard" first impression.
+  // Total authors derived from the gender breakdown — sum of all four
+  // buckets equals the distinct author count, so we don't need a
+  // separate stats query for it.
+  const authorTotal = (authorsByGender.male || 0) + (authorsByGender.female || 0)
+                    + (authorsByGender.other || 0) + (authorsByGender.unassigned || 0);
   const hero = [
     { label: 'Books in library', value: totals?.books?.toLocaleString() ?? '—' },
+    { label: 'Authors',          value: authorTotal > 0 ? authorTotal.toLocaleString() : '—' },
     { label: 'Pages read',       value: pagesRead?.toLocaleString() ?? '—' },
     { label: 'Hours listened',   value: minutesListened > 0 ? Math.floor(minutesListened / 60).toLocaleString() : '—' },
     { label: 'Day streak',       value: streaks?.days?.current?.toLocaleString() ?? '0' },
@@ -397,7 +403,7 @@ export default function Stats() {
       <ErrorBanner message={error} onDismiss={() => setError(null)} />
       {actionError && <p role="alert" className="text-xs text-warn">{actionError}</p>}
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-10 py-4">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-6 sm:gap-8 py-4">
         {hero.map(h => (
           <div key={h.label} className="text-center sm:text-left">
             <p className="text-[10px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">{h.label}</p>
