@@ -8,6 +8,7 @@ export default function Nav() {
   const onLists = pathname === '/lists' || pathname.startsWith('/lists/');
   const onDiary = pathname === '/diary';
   const onStats = pathname === '/stats';
+  const onCollage = pathname === '/collage';
   const onShelfView   = pathname === '/shelf-view';
   const onShelfManage = pathname === '/shelf';
 
@@ -39,6 +40,7 @@ export default function Nav() {
             {navLink('/lists',    'Lists',    onLists,    'text-sky-400')}
             {navLink('/diary',    'Diary',    onDiary,    'text-amber-400')}
             {navLink('/stats',   'Stats',    onStats,    'text-neutral-300')}
+            {navLink('/collage', 'Collage',  onCollage,  'text-neutral-300')}
             {navLink('/shelf-view', 'Shelves', onShelfView,   'text-neutral-300')}
             {navLink('/shelf',      'Manage',  onShelfManage, 'text-neutral-300')}
           </nav>

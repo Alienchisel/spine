@@ -10,6 +10,7 @@ import readlistRouter from './routes/readlist.js';
 import listsRouter from './routes/lists.js';
 import diaryRouter from './routes/diary.js';
 import statsRouter from './routes/stats.js';
+import collageRouter from './routes/collage.js';
 import settingsRouter from './routes/settings.js';
 import shelfRouter from './routes/shelf.js';
 
@@ -27,6 +28,7 @@ app.use('/api/readlist', readlistRouter);
 app.use('/api/lists', listsRouter);
 app.use('/api/diary', diaryRouter);
 app.use('/api/stats', statsRouter);
+app.use('/api/collage', collageRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/shelf', shelfRouter);
 

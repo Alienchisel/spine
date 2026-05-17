@@ -38,6 +38,7 @@ export const api = {
   getAuthor: (id, params = {}) => request(`/authors/${id}${buildQuery(params)}`),
   updateAuthor: (id, data) => request(`/authors/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   refreshAuthor: (id) => request(`/authors/${id}/refresh`, { method: 'POST' }),
+  getCollage: (params = {}) => request(`/collage${buildQuery(params)}`),
   uploadAuthorPhoto: (id, file) => {
     // multer expects a multipart form with a 'photo' field — same shape
     // as routes/uploads.js's 'cover' field on the book-cover path. The

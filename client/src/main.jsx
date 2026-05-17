@@ -13,6 +13,7 @@ import Lists from './pages/Lists.jsx';
 import ListDetail from './pages/ListDetail.jsx';
 import Diary from './pages/Diary.jsx';
 import Stats from './pages/Stats.jsx';
+import Collage from './pages/Collage.jsx';
 import ShelfManager from './pages/ShelfManager.jsx';
 import ShelfView from './pages/ShelfView.jsx';
 import './index.css';
@@ -41,6 +42,7 @@ const router = createBrowserRouter(
       <Route path="lists/:id"             element={<ListDetail />} />
       <Route path="diary"                 element={<Diary />} />
       <Route path="stats"                 element={<Stats />} />
+      <Route path="collage"               element={<Collage />} />
       <Route path="shelf"                 element={<ShelfManager />} />
       <Route path="shelf-view"            element={<ShelfView />} />
       <Route path="*"                     element={<NotFound />} />
