@@ -33,6 +33,7 @@ export const api = {
   getBook: (id) => request(`/books/${id}`),
   getAuthor: (id, params = {}) => request(`/authors/${id}${buildQuery(params)}`),
   updateAuthor: (id, data) => request(`/authors/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  refreshAuthor: (id) => request(`/authors/${id}/refresh`, { method: 'POST' }),
   createBook: (data) => request('/books', { method: 'POST', body: JSON.stringify(data) }),
   updateBook: (id, data) => request(`/books/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   searchBooks: (q) => request(`/search?${new URLSearchParams({ q })}`),

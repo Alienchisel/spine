@@ -1,10 +1,10 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useLocation, useNavigate, Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { plural } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
 
-// Inline gender picker. Stores 'male' | 'female' | 'nonbinary' | null;
+// Inline gender picker. Stores 'male' | 'female' | 'other' | null;
 // empty string in the select maps back to null so the user can clear the
 // field. Optimistic update is handled by the parent so the rollback
 // path stays close to whatever local state owns the author.
@@ -27,6 +27,14 @@ function GenderPicker({ value, onChange }) {
   );
 }
 
+// "1938 – 2007" / "1938 –" (living author) / "– 2007" (rare) / null.
+function lifespan(birth, death) {
+  if (!birth && !death) return null;
+  if (birth && death)   return `${birth} – ${death}`;
+  if (birth)            return `${birth} –`;
+  return `– ${death}`;
+}
+
 // Author entity page: lists all books bylined under this specific
 // author plus an "also writes as" section linking to alias siblings.
 // Distinct from /browse/author/:name which is a name-based filter view —
@@ -46,6 +54,12 @@ export default function Author() {
   // failed — please retry".
   const [errorKind, setErrorKind] = useState(null);
   const [sort, setSort] = useState('year_published');
+  const [bioExpanded, setBioExpanded] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  // Guards the auto-refresh effect against re-firing for the same author
+  // id (e.g. after the refresh itself triggers a setAuthor and another
+  // render). Records ids whose bio_fetched_at we've already kicked off.
+  const autoRefreshedRef = useRef(new Set());
 
   useEffect(() => {
     let cancelled = false;
@@ -61,10 +75,52 @@ export default function Author() {
     return () => { cancelled = true; };
   }, [id, sort]);
 
+  // Reset the bio collapse + auto-refresh memo when navigating to a
+  // different author — otherwise we'd carry the previous author's
+  // expanded state into a new visit.
+  useEffect(() => { setBioExpanded(false); }, [id]);
+
+  // Auto-refresh on first visit: if the author has never been looked up
+  // (bio_fetched_at is null), fire the refresh and merge in the result.
+  // The guard ref prevents re-firing for the same id if the auto-refresh
+  // itself causes a re-render.
+  useEffect(() => {
+    if (!author || author.bio_fetched_at) return;
+    if (autoRefreshedRef.current.has(author.id)) return;
+    autoRefreshedRef.current.add(author.id);
+    api.refreshAuthor(author.id)
+      .then(updated => {
+        // Merge only the fields the refresh owns. The /refresh response
+        // shape omits aliases/books/total, so we keep those from the
+        // current author state.
+        setAuthor(a => a ? { ...a, ...updated } : a);
+      })
+      .catch(() => {
+        // Silent fail — the manual refresh button is the user's
+        // recovery path. Logged in the server-side response anyway.
+      });
+  }, [author]);
+
+  async function handleManualRefresh() {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      const updated = await api.refreshAuthor(author.id);
+      setAuthor(a => a ? { ...a, ...updated } : a);
+    } catch {
+      // No-op; the prior cached state stays visible. A future iteration
+      // could surface a small inline error here.
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
   const fromState = useMemo(
     () => ({ from: author?.name, fromPath: pathname }),
     [author?.name, pathname],
   );
+
+  const dates = author ? lifespan(author.birth_year, author.death_year) : null;
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
@@ -86,40 +142,93 @@ export default function Author() {
         </Link>
       )}
 
-      <div className="mt-6 mb-8">
-        <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1">Author</p>
-        <h1 className="text-2xl font-bold text-white">{author?.name ?? (loading || errorKind === 'fetch' ? ' ' : 'Author not found')}</h1>
-        {author?.aliases?.length > 0 && (
-          <p className="text-neutral-600 text-xs mt-1">
-            also writes as{' '}
-            {author.aliases.map((a, i) => (
-              <span key={a.id}>
-                {i > 0 && (i === author.aliases.length - 1 ? ' & ' : ', ')}
-                <Link to={`/authors/${a.id}`} state={fromState} className="hover:text-neutral-400 transition-colors">
-                  {a.name}
-                </Link>
-              </span>
-            ))}
-          </p>
-        )}
-        {!loading && author && (
-          <p className="text-sm text-neutral-500 mt-1 flex items-center gap-2 flex-wrap">
-            <span>{plural(author.total, 'book')}</span>
-            <span className="text-neutral-700">·</span>
-            <GenderPicker
-              value={author.gender}
-              onChange={async (next) => {
-                const prev = author.gender;
-                setAuthor(a => ({ ...a, gender: next }));
-                try {
-                  await api.updateAuthor(author.id, { gender: next });
-                } catch {
-                  setAuthor(a => ({ ...a, gender: prev }));
-                }
-              }}
+      <div className="mt-6 mb-8 flex flex-col sm:flex-row gap-6">
+        {/* Portrait. Skeleton-style placeholder when no photo (OL miss
+            or fetch failed) so the page still feels first-class. */}
+        <div className="flex-shrink-0">
+          {author?.photo_path ? (
+            <img
+              src={author.photo_path}
+              alt={author.name ? `Portrait of ${author.name}` : ''}
+              className="w-32 h-40 sm:w-36 sm:h-44 object-cover rounded bg-neutral-800"
             />
-          </p>
-        )}
+          ) : (
+            <div className="w-32 h-40 sm:w-36 sm:h-44 rounded bg-gradient-to-br from-neutral-800 to-neutral-900 flex items-center justify-center text-neutral-700 text-3xl font-slab">
+              {author?.name?.[0] ?? '·'}
+            </div>
+          )}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1">Author</p>
+          <h1 className="text-2xl font-bold text-white">{author?.name ?? (loading || errorKind === 'fetch' ? ' ' : 'Author not found')}</h1>
+          {author?.aliases?.length > 0 && (
+            <p className="text-neutral-600 text-xs mt-1">
+              also writes as{' '}
+              {author.aliases.map((a, i) => (
+                <span key={a.id}>
+                  {i > 0 && (i === author.aliases.length - 1 ? ' & ' : ', ')}
+                  <Link to={`/authors/${a.id}`} state={fromState} className="hover:text-neutral-400 transition-colors">
+                    {a.name}
+                  </Link>
+                </span>
+              ))}
+            </p>
+          )}
+          {!loading && author && (
+            <p className="text-sm text-neutral-500 mt-1 flex items-center gap-2 flex-wrap">
+              <span>{plural(author.total, 'book')}</span>
+              <span className="text-neutral-700">·</span>
+              <GenderPicker
+                value={author.gender}
+                onChange={async (next) => {
+                  const prev = author.gender;
+                  setAuthor(a => ({ ...a, gender: next }));
+                  try {
+                    await api.updateAuthor(author.id, { gender: next });
+                  } catch {
+                    setAuthor(a => ({ ...a, gender: prev }));
+                  }
+                }}
+              />
+              {dates && (
+                <>
+                  <span className="text-neutral-700">·</span>
+                  <span>{dates}</span>
+                </>
+              )}
+            </p>
+          )}
+          {author?.bio && (
+            <div className="mt-3">
+              <p className={`text-sm text-neutral-400 whitespace-pre-line ${bioExpanded ? '' : 'line-clamp-4'}`}>
+                {author.bio}
+              </p>
+              {/* "Show more" only when the rendered text overflows the
+                  4-line clamp. We approximate "long" by character count
+                  to avoid a brittle DOM-measurement pass — bios over
+                  ~280 chars almost always need the toggle. */}
+              {author.bio.length > 280 && (
+                <button
+                  onClick={() => setBioExpanded(b => !b)}
+                  className="text-xs text-oak hover:text-leather mt-1 transition-colors"
+                >
+                  {bioExpanded ? 'Show less' : 'Show more'}
+                </button>
+              )}
+            </div>
+          )}
+          {!loading && author && (
+            <button
+              onClick={handleManualRefresh}
+              disabled={refreshing}
+              className="text-[11px] text-neutral-700 hover:text-neutral-400 mt-3 transition-colors disabled:opacity-50 disabled:cursor-wait"
+              title="Re-fetch bio + portrait from Open Library"
+            >
+              {refreshing ? '↻ Refreshing…' : '↻ Refresh from Open Library'}
+            </button>
+          )}
+        </div>
       </div>
 
       {loading ? (

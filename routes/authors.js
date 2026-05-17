@@ -2,8 +2,15 @@ import express from 'express';
 import db from '../db.js';
 import { linkAuthorAliases, unlinkAuthorAlias } from '../lib/books/people.js';
 import { listBooks } from '../lib/books/repository.js';
+import { lookupAuthor, deleteAuthorPhoto } from '../lib/authors/openLibrary.js';
 
 const router = express.Router();
+
+const AUTHOR_COLUMNS = 'id, name, gender, alias_group_id, bio, birth_year, death_year, photo_path, ol_key, bio_fetched_at';
+
+function loadAuthor(id) {
+  return db.prepare(`SELECT ${AUTHOR_COLUMNS} FROM authors WHERE id = ?`).get(id);
+}
 
 // Author detail: returns the author's identity, alias siblings, and the
 // books bylined under THIS specific author (not the alias group as a
@@ -13,14 +20,14 @@ const router = express.Router();
 router.get('/:id', (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid author id' });
-  const author = db.prepare('SELECT id, name, gender, alias_group_id FROM authors WHERE id = ?').get(id);
+  const author = loadAuthor(id);
   if (!author) return res.status(404).json({ error: 'Author not found' });
   const aliases = author.alias_group_id != null
     ? db.prepare('SELECT id, name FROM authors WHERE alias_group_id = ? AND id != ? ORDER BY name').all(author.alias_group_id, id)
     : [];
   const sort = req.query.sort || 'year_published';
   const { books, total } = listBooks({ field: 'author', value: author.name, sort, limit: 200, offset: 0 });
-  res.json({ id: author.id, name: author.name, gender: author.gender, aliases, books, total });
+  res.json({ ...author, aliases, books, total });
 });
 
 // PATCH author: currently only gender is editable. Empty string / null
@@ -68,6 +75,40 @@ router.delete('/:id/alias-link', (req, res) => {
   const ok = unlinkAuthorAlias(id);
   if (ok === null) return res.status(404).json({ error: 'Author not found' });
   res.json({ ok: true });
+});
+
+// Fetch bio + portrait from Open Library and save locally. Manual or
+// auto-triggered by the client when bio_fetched_at is null. A miss
+// (no OL match) still bumps bio_fetched_at so the auto-refresh effect
+// doesn't keep retrying every visit — the manual button is the way to
+// re-attempt after a real failure.
+router.post('/:id/refresh', async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid author id' });
+  const author = loadAuthor(id);
+  if (!author) return res.status(404).json({ error: 'Author not found' });
+  try {
+    const found = await lookupAuthor(author.name, id);
+    if (!found) {
+      db.prepare("UPDATE authors SET bio_fetched_at = datetime('now', 'localtime') WHERE id = ?").run(id);
+      return res.json(loadAuthor(id));
+    }
+    if (author.photo_path && found.photo_path && author.photo_path !== found.photo_path) {
+      // Best-effort cleanup of the prior portrait; intentionally awaited
+      // so the unlink completes before we respond and the disk doesn't
+      // accumulate orphans on rapid refreshes.
+      await deleteAuthorPhoto(author.photo_path);
+    }
+    db.prepare(`
+      UPDATE authors SET
+        bio = ?, birth_year = ?, death_year = ?, photo_path = COALESCE(?, photo_path),
+        ol_key = ?, bio_fetched_at = datetime('now', 'localtime')
+      WHERE id = ?
+    `).run(found.bio, found.birth_year, found.death_year, found.photo_path, found.ol_key, id);
+    res.json(loadAuthor(id));
+  } catch (err) {
+    res.status(502).json({ error: 'Open Library lookup failed', detail: String(err.message || err) });
+  }
 });
 
 export default router;
