@@ -162,6 +162,13 @@ export default function Collage() {
   const tiles = data?.tiles ?? [];
   const blanks = Math.max(0, size * size - tiles.length);
   const todayIso = new Date().toLocaleDateString('en-CA');
+  // Tile links carry this state so the Book/Author page back-button
+  // returns to the same Collage view the user came from (including the
+  // selected mode / period / size, encoded in the URL).
+  const fromState = {
+    from: 'Collage',
+    fromPath: `/collage${params.toString() ? `?${params.toString()}` : ''}`,
+  };
   const footerStamp =
       needsSeries ? `Series · ${series || '—'}`
     : needsYear   ? `Year · ${year}`
@@ -296,6 +303,7 @@ export default function Collage() {
                 key={`${t.href}-${t.id}`}
                 tile={t}
                 showLabel={showLabels}
+                linkState={fromState}
               />
             ))}
             {/* Blank placeholders fill the grid when the data set is
@@ -319,10 +327,11 @@ export default function Collage() {
   );
 }
 
-function Tile({ tile, showLabel }) {
+function Tile({ tile, showLabel, linkState }) {
   return (
     <Link
       to={tile.href}
+      state={linkState}
       className="group relative block aspect-[2/3] rounded overflow-hidden bg-neutral-900 focus:outline-none focus:ring-2 focus:ring-oak/50"
       title={tile.sublabel ? `${tile.label} · ${tile.sublabel}` : tile.label}
     >
