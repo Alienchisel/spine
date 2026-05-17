@@ -352,7 +352,7 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
                 <span className="text-[10px] uppercase tracking-wider text-warn/80 border border-warn/30 rounded px-1 py-px flex-shrink-0">DNF</span>
               ) : null}
               <button onClick={() => startEdit(s)} className="text-neutral-700 hover:text-neutral-400 opacity-30 group-hover:opacity-100 group-focus-within:opacity-100 transition-all flex-shrink-0">Edit</button>
-              <button onClick={() => handleDelete(s.id, s.title)} className="text-neutral-700 hover:text-warn opacity-30 group-hover:opacity-100 group-focus-within:opacity-100 transition-all flex-shrink-0">×</button>
+              <button onClick={() => handleDelete(s.id, s.title)} title={`Delete ${noun}`} aria-label={`Delete ${noun}`} className="text-neutral-700 hover:text-warn opacity-30 group-hover:opacity-100 group-focus-within:opacity-100 transition-all flex-shrink-0">×</button>
             </div>
           ))}
         </div>

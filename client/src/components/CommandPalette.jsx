@@ -1106,7 +1106,7 @@ export default function CommandPalette() {
             <span className="text-oak">→</span>
             <span>Add to list</span>
             <span className="text-neutral-700">·</span>
-            <span className="truncate">{subPrompt.bookTitle}</span>
+            <span className="truncate" title={subPrompt.bookTitle}>{subPrompt.bookTitle}</span>
             <span className="ml-auto text-neutral-700">esc to cancel</span>
           </div>
         )}
