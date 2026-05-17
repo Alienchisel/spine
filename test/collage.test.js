@@ -187,41 +187,6 @@ describe('collage', () => {
     assert.equal(bad3.status, 400);
   });
 
-  it('top_loved returns only loved books, most recently loved first', async () => {
-    const { body: a } = await req('POST', '/api/books', {
-      title: `Love Test A ${Date.now()}`, authors: ['Lover'], fiction: true,
-    });
-    const { body: b } = await req('POST', '/api/books', {
-      title: `Love Test B ${Date.now()}`, authors: ['Lover'], fiction: true,
-    });
-    await req('PATCH', `/api/books/${a.id}`, { loved: 1 });
-    await req('PATCH', `/api/books/${b.id}`, { loved: 1 });
-
-    const { body } = await req('GET', '/api/collage?mode=top_loved&size=5');
-    const indexA = body.tiles.findIndex(t => t.id === a.id);
-    const indexB = body.tiles.findIndex(t => t.id === b.id);
-    assert.notEqual(indexA, -1, 'A should be in top_loved');
-    assert.notEqual(indexB, -1, 'B should be in top_loved');
-    assert.ok(indexB < indexA, 'B (loved later, higher id) should sort before A');
-  });
-
-  it('top_rated returns books rated 4+, sublabel is a star glyph', async () => {
-    const { body } = await req('POST', '/api/books', {
-      title: `Rated Test ${Date.now()}`, authors: ['Rater'], fiction: true,
-      status: 'finished',
-    });
-    // PUT (not PATCH) sets rating since rating isn't in the patchBook whitelist
-    await req('PUT', `/api/books/${body.id}`, {
-      title: body.title, authors: ['Rater'], fiction: true,
-      status: 'finished', rating: 4.5,
-    });
-
-    const { body: collage } = await req('GET', '/api/collage?mode=top_rated&size=5');
-    const tile = collage.tiles.find(t => t.id === body.id);
-    assert.ok(tile, 'expected 4.5-rated book to appear in top_rated');
-    assert.match(tile.sublabel, /^★+½?$/, `sublabel should be star glyphs, got: ${tile.sublabel}`);
-  });
-
   it('facets endpoint returns series + years arrays', async () => {
     const { status, body } = await req('GET', '/api/collage/facets');
     assert.equal(status, 200);

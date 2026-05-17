@@ -18,8 +18,6 @@ const MODE_OPTIONS = [
   { key: 'recently_finished', label: 'Recently finished' },
   { key: 'series_spotlight',  label: 'Series spotlight' },
   { key: 'year_in_review',    label: 'Year in review' },
-  { key: 'top_loved',         label: 'Top loved' },
-  { key: 'top_rated',         label: 'Top rated' },
 ];
 const PERIOD_OPTIONS = [
   { key: '7d',   label: 'Last 7 days' },
@@ -46,8 +44,7 @@ export default function Collage() {
 
   const needsSeries = mode === 'series_spotlight';
   const needsYear   = mode === 'year_in_review';
-  const usesPeriod  = !needsSeries && !needsYear
-    && mode !== 'top_loved' && mode !== 'top_rated';
+  const usesPeriod  = !needsSeries && !needsYear;
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -173,8 +170,6 @@ export default function Collage() {
   const footerStamp =
       needsSeries ? `Series · ${series || '—'}`
     : needsYear   ? `Year · ${year}`
-    : mode === 'top_loved' ? 'Loved'
-    : mode === 'top_rated' ? 'Top-rated'
     : (PERIOD_OPTIONS.find(p => p.key === period)?.label ?? period);
 
   return (
@@ -289,8 +284,6 @@ export default function Collage() {
         <p className="text-sm text-neutral-600">
           {needsSeries && !series ? 'Pick a series to spotlight.'
             : needsYear ? `No reading activity logged in ${year}.`
-            : mode === 'top_loved' ? 'No loved books yet.'
-            : mode === 'top_rated' ? 'No books rated 4★ or higher yet.'
             : 'No reading activity in this period.'}
         </p>
       ) : (
