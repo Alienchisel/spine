@@ -824,6 +824,26 @@ export default function Stats() {
           </Section>
         )}
 
+        {topNarrators?.length > 0 && (
+          <Section title="Top narrators">
+            <div className="space-y-2.5">
+              {topNarrators.map(n => (
+                <Bar key={n.narrator} label={n.narrator} count={n.count} max={maxNarrator} color="bg-oak" href={`/browse/narrator/${encodeURIComponent(n.narrator)}`} />
+              ))}
+            </div>
+          </Section>
+        )}
+
+        {topSeries?.length > 0 && (
+          <Section title="Top series">
+            <div className="space-y-2.5">
+              {topSeries.map(s => (
+                <Bar key={s.series} label={s.series} count={s.count} max={topSeries[0].count} color="bg-leather" href={`/browse/series/${encodeURIComponent(s.series)}`} />
+              ))}
+            </div>
+          </Section>
+        )}
+
         {(() => {
           const rows = [
             { key: 'male',       label: 'Male' },
@@ -849,26 +869,6 @@ export default function Stats() {
             </Section>
           );
         })()}
-
-        {topNarrators?.length > 0 && (
-          <Section title="Top narrators">
-            <div className="space-y-2.5">
-              {topNarrators.map(n => (
-                <Bar key={n.narrator} label={n.narrator} count={n.count} max={maxNarrator} color="bg-oak" href={`/browse/narrator/${encodeURIComponent(n.narrator)}`} />
-              ))}
-            </div>
-          </Section>
-        )}
-
-        {topSeries?.length > 0 && (
-          <Section title="Top series">
-            <div className="space-y-2.5">
-              {topSeries.map(s => (
-                <Bar key={s.series} label={s.series} count={s.count} max={topSeries[0].count} color="bg-leather" href={`/browse/series/${encodeURIComponent(s.series)}`} />
-              ))}
-            </div>
-          </Section>
-        )}
       </div>
     </div>
   );
