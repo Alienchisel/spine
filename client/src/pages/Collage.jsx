@@ -44,7 +44,9 @@ export default function Collage() {
 
   const needsSeries = mode === 'series_spotlight';
   const needsYear   = mode === 'year_in_review';
-  const usesPeriod  = !needsSeries && !needsYear;
+  // recently_finished ignores period (always returns the N most-recent
+  // finishes); series/year have their own scope pickers instead.
+  const usesPeriod  = !needsSeries && !needsYear && mode !== 'recently_finished';
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -182,6 +184,7 @@ export default function Collage() {
   const footerStamp =
       needsSeries ? `Series · ${series || '—'}`
     : needsYear   ? `Year · ${year}`
+    : mode === 'recently_finished' ? 'Recently finished'
     : (PERIOD_OPTIONS.find(p => p.key === period)?.label ?? period);
 
   return (

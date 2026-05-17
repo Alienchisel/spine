@@ -103,7 +103,7 @@ describe('collage', () => {
       status: 'finished', date_finished: today,
     });
 
-    const { body } = await req('GET', '/api/collage?mode=recently_finished&period=all&size=5');
+    const { body } = await req('GET', '/api/collage?mode=recently_finished&size=5');
     assert.ok(body.tiles.length >= 1);
     assert.equal(body.tiles[0].id, book.id, 'most recent finish should be top-left');
     assert.equal(body.tiles[0].sublabel, today);
