@@ -134,6 +134,50 @@ describe('authors — Open Library refresh', () => {
     assert.ok(refresh.body.bio_fetched_at, 'bio_fetched_at should bump on miss');
   });
 
+  it('manual upload writes a portrait and overrides any OL-fetched one', async () => {
+    const { body: book } = await req('POST', '/api/books', {
+      title: 'Upload Test Book', authors: ['Manual Portrait Author'], fiction: true,
+    });
+    const aid = book.authors[0].id;
+
+    // Minimal valid JPEG: SOI + APP0 stub + EOI. Large enough that the
+    // 1 KB OL-placeholder filter wouldn't apply (this endpoint doesn't
+    // filter, but exercise a realistic size).
+    const jpegHeader = Buffer.from([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00]);
+    const jpegPadding = Buffer.alloc(2048, 0);
+    const jpegEOI = Buffer.from([0xFF, 0xD9]);
+    const jpeg = Buffer.concat([jpegHeader, jpegPadding, jpegEOI]);
+
+    const fd = new FormData();
+    fd.append('photo', new Blob([jpeg], { type: 'image/jpeg' }), 'portrait.jpg');
+    const res = await fetch(`${url}/api/authors/${aid}/photo`, { method: 'POST', body: fd });
+    assert.equal(res.status, 200);
+    const updated = await res.json();
+    assert.ok(updated.photo_path?.startsWith('/uploads/authors/'), 'photo_path should land in uploads/authors/');
+    assert.ok(updated.photo_path.includes(`${aid}-`), 'filename should include the author id');
+
+    // Subsequent GET shows the uploaded photo.
+    const { body: post } = await req('GET', `/api/authors/${aid}`);
+    assert.equal(post.photo_path, updated.photo_path);
+
+    // DELETE clears it.
+    const del = await req('DELETE', `/api/authors/${aid}/photo`);
+    assert.equal(del.status, 200);
+    assert.equal(del.body.photo_path, null);
+  });
+
+  it('rejects non-image uploads with 400', async () => {
+    const { body: book } = await req('POST', '/api/books', {
+      title: 'Bad Upload Book', authors: ['Bad Upload Author'], fiction: true,
+    });
+    const aid = book.authors[0].id;
+
+    const fd = new FormData();
+    fd.append('photo', new Blob(['not an image'], { type: 'text/plain' }), 'noimage.txt');
+    const res = await fetch(`${url}/api/authors/${aid}/photo`, { method: 'POST', body: fd });
+    assert.equal(res.status, 400);
+  });
+
   it('returns 502 when the OL endpoint itself errors', async () => {
     const { body: book } = await req('POST', '/api/books', {
       title: 'Bad Network Book', authors: ['Network Failure Author'], fiction: true,

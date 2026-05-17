@@ -1,10 +1,29 @@
 import express from 'express';
+import multer from 'multer';
 import db from '../db.js';
 import { linkAuthorAliases, unlinkAuthorAlias } from '../lib/books/people.js';
 import { listBooks } from '../lib/books/repository.js';
-import { lookupAuthor, deleteAuthorPhoto } from '../lib/authors/openLibrary.js';
+import { lookupAuthor } from '../lib/authors/openLibrary.js';
+import { saveAuthorPhotoFromBuffer, deleteAuthorPhoto } from '../lib/authors/photos.js';
 
 const router = express.Router();
+
+// Same memoryStorage/multer setup as routes/uploads.js — 10 MB cap,
+// image MIME types only. Manual portrait uploads go through here; the
+// OL download path bypasses multer and writes directly via the
+// shared photos.js helper.
+const photoUpload = multer({
+  storage: multer.memoryStorage(),
+  limits:  { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (!file.mimetype.startsWith('image/')) {
+      const err = new Error('Only images allowed');
+      err.status = 400;
+      return cb(err);
+    }
+    cb(null, true);
+  },
+});
 
 const AUTHOR_COLUMNS = 'id, name, gender, alias_group_id, bio, birth_year, death_year, photo_path, ol_key, bio_fetched_at';
 
@@ -75,6 +94,42 @@ router.delete('/:id/alias-link', (req, res) => {
   const ok = unlinkAuthorAlias(id);
   if (ok === null) return res.status(404).json({ error: 'Author not found' });
   res.json({ ok: true });
+});
+
+// Manual portrait upload (file picker or pasted clipboard image).
+// Replaces the existing photo if any; deletes the prior file
+// best-effort. Bio / dates / ol_key are untouched — this is portrait-
+// only override and meant for the cases where OL has the wrong picture
+// (or no picture) and the user has a better one.
+router.post('/:id/photo', photoUpload.single('photo'), async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid author id' });
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+  const author = loadAuthor(id);
+  if (!author) return res.status(404).json({ error: 'Author not found' });
+  try {
+    const photo_path = await saveAuthorPhotoFromBuffer(id, req.file.buffer);
+    if (author.photo_path && author.photo_path !== photo_path) {
+      await deleteAuthorPhoto(author.photo_path);
+    }
+    db.prepare('UPDATE authors SET photo_path = ? WHERE id = ?').run(photo_path, id);
+    res.json(loadAuthor(id));
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to save photo', detail: String(err.message || err) });
+  }
+});
+
+// Delete the manual or OL-fetched portrait so the page falls back to
+// the skeleton. Useful when the user wants to clear a bad OL picture
+// without uploading a replacement yet.
+router.delete('/:id/photo', async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid author id' });
+  const author = loadAuthor(id);
+  if (!author) return res.status(404).json({ error: 'Author not found' });
+  if (author.photo_path) await deleteAuthorPhoto(author.photo_path);
+  db.prepare('UPDATE authors SET photo_path = NULL WHERE id = ?').run(id);
+  res.json(loadAuthor(id));
 });
 
 // Fetch bio + portrait from Open Library and save locally. Manual or

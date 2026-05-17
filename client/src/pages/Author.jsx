@@ -56,10 +56,13 @@ export default function Author() {
   const [sort, setSort] = useState('year_published');
   const [bioExpanded, setBioExpanded] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoError, setPhotoError] = useState(null);
   // Guards the auto-refresh effect against re-firing for the same author
   // id (e.g. after the refresh itself triggers a setAuthor and another
   // render). Records ids whose bio_fetched_at we've already kicked off.
   const autoRefreshedRef = useRef(new Set());
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -115,6 +118,64 @@ export default function Author() {
     }
   }
 
+  async function uploadPhoto(file) {
+    if (photoBusy || !author || !file) return;
+    if (!file.type?.startsWith('image/')) {
+      setPhotoError('That doesn’t look like an image.');
+      return;
+    }
+    setPhotoBusy(true);
+    setPhotoError(null);
+    try {
+      const updated = await api.uploadAuthorPhoto(author.id, file);
+      setAuthor(a => a ? { ...a, ...updated } : a);
+    } catch {
+      setPhotoError('Failed to upload portrait.');
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
+
+  async function removePhoto() {
+    if (photoBusy || !author) return;
+    setPhotoBusy(true);
+    setPhotoError(null);
+    try {
+      const updated = await api.deleteAuthorPhoto(author.id);
+      setAuthor(a => a ? { ...a, ...updated } : a);
+    } catch {
+      setPhotoError('Failed to remove portrait.');
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
+
+  function handleFileChange(e) {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-picking the same file in a row
+    if (file) uploadPhoto(file);
+  }
+
+  // Paste-to-upload: while on the Author page, a clipboard image (Cmd/
+  // Ctrl-V on a screenshot or copied portrait) lands directly on this
+  // author. Listens on document so the user doesn't have to click a
+  // specific element first — paste anywhere on the page works.
+  useEffect(() => {
+    if (!author) return;
+    function onPaste(e) {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          if (file) { e.preventDefault(); uploadPhoto(file); return; }
+        }
+      }
+    }
+    document.addEventListener('paste', onPaste);
+    return () => document.removeEventListener('paste', onPaste);
+  }, [author]);
+
   const fromState = useMemo(
     () => ({ from: author?.name, fromPath: pathname }),
     [author?.name, pathname],
@@ -144,19 +205,53 @@ export default function Author() {
 
       <div className="mt-6 mb-8 flex flex-col sm:flex-row gap-6">
         {/* Portrait. Skeleton-style placeholder when no photo (OL miss
-            or fetch failed) so the page still feels first-class. */}
+            or fetch failed) so the page still feels first-class.
+            Clicking the portrait opens the file picker; pasting a
+            clipboard image anywhere on the page also uploads to this
+            author (paste handler is on document). */}
         <div className="flex-shrink-0">
-          {author?.photo_path ? (
-            <img
-              src={author.photo_path}
-              alt={author.name ? `Portrait of ${author.name}` : ''}
-              className="w-32 h-40 sm:w-36 sm:h-44 object-cover rounded bg-neutral-800"
-            />
-          ) : (
-            <div className="w-32 h-40 sm:w-36 sm:h-44 rounded bg-gradient-to-br from-neutral-800 to-neutral-900 flex items-center justify-center text-neutral-700 text-3xl font-slab">
-              {author?.name?.[0] ?? '·'}
-            </div>
+          <button
+            type="button"
+            onClick={() => !photoBusy && fileInputRef.current?.click()}
+            disabled={photoBusy || !author}
+            className="group relative block w-32 h-40 sm:w-36 sm:h-44 rounded overflow-hidden focus:outline-none focus:ring-2 focus:ring-oak/50 disabled:cursor-wait"
+            aria-label="Change portrait"
+            title="Click to upload — or paste an image"
+          >
+            {author?.photo_path ? (
+              <img
+                src={author.photo_path}
+                alt={author.name ? `Portrait of ${author.name}` : ''}
+                className="w-full h-full object-cover bg-neutral-800"
+              />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-neutral-800 to-neutral-900 flex items-center justify-center text-neutral-700 text-3xl font-slab">
+                {author?.name?.[0] ?? '·'}
+              </div>
+            )}
+            <span className="absolute inset-0 bg-black/0 group-hover:bg-black/40 group-focus:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 group-focus:opacity-100 text-white text-xs font-medium">
+              {photoBusy ? 'Uploading…' : (author?.photo_path ? 'Change portrait' : 'Upload portrait')}
+            </span>
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+            className="hidden"
+            aria-hidden="true"
+          />
+          {author?.photo_path && (
+            <button
+              type="button"
+              onClick={removePhoto}
+              disabled={photoBusy}
+              className="block mt-1.5 text-[11px] text-neutral-700 hover:text-warn transition-colors disabled:opacity-50"
+            >
+              Remove portrait
+            </button>
           )}
+          {photoError && <p role="alert" className="mt-1.5 text-[11px] text-warn">{photoError}</p>}
         </div>
 
         <div className="flex-1 min-w-0">

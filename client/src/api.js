@@ -1,8 +1,12 @@
 async function request(path, options = {}) {
-  const res = await fetch(`/api${path}`, {
-    headers: { 'Content-Type': 'application/json', ...options.headers },
-    ...options,
-  });
+  // FormData bodies need the browser to set Content-Type (so it can
+  // include the multipart boundary string). Skip our JSON default in
+  // that case, otherwise multer rejects the body as malformed.
+  const isFormData = options.body instanceof FormData;
+  const headers = isFormData
+    ? { ...options.headers }
+    : { 'Content-Type': 'application/json', ...options.headers };
+  const res = await fetch(`/api${path}`, { ...options, headers });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     const e = new Error(err.error || 'Request failed');
@@ -34,6 +38,15 @@ export const api = {
   getAuthor: (id, params = {}) => request(`/authors/${id}${buildQuery(params)}`),
   updateAuthor: (id, data) => request(`/authors/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   refreshAuthor: (id) => request(`/authors/${id}/refresh`, { method: 'POST' }),
+  uploadAuthorPhoto: (id, file) => {
+    // multer expects a multipart form with a 'photo' field — same shape
+    // as routes/uploads.js's 'cover' field on the book-cover path. The
+    // request helper detects FormData and skips its JSON Content-Type.
+    const fd = new FormData();
+    fd.append('photo', file);
+    return request(`/authors/${id}/photo`, { method: 'POST', body: fd });
+  },
+  deleteAuthorPhoto: (id) => request(`/authors/${id}/photo`, { method: 'DELETE' }),
   createBook: (data) => request('/books', { method: 'POST', body: JSON.stringify(data) }),
   updateBook: (id, data) => request(`/books/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   searchBooks: (q) => request(`/search?${new URLSearchParams({ q })}`),
