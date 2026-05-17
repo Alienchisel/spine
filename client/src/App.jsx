@@ -47,7 +47,7 @@ export default function App() {
           src="/gutter-left.png"
           alt=""
           aria-hidden="true"
-          className="hidden xl:block fixed top-0 left-0 h-screen w-[calc((100vw-1280px)/2)] object-cover object-left pointer-events-none select-none [mask-image:linear-gradient(to_right,black_70%,transparent)]"
+          className="hidden xl:block fixed top-0 left-0 h-screen w-[calc((100vw-1280px)/2)] object-cover object-left pointer-events-none select-none [mask-image:linear-gradient(to_right,black_40%,transparent_90%)]"
         />
         {/* Right-gutter atmosphere art. Mirror of the left: object-right
             shows the lit art on the right edge of the source image, and
