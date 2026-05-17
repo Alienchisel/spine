@@ -4,6 +4,7 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { api } from '../api.js';
 import { fmtShortDate, fmtShortMonth, fmtIsoWeekMonday, formatYear, plural } from '../utils.js';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
+import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 
 function DonutChart({ title, data }) {
@@ -328,6 +329,7 @@ export default function Stats() {
   // saves.
   const goalSaveSeqRef = useRef({});
   const refreshTick = useRefreshTick();
+  const loadGuard = useStaleGuard();
 
   useEffect(() => {
     // Two independent fetches: stats is load-bearing (no stats = nothing
@@ -336,17 +338,15 @@ export default function Stats() {
     // heavy stats payload arrives — a slow settings fetch shouldn't keep
     // the whole page on null. Goals appear (or show settingsError) once
     // settings resolves separately.
-    let stale = false;
+    const epoch = loadGuard.next();
 
     api.getStats()
-      .then(s => { if (!stale) { setStats(s); setError(null); } })
-      .catch(() => { if (!stale) setError('Failed to load stats'); });
+      .then(s => { if (loadGuard.isFresh(epoch)) { setStats(s); setError(null); } })
+      .catch(() => { if (loadGuard.isFresh(epoch)) setError('Failed to load stats'); });
 
     api.getSettings()
-      .then(g => { if (!stale) { setSettings(g); setSettingsError(null); } })
-      .catch(() => { if (!stale) setSettingsError('Failed to load goals.'); });
-
-    return () => { stale = true; };
+      .then(g => { if (loadGuard.isFresh(epoch)) { setSettings(g); setSettingsError(null); } })
+      .catch(() => { if (loadGuard.isFresh(epoch)) setSettingsError('Failed to load goals.'); });
   }, [refreshTick]);
 
   async function saveGoal(key, value) {

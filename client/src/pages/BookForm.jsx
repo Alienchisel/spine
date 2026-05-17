@@ -76,6 +76,8 @@ export default function BookForm() {
   // branch. Shared across all four so any combo (paste-then-upload,
   // ISBN-then-pick, etc.) drops the slower one's writes and finally.
   const coverActionGuard = useStaleGuard();
+  const shelfTreeGuard   = useStaleGuard();
+  const suggestionsGuard = useStaleGuard();
   // Synchronous in-flight lock shared by every cover-mutating action
   // above. The genRef handles late-resolution races (latest writer wins),
   // but doesn't dedupe in-flight calls — two same-tick clicks on the
@@ -115,19 +117,18 @@ export default function BookForm() {
   const confirm = useConfirm();
 
   useEffect(() => {
-    let stale = false;
+    const epoch = shelfTreeGuard.next();
     setShelfTreeError(null);
     api.getShelfTree()
-      .then(t => { if (!stale) setShelfTree(t); })
-      .catch(() => { if (!stale) setShelfTreeError('Failed to load shelves — the shelf picker may be empty.'); });
-    return () => { stale = true; };
+      .then(t => { if (shelfTreeGuard.isFresh(epoch)) setShelfTree(t); })
+      .catch(() => { if (shelfTreeGuard.isFresh(epoch)) setShelfTreeError('Failed to load shelves — the shelf picker may be empty.'); });
   }, []);
 
   useEffect(() => {
-    let stale = false;
+    const epoch = suggestionsGuard.next();
     setSuggestionsError(null);
     api.getBookFacets().then(f => {
-      if (stale) return;
+      if (!suggestionsGuard.isFresh(epoch)) return;
       setPastSources(f.sources || []);
       setPastAuthors(f.authors || []);
       setPastPublishers(f.publishers || []);
@@ -136,8 +137,7 @@ export default function BookForm() {
       setPastNarrators(f.narrators || []);
       setPastLanguages(f.languages || []);
       setPastTags(f.tags?.filter(t => !VIRTUAL_TAG_NAMES.includes(t)) || []);
-    }).catch(() => { if (!stale) setSuggestionsError('Failed to load suggestions — autocomplete lists may be empty.'); });
-    return () => { stale = true; };
+    }).catch(() => { if (suggestionsGuard.isFresh(epoch)) setSuggestionsError('Failed to load suggestions — autocomplete lists may be empty.'); });
   }, []);
 
   useEffect(() => {

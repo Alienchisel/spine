@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { api } from '../../api.js';
 import { useStaleGuard } from '../../hooks/useStaleGuard.js';
+import { useActionGuard } from '../../hooks/useActionGuard.js';
 
 // Top-of-page Open Library search. Owns its own query/results state and
 // debounces the search call. Calls `onApply(result)` when a result is picked.
@@ -27,7 +28,7 @@ export default function LookupPanel({ onApply, coverInFlight }) {
   // setResults([]) that hides the dropdown doesn't take effect until after the
   // handler returns. A same-tick double-click on a result would otherwise fire
   // onApply twice and race two description-fetch / form-fill passes.
-  const pickingRef = useRef(false);
+  const pickGuard = useActionGuard();
 
   // Clear the pending debounce timer on unmount. (searchGuard handles the
   // in-flight response invalidation via its own unmount listener.)
@@ -78,14 +79,14 @@ export default function LookupPanel({ onApply, coverInFlight }) {
   }
 
   async function handlePick(result) {
-    if (pickingRef.current) return;
     // Defensive: the result buttons are also disabled when coverInFlight,
-    // but the prop-passing is async-by-render whereas pickingRef is
+    // but the prop-passing is async-by-render whereas pickGuard is
     // synchronous. Bail here too so a click that lands between the cover
     // action starting and React re-rendering with disabled buttons can't
-    // slip through.
+    // slip through. Bail before begin() so we don't lock the guard if the
+    // parent's cover work is in flight.
     if (coverInFlight) return;
-    pickingRef.current = true;
+    if (!pickGuard.begin()) return;
     // Same epoch-bump rationale: an earlier in-flight search must not pop
     // the dropdown back open after the user has already chosen a result.
     searchGuard.next();
@@ -95,7 +96,7 @@ export default function LookupPanel({ onApply, coverInFlight }) {
     try {
       await onApply(result);
     } finally {
-      pickingRef.current = false;
+      pickGuard.end();
     }
   }
 
