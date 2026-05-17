@@ -206,7 +206,7 @@ export default function EditionsSection({ book, onChange, linkState }) {
           />
           {searching && <p role="status" className="text-xs text-neutral-600">Searching…</p>}
           {!searching && query.trim() && results.length === 0 && (
-            <p className="text-xs text-neutral-600">No matches.</p>
+            <p role="status" className="text-xs text-neutral-600">No matches.</p>
           )}
           {results.length > 0 && (
             <div className="border border-neutral-800 rounded max-h-64 overflow-y-auto">
