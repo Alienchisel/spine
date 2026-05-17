@@ -37,7 +37,11 @@ export default function Collage() {
   const size    = SIZE_OPTIONS.includes(Number(params.get('size')))        ? Number(params.get('size')) : 3;
   const showLabels = params.get('labels') !== '0'; // default on; user can turn off via URL
   const series = params.get('series') ?? '';
-  const year   = parseInt(params.get('year'), 10);
+  // Year in review defaults to the current year if no ?year= is set —
+  // matches the "what have I read this year so far" use case that
+  // dominates January/early-year visits.
+  const yearParam = parseInt(params.get('year'), 10);
+  const year = Number.isInteger(yearParam) ? yearParam : new Date().getFullYear();
 
   const needsSeries = mode === 'series_spotlight';
   const needsYear   = mode === 'year_in_review';
@@ -90,12 +94,11 @@ export default function Collage() {
     // Skip the fetch when the mode needs a parameter that isn't set
     // yet — would otherwise hit the server with an inevitable 400.
     if (needsSeries && !series) { setData({ tiles: [] }); setLoading(false); return; }
-    if (needsYear   && !Number.isInteger(year)) { setData({ tiles: [] }); setLoading(false); return; }
     const epoch = loadGuard.next();
     setLoading(true);
     api.getCollage({
       mode, period, size, series,
-      year: Number.isInteger(year) ? year : undefined,
+      year: needsYear ? year : undefined,
     })
       .then(d => {
         if (!loadGuard.isFresh(epoch)) return;
@@ -161,7 +164,7 @@ export default function Collage() {
   const todayIso = new Date().toLocaleDateString('en-CA');
   const footerStamp =
       needsSeries ? `Series · ${series || '—'}`
-    : needsYear   ? `Year · ${Number.isInteger(year) ? year : '—'}`
+    : needsYear   ? `Year · ${year}`
     : mode === 'top_loved' ? 'Loved'
     : mode === 'top_rated' ? 'Top-rated'
     : (PERIOD_OPTIONS.find(p => p.key === period)?.label ?? period);
@@ -216,12 +219,17 @@ export default function Collage() {
           <label className="inline-flex items-center gap-1.5 text-neutral-500">
             <span>Year:</span>
             <select
-              value={Number.isInteger(year) ? year : ''}
+              value={year}
               onChange={(e) => update('year', e.target.value)}
               className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-neutral-300 hover:text-neutral-100 focus:outline-none focus:border-oak/50 cursor-pointer transition-colors"
               aria-label="Year to review"
             >
-              <option value="" disabled>Pick a year…</option>
+              {/* Ensure the current year shows in the dropdown even
+                  if the facets list doesn't include it yet (e.g. user
+                  hasn't logged any reading this year). */}
+              {!facets.years.includes(String(year)) && (
+                <option key={year} value={year}>{year}</option>
+              )}
               {facets.years.map(y => <option key={y} value={y}>{y}</option>)}
             </select>
           </label>
@@ -272,7 +280,7 @@ export default function Collage() {
       ) : tiles.length === 0 ? (
         <p className="text-sm text-neutral-600">
           {needsSeries && !series ? 'Pick a series to spotlight.'
-            : needsYear && !Number.isInteger(year) ? 'Pick a year to review.'
+            : needsYear ? `No reading activity logged in ${year}.`
             : mode === 'top_loved' ? 'No loved books yet.'
             : mode === 'top_rated' ? 'No books rated 4★ or higher yet.'
             : 'No reading activity in this period.'}
