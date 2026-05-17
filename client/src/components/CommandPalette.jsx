@@ -1203,7 +1203,7 @@ export default function CommandPalette() {
                             </div>
                           )}
                           <div className="min-w-0 flex-1">
-                            <p className="text-sm text-white truncate">
+                            <p className="text-sm text-white truncate" title={entry.label}>
                               {entry.kind === 'book' && entry.status && STATUS_DOT_CLASS[entry.status] && (
                                 <>
                                   <span
@@ -1216,7 +1216,7 @@ export default function CommandPalette() {
                               {entry.label}
                             </p>
                             {entry.hint && (
-                              <p className="text-xs text-neutral-500 truncate">{entry.hint}</p>
+                              <p className="text-xs text-neutral-500 truncate" title={entry.hint}>{entry.hint}</p>
                             )}
                           </div>
                         </button>
