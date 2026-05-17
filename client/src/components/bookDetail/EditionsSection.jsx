@@ -200,7 +200,7 @@ export default function EditionsSection({ book, onChange, linkState }) {
             value={query}
             aria-label="Search library to link an edition"
             onChange={e => setQuery(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Escape') { setPicking(false); setQuery(''); } }}
+            onKeyDown={e => { if (e.key === 'Escape') { setPicking(false); setQuery(''); setError(null); } }}
             placeholder="Search your library by title…"
             className="w-full bg-neutral-900 border border-neutral-700 rounded px-3 py-1.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-oak/50"
           />
@@ -234,7 +234,7 @@ export default function EditionsSection({ book, onChange, linkState }) {
             </div>
           )}
           <button
-            onClick={() => { setPicking(false); setQuery(''); }}
+            onClick={() => { setPicking(false); setQuery(''); setError(null); }}
             className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors"
           >
             Cancel
