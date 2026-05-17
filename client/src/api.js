@@ -31,7 +31,7 @@ export const api = {
   getBookLists: (bookId) => request(`/books/${bookId}/lists`),
   getBookLog: (bookId) => request(`/books/${bookId}/log`),
   getBook: (id) => request(`/books/${id}`),
-  getAuthor: (id) => request(`/authors/${id}`),
+  getAuthor: (id, params = {}) => request(`/authors/${id}${buildQuery(params)}`),
   updateAuthor: (id, data) => request(`/authors/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   createBook: (data) => request('/books', { method: 'POST', body: JSON.stringify(data) }),
   updateBook: (id, data) => request(`/books/${id}`, { method: 'PUT', body: JSON.stringify(data) }),

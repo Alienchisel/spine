@@ -45,12 +45,13 @@ export default function Author() {
   // instead of conflating "this author doesn't exist" with "the request
   // failed — please retry".
   const [errorKind, setErrorKind] = useState(null);
+  const [sort, setSort] = useState('year_published');
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setErrorKind(null);
-    api.getAuthor(id)
+    api.getAuthor(id, { sort })
       .then(data => { if (!cancelled) setAuthor(data); })
       .catch(err => {
         if (cancelled) return;
@@ -58,7 +59,7 @@ export default function Author() {
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [id]);
+  }, [id, sort]);
 
   const fromState = useMemo(
     () => ({ from: author?.name, fromPath: pathname }),
@@ -131,9 +132,28 @@ export default function Author() {
       : !author?.books?.length ? (
         <div className="text-neutral-600 text-sm">No books found.</div>
       ) : (
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-3 gap-y-5 items-start">
-          {author.books.map(book => <BookCard key={book.id} book={book} linkState={fromState} />)}
-        </div>
+        <>
+          <div className="mb-4 flex justify-end">
+            <label className="inline-flex items-center gap-1.5 text-xs text-neutral-500">
+              <span>Sort:</span>
+              <select
+                value={sort}
+                onChange={(e) => setSort(e.target.value)}
+                className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-xs text-neutral-300 hover:text-neutral-100 focus:outline-none focus:border-oak/50 cursor-pointer transition-colors"
+                aria-label="Sort author's books"
+              >
+                <option value="year_published">Chronological</option>
+                <option value="year_published_desc">Reverse chronological</option>
+                <option value="title">Title</option>
+                <option value="rating">Rating</option>
+                <option value="added">Recently added</option>
+              </select>
+            </label>
+          </div>
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-3 gap-y-5 items-start">
+            {author.books.map(book => <BookCard key={book.id} book={book} linkState={fromState} />)}
+          </div>
+        </>
       )}
     </div>
   );

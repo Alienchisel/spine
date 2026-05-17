@@ -18,7 +18,8 @@ router.get('/:id', (req, res) => {
   const aliases = author.alias_group_id != null
     ? db.prepare('SELECT id, name FROM authors WHERE alias_group_id = ? AND id != ? ORDER BY name').all(author.alias_group_id, id)
     : [];
-  const { books, total } = listBooks({ field: 'author', value: author.name, sort: 'title', limit: 200, offset: 0 });
+  const sort = req.query.sort || 'year_published';
+  const { books, total } = listBooks({ field: 'author', value: author.name, sort, limit: 200, offset: 0 });
   res.json({ id: author.id, name: author.name, gender: author.gender, aliases, books, total });
 });
 
