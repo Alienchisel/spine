@@ -102,6 +102,7 @@ export default function EditionsSection({ book, onChange, linkState }) {
     if (!term) { setResults([]); setSearching(false); return; }
     const epoch = searchGuard.next();
     setSearching(true);
+    setError(null);
     const debounce = setTimeout(() => {
       api.getBooks({ q: term, limit: 10 })
         .then(({ books }) => {
