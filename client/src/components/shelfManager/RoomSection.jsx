@@ -54,8 +54,8 @@ function RoomSection({ room, dragHandle, onEdit, onDelete, onAddUnit, onReorderU
           {open && !adding && (
             <button onClick={() => setAdding(true)} className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors whitespace-nowrap">+ unit</button>
           )}
-          <button onClick={() => setEditing(true)} className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors">✎</button>
-          <button onClick={() => onDelete(room.id)} className="text-xs text-neutral-600 hover:text-warn transition-colors">×</button>
+          <button onClick={() => setEditing(true)} title="Rename room" aria-label="Rename room" className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors">✎</button>
+          <button onClick={() => onDelete(room.id)} title="Delete room" aria-label="Delete room" className="text-xs text-neutral-600 hover:text-warn transition-colors">×</button>
         </div>
       </div>
       {open && (

@@ -585,18 +585,24 @@ export default function BookDetail() {
             if (!prev && !next) return null;
             return (
               <div className="flex items-center justify-between text-xs text-neutral-600 mb-5 -mt-2">
-                {prev ? (
-                  <Link to={`/books/${prev.id}`} state={navState} className="hover:text-neutral-400 transition-colors flex items-center gap-1 min-w-0">
-                    <span className="flex-shrink-0">←</span>
-                    <span className="truncate">{prev.series_number != null ? `#${prev.series_number} ` : ''}{prev.title}</span>
-                  </Link>
-                ) : <span />}
-                {next && (
-                  <Link to={`/books/${next.id}`} state={navState} className="hover:text-neutral-400 transition-colors flex items-center gap-1 min-w-0 ml-4">
-                    <span className="truncate text-right">{next.series_number != null ? `#${next.series_number} ` : ''}{next.title}</span>
-                    <span className="flex-shrink-0">→</span>
-                  </Link>
-                )}
+                {prev ? (() => {
+                  const prevLabel = `${prev.series_number != null ? `#${prev.series_number} ` : ''}${prev.title}`;
+                  return (
+                    <Link to={`/books/${prev.id}`} state={navState} title={prevLabel} className="hover:text-neutral-400 transition-colors flex items-center gap-1 min-w-0">
+                      <span className="flex-shrink-0">←</span>
+                      <span className="truncate">{prevLabel}</span>
+                    </Link>
+                  );
+                })() : <span />}
+                {next && (() => {
+                  const nextLabel = `${next.series_number != null ? `#${next.series_number} ` : ''}${next.title}`;
+                  return (
+                    <Link to={`/books/${next.id}`} state={navState} title={nextLabel} className="hover:text-neutral-400 transition-colors flex items-center gap-1 min-w-0 ml-4">
+                      <span className="truncate text-right">{nextLabel}</span>
+                      <span className="flex-shrink-0">→</span>
+                    </Link>
+                  );
+                })()}
               </div>
             );
           })()}

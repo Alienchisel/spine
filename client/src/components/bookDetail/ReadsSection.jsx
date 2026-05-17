@@ -147,7 +147,7 @@ export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBo
                 {r.did_not_finish ? <span className="ml-2 text-[10px] uppercase tracking-wider text-warn/80 border border-warn/30 rounded px-1 py-px">DNF</span> : ''}
               </span>
               <button onClick={() => startEdit(r)} className="text-xs text-neutral-700 hover:text-neutral-400 opacity-30 group-hover:opacity-100 group-focus-within:opacity-100 transition-all">Edit</button>
-              <button onClick={() => handleDelete(r.id)} className="text-xs text-neutral-700 hover:text-warn opacity-30 group-hover:opacity-100 group-focus-within:opacity-100 transition-all ml-1">×</button>
+              <button onClick={() => handleDelete(r.id)} title="Delete read" aria-label="Delete read" className="text-xs text-neutral-700 hover:text-warn opacity-30 group-hover:opacity-100 group-focus-within:opacity-100 transition-all ml-1">×</button>
             </div>
           ))}
         </div>
