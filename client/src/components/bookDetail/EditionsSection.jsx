@@ -195,7 +195,7 @@ export default function EditionsSection({ book, onChange, linkState }) {
         <div className="mt-3 space-y-2">
           <input
             ref={inputRef}
-            type="text"
+            type="search"
             value={query}
             aria-label="Search library to link an edition"
             onChange={e => setQuery(e.target.value)}
