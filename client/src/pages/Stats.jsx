@@ -370,7 +370,7 @@ export default function Stats() {
   if (!stats && error) return <div role="alert" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-warn text-sm">{error}</div>;
   if (!stats) return null;
 
-  const { totals, formats, fiction, ownedStatus, ratings, acquisitionSources, pagesRead, minutesListened, byYear, byMonth = [], topAuthors, topNarrators, languages, streaks, todayPages, thisYearBooks, thisYearPages, topTags, topSeries, avgPagesPerDay, avgDaysToFinish, inProgressPace = [], decadesPublished = [], records } = stats;
+  const { totals, formats, fiction, ownedStatus, ratings, acquisitionSources, pagesRead, minutesListened, byYear, byMonth = [], topAuthors, topNarrators, languages, authorsByGender = { male: 0, female: 0, nonbinary: 0, unassigned: 0 }, streaks, todayPages, thisYearBooks, thisYearPages, topTags, topSeries, avgPagesPerDay, avgDaysToFinish, inProgressPace = [], decadesPublished = [], records } = stats;
 
   const maxRating = Math.max(...ratings.map(r => r.count), 1);
   const maxYear   = Math.max(...byYear.map(y => y.count), 1);
@@ -823,6 +823,32 @@ export default function Stats() {
             </div>
           </Section>
         )}
+
+        {(() => {
+          const rows = [
+            { key: 'male',       label: 'Male' },
+            { key: 'female',     label: 'Female' },
+            { key: 'nonbinary',  label: 'Non-binary' },
+            { key: 'unassigned', label: 'Unassigned' },
+          ].map(r => ({ ...r, count: authorsByGender[r.key] || 0 }));
+          const max = Math.max(...rows.map(r => r.count), 1);
+          if (rows.every(r => r.count === 0)) return null;
+          return (
+            <Section title="Authors by gender">
+              <div className="space-y-2.5">
+                {rows.map(r => (
+                  <Bar
+                    key={r.key}
+                    label={r.label}
+                    count={r.count}
+                    max={max}
+                    color={r.key === 'unassigned' ? 'bg-neutral-700' : 'bg-binding'}
+                  />
+                ))}
+              </div>
+            </Section>
+          );
+        })()}
 
         {topNarrators?.length > 0 && (
           <Section title="Top narrators">

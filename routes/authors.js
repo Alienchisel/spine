@@ -13,13 +13,34 @@ const router = express.Router();
 router.get('/:id', (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid author id' });
-  const author = db.prepare('SELECT id, name, alias_group_id FROM authors WHERE id = ?').get(id);
+  const author = db.prepare('SELECT id, name, gender, alias_group_id FROM authors WHERE id = ?').get(id);
   if (!author) return res.status(404).json({ error: 'Author not found' });
   const aliases = author.alias_group_id != null
     ? db.prepare('SELECT id, name FROM authors WHERE alias_group_id = ? AND id != ? ORDER BY name').all(author.alias_group_id, id)
     : [];
   const { books, total } = listBooks({ field: 'author', value: author.name, sort: 'title', limit: 200, offset: 0 });
-  res.json({ id: author.id, name: author.name, aliases, books, total });
+  res.json({ id: author.id, name: author.name, gender: author.gender, aliases, books, total });
+});
+
+// PATCH author: currently only gender is editable. Empty string / null
+// clears it back to "unassigned". CHECK constraint on the column would
+// reject any other value, but validate here too so the error is a clean
+// 400 instead of a generic 500.
+const ALLOWED_GENDERS = new Set(['male', 'female', 'nonbinary']);
+router.patch('/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid author id' });
+  const author = db.prepare('SELECT id FROM authors WHERE id = ?').get(id);
+  if (!author) return res.status(404).json({ error: 'Author not found' });
+  if (!('gender' in (req.body ?? {}))) return res.status(400).json({ error: 'No supported fields to update' });
+  const raw = req.body.gender;
+  const next = raw === '' || raw == null ? null : String(raw);
+  if (next !== null && !ALLOWED_GENDERS.has(next)) {
+    return res.status(400).json({ error: 'Invalid gender' });
+  }
+  db.prepare('UPDATE authors SET gender = ? WHERE id = ?').run(next, id);
+  const updated = db.prepare('SELECT id, name, gender, alias_group_id FROM authors WHERE id = ?').get(id);
+  res.json(updated);
 });
 
 // Symmetric pen-name linking: POST with {other_id: N} groups this author

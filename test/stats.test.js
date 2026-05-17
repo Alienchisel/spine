@@ -30,7 +30,7 @@ describe('stats', () => {
       assert.equal(status, 200);
       for (const key of ['totals', 'formats', 'fiction', 'ownedStatus', 'ratings',
         'pagesRead', 'minutesListened', 'byYear', 'topAuthors', 'topNarrators',
-        'languages', 'streaks', 'todayPages', 'thisYearBooks', 'thisYearPages',
+        'languages', 'authorsByGender', 'streaks', 'todayPages', 'thisYearBooks', 'thisYearPages',
         'topTags', 'topSeries', 'avgPagesPerDay', 'avgMinutesPerDay',
         'avgDaysToFinish', 'inProgressPace', 'decadesPublished', 'records']) {
         assert.ok(key in body, `missing key: ${key}`);
@@ -41,6 +41,18 @@ describe('stats', () => {
       const { body } = await req('GET', '/api/stats');
       for (const key of ['books', 'owned', 'previously_owned', 'never_owned', 'custom', 'reading', 'finished', 'unread', 'loved']) {
         assert.ok(key in body.totals, `totals missing: ${key}`);
+      }
+    });
+
+    it('authorsByGender has the four fixed bucket keys', async () => {
+      // The Stats page's "Authors by gender" section is gated on these
+      // four keys existing. Renaming or dropping one would silently make
+      // its slice invisible, so lock the contract.
+      const { body } = await req('GET', '/api/stats');
+      assert.ok(body.authorsByGender, 'authorsByGender missing');
+      for (const key of ['male', 'female', 'nonbinary', 'unassigned']) {
+        assert.ok(key in body.authorsByGender, `authorsByGender missing: ${key}`);
+        assert.equal(typeof body.authorsByGender[key], 'number', `${key} should be a number`);
       }
     });
 

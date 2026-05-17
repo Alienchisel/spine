@@ -262,4 +262,50 @@ describe('workflows', () => {
       assert.equal(again, 404);
     });
   });
+
+  // ── Workflow 8: Author gender editing ──
+  describe('author gender editing', () => {
+    it('round-trips gender through PATCH and surfaces it on GET + stats', async () => {
+      // Create two books so we have a couple of distinct author rows to
+      // edit and observe in the stats breakdown.
+      const { body: b1 } = await req('POST', '/api/books', {
+        title: 'Gender Test Book A', authors: ['Genderless Smith'], fiction: true,
+      });
+      assert.equal(typeof b1.id, 'number');
+      const { body: b2 } = await req('POST', '/api/books', {
+        title: 'Gender Test Book B', authors: ['Bylined Jones'], fiction: true,
+      });
+      assert.equal(typeof b2.id, 'number');
+
+      const aidA = b1.authors[0].id;
+      const aidB = b2.authors[0].id;
+
+      // GET returns gender: null before any edit.
+      const { body: pre } = await req('GET', `/api/authors/${aidA}`);
+      assert.equal(pre.gender, null);
+
+      // PATCH accepts the three allowed values and round-trips them.
+      const setA = await req('PATCH', `/api/authors/${aidA}`, { gender: 'male' });
+      assert.equal(setA.status, 200);
+      assert.equal(setA.body.gender, 'male');
+
+      const setB = await req('PATCH', `/api/authors/${aidB}`, { gender: 'female' });
+      assert.equal(setB.status, 200);
+
+      // Clearing back to null via empty string.
+      const clr = await req('PATCH', `/api/authors/${aidA}`, { gender: '' });
+      assert.equal(clr.status, 200);
+      assert.equal(clr.body.gender, null);
+
+      // Invalid value → 400.
+      const bad = await req('PATCH', `/api/authors/${aidA}`, { gender: 'cromulent' });
+      assert.equal(bad.status, 400);
+
+      // Stats breakdown includes the edits we did make.
+      const { body: stats } = await req('GET', '/api/stats');
+      assert.ok(stats.authorsByGender, 'authorsByGender missing on stats');
+      assert.ok(stats.authorsByGender.female >= 1, 'female bucket should include Jones');
+      assert.ok(stats.authorsByGender.unassigned >= 1, 'unassigned bucket should include cleared Smith');
+    });
+  });
 });

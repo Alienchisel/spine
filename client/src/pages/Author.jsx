@@ -4,6 +4,29 @@ import { api } from '../api.js';
 import { plural } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
 
+// Inline gender picker. Stores 'male' | 'female' | 'nonbinary' | null;
+// empty string in the select maps back to null so the user can clear the
+// field. Optimistic update is handled by the parent so the rollback
+// path stays close to whatever local state owns the author.
+function GenderPicker({ value, onChange }) {
+  return (
+    <label className="inline-flex items-center gap-1">
+      <span className="sr-only">Gender</span>
+      <select
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value === '' ? null : e.target.value)}
+        className="bg-transparent text-xs text-neutral-500 hover:text-neutral-300 focus:text-neutral-300 border-none outline-none focus:ring-0 cursor-pointer transition-colors"
+        aria-label="Author gender"
+      >
+        <option value="">unassigned</option>
+        <option value="male">male</option>
+        <option value="female">female</option>
+        <option value="nonbinary">non-binary</option>
+      </select>
+    </label>
+  );
+}
+
 // Author entity page: lists all books bylined under this specific
 // author plus an "also writes as" section linking to alias siblings.
 // Distinct from /browse/author/:name which is a name-based filter view —
@@ -79,7 +102,22 @@ export default function Author() {
           </p>
         )}
         {!loading && author && (
-          <p className="text-sm text-neutral-500 mt-1">{plural(author.total, 'book')}</p>
+          <p className="text-sm text-neutral-500 mt-1 flex items-center gap-2 flex-wrap">
+            <span>{plural(author.total, 'book')}</span>
+            <span className="text-neutral-700">·</span>
+            <GenderPicker
+              value={author.gender}
+              onChange={async (next) => {
+                const prev = author.gender;
+                setAuthor(a => ({ ...a, gender: next }));
+                try {
+                  await api.updateAuthor(author.id, { gender: next });
+                } catch {
+                  setAuthor(a => ({ ...a, gender: prev }));
+                }
+              }}
+            />
+          </p>
         )}
       </div>
 
