@@ -153,12 +153,24 @@ export default function Collage() {
     }
   }
 
-  // 2-5 → matching grid template. We can't use Tailwind's dynamic
-  // class names (`grid-cols-${size}`) because the scanner doesn't see
-  // them; an inline style is the no-config fix.
-  const gridStyle = { gridTemplateColumns: `repeat(${size}, minmax(0, 1fr))` };
   const tiles = data?.tiles ?? [];
-  const blanks = Math.max(0, size * size - tiles.length);
+  // Column count comes from the size selector for most modes; for
+  // year_in_review we ignore size and pick from tile count so every
+  // finished book fits in one frame. Aiming for a roughly square
+  // overall shape (tiles are 2:3 portrait, so cols ≈ sqrt(N * 1.5)),
+  // clamped to [3, 12] so a 3-book year doesn't render edge-to-edge
+  // and a 200-book year doesn't crush the covers below recognition.
+  const cols = needsYear
+    ? Math.max(3, Math.min(12, Math.ceil(Math.sqrt(Math.max(tiles.length, 1) * 1.5))))
+    : size;
+  // We can't use Tailwind's dynamic class names (`grid-cols-${cols}`)
+  // because the scanner doesn't see them; an inline style is the
+  // no-config fix.
+  const gridStyle = { gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` };
+  // Blank placeholders only meaningful for the fixed-size grid modes —
+  // year_in_review shows exactly the books that were finished, no
+  // empty cells needed.
+  const blanks = needsYear ? 0 : Math.max(0, size * size - tiles.length);
   const todayIso = new Date().toLocaleDateString('en-CA');
   // Tile links carry this state so the Book/Author page back-button
   // returns to the same Collage view the user came from (including the
@@ -237,17 +249,19 @@ export default function Collage() {
             </select>
           </label>
         )}
-        <label className="inline-flex items-center gap-1.5 text-neutral-500">
-          <span>Size:</span>
-          <select
-            value={size}
-            onChange={(e) => update('size', e.target.value)}
-            className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-neutral-300 hover:text-neutral-100 focus:outline-none focus:border-oak/50 cursor-pointer transition-colors"
-            aria-label="Grid size"
-          >
-            {SIZE_OPTIONS.map(n => <option key={n} value={n}>{n}×{n}</option>)}
-          </select>
-        </label>
+        {!needsYear && (
+          <label className="inline-flex items-center gap-1.5 text-neutral-500">
+            <span>Size:</span>
+            <select
+              value={size}
+              onChange={(e) => update('size', e.target.value)}
+              className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-neutral-300 hover:text-neutral-100 focus:outline-none focus:border-oak/50 cursor-pointer transition-colors"
+              aria-label="Grid size"
+            >
+              {SIZE_OPTIONS.map(n => <option key={n} value={n}>{n}×{n}</option>)}
+            </select>
+          </label>
+        )}
         <label className="inline-flex items-center gap-1.5 text-neutral-500 cursor-pointer">
           <input
             type="checkbox"
@@ -283,7 +297,7 @@ export default function Collage() {
       ) : tiles.length === 0 ? (
         <p className="text-sm text-neutral-600">
           {needsSeries && !series ? 'Pick a series to spotlight.'
-            : needsYear ? `No reading activity logged in ${year}.`
+            : needsYear ? `No books finished in ${year}.`
             : 'No reading activity in this period.'}
         </p>
       ) : (

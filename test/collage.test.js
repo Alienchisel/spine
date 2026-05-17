@@ -150,32 +150,41 @@ describe('collage', () => {
     assert.deepEqual(r.body.tiles, []);
   });
 
-  it('year_in_review bounds to the chosen calendar year', async () => {
-    // Seed a book read in 2024 (the year we'll query) and one read
-    // today (current year). The 2024 query should only include the
-    // 2024 book.
-    const yearBack = new Date().getFullYear() - 1;
-    const { body: b2024 } = await req('POST', '/api/books', {
-      title: `Year Review 2024 Book ${Date.now()}`, authors: ['YIR Author'], fiction: true,
-      page_count: 300, format: 'ebook',
-    });
-    const { body: bThis } = await req('POST', '/api/books', {
-      title: `Current Year Book ${Date.now()}`, authors: ['YIR Author'], fiction: true,
-      page_count: 300, format: 'ebook',
-    });
-    // PATCH current_page → server emits a reading_log row with today's
-    // date. For the 2024 book we'd need to manually insert a dated
-    // log row, but that requires SQL access; instead just verify the
-    // current-year case excludes the historical lookup target.
-    await req('PATCH', `/api/books/${bThis.id}`, { current_page: 50 });
-
+  it('year_in_review bounds to books finished in the chosen calendar year', async () => {
+    // Seed a book finished this year and one finished last year. Each
+    // year's query should only include its own finishes.
     const currentYear = new Date().getFullYear();
-    const { body: thisYear } = await req('GET', `/api/collage?mode=year_in_review&year=${currentYear}&size=5`);
-    assert.ok(thisYear.tiles.some(t => t.id === bThis.id), 'current-year query should include current-year book');
-    assert.ok(!thisYear.tiles.some(t => t.id === b2024.id), 'current-year query should exclude books not read this year');
+    const yearBack = currentYear - 1;
+    const today = new Date().toLocaleDateString('en-CA');
+    const lastYearDate = `${yearBack}-06-15`;
 
-    const { body: oldYear } = await req('GET', `/api/collage?mode=year_in_review&year=${yearBack}&size=5`);
-    assert.ok(!oldYear.tiles.some(t => t.id === bThis.id), 'last-year query should exclude current-year activity');
+    const { body: bThis } = await req('POST', '/api/books', {
+      title: `YIR Finished Today ${Date.now()}`, authors: ['YIR Author'], fiction: true,
+    });
+    const { body: bLast } = await req('POST', '/api/books', {
+      title: `YIR Finished Last Year ${Date.now()}`, authors: ['YIR Author'], fiction: true,
+    });
+    await req('PUT', `/api/books/${bThis.id}`, {
+      title: bThis.title, authors: ['YIR Author'], fiction: true,
+      status: 'finished', date_finished: today,
+    });
+    await req('PUT', `/api/books/${bLast.id}`, {
+      title: bLast.title, authors: ['YIR Author'], fiction: true,
+      status: 'finished', date_finished: lastYearDate,
+    });
+
+    const { body: thisYear } = await req('GET', `/api/collage?mode=year_in_review&year=${currentYear}`);
+    assert.ok(thisYear.tiles.some(t => t.id === bThis.id), 'current-year query should include today-finished book');
+    assert.ok(!thisYear.tiles.some(t => t.id === bLast.id), 'current-year query should exclude last-year finish');
+
+    const { body: oldYear } = await req('GET', `/api/collage?mode=year_in_review&year=${yearBack}`);
+    assert.ok(oldYear.tiles.some(t => t.id === bLast.id), 'last-year query should include last-year finish');
+    assert.ok(!oldYear.tiles.some(t => t.id === bThis.id), 'last-year query should exclude current-year finish');
+
+    // Sublabel is the date_finished (used by the client to render the
+    // small caption under each tile).
+    const tileThis = thisYear.tiles.find(t => t.id === bThis.id);
+    assert.equal(tileThis.sublabel, today);
   });
 
   it('year_in_review rejects bad year inputs with 400', async () => {
