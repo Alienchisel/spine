@@ -36,13 +36,18 @@ export default function App() {
             never crowds the content column on narrower screens. The art
             already has a dark fade on its right edge, so it bleeds into
             the page bg naturally — no opacity tweak needed at the seam.
-            `pointer-events-none` + `-z-10` keeps it behind every
-            interactive element and out of the tab order. */}
+            DOM order (img → Nav → main) gives natural stacking with all
+            at z-auto: Nav/main paint on top of the img where they
+            overlap, the gutter region shows the art through. Negative
+            z-index would push the img behind the wrapper's own bg
+            (static parents don't create a stacking context for
+            negative-z descendants) — so we leave z-auto and rely on
+            paint order instead. */}
         <img
           src="/gutter-left.png"
           alt=""
           aria-hidden="true"
-          className="hidden lg:block fixed top-0 left-0 h-screen w-auto pointer-events-none -z-10 select-none"
+          className="hidden lg:block fixed top-0 left-0 h-screen w-auto pointer-events-none select-none"
         />
         {/* Skip link for keyboard users: invisible until focused (Tab
             from the URL bar lands here first), then appears as a
