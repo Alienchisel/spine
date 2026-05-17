@@ -308,14 +308,13 @@ export default function Collage() {
               />
             ))}
             {/* Blank placeholders fill the grid when the data set is
-                  smaller than size*size — keeps the rectangle's shape so
-                  the user sees their actual coverage relative to the
-                  chosen grid. */}
-              {Array.from({ length: blanks }).map((_, i) => (
-                <div key={`blank-${i}`} className="aspect-[2/3] bg-neutral-900/40 rounded" />
-              ))}
-            </div>
-          )}
+                smaller than size*size — keeps the rectangle's shape so
+                the user sees their actual coverage relative to the
+                chosen grid. */}
+            {Array.from({ length: blanks }).map((_, i) => (
+              <div key={`blank-${i}`} className="aspect-[2/3] bg-neutral-900/40 rounded" />
+            ))}
+          </div>
           {/* Footer is the attribution stamp on the exported PNG so
               shared screenshots aren't anonymous. Visible on-page too
               as part of the captured layout. */}
