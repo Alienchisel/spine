@@ -308,6 +308,7 @@ export default function CommandPalette() {
   const resetQuery = useCallback(() => {
     setQuery('');
     setBookResults([]);
+    setBookLoading(false);
     setSelected(0);
     setCursorPos(0);
   }, []);
