@@ -21,7 +21,6 @@ router.get('/', (req, res) => {
 
   let series = null;
   let year   = null;
-  let books  = null;
   if (mode === 'series_spotlight') {
     series = String(req.query.series || '').trim();
     if (!series) return res.status(400).json({ error: 'series is required for series_spotlight' });
@@ -34,19 +33,9 @@ router.get('/', (req, res) => {
     }
     year = raw;
   }
-  if (mode === 'hand_curated') {
-    // Parse comma-separated IDs from the URL. Empty / malformed input
-    // is fine — handCurated returns [] gracefully and the client shows
-    // its "search to add books" empty state. Drop non-integers so a
-    // garbage URL doesn't surface a SQL error.
-    books = String(req.query.books || '')
-      .split(',')
-      .map(s => parseInt(s, 10))
-      .filter(n => Number.isInteger(n) && n > 0);
-  }
 
   try {
-    res.json(computeCollage({ mode, period, size, series, year, books }));
+    res.json(computeCollage({ mode, period, size, series, year }));
   } catch (err) {
     res.status(500).json({ error: 'Failed to compute collage', detail: String(err.message || err) });
   }

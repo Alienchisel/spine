@@ -1,15 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import html2canvas from 'html2canvas';
-import {
-  DndContext, closestCenter, PointerSensor, KeyboardSensor,
-  useSensor, useSensors,
-} from '@dnd-kit/core';
-import {
-  SortableContext, useSortable, rectSortingStrategy,
-  sortableKeyboardCoordinates, arrayMove,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import { api } from '../api.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import { useActionGuard } from '../hooks/useActionGuard.js';
@@ -18,8 +9,8 @@ import ErrorBanner from '../components/ErrorBanner.jsx';
 const STORAGE_KEY = 'spine.collage.lastConfig';
 
 // Last.fm-style reading-collage grid. URL knobs (mode / period / size /
-// series / year / title / quote / labels / books) round-trip so a chosen
-// view is bookmarkable. PNG export captures the framed grid + title +
+// series / year / title / quote / labels) round-trip so a chosen view
+// is bookmarkable. PNG export captures the framed grid + title +
 // quote + footer at the dark Spine palette.
 const MODE_OPTIONS = [
   { key: 'top_books',         label: 'Top books' },
@@ -29,7 +20,6 @@ const MODE_OPTIONS = [
   { key: 'year_in_review',    label: 'Year in review' },
   { key: 'top_loved',         label: 'Top loved' },
   { key: 'top_rated',         label: 'Top rated' },
-  { key: 'hand_curated',      label: 'Hand-curated' },
 ];
 const PERIOD_OPTIONS = [
   { key: '7d',   label: 'Last 7 days' },
@@ -51,19 +41,10 @@ export default function Collage() {
   const quote  = params.get('quote') ?? '';
   const series = params.get('series') ?? '';
   const year   = parseInt(params.get('year'), 10);
-  // Hand-curated book IDs: comma-separated in URL, parsed to a deduped
-  // ordered array. Dedupe protects against a book getting added twice
-  // by an over-eager click; order is preserved (first occurrence wins).
-  const books = (params.get('books') ?? '')
-    .split(',')
-    .map(s => parseInt(s, 10))
-    .filter(n => Number.isInteger(n) && n > 0);
-  const seen = new Set();
-  const orderedBooks = books.filter(id => seen.has(id) ? false : (seen.add(id), true));
+
   const needsSeries = mode === 'series_spotlight';
   const needsYear   = mode === 'year_in_review';
-  const needsBooks  = mode === 'hand_curated';
-  const usesPeriod  = !needsSeries && !needsYear && !needsBooks
+  const usesPeriod  = !needsSeries && !needsYear
     && mode !== 'top_loved' && mode !== 'top_rated';
 
   const [data, setData] = useState(null);
@@ -77,15 +58,6 @@ export default function Collage() {
   // Captured by html2canvas — we want the framed export region, not
   // the whole page (no nav, no controls).
   const exportRef = useRef(null);
-
-  // dnd-kit sensors for hand_curated tile reorder. PointerSensor with
-  // an 8px activation distance so a quick click still navigates to the
-  // book (only a drag past 8px starts the sort). Keyboard sensor
-  // mirrors Shelf Manager so the feature is reachable without a mouse.
-  const sensors = useSensors(
-    useSensor(PointerSensor,  { activationConstraint: { distance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
 
   // localStorage persistence — restore on a bare /collage visit so the
   // user lands on their preferred config without bookmarking. Explicit
@@ -119,17 +91,14 @@ export default function Collage() {
 
   useEffect(() => {
     // Skip the fetch when the mode needs a parameter that isn't set
-    // yet — would otherwise hit the server with an inevitable 400 (or
-    // an empty response we already know to expect for hand_curated).
+    // yet — would otherwise hit the server with an inevitable 400.
     if (needsSeries && !series) { setData({ tiles: [] }); setLoading(false); return; }
     if (needsYear   && !Number.isInteger(year)) { setData({ tiles: [] }); setLoading(false); return; }
-    if (needsBooks  && orderedBooks.length === 0) { setData({ tiles: [] }); setLoading(false); return; }
     const epoch = loadGuard.next();
     setLoading(true);
     api.getCollage({
       mode, period, size, series,
-      year:  Number.isInteger(year) ? year : undefined,
-      books: needsBooks && orderedBooks.length ? orderedBooks.join(',') : undefined,
+      year: Number.isInteger(year) ? year : undefined,
     })
       .then(d => {
         if (!loadGuard.isFresh(epoch)) return;
@@ -141,30 +110,7 @@ export default function Collage() {
         setError(`Failed to load collage${err?.message ? `: ${err.message}` : '.'}`);
       })
       .finally(() => { if (loadGuard.isFresh(epoch)) setLoading(false); });
-  }, [mode, period, size, series, year, params.get('books')]);
-
-  function addBookToCuration(bookId) {
-    if (orderedBooks.includes(bookId)) return;
-    if (orderedBooks.length >= size * size) return; // already at cap
-    const next = [...orderedBooks, bookId];
-    update('books', next.join(','));
-  }
-  function removeBookFromCuration(bookId) {
-    const next = orderedBooks.filter(id => id !== bookId);
-    update('books', next.length ? next.join(',') : '');
-  }
-  function clearCuration() {
-    update('books', '');
-  }
-  function handleDragEnd(e) {
-    const { active, over } = e;
-    if (!over || active.id === over.id) return;
-    const oldIndex = orderedBooks.indexOf(Number(active.id));
-    const newIndex = orderedBooks.indexOf(Number(over.id));
-    if (oldIndex === -1 || newIndex === -1) return;
-    const next = arrayMove(orderedBooks, oldIndex, newIndex);
-    update('books', next.join(','));
-  }
+  }, [mode, period, size, series, year]);
 
   function update(key, value) {
     const next = new URLSearchParams(params);
@@ -219,7 +165,6 @@ export default function Collage() {
   const footerStamp =
       needsSeries ? `Series · ${series || '—'}`
     : needsYear   ? `Year · ${Number.isInteger(year) ? year : '—'}`
-    : needsBooks  ? 'Hand-curated'
     : mode === 'top_loved' ? 'Loved'
     : mode === 'top_rated' ? 'Top-rated'
     : (PERIOD_OPTIONS.find(p => p.key === period)?.label ?? period);
@@ -355,16 +300,6 @@ export default function Collage() {
         </label>
       </div>
 
-      {needsBooks && (
-        <CurationSearch
-          onPick={addBookToCuration}
-          onClear={clearCuration}
-          atCap={orderedBooks.length >= size * size}
-          curatedCount={orderedBooks.length}
-          maxCount={size * size}
-        />
-      )}
-
       <ErrorBanner message={error} onDismiss={() => setError(null)} />
 
       {loading ? (
@@ -373,7 +308,6 @@ export default function Collage() {
         <p className="text-sm text-neutral-600">
           {needsSeries && !series ? 'Pick a series to spotlight.'
             : needsYear && !Number.isInteger(year) ? 'Pick a year to review.'
-            : needsBooks ? 'Search to add books to your collage.'
             : mode === 'top_loved' ? 'No loved books yet.'
             : mode === 'top_rated' ? 'No books rated 4★ or higher yet.'
             : 'No reading activity in this period.'}
@@ -381,9 +315,7 @@ export default function Collage() {
       ) : (
         // Captured frame — this is what html2canvas snapshots. Padding
         // gives the PNG breathing room so it doesn't read as edge-to-
-        // edge. Theme classes control bg + text so the export adopts
-        // the selected aesthetic; canvasBg keeps html2canvas's seam
-        // color consistent with the frame.
+        // edge.
         <div ref={exportRef} className="bg-neutral-950 text-parchment p-6 rounded">
           {title && (
             <h2 className="font-slab text-xl mb-1 tracking-wide">{title}</h2>
@@ -391,37 +323,15 @@ export default function Collage() {
           {quote && (
             <p className="text-sm italic mb-4 text-neutral-700 line-clamp-2">{quote}</p>
           )}
-          {needsBooks ? (
-            // Sortable wrapper only when the user is curating — for
-            // query-derived modes the tile order is meaningful and
-            // mustn't be user-editable.
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <SortableContext items={tiles.map(t => t.id)} strategy={rectSortingStrategy}>
-                <div className="grid gap-2" style={gridStyle}>
-                  {tiles.map(t => (
-                    <SortableTile
-                      key={`${t.href}-${t.id}`}
-                      tile={t}
-                      showLabel={showLabels}
-                      onRemove={() => removeBookFromCuration(t.id)}
-                    />
-                  ))}
-                  {Array.from({ length: blanks }).map((_, i) => (
-                    <div key={`blank-${i}`} className="aspect-[2/3] bg-neutral-900/40 rounded" />
-                  ))}
-                </div>
-              </SortableContext>
-            </DndContext>
-          ) : (
-            <div className="grid gap-2" style={gridStyle}>
-              {tiles.map(t => (
-                <Tile
-                  key={`${t.href}-${t.id}`}
-                  tile={t}
-                  showLabel={showLabels}
-                />
-              ))}
-              {/* Blank placeholders fill the grid when the data set is
+          <div className="grid gap-2" style={gridStyle}>
+            {tiles.map(t => (
+              <Tile
+                key={`${t.href}-${t.id}`}
+                tile={t}
+                showLabel={showLabels}
+              />
+            ))}
+            {/* Blank placeholders fill the grid when the data set is
                   smaller than size*size — keeps the rectangle's shape so
                   the user sees their actual coverage relative to the
                   chosen grid. */}
@@ -442,27 +352,7 @@ export default function Collage() {
   );
 }
 
-// Sortable wrapper around Tile for hand_curated mode. dnd-kit listeners
-// attach to the wrapper div, not the Tile's inner Link — combined with
-// the PointerSensor's 8px activation distance, a click still navigates
-// to the book detail while a meaningful drag re-orders. Dragged tile
-// raises via z-index and softens so the drop target reads through.
-function SortableTile({ tile, showLabel, onRemove }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: tile.id });
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    zIndex: isDragging ? 10 : undefined,
-    opacity: isDragging ? 0.7 : 1,
-  };
-  return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing touch-none">
-      <Tile tile={tile} showLabel={showLabel} onRemove={onRemove} />
-    </div>
-  );
-}
-
-function Tile({ tile, showLabel, onRemove }) {
+function Tile({ tile, showLabel }) {
   return (
     <Link
       to={tile.href}
@@ -491,99 +381,6 @@ function Tile({ tile, showLabel, onRemove }) {
           )}
         </div>
       )}
-      {onRemove && (
-        // Hover-revealed remove badge for hand_curated mode. preventDefault +
-        // stopPropagation so the click doesn't navigate to the book page.
-        <button
-          type="button"
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRemove(); }}
-          className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 text-white text-xs leading-none flex items-center justify-center opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-warn transition-opacity"
-          title="Remove from collage"
-          aria-label="Remove from collage"
-        >
-          ×
-        </button>
-      )}
     </Link>
-  );
-}
-
-// Inline book-search dropdown for the hand-curated mode. Debounced
-// 200ms against api.getBooks; result list disables when the curation
-// is already at the size-cap. A "Clear all" affordance only appears
-// when there's something to clear.
-function CurationSearch({ onPick, onClear, atCap, curatedCount, maxCount }) {
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState([]);
-  const [busy, setBusy] = useState(false);
-  const searchGuard = useStaleGuard();
-
-  useEffect(() => {
-    const term = query.trim();
-    if (!term) { setResults([]); setBusy(false); return; }
-    const epoch = searchGuard.next();
-    setBusy(true);
-    const timer = setTimeout(() => {
-      api.getBooks({ q: term, limit: 8 })
-        .then(({ books }) => {
-          if (!searchGuard.isFresh(epoch)) return;
-          setResults(books);
-        })
-        .catch(() => { if (searchGuard.isFresh(epoch)) setResults([]); })
-        .finally(() => { if (searchGuard.isFresh(epoch)) setBusy(false); });
-    }, 200);
-    return () => clearTimeout(timer);
-  }, [query]);
-
-  return (
-    <div className="mb-6">
-      <div className="flex items-center gap-3 text-xs mb-2">
-        <span className="text-neutral-500">
-          {curatedCount} of {maxCount} books picked
-        </span>
-        {curatedCount > 0 && (
-          <button
-            onClick={onClear}
-            className="text-neutral-600 hover:text-warn transition-colors"
-          >
-            Clear all
-          </button>
-        )}
-      </div>
-      <div className="relative max-w-md">
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder={atCap ? `At cap (${maxCount}) — remove a tile to add another` : 'Search to add books…'}
-          disabled={atCap}
-          className="w-full bg-neutral-900 border border-neutral-700 rounded px-3 py-1.5 text-sm text-white placeholder-neutral-600 disabled:opacity-50 focus:outline-none focus:border-oak/50"
-          aria-label="Search to add books"
-        />
-        {busy && <p role="status" className="absolute right-3 top-1.5 text-xs text-neutral-600 pointer-events-none">…</p>}
-        {results.length > 0 && !atCap && (
-          <div className="absolute z-10 mt-1 w-full max-h-64 overflow-y-auto bg-neutral-900 border border-neutral-700 rounded shadow-lg">
-            {results.map(b => (
-              <button
-                key={b.id}
-                type="button"
-                onClick={() => { onPick(b.id); setQuery(''); setResults([]); }}
-                className="w-full text-left flex items-center gap-2.5 px-2 py-1.5 hover:bg-neutral-800 transition-colors"
-              >
-                <div className="w-7 h-[42px] flex-shrink-0 rounded overflow-hidden bg-neutral-800">
-                  {b.cover_path && <img src={b.cover_path} alt="" className="w-full h-full object-cover" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-neutral-200 truncate">{b.title}</p>
-                  <p className="text-xs text-neutral-500 truncate">
-                    {b.authors?.map(a => a.name).join(', ')}
-                  </p>
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
   );
 }
