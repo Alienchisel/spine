@@ -122,6 +122,7 @@ export default function EditionsSection({ book, onChange, linkState }) {
     setPicking(false);
     setQuery('');
     setResults([]);
+    setSearching(false);
     setError(null);
   }
 
