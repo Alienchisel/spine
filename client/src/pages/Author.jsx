@@ -414,7 +414,7 @@ export default function Author() {
         <div className="text-neutral-600 text-sm">No books found.</div>
       ) : (
         <>
-          <div className="mb-4 flex justify-end">
+          <div className="mb-4">
             <label className="inline-flex items-center gap-1.5 text-xs text-neutral-500">
               <span>Sort:</span>
               <select
