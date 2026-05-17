@@ -49,6 +49,17 @@ export default function App() {
           aria-hidden="true"
           className="hidden xl:block fixed top-0 left-0 h-screen w-[calc((100vw-1280px)/2)] object-cover object-left pointer-events-none select-none [mask-image:linear-gradient(to_right,black_70%,transparent)]"
         />
+        {/* Right-gutter atmosphere art. Mirror of the left: object-right
+            shows the lit art on the right edge of the source image, and
+            the mask fades the LEFT side (the rendered inner edge) into
+            the page bg so the seam against the content column
+            disappears. */}
+        <img
+          src="/gutter-right.png"
+          alt=""
+          aria-hidden="true"
+          className="hidden xl:block fixed top-0 right-0 h-screen w-[calc((100vw-1280px)/2)] object-cover object-right pointer-events-none select-none [mask-image:linear-gradient(to_left,black_70%,transparent)]"
+        />
         {/* Skip link for keyboard users: invisible until focused (Tab
             from the URL bar lands here first), then appears as a
             button in the top-left to bypass the sticky Nav. Lets
