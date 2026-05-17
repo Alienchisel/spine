@@ -30,24 +30,24 @@ export default function App() {
   return (
     <ConfirmModalProvider>
       <div className="min-h-screen bg-neutral-950">
-        {/* Left-gutter atmosphere art. Fixed to the viewport so it doesn't
-            scroll with content; full-height with auto width preserves the
-            image's portrait aspect (887×1774); hidden below lg: so it
-            never crowds the content column on narrower screens. The art
-            already has a dark fade on its right edge, so it bleeds into
-            the page bg naturally — no opacity tweak needed at the seam.
-            DOM order (img → Nav → main) gives natural stacking with all
-            at z-auto: Nav/main paint on top of the img where they
-            overlap, the gutter region shows the art through. Negative
-            z-index would push the img behind the wrapper's own bg
-            (static parents don't create a stacking context for
-            negative-z descendants) — so we leave z-auto and rely on
-            paint order instead. */}
+        {/* Left-gutter atmosphere art. Width is sized to the exact
+            gutter at any viewport via calc((100vw - 1280px) / 2) —
+            content is max-w-7xl centered with mx-auto, so the gutter
+            on each side is half the leftover viewport space. The art
+            never overlaps the content column. object-cover + object-
+            left shows the lit left half of the image, cropping the
+            dark void on the right; a soft mask fade on the rendered
+            right edge blends what's left into the page bg without a
+            visible seam. Hidden below xl: where the gutter collapses
+            to zero. Negative z-index isn't safe here (static parents
+            don't create a stacking context for negative-z kids and the
+            wrapper's bg would hide it) — DOM order + pointer-events-
+            none does the stacking instead. */}
         <img
           src="/gutter-left.png"
           alt=""
           aria-hidden="true"
-          className="hidden lg:block fixed top-0 left-0 h-screen w-auto pointer-events-none select-none"
+          className="hidden xl:block fixed top-0 left-0 h-screen w-[calc((100vw-1280px)/2)] object-cover object-left pointer-events-none select-none [mask-image:linear-gradient(to_right,black_70%,transparent)]"
         />
         {/* Skip link for keyboard users: invisible until focused (Tab
             from the URL bar lands here first), then appears as a
