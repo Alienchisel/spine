@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { api } from '../api.js';
-import { fmtShortDate, fmtShortMonth, fmtIsoWeekMonday, formatYear, plural } from '../utils.js';
+import { fmtShortDate, fmtShortMonth, fmtIsoWeekMonday, formatYear, plural, initialsFor } from '../utils.js';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import ErrorBanner from '../components/ErrorBanner.jsx';
@@ -69,7 +69,7 @@ function RecordCard({ label, book, value }) {
       <div className="w-8 h-12 flex-shrink-0 rounded overflow-hidden bg-neutral-800">
         {book.cover_path
           ? <img src={book.cover_path} alt="" className="w-full h-full object-cover object-top" />
-          : <div className="w-full h-full bg-gradient-to-br from-neutral-700 to-neutral-900" />}
+          : <div className="w-full h-full bg-gradient-to-br from-neutral-700 to-neutral-900 flex items-center justify-center text-[10px] text-neutral-500 font-medium tracking-wide">{initialsFor(book.title)}</div>}
       </div>
       <div className="min-w-0">
         <p className="text-xs text-neutral-500 mb-0.5">{label}</p>
@@ -428,7 +428,7 @@ export default function Stats() {
                 <div className="w-8 h-12 flex-shrink-0 rounded overflow-hidden bg-neutral-800">
                   {b.cover_path
                     ? <img src={b.cover_path} alt="" className="w-full h-full object-cover object-top" />
-                    : <div className="w-full h-full bg-gradient-to-br from-neutral-700 to-neutral-900" />}
+                    : <div className="w-full h-full bg-gradient-to-br from-neutral-700 to-neutral-900 flex items-center justify-center text-[10px] text-neutral-500 font-medium tracking-wide">{initialsFor(b.title)}</div>}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-medium text-neutral-200 truncate">{b.title}</p>

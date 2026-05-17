@@ -17,7 +17,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { api } from '../api.js';
-import { plural } from '../utils.js';
+import { plural, initialsFor } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
 import CoverSizeSlider from '../components/CoverSizeSlider.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
@@ -46,8 +46,9 @@ function SortableShelfCover({ book, linkState, focused }) {
           <div className={`relative w-[240px] ${book.format === 'audiobook' ? 'h-[240px]' : 'h-[360px]'} rounded overflow-hidden bg-neutral-800 shadow-lg`}>
             {book.cover_path
               ? <img src={book.cover_path} alt={book.title} draggable={false} className="w-full h-full object-cover" />
-              : <div className="w-full h-full flex items-end p-2 bg-gradient-to-br from-neutral-700 to-neutral-900">
-                  <span className="text-xs text-neutral-400 leading-tight line-clamp-4">{book.title}</span>
+              : <div className="w-full h-full flex flex-col items-center justify-center p-3 bg-gradient-to-br from-neutral-700 to-neutral-900 gap-2">
+                  <span className="text-5xl font-bold text-neutral-500 leading-none tracking-wide">{initialsFor(book.title)}</span>
+                  <span className="text-xs text-neutral-400 leading-tight line-clamp-4 text-center">{book.title}</span>
                 </div>}
             <div className="pointer-events-none absolute inset-0 rounded ring-2 ring-inset ring-binding/25 group-hover:ring-[#ffffff99] transition-[box-shadow] duration-200" />
           </div>

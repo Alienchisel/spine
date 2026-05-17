@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { useActionGuard } from '../hooks/useActionGuard.js';
-import { realTagNames } from '../utils.js';
+import { realTagNames, initialsFor } from '../utils.js';
 import { getModeKey, initialProgressMode, computeProgressPatch, syncProgressInputs, progressDerived, clampMinutes } from './progressMode.js';
 import MoreMenu from './MoreMenu.jsx';
 
@@ -258,8 +258,8 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
             />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center p-3 bg-gradient-to-br from-neutral-700 to-neutral-900 gap-2">
-              <span className="text-5xl font-bold text-neutral-500 select-none leading-none">
-                {(book.title.replace(/^(the|a|an)\s+/i, '') || book.title)[0].toUpperCase()}
+              <span className="text-5xl font-bold text-neutral-500 select-none leading-none tracking-wide">
+                {initialsFor(book.title)}
               </span>
               <span className="text-xs text-neutral-500 font-medium leading-tight line-clamp-3 text-center">{book.title}</span>
             </div>

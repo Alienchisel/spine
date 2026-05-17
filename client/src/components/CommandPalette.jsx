@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate, useLocation, useSearchParams, useMatch } from 'react-router-dom';
 import { api } from '../api.js';
-import { plural, pluralWord } from '../utils.js';
+import { plural, pluralWord, initialsFor } from '../utils.js';
 import { useConfirm } from './ConfirmModal.jsx';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import { useSpineEvent, dispatchSpineEvent } from '../hooks/useSpineEvent.js';
@@ -1193,7 +1193,7 @@ export default function CommandPalette() {
                             entry.cover ? (
                               <img src={entry.cover} alt="" className="w-8 h-12 object-cover rounded flex-shrink-0" />
                             ) : (
-                              <div className="w-8 h-12 bg-neutral-800 rounded flex-shrink-0" />
+                              <div className="w-8 h-12 bg-gradient-to-br from-neutral-700 to-neutral-900 rounded flex-shrink-0 flex items-center justify-center text-[10px] text-neutral-500 font-medium tracking-wide">{initialsFor(entry.label)}</div>
                             )
                           ) : (
                             <div className="w-6 flex-shrink-0 text-neutral-600 text-xs">

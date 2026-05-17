@@ -73,3 +73,17 @@ export function fmtIsoWeekMonday(isoWeekStr) {
   monday.setUTCDate(jan4.getUTCDate() - (jan4Day - 1) + (week - 1) * 7);
   return fmtShortDate(monday.toISOString().slice(0, 10));
 }
+
+// Up to 3-letter initials for skeleton tiles / covers / portraits when
+// the image is missing. Strips a leading article ("the", "a", "an") on
+// titles so "The Dispossessed" → "D" not "T". Mononyms ("Plato") fall
+// through as one letter. Used everywhere a book cover or author
+// portrait can be absent — keeps the placeholder informative without
+// requiring the layout to also render a text label.
+export function initialsFor(label) {
+  if (!label) return '·';
+  const stripped = label.replace(/^(the|a|an)\s+/i, '');
+  const tokens = stripped.split(/\s+/).filter(Boolean);
+  const letters = tokens.map(t => t[0]).filter(c => /[A-Za-z]/.test(c)).slice(0, 3);
+  return letters.length ? letters.join('').toUpperCase() : (stripped[0] || '·');
+}

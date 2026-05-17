@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useLocation, useNavigate, Link } from 'react-router-dom';
 import { api } from '../api.js';
-import { plural } from '../utils.js';
+import { plural, initialsFor } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
 
 // Inline gender picker. Stores 'male' | 'female' | 'other' | null;
@@ -248,8 +248,8 @@ export default function Author() {
                 className="w-full h-full object-cover bg-neutral-800"
               />
             ) : (
-              <div className="w-full h-full bg-gradient-to-br from-neutral-800 to-neutral-900 flex items-center justify-center text-neutral-700 text-3xl font-slab">
-                {author?.name?.[0] ?? '·'}
+              <div className="w-full h-full bg-gradient-to-br from-neutral-800 to-neutral-900 flex items-center justify-center text-neutral-700 text-3xl font-slab tracking-wide">
+                {initialsFor(author?.name)}
               </div>
             )}
             <span className="absolute inset-0 bg-black/0 group-hover:bg-black/40 group-focus:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 group-focus:opacity-100 text-white text-xs font-medium">

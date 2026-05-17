@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../api.js';
+import { initialsFor } from '../../utils.js';
 import { useStaleGuard } from '../../hooks/useStaleGuard.js';
 
 const FORMAT_LABEL = { physical: 'Physical', ebook: 'Digital', audiobook: 'Audiobook' };
@@ -43,7 +44,7 @@ function EditionRow({ edition, onUnlink, disabled, linkState }) {
         <div className="w-9 h-[54px] flex-shrink-0 rounded overflow-hidden bg-neutral-800">
           {edition.cover_path
             ? <img src={edition.cover_path} alt="" className="w-full h-full object-cover" />
-            : <div className="w-full h-full bg-gradient-to-br from-neutral-700 to-neutral-900" />}
+            : <div className="w-full h-full bg-gradient-to-br from-neutral-700 to-neutral-900 flex items-center justify-center text-[10px] text-neutral-500 font-medium tracking-wide">{initialsFor(edition.title)}</div>}
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm text-neutral-200 group-hover:text-white truncate transition-colors" title={edition.title}>{edition.title}</p>
@@ -228,7 +229,7 @@ export default function EditionsSection({ book, onChange, linkState }) {
                     <div className="w-7 h-[42px] flex-shrink-0 rounded overflow-hidden bg-neutral-800">
                       {r.cover_path
                         ? <img src={r.cover_path} alt="" className="w-full h-full object-cover" />
-                        : <div className="w-full h-full bg-gradient-to-br from-neutral-700 to-neutral-900" />}
+                        : <div className="w-full h-full bg-gradient-to-br from-neutral-700 to-neutral-900 flex items-center justify-center text-[10px] text-neutral-500 font-medium tracking-wide">{initialsFor(r.title)}</div>}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-neutral-200 truncate" title={r.title}>{r.title}</p>

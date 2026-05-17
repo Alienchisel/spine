@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
-import { formatAuthors, fmtShortDate, plural, pluralWord } from '../utils.js';
+import { formatAuthors, fmtShortDate, plural, pluralWord, initialsFor } from '../utils.js';
 import { useConfirm } from '../components/ConfirmModal.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
@@ -213,7 +213,7 @@ function DiaryEntry({ entry, onDelete }) {
       <div className="w-8 h-[46px] flex-shrink-0 rounded overflow-hidden bg-neutral-800">
         {entry.cover_path
           ? <img src={entry.cover_path} alt="" className="w-full h-full object-cover" />
-          : <div className="w-full h-full bg-gradient-to-br from-neutral-700 to-neutral-900" />}
+          : <div className="w-full h-full bg-gradient-to-br from-neutral-700 to-neutral-900 flex items-center justify-center text-[10px] text-neutral-500 font-medium tracking-wide">{initialsFor(entry.title)}</div>}
       </div>
       <div className="flex-1 min-w-0">
         <Link to={`/books/${entry.book_id}`} state={FROM_DIARY} className="text-sm font-medium text-neutral-200 hover:text-white transition-colors truncate block" title={primary}>

@@ -17,7 +17,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { api } from '../api.js';
-import { formatAuthors } from '../utils.js';
+import { formatAuthors, initialsFor } from '../utils.js';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 
@@ -74,7 +74,7 @@ function SortableRow({ book, onRemove, index }) {
         {book.cover_path ? (
           <img src={book.cover_path} alt="" className="w-full h-full object-cover" />
         ) : (
-          <div className="w-full h-full bg-gradient-to-br from-neutral-700 to-neutral-900" />
+          <div className="w-full h-full bg-gradient-to-br from-neutral-700 to-neutral-900 flex items-center justify-center text-[10px] text-neutral-500 font-medium tracking-wide">{initialsFor(book.title)}</div>
         )}
       </div>
 

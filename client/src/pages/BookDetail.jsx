@@ -5,7 +5,7 @@ import { api } from '../api.js';
 import StarRating from '../components/StarRating.jsx';
 import ListPicker from '../components/ListPicker.jsx';
 import { useConfirm } from '../components/ConfirmModal.jsx';
-import { realTagNames } from '../utils.js';
+import { realTagNames, initialsFor } from '../utils.js';
 import ProgressSection from '../components/bookDetail/ProgressSection.jsx';
 import ReadsSection from '../components/bookDetail/ReadsSection.jsx';
 import StoriesSection from '../components/bookDetail/StoriesSection.jsx';
@@ -389,8 +389,8 @@ export default function BookDetail() {
               <img src={book.cover_path} alt="" className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center p-3 bg-gradient-to-br from-neutral-700 to-neutral-900 gap-3">
-                <span className="text-6xl font-bold text-neutral-500 select-none leading-none">
-                  {(book.title.replace(/^(the|a|an)\s+/i, '') || book.title)[0].toUpperCase()}
+                <span className="text-6xl font-bold text-neutral-500 select-none leading-none tracking-wide">
+                  {initialsFor(book.title)}
                 </span>
                 <span className="text-xs text-neutral-500 font-medium leading-tight text-center">{book.title}</span>
               </div>
