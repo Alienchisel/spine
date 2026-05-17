@@ -1,10 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import html2canvas from 'html2canvas';
+import {
+  DndContext, closestCenter, PointerSensor, KeyboardSensor,
+  useSensor, useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext, useSortable, rectSortingStrategy,
+  sortableKeyboardCoordinates, arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { api } from '../api.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import { useActionGuard } from '../hooks/useActionGuard.js';
 import ErrorBanner from '../components/ErrorBanner.jsx';
+
+const STORAGE_KEY = 'spine.collage.lastConfig';
 
 // Last.fm-style reading-collage grid. URL knobs (mode / period / size /
 // series / year / theme / title / labels) round-trip so a chosen view
@@ -69,6 +80,7 @@ export default function Collage() {
   const size    = SIZE_OPTIONS.includes(Number(params.get('size')))        ? Number(params.get('size')) : 3;
   const showLabels = params.get('labels') !== '0'; // default on; user can turn off via URL
   const title  = params.get('title') ?? '';
+  const quote  = params.get('quote') ?? '';
   const series = params.get('series') ?? '';
   const year   = parseInt(params.get('year'), 10);
   // Hand-curated book IDs: comma-separated in URL, parsed to a deduped
@@ -100,6 +112,37 @@ export default function Collage() {
   // Captured by html2canvas — we want the framed export region, not
   // the whole page (no nav, no controls).
   const exportRef = useRef(null);
+
+  // dnd-kit sensors for hand_curated tile reorder. PointerSensor with
+  // an 8px activation distance so a quick click still navigates to the
+  // book (only a drag past 8px starts the sort). Keyboard sensor
+  // mirrors Shelf Manager so the feature is reachable without a mouse.
+  const sensors = useSensors(
+    useSensor(PointerSensor,  { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  // localStorage persistence — restore on a bare /collage visit so the
+  // user lands on their preferred config without bookmarking. Explicit
+  // URL params always win; this only fills in for empty visits. Saved
+  // on every params change so the most recent state is always the one
+  // that survives a refresh.
+  useEffect(() => {
+    if (params.toString() === '') {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) setParams(new URLSearchParams(saved), { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    const s = params.toString();
+    if (s) localStorage.setItem(STORAGE_KEY, s);
+  }, [params]);
+
+  function resetConfig() {
+    localStorage.removeItem(STORAGE_KEY);
+    setParams(new URLSearchParams(), { replace: true });
+  }
 
   // Lazy-fetch facets on first mount. Cached for the session — a long-
   // lived tab will see stale data if the user adds/removes series or
@@ -147,6 +190,15 @@ export default function Collage() {
   }
   function clearCuration() {
     update('books', '');
+  }
+  function handleDragEnd(e) {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    const oldIndex = orderedBooks.indexOf(Number(active.id));
+    const newIndex = orderedBooks.indexOf(Number(over.id));
+    if (oldIndex === -1 || newIndex === -1) return;
+    const next = arrayMove(orderedBooks, oldIndex, newIndex);
+    update('books', next.join(','));
   }
 
   function update(key, value) {
@@ -300,19 +352,27 @@ export default function Collage() {
         </label>
         <button
           type="button"
+          onClick={resetConfig}
+          className="ml-auto text-xs text-neutral-600 hover:text-neutral-400 transition-colors"
+          title="Clear saved defaults and reset all knobs"
+        >
+          Reset
+        </button>
+        <button
+          type="button"
           onClick={downloadPng}
           disabled={exportGuard.busy || tiles.length === 0}
-          className="ml-auto text-xs px-3 py-1.5 rounded bg-oak text-neutral-950 font-medium hover:bg-leather disabled:opacity-50 disabled:cursor-wait transition-colors"
+          className="text-xs px-3 py-1.5 rounded bg-oak text-neutral-950 font-medium hover:bg-leather disabled:opacity-50 disabled:cursor-wait transition-colors"
           title="Download a PNG of this collage"
         >
           {exportGuard.busy ? 'Rendering…' : '↓ Download PNG'}
         </button>
       </div>
 
-      {/* Title field is below the controls so it sits closer to where
-          it'll appear in the captured frame. Round-trips via the URL
-          like the other knobs. */}
-      <div className="mb-6 flex items-center gap-2 text-xs">
+      {/* Title + quote fields below the controls so they sit closer to
+          where they'll appear in the captured frame. Round-trip via
+          the URL like the other knobs. */}
+      <div className="mb-3 flex items-center gap-2 text-xs">
         <label className="inline-flex items-center gap-1.5 text-neutral-500 flex-1 max-w-md">
           <span className="flex-shrink-0">Title:</span>
           <input
@@ -323,6 +383,20 @@ export default function Collage() {
             maxLength={80}
             className="flex-1 bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-neutral-300 placeholder-neutral-700 focus:outline-none focus:border-oak/50 transition-colors"
             aria-label="Collage title"
+          />
+        </label>
+      </div>
+      <div className="mb-6 flex items-center gap-2 text-xs">
+        <label className="inline-flex items-center gap-1.5 text-neutral-500 flex-1 max-w-md">
+          <span className="flex-shrink-0">Quote:</span>
+          <input
+            type="text"
+            value={quote}
+            onChange={(e) => update('quote', e.target.value)}
+            placeholder="Optional — a short quote or note under the title"
+            maxLength={200}
+            className="flex-1 bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-neutral-300 placeholder-neutral-700 focus:outline-none focus:border-oak/50 transition-colors"
+            aria-label="Collage quote"
           />
         </label>
       </div>
@@ -358,25 +432,50 @@ export default function Collage() {
         // color consistent with the frame.
         <div ref={exportRef} className={`${theme.bg} ${theme.text} p-6 rounded`}>
           {title && (
-            <h2 className="font-slab text-xl mb-4 tracking-wide">{title}</h2>
+            <h2 className="font-slab text-xl mb-1 tracking-wide">{title}</h2>
           )}
-          <div className="grid gap-2" style={gridStyle}>
-            {tiles.map(t => (
-              <Tile
-                key={`${t.href}-${t.id}`}
-                tile={t}
-                showLabel={showLabels}
-                onRemove={needsBooks ? () => removeBookFromCuration(t.id) : undefined}
-              />
-            ))}
-            {/* Blank placeholders fill the grid when the data set is
-                smaller than size*size — keeps the rectangle's shape so
-                the user sees their actual coverage relative to the
-                chosen grid. */}
-            {Array.from({ length: blanks }).map((_, i) => (
-              <div key={`blank-${i}`} className={`aspect-[2/3] ${theme.blank} rounded`} />
-            ))}
-          </div>
+          {quote && (
+            <p className={`text-sm italic mb-4 ${theme.subText} line-clamp-2`}>{quote}</p>
+          )}
+          {needsBooks ? (
+            // Sortable wrapper only when the user is curating — for
+            // query-derived modes the tile order is meaningful and
+            // mustn't be user-editable.
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={tiles.map(t => t.id)} strategy={rectSortingStrategy}>
+                <div className="grid gap-2" style={gridStyle}>
+                  {tiles.map(t => (
+                    <SortableTile
+                      key={`${t.href}-${t.id}`}
+                      tile={t}
+                      showLabel={showLabels}
+                      onRemove={() => removeBookFromCuration(t.id)}
+                    />
+                  ))}
+                  {Array.from({ length: blanks }).map((_, i) => (
+                    <div key={`blank-${i}`} className={`aspect-[2/3] ${theme.blank} rounded`} />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          ) : (
+            <div className="grid gap-2" style={gridStyle}>
+              {tiles.map(t => (
+                <Tile
+                  key={`${t.href}-${t.id}`}
+                  tile={t}
+                  showLabel={showLabels}
+                />
+              ))}
+              {/* Blank placeholders fill the grid when the data set is
+                  smaller than size*size — keeps the rectangle's shape so
+                  the user sees their actual coverage relative to the
+                  chosen grid. */}
+              {Array.from({ length: blanks }).map((_, i) => (
+                <div key={`blank-${i}`} className={`aspect-[2/3] ${theme.blank} rounded`} />
+              ))}
+            </div>
+          )}
           {/* Footer is the attribution stamp on the exported PNG so
               shared screenshots aren't anonymous. Visible on-page too
               as part of the captured layout. */}
@@ -385,6 +484,26 @@ export default function Collage() {
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+// Sortable wrapper around Tile for hand_curated mode. dnd-kit listeners
+// attach to the wrapper div, not the Tile's inner Link — combined with
+// the PointerSensor's 8px activation distance, a click still navigates
+// to the book detail while a meaningful drag re-orders. Dragged tile
+// raises via z-index and softens so the drop target reads through.
+function SortableTile({ tile, showLabel, onRemove }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: tile.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : undefined,
+    opacity: isDragging ? 0.7 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing touch-none">
+      <Tile tile={tile} showLabel={showLabel} onRemove={onRemove} />
     </div>
   );
 }
