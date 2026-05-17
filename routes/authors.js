@@ -26,7 +26,7 @@ router.get('/:id', (req, res) => {
 // clears it back to "unassigned". CHECK constraint on the column would
 // reject any other value, but validate here too so the error is a clean
 // 400 instead of a generic 500.
-const ALLOWED_GENDERS = new Set(['male', 'female', 'nonbinary']);
+const ALLOWED_GENDERS = new Set(['male', 'female', 'other']);
 router.patch('/:id', (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid author id' });

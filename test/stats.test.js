@@ -50,7 +50,7 @@ describe('stats', () => {
       // its slice invisible, so lock the contract.
       const { body } = await req('GET', '/api/stats');
       assert.ok(body.authorsByGender, 'authorsByGender missing');
-      for (const key of ['male', 'female', 'nonbinary', 'unassigned']) {
+      for (const key of ['male', 'female', 'other', 'unassigned']) {
         assert.ok(key in body.authorsByGender, `authorsByGender missing: ${key}`);
         assert.equal(typeof body.authorsByGender[key], 'number', `${key} should be a number`);
       }

@@ -21,7 +21,7 @@ function GenderPicker({ value, onChange }) {
         <option value="">unassigned</option>
         <option value="male">male</option>
         <option value="female">female</option>
-        <option value="nonbinary">non-binary</option>
+        <option value="other">other</option>
       </select>
     </label>
   );
