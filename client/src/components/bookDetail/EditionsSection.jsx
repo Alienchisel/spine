@@ -99,7 +99,7 @@ export default function EditionsSection({ book, onChange, linkState }) {
   useEffect(() => {
     if (!picking) return;
     const term = query.trim();
-    if (!term) { setResults([]); setSearching(false); return; }
+    if (!term) { setResults([]); setSearching(false); setError(null); return; }
     const epoch = searchGuard.next();
     setSearching(true);
     setError(null);
