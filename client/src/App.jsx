@@ -30,6 +30,20 @@ export default function App() {
   return (
     <ConfirmModalProvider>
       <div className="min-h-screen bg-neutral-950">
+        {/* Left-gutter atmosphere art. Fixed to the viewport so it doesn't
+            scroll with content; full-height with auto width preserves the
+            image's portrait aspect (887×1774); hidden below lg: so it
+            never crowds the content column on narrower screens. The art
+            already has a dark fade on its right edge, so it bleeds into
+            the page bg naturally — no opacity tweak needed at the seam.
+            `pointer-events-none` + `-z-10` keeps it behind every
+            interactive element and out of the tab order. */}
+        <img
+          src="/gutter-left.png"
+          alt=""
+          aria-hidden="true"
+          className="hidden lg:block fixed top-0 left-0 h-screen w-auto pointer-events-none -z-10 select-none"
+        />
         {/* Skip link for keyboard users: invisible until focused (Tab
             from the URL bar lands here first), then appears as a
             button in the top-left to bypass the sticky Nav. Lets
