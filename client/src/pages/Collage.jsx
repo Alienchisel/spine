@@ -327,6 +327,18 @@ export default function Collage() {
   );
 }
 
+// Up to 3-letter initials for skeleton tiles. Strip leading "The/A/An"
+// on titles so "The Dispossessed" → "D" not "T". Punctuation in the
+// middle of a token is left alone — "C. J. Cherryh" splits on the dot-
+// space into three tokens and yields "CJC".
+function tileInitials(label) {
+  if (!label) return '·';
+  const stripped = label.replace(/^(the|a|an)\s+/i, '');
+  const tokens = stripped.split(/\s+/).filter(Boolean);
+  const letters = tokens.map(t => t[0]).filter(c => /[A-Za-z]/.test(c)).slice(0, 3);
+  return letters.length ? letters.join('').toUpperCase() : (stripped[0] || '·');
+}
+
 function Tile({ tile, showLabel, linkState }) {
   return (
     <Link
@@ -342,11 +354,13 @@ function Tile({ tile, showLabel, linkState }) {
           className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
         />
       ) : (
-        // Skeleton fallback — matches the no-cover / no-portrait
-        // shape used elsewhere. The label-overlay (if enabled) still
-        // shows so the tile carries meaning.
-        <div className="w-full h-full bg-gradient-to-br from-neutral-800 to-neutral-900 flex items-center justify-center text-neutral-700 text-3xl font-slab">
-          {tile.label?.[0] ?? '·'}
+        // Skeleton fallback — initials carry more meaning than a single
+        // letter, especially on author tiles where ~30% of portraits
+        // are missing ("OB" reads as Octavia Butler much more clearly
+        // than "O"). Capped at 3 chars so longer names stay legible at
+        // tile size. Mononyms ("Plato") fall through as one letter.
+        <div className="w-full h-full bg-gradient-to-br from-neutral-800 to-neutral-900 flex items-center justify-center text-neutral-700 text-3xl font-slab tracking-wide">
+          {tileInitials(tile.label)}
         </div>
       )}
       {showLabel && (
