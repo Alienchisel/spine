@@ -6,14 +6,17 @@ import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import { useActionGuard } from '../hooks/useActionGuard.js';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 
-// Last.fm-style reading-collage grid. Four URL knobs (mode / period /
-// size / title) round-trip so a configured view is bookmarkable. v2
-// adds a one-click PNG export of just the framed grid + title + footer
-// — useful for sharing without a manual screenshot.
+// Last.fm-style reading-collage grid. URL knobs (mode / period / size /
+// series / year / theme / title / labels) round-trip so a chosen view
+// is bookmarkable. PNG export captures the framed grid + title +
+// footer; theme switches frame background + text colors so the export
+// can match the share context (dark / parchment / sepia).
 const MODE_OPTIONS = [
   { key: 'top_books',         label: 'Top books' },
   { key: 'top_authors',       label: 'Top authors' },
   { key: 'recently_finished', label: 'Recently finished' },
+  { key: 'series_spotlight',  label: 'Series spotlight' },
+  { key: 'year_in_review',    label: 'Year in review' },
 ];
 const PERIOD_OPTIONS = [
   { key: '7d',   label: 'Last 7 days' },
@@ -25,6 +28,37 @@ const PERIOD_OPTIONS = [
 ];
 const SIZE_OPTIONS = [2, 3, 4, 5];
 
+// Theme map. `bg`/`text`/`subText` are Tailwind classes applied to the
+// captured frame; `canvasBg` is the hex html2canvas paints behind any
+// transparent regions (rounded corners, gaps) so the PNG seams match.
+const THEMES = {
+  dark: {
+    label:    'Dark',
+    bg:       'bg-neutral-950',
+    text:     'text-parchment',
+    subText:  'text-neutral-700',
+    canvasBg: '#080e0d',
+    blank:    'bg-neutral-900/40',
+  },
+  parchment: {
+    label:    'Parchment',
+    bg:       'bg-parchment',
+    text:     'text-neutral-900',
+    subText:  'text-neutral-600',
+    canvasBg: '#f6f2ea',
+    blank:    'bg-neutral-200',
+  },
+  sepia: {
+    label:    'Sepia',
+    bg:       'bg-[#2a1810]',
+    text:     'text-parchment',
+    subText:  'text-amber-200/40',
+    canvasBg: '#2a1810',
+    blank:    'bg-[#3a2418]',
+  },
+};
+const THEME_KEYS = Object.keys(THEMES);
+
 export default function Collage() {
   const [params, setParams] = useSearchParams();
   const mode    = MODE_OPTIONS.some(m => m.key === params.get('mode'))     ? params.get('mode')     : 'top_books';
@@ -32,9 +66,19 @@ export default function Collage() {
   const size    = SIZE_OPTIONS.includes(Number(params.get('size')))        ? Number(params.get('size')) : 3;
   const showLabels = params.get('labels') !== '0'; // default on; user can turn off via URL
   const title  = params.get('title') ?? '';
+  const series = params.get('series') ?? '';
+  const year   = parseInt(params.get('year'), 10);
+  const themeKey = THEME_KEYS.includes(params.get('theme')) ? params.get('theme') : 'dark';
+  const theme = THEMES[themeKey];
+
+  const needsSeries = mode === 'series_spotlight';
+  const needsYear   = mode === 'year_in_review';
+  const usesPeriod  = !needsSeries && !needsYear;
+
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [facets, setFacets] = useState({ series: [], years: [] });
   const loadGuard = useStaleGuard();
   // Single-flight guard on the PNG export so a double-click can't fire
   // two parallel html2canvas passes (each is heavy — ~1 MB raster).
@@ -43,21 +87,33 @@ export default function Collage() {
   // the whole page (no nav, no controls).
   const exportRef = useRef(null);
 
+  // Lazy-fetch facets on first mount. Cached for the session — a long-
+  // lived tab will see stale data if the user adds/removes series or
+  // logs a new year mid-session, but the cost (one-off refetch) isn't
+  // worth a refresh-tick subscription.
   useEffect(() => {
+    api.getCollageFacets().then(setFacets).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    // Skip the fetch when the mode needs a parameter that isn't set
+    // yet — would otherwise hit the server with an inevitable 400.
+    if (needsSeries && !series) { setData({ tiles: [] }); setLoading(false); return; }
+    if (needsYear   && !Number.isInteger(year)) { setData({ tiles: [] }); setLoading(false); return; }
     const epoch = loadGuard.next();
     setLoading(true);
-    api.getCollage({ mode, period, size })
+    api.getCollage({ mode, period, size, series, year: Number.isInteger(year) ? year : undefined })
       .then(d => {
         if (!loadGuard.isFresh(epoch)) return;
         setData(d);
         setError(null);
       })
-      .catch(() => {
+      .catch(err => {
         if (!loadGuard.isFresh(epoch)) return;
-        setError('Failed to load collage.');
+        setError(`Failed to load collage${err?.message ? `: ${err.message}` : '.'}`);
       })
       .finally(() => { if (loadGuard.isFresh(epoch)) setLoading(false); });
-  }, [mode, period, size]);
+  }, [mode, period, size, series, year]);
 
   function update(key, value) {
     const next = new URLSearchParams(params);
@@ -76,13 +132,14 @@ export default function Collage() {
       // for the font registry to settle before snapshotting.
       if (document.fonts?.ready) await document.fonts.ready;
       const canvas = await html2canvas(exportRef.current, {
-        backgroundColor: '#0a0a0a',  // bg-neutral-950
-        scale: 2,                    // retina-crisp
+        backgroundColor: theme.canvasBg,
+        scale: 2,
         useCORS: true,
         logging: false,
       });
       const stamp = new Date().toLocaleDateString('en-CA').replace(/-/g, '');
-      const filename = `spine-collage-${mode}-${period}-${stamp}.png`;
+      const slug = mode + (needsSeries ? `-${series}` : '') + (needsYear ? `-${year}` : `-${period}`);
+      const filename = `spine-collage-${slug.replace(/[^a-z0-9-]/gi, '_')}-${stamp}.png`;
       canvas.toBlob((blob) => {
         if (!blob) { setError('Failed to render PNG.'); return; }
         const url = URL.createObjectURL(blob);
@@ -107,8 +164,11 @@ export default function Collage() {
   const gridStyle = { gridTemplateColumns: `repeat(${size}, minmax(0, 1fr))` };
   const tiles = data?.tiles ?? [];
   const blanks = Math.max(0, size * size - tiles.length);
-  const periodLabel = PERIOD_OPTIONS.find(p => p.key === period)?.label ?? period;
-  const todayIso    = new Date().toLocaleDateString('en-CA');
+  const todayIso = new Date().toLocaleDateString('en-CA');
+  const footerStamp =
+    needsSeries ? `Series · ${series || '—'}`
+    : needsYear  ? `Year · ${Number.isInteger(year) ? year : '—'}`
+    : (PERIOD_OPTIONS.find(p => p.key === period)?.label ?? period);
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
@@ -126,17 +186,50 @@ export default function Collage() {
             {MODE_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
           </select>
         </label>
-        <label className="inline-flex items-center gap-1.5 text-neutral-500">
-          <span>Period:</span>
-          <select
-            value={period}
-            onChange={(e) => update('period', e.target.value)}
-            className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-neutral-300 hover:text-neutral-100 focus:outline-none focus:border-oak/50 cursor-pointer transition-colors"
-            aria-label="Collage period"
-          >
-            {PERIOD_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
-          </select>
-        </label>
+        {usesPeriod && (
+          <label className="inline-flex items-center gap-1.5 text-neutral-500">
+            <span>Period:</span>
+            <select
+              value={period}
+              onChange={(e) => update('period', e.target.value)}
+              className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-neutral-300 hover:text-neutral-100 focus:outline-none focus:border-oak/50 cursor-pointer transition-colors"
+              aria-label="Collage period"
+            >
+              {PERIOD_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+            </select>
+          </label>
+        )}
+        {needsSeries && (
+          <label className="inline-flex items-center gap-1.5 text-neutral-500">
+            <span>Series:</span>
+            <input
+              type="text"
+              list="collage-series"
+              value={series}
+              onChange={(e) => update('series', e.target.value)}
+              placeholder="Type or pick…"
+              className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-neutral-300 placeholder-neutral-700 focus:outline-none focus:border-oak/50 transition-colors w-48"
+              aria-label="Series for spotlight"
+            />
+            <datalist id="collage-series">
+              {facets.series.map(s => <option key={s} value={s} />)}
+            </datalist>
+          </label>
+        )}
+        {needsYear && (
+          <label className="inline-flex items-center gap-1.5 text-neutral-500">
+            <span>Year:</span>
+            <select
+              value={Number.isInteger(year) ? year : ''}
+              onChange={(e) => update('year', e.target.value)}
+              className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-neutral-300 hover:text-neutral-100 focus:outline-none focus:border-oak/50 cursor-pointer transition-colors"
+              aria-label="Year to review"
+            >
+              <option value="" disabled>Pick a year…</option>
+              {facets.years.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </label>
+        )}
         <label className="inline-flex items-center gap-1.5 text-neutral-500">
           <span>Size:</span>
           <select
@@ -146,6 +239,17 @@ export default function Collage() {
             aria-label="Grid size"
           >
             {SIZE_OPTIONS.map(n => <option key={n} value={n}>{n}×{n}</option>)}
+          </select>
+        </label>
+        <label className="inline-flex items-center gap-1.5 text-neutral-500">
+          <span>Theme:</span>
+          <select
+            value={themeKey}
+            onChange={(e) => update('theme', e.target.value)}
+            className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-neutral-300 hover:text-neutral-100 focus:outline-none focus:border-oak/50 cursor-pointer transition-colors"
+            aria-label="Collage theme"
+          >
+            {THEME_KEYS.map(k => <option key={k} value={k}>{THEMES[k].label}</option>)}
           </select>
         </label>
         <label className="inline-flex items-center gap-1.5 text-neutral-500 cursor-pointer">
@@ -191,15 +295,20 @@ export default function Collage() {
       {loading ? (
         <div role="status" className="text-neutral-700 text-sm">Loading…</div>
       ) : tiles.length === 0 ? (
-        <p className="text-sm text-neutral-600">No reading activity in this period.</p>
+        <p className="text-sm text-neutral-600">
+          {needsSeries && !series ? 'Pick a series to spotlight.'
+            : needsYear && !Number.isInteger(year) ? 'Pick a year to review.'
+            : 'No reading activity in this period.'}
+        </p>
       ) : (
         // Captured frame — this is what html2canvas snapshots. Padding
         // gives the PNG breathing room so it doesn't read as edge-to-
-        // edge. bg-neutral-950 ensures the captured background matches
-        // the page even if the page bg ever changes.
-        <div ref={exportRef} className="bg-neutral-950 p-6 rounded">
+        // edge. Theme classes control bg + text so the export adopts
+        // the selected aesthetic; canvasBg keeps html2canvas's seam
+        // color consistent with the frame.
+        <div ref={exportRef} className={`${theme.bg} ${theme.text} p-6 rounded`}>
           {title && (
-            <h2 className="font-slab text-xl text-parchment mb-4 tracking-wide">{title}</h2>
+            <h2 className="font-slab text-xl mb-4 tracking-wide">{title}</h2>
           )}
           <div className="grid gap-2" style={gridStyle}>
             {tiles.map(t => (
@@ -210,14 +319,14 @@ export default function Collage() {
                 the user sees their actual coverage relative to the
                 chosen grid. */}
             {Array.from({ length: blanks }).map((_, i) => (
-              <div key={`blank-${i}`} className="aspect-[2/3] bg-neutral-900/40 rounded" />
+              <div key={`blank-${i}`} className={`aspect-[2/3] ${theme.blank} rounded`} />
             ))}
           </div>
-          {/* Footer is visually subtle in the live view; it's the
-              attribution stamp on the exported PNG so shared screenshots
-              aren't anonymous. */}
-          <p className="mt-4 text-[10px] text-neutral-700 text-right tracking-wide">
-            spine · {periodLabel} · {todayIso}
+          {/* Footer is the attribution stamp on the exported PNG so
+              shared screenshots aren't anonymous. Visible on-page too
+              as part of the captured layout. */}
+          <p className={`mt-4 text-[10px] ${theme.subText} text-right tracking-wide`}>
+            spine · {footerStamp} · {todayIso}
           </p>
         </div>
       )}

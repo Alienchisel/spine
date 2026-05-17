@@ -124,4 +124,77 @@ describe('collage', () => {
     const r3 = await req('GET', '/api/collage?size=abc');
     assert.equal(r3.body.size, 3);
   });
+
+  it('series_spotlight orders by series_number then title', async () => {
+    const seriesName = `Collage Spotlight Series ${Date.now()}`;
+    for (const [n, title] of [[3, 'Volume Three'], [1, 'Volume One'], [2, 'Volume Two']]) {
+      await req('POST', '/api/books', {
+        title, authors: ['Spotlight Author'], fiction: true,
+        series: seriesName, series_number: n,
+      });
+    }
+    const { body } = await req('GET', `/api/collage?mode=series_spotlight&series=${encodeURIComponent(seriesName)}&size=5`);
+    const titles = body.tiles.map(t => t.label);
+    assert.deepEqual(titles, ['Volume One', 'Volume Two', 'Volume Three'], 'tiles should be in reading order');
+    assert.equal(body.tiles[0].sublabel, '#1');
+  });
+
+  it('series_spotlight rejects missing series with 400', async () => {
+    const r = await req('GET', '/api/collage?mode=series_spotlight');
+    assert.equal(r.status, 400);
+  });
+
+  it('series_spotlight returns empty tiles for an unknown series', async () => {
+    const r = await req('GET', '/api/collage?mode=series_spotlight&series=DefinitelyNotARealSeries123');
+    assert.equal(r.status, 200);
+    assert.deepEqual(r.body.tiles, []);
+  });
+
+  it('year_in_review bounds to the chosen calendar year', async () => {
+    // Seed a book read in 2024 (the year we'll query) and one read
+    // today (current year). The 2024 query should only include the
+    // 2024 book.
+    const yearBack = new Date().getFullYear() - 1;
+    const { body: b2024 } = await req('POST', '/api/books', {
+      title: `Year Review 2024 Book ${Date.now()}`, authors: ['YIR Author'], fiction: true,
+      page_count: 300, format: 'ebook',
+    });
+    const { body: bThis } = await req('POST', '/api/books', {
+      title: `Current Year Book ${Date.now()}`, authors: ['YIR Author'], fiction: true,
+      page_count: 300, format: 'ebook',
+    });
+    // PATCH current_page → server emits a reading_log row with today's
+    // date. For the 2024 book we'd need to manually insert a dated
+    // log row, but that requires SQL access; instead just verify the
+    // current-year case excludes the historical lookup target.
+    await req('PATCH', `/api/books/${bThis.id}`, { current_page: 50 });
+
+    const currentYear = new Date().getFullYear();
+    const { body: thisYear } = await req('GET', `/api/collage?mode=year_in_review&year=${currentYear}&size=5`);
+    assert.ok(thisYear.tiles.some(t => t.id === bThis.id), 'current-year query should include current-year book');
+    assert.ok(!thisYear.tiles.some(t => t.id === b2024.id), 'current-year query should exclude books not read this year');
+
+    const { body: oldYear } = await req('GET', `/api/collage?mode=year_in_review&year=${yearBack}&size=5`);
+    assert.ok(!oldYear.tiles.some(t => t.id === bThis.id), 'last-year query should exclude current-year activity');
+  });
+
+  it('year_in_review rejects bad year inputs with 400', async () => {
+    const bad1 = await req('GET', '/api/collage?mode=year_in_review&year=abc');
+    assert.equal(bad1.status, 400);
+    const bad2 = await req('GET', '/api/collage?mode=year_in_review&year=1850');
+    assert.equal(bad2.status, 400);
+    const bad3 = await req('GET', '/api/collage?mode=year_in_review&year=2200');
+    assert.equal(bad3.status, 400);
+  });
+
+  it('facets endpoint returns series + years arrays', async () => {
+    const { status, body } = await req('GET', '/api/collage/facets');
+    assert.equal(status, 200);
+    assert.ok(Array.isArray(body.series), 'series should be an array');
+    assert.ok(Array.isArray(body.years),  'years should be an array');
+    // Years come back as strings (substr of date column); descending.
+    if (body.years.length > 1) {
+      assert.ok(body.years[0] >= body.years[body.years.length - 1], 'years should be descending');
+    }
+  });
 });
