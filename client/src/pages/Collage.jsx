@@ -336,13 +336,16 @@ function Tile({ tile, linkState }) {
           className="w-full h-full object-cover"
         />
       ) : (
-        // Skeleton fallback — initials carry more meaning than a single
-        // letter, especially on author tiles where ~30% of portraits
-        // are missing ("OB" reads as Octavia Butler much more clearly
-        // than "O"). Capped at 3 chars so longer names stay legible at
-        // tile size. Mononyms ("Plato") fall through as one letter.
-        <div className="w-full h-full bg-gradient-to-br from-neutral-800 to-neutral-900 flex items-center justify-center text-neutral-700 text-3xl font-slab tracking-wide">
-          {initialsFor(tile.label)}
+        // Skeleton fallback — mirrors BookCard's two-line shape so the
+        // name is always visible on covers/portraits we don't have an
+        // image for. Initials carry the visual weight; the small text
+        // line carries the meaning so "AS" isn't a mystery without a
+        // hover. Cap at 3 lines of name for very long titles.
+        <div className="w-full h-full bg-gradient-to-br from-neutral-800 to-neutral-900 flex flex-col items-center justify-center p-3 gap-2">
+          <span className="text-3xl font-slab text-neutral-500 leading-none tracking-wide">
+            {initialsFor(tile.label)}
+          </span>
+          <span className="text-xs text-neutral-500 font-medium leading-tight line-clamp-3 text-center">{tile.label}</span>
         </div>
       )}
     </Link>
