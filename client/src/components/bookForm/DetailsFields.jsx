@@ -1,6 +1,6 @@
 import { useId } from 'react';
 import ChipInput from './ChipInput.jsx';
-import { input, label, MARKDOWN_HINT } from './styles.js';
+import { input, label, MARKDOWN_HINT, submitOnModEnter } from './styles.js';
 
 export default function DetailsFields({ form, set, ic, pastLanguages, pastTranslators, pastPublishers, translatorInput, setTranslatorInput }) {
   const idPfx = useId();
@@ -112,6 +112,7 @@ export default function DetailsFields({ form, set, ic, pastLanguages, pastTransl
         </div>
         <textarea id={idFor('description')} className={`${ic('description')} resize-none`} rows={6}
           value={form.description} onChange={(e) => set('description', e.target.value)}
+          onKeyDown={submitOnModEnter}
           placeholder="Back-cover description…" />
       </div>
     </div>

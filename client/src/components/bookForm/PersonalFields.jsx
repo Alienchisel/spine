@@ -1,6 +1,6 @@
 import StarRating from '../StarRating.jsx';
 import ChipInput from './ChipInput.jsx';
-import { input, label, MARKDOWN_HINT } from './styles.js';
+import { input, label, MARKDOWN_HINT, submitOnModEnter } from './styles.js';
 
 export default function PersonalFields({ form, set, pastTags, tagInput, setTagInput }) {
   return (
@@ -35,6 +35,7 @@ export default function PersonalFields({ form, set, pastTags, tagInput, setTagIn
         </div>
         <textarea className={`${input} resize-none`} rows={6}
           value={form.notes} onChange={(e) => set('notes', e.target.value)}
+          onKeyDown={submitOnModEnter}
           placeholder="Your thoughts…" />
       </div>
 
@@ -46,6 +47,7 @@ export default function PersonalFields({ form, set, pastTags, tagInput, setTagIn
           </div>
           <textarea className={`${input} resize-none`} rows={8}
             value={form.review} onChange={(e) => set('review', e.target.value)}
+            onKeyDown={submitOnModEnter}
             placeholder="Your review…" />
         </div>
       )}

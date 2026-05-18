@@ -13,3 +13,14 @@ export const MARKDOWN_HINT =
   '1. numbered list\n' +
   '> blockquote\n' +
   '# heading';
+
+// onKeyDown handler for textareas inside the BookForm — Cmd/Ctrl+Enter
+// submits the parent form so the user can save without leaving the
+// keyboard. Plain Enter still inserts a newline (default behavior).
+// Uses e.target.form so nothing has to be wired through props.
+export function submitOnModEnter(e) {
+  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+    e.preventDefault();
+    e.target.form?.requestSubmit();
+  }
+}
