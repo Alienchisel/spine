@@ -331,21 +331,35 @@ export default function Collage() {
         // (Library, Loved, BrowsePage). The PNG export adds the dark
         // padded frame + attribution footer by cloning this node into
         // a styled off-screen wrapper at capture time.
-        <div ref={gridRef} className="grid gap-2" style={gridStyle}>
-          {tiles.map(t => (
-            <Tile
-              key={`${t.href}-${t.id}`}
-              tile={t}
-              linkState={fromState}
-            />
-          ))}
-          {/* Blank placeholders fill the grid when the data set is
-              smaller than size*size — keeps the rectangle's shape so
-              the user sees their actual coverage relative to the
-              chosen grid. */}
-          {Array.from({ length: blanks }).map((_, i) => (
-            <div key={`blank-${i}`} className="aspect-[2/3] bg-neutral-900/40 rounded" />
-          ))}
+        //
+        // The caption + grid share the gridRef wrapper so the PNG
+        // export captures both. Caption is only shown for top_books /
+        // top_authors — the other modes telegraph their context
+        // through tile content, and a label would just add chrome.
+        <div ref={gridRef}>
+          {(mode === 'top_books' || mode === 'top_authors') && (
+            <p className="text-xs text-neutral-500 uppercase tracking-wider mb-3">
+              {MODE_OPTIONS.find(m => m.key === mode)?.label}
+              {' · '}
+              {PERIOD_OPTIONS.find(p => p.key === period)?.label}
+            </p>
+          )}
+          <div className="grid gap-2" style={gridStyle}>
+            {tiles.map(t => (
+              <Tile
+                key={`${t.href}-${t.id}`}
+                tile={t}
+                linkState={fromState}
+              />
+            ))}
+            {/* Blank placeholders fill the grid when the data set is
+                smaller than size*size — keeps the rectangle's shape so
+                the user sees their actual coverage relative to the
+                chosen grid. */}
+            {Array.from({ length: blanks }).map((_, i) => (
+              <div key={`blank-${i}`} className="aspect-[2/3] bg-neutral-900/40 rounded" />
+            ))}
+          </div>
         </div>
       )}
     </div>
