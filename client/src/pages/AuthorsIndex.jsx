@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 
 // Sort modes for the Authors index. Name is the default (alphabetical
@@ -16,6 +16,19 @@ const SORTS = [
   { key: 'no_gender', label: 'Missing gender' },
   { key: 'recent',    label: 'Recently added' },
 ];
+const VALID_SORTS = new Set(SORTS.map(s => s.key));
+
+// URL whitelist — sanitises old bookmarks with stale params and stops
+// unrelated query params from sticking around when this page replaces
+// them on update.
+const VALID_PARAMS = new Set(['q', 'sort']);
+function pickValidParams(src) {
+  const out = new URLSearchParams();
+  for (const [k, v] of src.entries()) {
+    if (VALID_PARAMS.has(k)) out.set(k, v);
+  }
+  return out;
+}
 
 // "1938-07-18" → "1938"; "-428-..." → "428 BCE"; null → null. The index
 // only shows the year — full precision lives on the detail page.
@@ -48,8 +61,30 @@ export default function AuthorsIndex() {
   const [authors, setAuthors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState(null);
-  const [query,   setQuery]   = useState('');
-  const [sort,    setSort]    = useState('name');
+  // URL is the source of truth for filter+sort so views like "Missing
+  // photo + name=eg" survive refresh / back/forward / shareable links
+  // (matches Library / Diary / Browse / Collage). Both updates use
+  // replace:true — filter state is view config, not navigation, and a
+  // history entry per keystroke would clog back/forward.
+  const [params, setParams] = useSearchParams();
+  const query = params.get('q') ?? '';
+  const sort  = VALID_SORTS.has(params.get('sort')) ? params.get('sort') : 'name';
+
+  // Drop any unknown query params on mount so a stale bookmark from a
+  // prior version doesn't sit there cluttering the URL.
+  useEffect(() => {
+    if (Array.from(params.keys()).some(k => !VALID_PARAMS.has(k))) {
+      setParams(pickValidParams(params), { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function updateParam(key, value) {
+    const next = pickValidParams(params);
+    if (value === '' || value == null) next.delete(key);
+    else                                next.set(key, String(value));
+    setParams(next, { replace: true });
+  }
 
   useEffect(() => {
     setLoading(true);
@@ -104,13 +139,13 @@ export default function AuthorsIndex() {
         <input
           type="text"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => updateParam('q', e.target.value)}
           placeholder="Filter by name"
           className="bg-neutral-900 border border-neutral-800 rounded px-3 py-1.5 text-sm text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-oak/50 w-72"
         />
         <select
           value={sort}
-          onChange={(e) => setSort(e.target.value)}
+          onChange={(e) => updateParam('sort', e.target.value === 'name' ? null : e.target.value)}
           className="bg-neutral-900 border border-neutral-800 rounded px-3 py-1.5 text-sm text-neutral-300 focus:outline-none focus:border-oak/50"
           aria-label="Sort"
         >
