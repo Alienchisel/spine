@@ -13,6 +13,7 @@ import statsRouter from './routes/stats.js';
 import collageRouter from './routes/collage.js';
 import settingsRouter from './routes/settings.js';
 import shelfRouter from './routes/shelf.js';
+import tagsRouter from './routes/tags.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -31,6 +32,7 @@ app.use('/api/stats', statsRouter);
 app.use('/api/collage', collageRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/shelf', shelfRouter);
+app.use('/api/tags', tagsRouter);
 
 app.use('/api', (_req, res) => {
   res.status(404).json({ error: 'Not found' });

@@ -628,7 +628,14 @@ export default function Stats() {
               />
             )}
           </div>
-          {topTags?.length > 0 && <TagTreemap tags={topTags} />}
+          {topTags?.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <TagTreemap tags={topTags} />
+              <Link to="/tags" state={FROM_STATS} className="self-end text-xs text-neutral-600 hover:text-neutral-300 transition-colors">
+                All tags →
+              </Link>
+            </div>
+          )}
         </div>
       </Section>
 
