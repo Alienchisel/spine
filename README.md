@@ -28,6 +28,24 @@ npm run dev
 
 The client dev server proxies API requests to `localhost:3001`.
 
+### Verifying changes
+
+Before committing, run:
+
+```bash
+npm run check
+```
+
+This runs the test suite and then the production build. The two stages catch
+different things — `npm test` exercises the server / DB / API; `npm run build`
+compiles the client and surfaces broken imports or syntax errors that tests
+don't see. Individually:
+
+```bash
+npm test        # server-side suite only
+npm run build   # production client build only
+```
+
 ## Ingester
 
 Add books by Amazon URL or ISBN from the command line:
