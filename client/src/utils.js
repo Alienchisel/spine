@@ -83,6 +83,24 @@ export const MOD_KEY = (() => {
   return /Mac|iPhone|iPad|iPod/.test(navigator.platform) ? '⌘' : 'Ctrl';
 })();
 
+// Map the current page's pathname to a sensible back-link label so a
+// shortcut-driven navigation (R → BookDetail, palette → anywhere)
+// reads "← Authors" / "← Stats" / "← Library" appropriately on the
+// destination page. Anything unrecognised falls back to "Library".
+export function labelForPath(pathname) {
+  if (pathname === '/' || pathname.startsWith('/browse')) return 'Library';
+  if (pathname.startsWith('/stats'))    return 'Stats';
+  if (pathname.startsWith('/authors'))  return 'Authors';
+  if (pathname.startsWith('/tags'))     return 'Tags';
+  if (pathname.startsWith('/series'))   return 'Series';
+  if (pathname.startsWith('/loved'))    return 'Loved';
+  if (pathname.startsWith('/readlist')) return 'Readlist';
+  if (pathname.startsWith('/lists'))    return 'Lists';
+  if (pathname.startsWith('/diary'))    return 'Diary';
+  if (pathname.startsWith('/shelf'))    return 'Shelves';
+  return 'Library';
+}
+
 // Up to 3-letter initials for skeleton tiles / covers / portraits when
 // the image is missing. Strips a leading article ("the", "a", "an") on
 // titles so "The Dispossessed" → "D" not "T". Mononyms ("Plato") fall

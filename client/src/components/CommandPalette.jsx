@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate, useLocation, useSearchParams, useMatch } from 'react-router-dom';
 import { api } from '../api.js';
-import { plural, pluralWord, initialsFor, MOD_KEY } from '../utils.js';
+import { plural, pluralWord, initialsFor, MOD_KEY, labelForPath } from '../utils.js';
 import { useConfirm } from './ConfirmModal.jsx';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import { useSpineEvent, dispatchSpineEvent } from '../hooks/useSpineEvent.js';
@@ -1041,7 +1041,19 @@ export default function CommandPalette() {
     }
     remember(entry);
     close();
-    if (entry.path) navigate(entry.path);
+    if (entry.path) {
+      // Pass the user's current location so the destination's back link
+      // returns to the exact view they were on — including any active
+      // Library tab — instead of falling back to document.referrer
+      // (which inside an SPA only updates on hard navigations and is
+      // routinely stale).
+      navigate(entry.path, {
+        state: {
+          from: labelForPath(location.pathname),
+          fromPath: location.pathname + location.search,
+        },
+      });
+    }
   }
 
   // Ctrl/Cmd+Enter on a path-based entry opens it in a new browser tab

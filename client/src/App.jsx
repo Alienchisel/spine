@@ -4,23 +4,7 @@ import Nav from './components/Nav.jsx';
 import { ConfirmModalProvider } from './components/ConfirmModal.jsx';
 import CommandPalette from './components/CommandPalette.jsx';
 import { api } from './api.js';
-
-// Map the page the user was on to a sensible back-link label so the R
-// shortcut from /authors reads "← Authors" on BookDetail, etc. Anything
-// unrecognised falls back to "Library" (the home).
-function labelForPath(pathname) {
-  if (pathname === '/' || pathname.startsWith('/browse')) return 'Library';
-  if (pathname.startsWith('/stats'))    return 'Stats';
-  if (pathname.startsWith('/authors'))  return 'Authors';
-  if (pathname.startsWith('/tags'))     return 'Tags';
-  if (pathname.startsWith('/series'))   return 'Series';
-  if (pathname.startsWith('/loved'))    return 'Loved';
-  if (pathname.startsWith('/readlist')) return 'Readlist';
-  if (pathname.startsWith('/lists'))    return 'Lists';
-  if (pathname.startsWith('/diary'))    return 'Diary';
-  if (pathname.startsWith('/shelf'))    return 'Shelves';
-  return 'Library';
-}
+import { labelForPath } from './utils.js';
 
 // Layout route for the data router defined in main.jsx — renders the
 // shared shell (Nav + main wrapper) and the per-route page via <Outlet/>.
