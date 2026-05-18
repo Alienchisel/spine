@@ -29,7 +29,7 @@ const PERIOD_OPTIONS = [
   { key: '365d', label: 'Last year' },
   { key: 'all',  label: 'All time' },
 ];
-const SIZE_OPTIONS = [2, 3, 4, 5];
+const SIZE_OPTIONS = [3, 4, 5, 6];
 
 export default function Collage() {
   const [params, setParams] = useSearchParams();

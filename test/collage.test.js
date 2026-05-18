@@ -51,7 +51,7 @@ describe('collage', () => {
       });
       await req('PATCH', `/api/books/${book.id}`, { current_page: 10 + i });
     }
-    for (const size of [2, 3, 4, 5]) {
+    for (const size of [3, 4, 5, 6]) {
       const { body } = await req('GET', `/api/collage?mode=top_books&period=all&size=${size}`);
       assert.ok(body.tiles.length <= size * size, `size=${size}: got ${body.tiles.length} tiles`);
     }
@@ -116,11 +116,11 @@ describe('collage', () => {
     assert.equal(bad2.status, 400);
   });
 
-  it('clamps size to 2..5', async () => {
+  it('clamps size to 3..6', async () => {
     const r1 = await req('GET', '/api/collage?size=1');
-    assert.equal(r1.body.size, 2);
+    assert.equal(r1.body.size, 3);
     const r2 = await req('GET', '/api/collage?size=99');
-    assert.equal(r2.body.size, 5);
+    assert.equal(r2.body.size, 6);
     const r3 = await req('GET', '/api/collage?size=abc');
     assert.equal(r3.body.size, 3);
   });

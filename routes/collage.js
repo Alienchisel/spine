@@ -7,14 +7,14 @@ const router = express.Router();
 // string:
 //   mode    — what's being ranked
 //   period  — over what window (top_books / top_authors)
-//   size    — grid edge, 2..5 (4..25 tiles)
+//   size    — grid edge, 3..6 (9..36 tiles)
 //   year    — required when mode=year_in_review (YYYY)
 // All inputs validated before touching the DB so bad input is a
 // clean 400 instead of a generic 500.
 router.get('/', (req, res) => {
   const mode   = String(req.query.mode   || 'top_books');
   const period = String(req.query.period || '30d');
-  const size   = Math.max(2, Math.min(5, parseInt(req.query.size, 10) || 3));
+  const size   = Math.max(3, Math.min(6, parseInt(req.query.size, 10) || 3));
   if (!ALLOWED_MODES.includes(mode))     return res.status(400).json({ error: `Invalid mode: ${mode}` });
   if (!ALLOWED_PERIODS.includes(period)) return res.status(400).json({ error: `Invalid period: ${period}` });
 
