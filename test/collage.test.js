@@ -110,8 +110,7 @@ describe('collage', () => {
     const { body: book } = await req('POST', '/api/books', {
       title: 'Just Finished Book', authors: ['Finisher'], fiction: true,
     });
-    await req('PUT', `/api/books/${book.id}/reads/finish`, {}).catch(() => {});
-    // Simpler: mark finished via PUT on the book with status='finished'.
+    // Mark finished via PUT on the book with status='finished'.
     await req('PUT', `/api/books/${book.id}`, {
       title: 'Just Finished Book', authors: ['Finisher'], fiction: true,
       status: 'finished', date_finished: today,
