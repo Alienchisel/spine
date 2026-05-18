@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { api } from '../api.js';
 import { fmtShortDate, fmtShortMonth, fmtIsoWeekMonday, formatYear, plural, initialsFor, formatPartialDate } from '../utils.js';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';

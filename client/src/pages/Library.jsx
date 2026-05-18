@@ -25,7 +25,7 @@ import SearchHelp from '../components/SearchHelp.jsx';
 import SeriesCard from '../components/library/SeriesCard.jsx';
 import { EMPTY_FILTERS, countFilters, pruneFilters, buildApiParams } from '../components/library/filters.js';
 import { paramsToFilters, writeFiltersToParams, filtersEqual } from '../components/library/urlState.js';
-import { buildDisplayItems, sortVolumes } from '../components/library/grouping.js';
+import { buildDisplayItems } from '../components/library/grouping.js';
 import { useCoverSize } from '../hooks/useCoverSize.js';
 import CoverSizeSlider from '../components/CoverSizeSlider.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
