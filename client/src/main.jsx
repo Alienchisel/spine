@@ -31,10 +31,13 @@ function NotFound() {
 // nested under it.
 const router = createBrowserRouter(
   createRoutesFromElements(
-    <Route path="/" element={<App />}>
+    <Route path="/" element={<App />} errorElement={<RouteError />}>
       {/* Pathless wrapper with errorElement so a thrown route still
           renders inside App's chrome (Nav stays put) instead of being
-          replaced wholesale by the default React Router crash screen. */}
+          replaced wholesale by the default React Router crash screen.
+          The outer errorElement on the layout route catches the rarer
+          case of App / Nav itself throwing, which would otherwise
+          bubble past the inner boundary. */}
       <Route errorElement={<RouteError />}>
         <Route index                        element={<Library />} />
         <Route path="books/new"             element={<BookForm />} />
