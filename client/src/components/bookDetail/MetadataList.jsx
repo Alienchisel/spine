@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { formatDate, formatPartialDate } from './dates.js';
+import { formatPartialDate } from './dates.js';
 import { formatYear, pluralWord } from '../../utils.js';
 
 function Row({ label, children }) {
@@ -132,10 +132,10 @@ export default function MetadataList({ book, location, linkState }) {
         </Row>
       )}
       {book.date_started && (
-        <Row label="Started">{formatDate(book.date_started)}</Row>
+        <Row label="Started">{formatPartialDate(book.date_started)}</Row>
       )}
       {book.date_finished && (
-        <Row label="Finished">{formatDate(book.date_finished)}</Row>
+        <Row label="Finished">{formatPartialDate(book.date_finished)}</Row>
       )}
       {book.read_count > 1 && (
         <Row label="Times read">{book.read_count}</Row>
