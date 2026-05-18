@@ -36,35 +36,75 @@ function GenderPicker({ value, onChange }) {
   );
 }
 
-// "1938 – 2007" / "1938 –" (living author) / "– 2007" (rare) / null.
-function lifespan(birth, death) {
-  if (!birth && !death) return null;
-  if (birth && death)   return `${birth} – ${death}`;
-  if (birth)            return `${birth} –`;
-  return `– ${death}`;
+// Render a stored date string ("1938" / "1938-07-18" / "-428") as a
+// human-readable label. BCE years drop the leading "-" and append BCE.
+// Year-only stays bare. Full dates render as "July 18, 1938".
+const MONTH_LABELS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+function formatDate(dateStr) {
+  if (!dateStr) return null;
+  const m = String(dateStr).match(/^(-?\d{1,4})(?:-(\d{2}))?(?:-(\d{2}))?$/);
+  if (!m) return String(dateStr);
+  const year  = parseInt(m[1], 10);
+  const month = m[2] ? parseInt(m[2], 10) : null;
+  const day   = m[3] ? parseInt(m[3], 10) : null;
+  const yearLabel = year < 0 ? `${-year} BCE` : String(year);
+  if (!month) return yearLabel;
+  const monthLabel = MONTH_LABELS[month - 1] ?? '';
+  if (!day) return `${monthLabel} ${yearLabel}`;
+  return `${monthLabel} ${day}, ${yearLabel}`;
 }
 
-// Inline editor for birth/death year. Default state shows the dates
+// "Jul 18, 1938 – 2007" / "1938 –" (living author) / "– 2007" / null.
+function lifespan(birth, death) {
+  const b = formatDate(birth);
+  const d = formatDate(death);
+  if (!b && !d) return null;
+  if (b && d)   return `${b} – ${d}`;
+  if (b)        return `${b} –`;
+  return `– ${d}`;
+}
+
+// Extract just the year from a stored date string for the year-only
+// edit input. "1938-07-18" → "1938"; "-428" → "-428"; null → "".
+function yearOnly(dateStr) {
+  if (!dateStr) return '';
+  const m = String(dateStr).match(/^(-?\d{1,4})/);
+  return m ? m[1] : '';
+}
+
+// Splice a new year into an existing date string, preserving any
+// month/day suffix the user hasn't seen in the editor. Empty / null
+// new year clears the whole field.
+function replaceYear(existing, newYearStr) {
+  if (newYearStr === '' || newYearStr == null) return null;
+  if (!/^-?\d{1,4}$/.test(String(newYearStr).trim())) return null;
+  const suffix = existing
+    ? (String(existing).match(/^-?\d{1,4}(-\d{2}(?:-\d{2})?)?$/)?.[1] ?? '')
+    : '';
+  return `${String(newYearStr).trim()}${suffix}`;
+}
+
+// Inline editor for birth/death date. Default state shows the dates
 // (or a dim "add dates" hint if both null) as a hover-revealed link;
 // clicking swaps in two compact year inputs. Enter commits, Esc cancels.
-// Same hover-reveal aesthetic as GenderPicker so the dates feel like
-// ambient metadata rather than a form control.
+// The editor only edits the year — month/day precision from OL is
+// preserved transparently when the year is changed, and only cleared
+// when the user empties the field. Same hover-reveal aesthetic as
+// GenderPicker so the dates feel like ambient metadata.
 function DatesPicker({ birth, death, onChange }) {
   const [editing, setEditing] = useState(false);
   const [birthDraft, setBirthDraft] = useState('');
   const [deathDraft, setDeathDraft] = useState('');
   function start() {
-    setBirthDraft(birth ?? '');
-    setDeathDraft(death ?? '');
+    setBirthDraft(yearOnly(birth));
+    setDeathDraft(yearOnly(death));
     setEditing(true);
   }
   function commit() {
-    const parse = (v) => {
-      if (v === '' || v == null) return null;
-      const n = parseInt(v, 10);
-      return Number.isInteger(n) ? n : null;
-    };
-    onChange({ birth_year: parse(birthDraft), death_year: parse(deathDraft) });
+    onChange({
+      birth_date: replaceYear(birth, birthDraft),
+      death_date: replaceYear(death, deathDraft),
+    });
     setEditing(false);
   }
   function onKey(e) {
@@ -355,10 +395,10 @@ export default function Author() {
               />
               <span className="text-neutral-700">·</span>
               <DatesPicker
-                birth={author.birth_year}
-                death={author.death_year}
+                birth={author.birth_date}
+                death={author.death_date}
                 onChange={async (next) => {
-                  const prev = { birth_year: author.birth_year, death_year: author.death_year };
+                  const prev = { birth_date: author.birth_date, death_date: author.death_date };
                   setAuthor(a => ({ ...a, ...next }));
                   try {
                     await api.updateAuthor(author.id, next);

@@ -25,7 +25,7 @@ const photoUpload = multer({
   },
 });
 
-const AUTHOR_COLUMNS = 'id, name, gender, alias_group_id, bio, birth_year, death_year, photo_path, ol_key, bio_fetched_at';
+const AUTHOR_COLUMNS = 'id, name, gender, alias_group_id, bio, birth_date, death_date, photo_path, ol_key, bio_fetched_at';
 
 function loadAuthor(id) {
   return db.prepare(`SELECT ${AUTHOR_COLUMNS} FROM authors WHERE id = ?`).get(id);
@@ -62,19 +62,25 @@ router.get('/:id', (req, res) => {
 const ALLOWED_GENDERS = new Set(['male', 'female', 'other']);
 const YEAR_MIN = -3000;
 const YEAR_MAX = new Date().getFullYear() + 1;
-// Empty string / null clears, otherwise must be an integer in range.
-// Range is wide enough for BCE classical authors (Plato et al.) on the
-// low end and a small buffer past today on the high end (OL sometimes
-// has speculative dates). Returns { value } on success, { error } on
-// failure.
-function parseYearField(raw, fieldName) {
+// Empty string / null clears. Otherwise accepts:
+//   "YYYY"           — year only ("1938", "-428" for BCE)
+//   "YYYY-MM"        — year + month ("1938-07")
+//   "YYYY-MM-DD"     — full date ("1938-07-18")
+// A bare integer is also accepted and stringified for backward-compat
+// with year-only callers. Year range is wide enough for BCE classical
+// authors (Plato et al.) on the low end and a small buffer past today
+// on the high end. Returns { value } on success, { error } on failure.
+const DATE_RE = /^(-?\d{1,4})(?:-(0[1-9]|1[0-2])(?:-(0[1-9]|[12]\d|3[01]))?)?$/;
+function parseDateField(raw, fieldName) {
   if (raw === '' || raw == null) return { value: null };
-  const n = typeof raw === 'number' ? raw : parseInt(raw, 10);
-  if (!Number.isInteger(n)) return { error: `${fieldName} must be an integer` };
-  if (n < YEAR_MIN || n > YEAR_MAX) {
-    return { error: `${fieldName} must be between ${YEAR_MIN} and ${YEAR_MAX}` };
+  const s = typeof raw === 'number' ? String(raw) : String(raw).trim();
+  const m = s.match(DATE_RE);
+  if (!m) return { error: `${fieldName} must be YYYY, YYYY-MM, or YYYY-MM-DD` };
+  const year = parseInt(m[1], 10);
+  if (year < YEAR_MIN || year > YEAR_MAX) {
+    return { error: `${fieldName} year must be between ${YEAR_MIN} and ${YEAR_MAX}` };
   }
-  return { value: n };
+  return { value: s };
 }
 router.patch('/:id', (req, res) => {
   const id = Number(req.params.id);
@@ -84,8 +90,8 @@ router.patch('/:id', (req, res) => {
   const body = req.body ?? {};
   const hasGender = 'gender'     in body;
   const hasBio    = 'bio'        in body;
-  const hasBirth  = 'birth_year' in body;
-  const hasDeath  = 'death_year' in body;
+  const hasBirth  = 'birth_date' in body;
+  const hasDeath  = 'death_date' in body;
   if (!hasGender && !hasBio && !hasBirth && !hasDeath) {
     return res.status(400).json({ error: 'No supported fields to update' });
   }
@@ -111,15 +117,15 @@ router.patch('/:id', (req, res) => {
     sets.push("bio_fetched_at = datetime('now', 'localtime')");
   }
   if (hasBirth) {
-    const r = parseYearField(body.birth_year, 'birth_year');
+    const r = parseDateField(body.birth_date, 'birth_date');
     if (r.error) return res.status(400).json({ error: r.error });
-    sets.push('birth_year = ?');
+    sets.push('birth_date = ?');
     params.push(r.value);
   }
   if (hasDeath) {
-    const r = parseYearField(body.death_year, 'death_year');
+    const r = parseDateField(body.death_date, 'death_date');
     if (r.error) return res.status(400).json({ error: r.error });
-    sets.push('death_year = ?');
+    sets.push('death_date = ?');
     params.push(r.value);
   }
   db.prepare(`UPDATE authors SET ${sets.join(', ')} WHERE id = ?`).run(...params, id);
@@ -192,8 +198,8 @@ router.delete('/:id/photo', async (req, res) => {
 // when the user clicks "↻ Refresh from Open Library" on the author
 // page — there is no auto-refresh path.
 //
-// Non-destructive merge: every user-facing field (bio / birth_year /
-// death_year / photo_path) is preserved if already set, and OL only
+// Non-destructive merge: every user-facing field (bio / birth_date /
+// death_date / photo_path) is preserved if already set, and OL only
 // fills the blanks (`COALESCE(existing, ol_value)`). A user who wants
 // to replace a wrong value can clear it via the inline editor and
 // re-run Refresh. `ol_key` is the one exception — it always tracks
@@ -222,13 +228,13 @@ router.post('/:id/refresh', async (req, res) => {
     db.prepare(`
       UPDATE authors SET
         bio        = COALESCE(bio,        ?),
-        birth_year = COALESCE(birth_year, ?),
-        death_year = COALESCE(death_year, ?),
+        birth_date = COALESCE(birth_date, ?),
+        death_date = COALESCE(death_date, ?),
         photo_path = COALESCE(photo_path, ?),
         ol_key     = ?,
         bio_fetched_at = datetime('now', 'localtime')
       WHERE id = ?
-    `).run(found.bio, found.birth_year, found.death_year, found.photo_path, found.ol_key, id);
+    `).run(found.bio, found.birth_date, found.death_date, found.photo_path, found.ol_key, id);
     res.json(loadAuthor(id));
   } catch (err) {
     res.status(502).json({ error: 'Open Library lookup failed', detail: String(err.message || err) });
