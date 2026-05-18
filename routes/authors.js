@@ -31,6 +31,33 @@ function loadAuthor(id) {
   return db.prepare(`SELECT ${AUTHOR_COLUMNS} FROM authors WHERE id = ?`).get(id);
 }
 
+// Index of every author with their book count + flags for which curation
+// fields are populated. Backs /authors (the index page). Bio/photo/ol_key
+// are returned as booleans (0/1) rather than the full strings so the
+// response stays small — the index doesn't need bio bodies, just whether
+// each author has one. Dates / gender are returned in full because the
+// table shows them. Sorted alphabetically (NOCASE) so the client can
+// render straight without a follow-up sort step.
+router.get('/', (_req, res) => {
+  const rows = db.prepare(`
+    SELECT
+      a.id,
+      a.name,
+      a.gender,
+      a.birth_date,
+      a.death_date,
+      (a.bio IS NOT NULL)         AS has_bio,
+      (a.photo_path IS NOT NULL)  AS has_photo,
+      (a.ol_key IS NOT NULL)      AS has_ol_key,
+      COUNT(ba.book_id)           AS book_count
+    FROM authors a
+    LEFT JOIN book_authors ba ON ba.author_id = a.id
+    GROUP BY a.id
+    ORDER BY a.name COLLATE NOCASE
+  `).all();
+  res.json(rows);
+});
+
 // Author detail: returns the author's identity, alias siblings, and the
 // books bylined under THIS specific author (not the alias group as a
 // whole — the aliases UI lets the user navigate to a sibling's page for

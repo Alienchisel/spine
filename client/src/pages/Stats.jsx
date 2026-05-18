@@ -393,7 +393,7 @@ export default function Stats() {
                     + (authorsByGender.other || 0) + (authorsByGender.unassigned || 0);
   const hero = [
     { label: 'Books in library', value: totals?.books?.toLocaleString() ?? '—' },
-    { label: 'Authors',          value: authorTotal > 0 ? authorTotal.toLocaleString() : '—' },
+    { label: 'Authors',          value: authorTotal > 0 ? authorTotal.toLocaleString() : '—', to: '/authors' },
     { label: 'Pages read',       value: pagesRead?.toLocaleString() ?? '—' },
     { label: 'Hours listened',   value: minutesListened > 0 ? Math.floor(minutesListened / 60).toLocaleString() : '—' },
     { label: 'Day streak',       value: streaks?.days?.current?.toLocaleString() ?? '0' },
@@ -412,12 +412,21 @@ export default function Stats() {
       {actionError && <p role="alert" className="text-xs text-warn">{actionError}</p>}
 
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-6 sm:gap-8 py-4">
-        {hero.map(h => (
-          <div key={h.label} className="text-center sm:text-left">
-            <p className="text-[10px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">{h.label}</p>
-            <p className="font-slab text-4xl sm:text-5xl text-parchment tabular-nums leading-none">{h.value}</p>
-          </div>
-        ))}
+        {hero.map(h => {
+          const inner = (
+            <>
+              <p className="text-[10px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">{h.label}</p>
+              <p className="font-slab text-4xl sm:text-5xl text-parchment tabular-nums leading-none">{h.value}</p>
+            </>
+          );
+          return h.to ? (
+            <Link key={h.label} to={h.to} state={FROM_STATS} className="block text-center sm:text-left hover:opacity-80 transition-opacity">
+              {inner}
+            </Link>
+          ) : (
+            <div key={h.label} className="text-center sm:text-left">{inner}</div>
+          );
+        })}
       </div>
 
       {inProgressPace.length > 0 && (

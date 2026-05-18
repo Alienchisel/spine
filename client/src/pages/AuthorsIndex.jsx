@@ -1,0 +1,163 @@
+import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { api } from '../api.js';
+
+// Sort modes for the Authors index. Name is the default (alphabetical
+// scan / who-is-in-my-library reference); the rest are curation flows
+// that surface gaps (missing bio / photo / dates / gender) or freshness
+// (recently added). Each sort falls back to name for stable ordering
+// within ties.
+const SORTS = [
+  { key: 'name',      label: 'Name' },
+  { key: 'books',     label: 'Books' },
+  { key: 'no_bio',    label: 'Missing bio' },
+  { key: 'no_photo',  label: 'Missing photo' },
+  { key: 'no_dates',  label: 'Missing dates' },
+  { key: 'no_gender', label: 'Missing gender' },
+  { key: 'recent',    label: 'Recently added' },
+];
+
+// "1938-07-18" → "1938"; "-428-..." → "428 BCE"; null → null. The index
+// only shows the year — full precision lives on the detail page.
+function yearLabel(dateStr) {
+  if (!dateStr) return null;
+  const m = String(dateStr).match(/^(-?\d{1,4})/);
+  if (!m) return String(dateStr);
+  const y = parseInt(m[1], 10);
+  return y < 0 ? `${-y} BCE` : String(y);
+}
+
+function lifespanLabel(birth, death) {
+  const b = yearLabel(birth);
+  const d = yearLabel(death);
+  if (!b && !d) return null;
+  if (b && d)   return `${b}–${d}`;
+  if (b)        return `${b}–`;
+  return `–${d}`;
+}
+
+// Single-letter gender glyphs keep the column tight; '—' marks unassigned
+// rows so they're visually equivalent to other empty-cell hints.
+const GENDER_GLYPH = { male: 'm', female: 'f', other: 'o' };
+
+// Calm, dense table of every author with curation-state indicators.
+// Filled cells are dim ('·' / value); missing cells use '—' in a
+// slightly warmer hue so they pop on scan. Click a row to open the
+// detail page.
+export default function AuthorsIndex() {
+  const [authors, setAuthors] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState(null);
+  const [query,   setQuery]   = useState('');
+  const [sort,    setSort]    = useState('name');
+
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    api.getAuthors()
+      .then(setAuthors)
+      .catch(() => setError('Failed to load authors.'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const counts = useMemo(() => ({
+    total:     authors.length,
+    withBio:   authors.filter(a => a.has_bio).length,
+    withPhoto: authors.filter(a => a.has_photo).length,
+    withDates: authors.filter(a => a.birth_date || a.death_date).length,
+    withGender: authors.filter(a => a.gender).length,
+  }), [authors]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const rows = q
+      ? authors.filter(a => a.name.toLowerCase().includes(q))
+      : authors.slice();
+    const byName = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+    switch (sort) {
+      case 'books':     rows.sort((a, b) => b.book_count - a.book_count || byName(a, b)); break;
+      case 'no_bio':    rows.sort((a, b) => (a.has_bio - b.has_bio) || byName(a, b)); break;
+      case 'no_photo':  rows.sort((a, b) => (a.has_photo - b.has_photo) || byName(a, b)); break;
+      case 'no_dates':  rows.sort((a, b) => (Number(!!a.birth_date || !!a.death_date) - Number(!!b.birth_date || !!b.death_date)) || byName(a, b)); break;
+      case 'no_gender': rows.sort((a, b) => (Number(!!a.gender) - Number(!!b.gender)) || byName(a, b)); break;
+      case 'recent':    rows.sort((a, b) => b.id - a.id); break;
+      default:          rows.sort(byName);
+    }
+    return rows;
+  }, [authors, query, sort]);
+
+  const missing = <span className="text-oak/50">—</span>;
+  const present = <span className="text-neutral-700">·</span>;
+
+  return (
+    <div className="max-w-5xl">
+      <header className="mb-6">
+        <h1 className="text-2xl font-slab text-parchment uppercase tracking-wider">Authors</h1>
+        {!loading && !error && (
+          <p className="text-xs text-neutral-600 mt-2">
+            {counts.total} authors · {counts.withBio} with bios · {counts.withPhoto} with portraits · {counts.withDates} with dates · {counts.withGender} with gender
+          </p>
+        )}
+      </header>
+
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Filter by name"
+          className="bg-neutral-900 border border-neutral-800 rounded px-3 py-1.5 text-sm text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-oak/50 w-72"
+        />
+        <select
+          value={sort}
+          onChange={(e) => setSort(e.target.value)}
+          className="bg-neutral-900 border border-neutral-800 rounded px-3 py-1.5 text-sm text-neutral-300 focus:outline-none focus:border-oak/50"
+          aria-label="Sort"
+        >
+          {SORTS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+        </select>
+      </div>
+
+      {loading && <p className="text-sm text-neutral-500">Loading…</p>}
+      {error && <p role="alert" className="text-sm text-warn">{error}</p>}
+
+      {!loading && !error && (
+        <table className="w-full text-sm">
+          <thead className="text-xs uppercase tracking-wider text-neutral-600 border-b border-neutral-800/60">
+            <tr>
+              <th className="text-left  py-2 pr-3">Name</th>
+              <th className="text-right py-2 px-3 w-16">Books</th>
+              <th className="text-center py-2 px-3 w-12">Bio</th>
+              <th className="text-center py-2 px-3 w-14">Photo</th>
+              <th className="text-left  py-2 px-3 w-32">Dates</th>
+              <th className="text-center py-2 px-3 w-12" title="Gender">G</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((a) => {
+              const lifespan = lifespanLabel(a.birth_date, a.death_date);
+              const gender = a.gender ? GENDER_GLYPH[a.gender] ?? a.gender : null;
+              return (
+                <tr key={a.id} className="border-b border-neutral-900 hover:bg-neutral-900/50 transition-colors">
+                  <td className="py-1.5 pr-3">
+                    <Link to={`/authors/${a.id}`} className="text-neutral-300 hover:text-parchment transition-colors">
+                      {a.name}
+                    </Link>
+                  </td>
+                  <td className="text-right py-1.5 px-3 text-neutral-500 tabular-nums">{a.book_count}</td>
+                  <td className="text-center py-1.5 px-3">{a.has_bio   ? present : missing}</td>
+                  <td className="text-center py-1.5 px-3">{a.has_photo ? present : missing}</td>
+                  <td className="py-1.5 px-3 text-neutral-500">{lifespan ?? missing}</td>
+                  <td className="text-center py-1.5 px-3 text-neutral-500">{gender ?? missing}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+      {!loading && !error && filtered.length === 0 && (
+        <p className="text-sm text-neutral-500 mt-4">No authors match the filter.</p>
+      )}
+    </div>
+  );
+}

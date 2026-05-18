@@ -446,3 +446,76 @@ describe('authors — Open Library refresh', () => {
     assert.equal(after.bio_fetched_at, null);
   });
 });
+
+describe('authors — index', () => {
+  let url;
+  let close;
+
+  before(async () => {
+    const server = await createTestServer();
+    url = server.url;
+    close = server.close;
+  });
+
+  after(() => close());
+
+  async function req(method, path, body) {
+    const res = await fetch(`${url}${path}`, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: body != null ? JSON.stringify(body) : undefined,
+    });
+    const data = res.status === 204 ? null : await res.json();
+    return { status: res.status, body: data };
+  }
+
+  it('GET /api/authors returns every author with book_count + curation flags', async () => {
+    // Two distinct authors, one with two books, one with one — confirms
+    // book_count groups correctly and unrelated authors aren't double-
+    // counted.
+    const stem = 'idx' + Math.random().toString(36).slice(2, 6);
+    await req('POST', '/api/books', { title: `${stem}-A`, authors: [`Prolific ${stem}`] });
+    await req('POST', '/api/books', { title: `${stem}-B`, authors: [`Prolific ${stem}`] });
+    await req('POST', '/api/books', { title: `${stem}-C`, authors: [`Onehit ${stem}`] });
+
+    const { status, body } = await req('GET', '/api/authors');
+    assert.equal(status, 200);
+    assert.ok(Array.isArray(body));
+
+    const prolific = body.find(a => a.name === `Prolific ${stem}`);
+    const onehit   = body.find(a => a.name === `Onehit ${stem}`);
+    assert.ok(prolific, 'two-book author should appear');
+    assert.ok(onehit,   'one-book author should appear');
+    assert.equal(prolific.book_count, 2);
+    assert.equal(onehit.book_count,   1);
+    // Curation flags are 0/1 ints from the SQLite boolean expression.
+    assert.equal(prolific.has_bio,    0);
+    assert.equal(prolific.has_photo,  0);
+    assert.equal(prolific.has_ol_key, 0);
+    assert.equal(prolific.birth_date, null);
+    assert.equal(prolific.death_date, null);
+  });
+
+  it('GET /api/authors flips has_bio after a bio is set', async () => {
+    const stem = 'biostate' + Math.random().toString(36).slice(2, 6);
+    const { body: book } = await req('POST', '/api/books', { title: `${stem}-A`, authors: [`Author ${stem}`] });
+    const aid = book.authors[0].id;
+    let { body: idx } = await req('GET', '/api/authors');
+    assert.equal(idx.find(a => a.id === aid).has_bio, 0);
+
+    await req('PATCH', `/api/authors/${aid}`, { bio: 'a small bio' });
+    ({ body: idx } = await req('GET', '/api/authors'));
+    assert.equal(idx.find(a => a.id === aid).has_bio, 1);
+  });
+
+  it('GET /api/authors is sorted by name (case-insensitive)', async () => {
+    const stem = 'sort' + Math.random().toString(36).slice(2, 6);
+    await req('POST', '/api/books', { title: `${stem}-A`, authors: [`zebra ${stem}`] });
+    await req('POST', '/api/books', { title: `${stem}-B`, authors: [`Aardvark ${stem}`] });
+    const { body } = await req('GET', '/api/authors');
+    const aIdx = body.findIndex(a => a.name === `Aardvark ${stem}`);
+    const zIdx = body.findIndex(a => a.name === `zebra ${stem}`);
+    assert.ok(aIdx >= 0 && zIdx >= 0);
+    assert.ok(aIdx < zIdx, 'lowercase z should sort after capital A');
+  });
+});
