@@ -403,7 +403,7 @@ export default function Stats() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
       <div className="flex items-center justify-between gap-4">
         <h1 className="font-slab text-2xl text-parchment tracking-wide uppercase">Stats</h1>
-        <Link to="/collage" className="text-xs text-neutral-500 hover:text-neutral-200 transition-colors">
+        <Link to="/collage" state={FROM_STATS} className="text-xs text-neutral-500 hover:text-neutral-200 transition-colors">
           Reading collage →
         </Link>
       </div>
@@ -825,7 +825,7 @@ export default function Stats() {
           <Section
             title="Top authors"
             action={
-              <Link to="/collage?mode=top_authors" className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors">
+              <Link to="/collage?mode=top_authors" state={FROM_STATS} className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors">
                 View as collage →
               </Link>
             }

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, useLocation, Link } from 'react-router-dom';
 import html2canvas from 'html2canvas';
 import { api } from '../api.js';
 import { initialsFor } from '../utils.js';
@@ -33,6 +33,12 @@ const SIZE_OPTIONS = [3, 4, 5, 6];
 
 export default function Collage() {
   const [params, setParams] = useSearchParams();
+  const { state } = useLocation();
+  // Back-link contract mirrors Author/BookDetail/BrowsePage: state.from
+  // is the label, state.fromPath is the URL to return to. Defaults to
+  // Library when arrived at /collage cold (no in-app referrer).
+  const backLabel = state?.from ? `← ${state.from}` : '← Library';
+  const backPath  = state?.fromPath ?? '/';
   const mode    = MODE_OPTIONS.some(m => m.key === params.get('mode'))     ? params.get('mode')     : 'top_books';
   const period  = PERIOD_OPTIONS.some(p => p.key === params.get('period')) ? params.get('period')   : '30d';
   const size    = SIZE_OPTIONS.includes(Number(params.get('size')))        ? Number(params.get('size')) : 3;
@@ -201,7 +207,10 @@ export default function Collage() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
-      <h1 className="text-2xl font-bold text-white mb-6">Reading collage</h1>
+      <Link to={backPath} className="text-sm text-neutral-500 hover:text-neutral-200 transition-colors">
+        {backLabel}
+      </Link>
+      <h1 className="text-2xl font-bold text-white mt-6 mb-6">Reading collage</h1>
 
       <div className="mb-3 flex flex-wrap items-center gap-4 text-xs">
         <label className="inline-flex items-center gap-1.5 text-neutral-500">
