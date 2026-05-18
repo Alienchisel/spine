@@ -1,9 +1,26 @@
 import { useEffect, useState } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import Nav from './components/Nav.jsx';
 import { ConfirmModalProvider } from './components/ConfirmModal.jsx';
 import CommandPalette from './components/CommandPalette.jsx';
 import { api } from './api.js';
+
+// Map the page the user was on to a sensible back-link label so the R
+// shortcut from /authors reads "← Authors" on BookDetail, etc. Anything
+// unrecognised falls back to "Library" (the home).
+function labelForPath(pathname) {
+  if (pathname === '/' || pathname.startsWith('/browse')) return 'Library';
+  if (pathname.startsWith('/stats'))    return 'Stats';
+  if (pathname.startsWith('/authors'))  return 'Authors';
+  if (pathname.startsWith('/tags'))     return 'Tags';
+  if (pathname.startsWith('/series'))   return 'Series';
+  if (pathname.startsWith('/loved'))    return 'Loved';
+  if (pathname.startsWith('/readlist')) return 'Readlist';
+  if (pathname.startsWith('/lists'))    return 'Lists';
+  if (pathname.startsWith('/diary'))    return 'Diary';
+  if (pathname.startsWith('/shelf'))    return 'Shelves';
+  return 'Library';
+}
 
 // Layout route for the data router defined in main.jsx — renders the
 // shared shell (Nav + main wrapper) and the per-route page via <Outlet/>.
@@ -11,12 +28,17 @@ import { api } from './api.js';
 // useConfirm() through context.
 export default function App() {
   const navigate = useNavigate();
+  const location = useLocation();
   // Plain `R` jumps to a random book — Wikipedia/Letterboxd convention.
   // Guarded so input fields, textareas, and contenteditable surfaces
   // (bio editor, search bars, etc.) still get the keystroke. Any
   // modifier (Ctrl/Meta/Alt/Shift) bows out so Ctrl-R stays the
   // browser reload and Shift-R is free as an escalation if R alone
-  // ever proves too misfire-prone.
+  // ever proves too misfire-prone. Passes the current pathname+search
+  // as fromPath so BookDetail's '← Library' (or wherever) returns to
+  // the exact view the user was on — including the active tab — rather
+  // than falling back to document.referrer, which inside an SPA can
+  // be stale (only updates on hard navigations).
   useEffect(() => {
     function onKey(e) {
       if (e.key !== 'r' && e.key !== 'R') return;
@@ -29,13 +51,15 @@ export default function App() {
         el.isContentEditable
       )) return;
       e.preventDefault();
+      const fromPath = location.pathname + location.search;
+      const from = labelForPath(location.pathname);
       api.getRandomBook()
-        .then(({ id }) => navigate(`/books/${id}`))
+        .then(({ id }) => navigate(`/books/${id}`, { state: { from, fromPath } }))
         .catch(() => {});
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [navigate]);
+  }, [navigate, location.pathname, location.search]);
 
   // The gutter art's height is captured once at mount and only updates
   // on substantial window resizes — so transient viewport jitters from
