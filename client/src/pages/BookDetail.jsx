@@ -684,7 +684,14 @@ export default function BookDetail() {
             </div>
           )}
 
-          <EditionsSection book={book} linkState={navState} onChange={(updated) => {
+          {/* Edition-row Links inherit this page's navState when it
+              exists (so '← Library / Stats / etc.' threads through
+              edition hops), and fall back to a link pointing at the
+              current book when navState is null (cold deep-link to
+              /books/:id). Without that fallback, clicking a sibling
+              edition from a cold-opened tab would land on a page with
+              no back affordance — same SPA-vs-document.referrer trap. */}
+          <EditionsSection book={book} linkState={navState ?? bookFromState} onChange={(updated) => {
             // Same stale-navigation guard as ProgressSection — the
             // edition link/unlink calls are async; if the user has
             // navigated to another book in the meantime, drop the result
