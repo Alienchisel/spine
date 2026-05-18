@@ -89,15 +89,33 @@ export default function Author() {
   // expanded state into a new visit.
   useEffect(() => { setBioExpanded(false); setBioEditing(false); setBioError(null); }, [id]);
 
-  // Auto-refresh on first visit: if the author has never been looked up
-  // (bio_fetched_at is null), fire the refresh and merge in the result.
-  // The guard ref prevents re-firing for the same id if the auto-refresh
-  // itself causes a re-render.
+  // Auto-refresh from Open Library. Two trigger paths:
+  //   1. First visit — bio_fetched_at is null, never looked up.
+  //   2. Living-author staleness — death_year is null (so the date
+  //      could change if they've since died) AND the last fetch was
+  //      90+ days ago. Already-deceased authors are skipped on path
+  //      2 because their dates won't change.
+  // The guard ref prevents re-firing for the same id if the auto-
+  // refresh itself causes a re-render.
   useEffect(() => {
-    if (!author || author.bio_fetched_at) return;
+    if (!author) return;
     if (autoRefreshedRef.current.has(author.id)) return;
+    const ninetyDaysMs = 90 * 24 * 60 * 60 * 1000;
+    // SQLite stores datetime('now','localtime') as "YYYY-MM-DD HH:MM:SS";
+    // swap the space for 'T' so Date.parse honors it as ISO-ish.
+    const lastFetch = author.bio_fetched_at
+      ? new Date(author.bio_fetched_at.replace(' ', 'T')).getTime()
+      : null;
+    const firstVisit = !author.bio_fetched_at;
+    const livingStale = author.death_year == null
+      && lastFetch != null && !Number.isNaN(lastFetch)
+      && (Date.now() - lastFetch) > ninetyDaysMs;
+    if (!firstVisit && !livingStale) return;
     autoRefreshedRef.current.add(author.id);
-    setAutoFetching(true);
+    // Only flip the visible "Looking up…" indicator for first visits —
+    // for stale-living-author refreshes the bio is already on-screen
+    // and the refresh runs silently in the background.
+    if (firstVisit) setAutoFetching(true);
     api.refreshAuthor(author.id)
       .then(updated => {
         // Merge only the fields the refresh owns. The /refresh response
