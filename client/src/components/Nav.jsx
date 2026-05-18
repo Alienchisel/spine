@@ -23,8 +23,12 @@ export default function Nav() {
   }
 
   return (
-    <header className="border-b border-neutral-800/60 bg-neutral-950/90 backdrop-blur-sm sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
+    // Header is transparent at the gutter edges so the atmosphere art
+    // extends to the top of the viewport — the opaque bg + border + blur
+    // sit only on the centred max-w-7xl band where the Nav contents live
+    // and where page content scrolls under the sticky header.
+    <header className="sticky top-0 z-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between border-b border-neutral-800/60 bg-neutral-950/90 backdrop-blur-sm">
         <div className="flex items-center gap-6">
           <Link
             to="/"
