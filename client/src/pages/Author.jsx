@@ -9,19 +9,30 @@ import BookCard from '../components/BookCard.jsx';
 // the field. Styled to blend into the surrounding meta line — native
 // chevron suppressed, padding stripped, underline-on-hover signals
 // it's interactive without screaming "form control".
+// Native <select> sizes itself to its widest option ("unassigned" here),
+// which leaves an awkward gap to the right of shorter values. Workaround:
+// render a span that auto-sizes to the current value and overlay a
+// transparent <select> on top to keep the native dropdown's keyboard
+// support and accessibility. Hover/focus styles cascade via `group`.
 function GenderPicker({ value, onChange }) {
+  const display = value ?? 'unassigned';
   return (
-    <select
-      value={value ?? ''}
-      onChange={(e) => onChange(e.target.value === '' ? null : e.target.value)}
-      className="appearance-none bg-transparent border-0 p-0 m-0 text-sm text-neutral-700 hover:text-neutral-400 hover:underline focus:text-neutral-400 focus:underline focus:outline-none cursor-pointer transition-colors"
-      aria-label="Author gender"
-    >
-      <option value="">unassigned</option>
-      <option value="male">male</option>
-      <option value="female">female</option>
-      <option value="other">other</option>
-    </select>
+    <span className="relative inline-block group cursor-pointer">
+      <span className="text-sm text-neutral-700 group-hover:text-neutral-400 group-hover:underline group-focus-within:text-neutral-400 group-focus-within:underline transition-colors">
+        {display}
+      </span>
+      <select
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value === '' ? null : e.target.value)}
+        className="absolute inset-0 opacity-0 cursor-pointer focus:outline-none"
+        aria-label="Author gender"
+      >
+        <option value="">unassigned</option>
+        <option value="male">male</option>
+        <option value="female">female</option>
+        <option value="other">other</option>
+      </select>
+    </span>
   );
 }
 
