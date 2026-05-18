@@ -344,7 +344,7 @@ export default function Collage() {
             // filter; only logged activity does.
             <p className="text-[11px] text-neutral-600 mb-3">
               {mode === 'top_books'
-                ? 'Ranked by minutes of reading-log activity — pages converted to minutes at ~2 min/page so audiobooks and page-logged books rank in the same unit. Books with no logged sessions don’t appear.'
+                ? 'Ranked by minutes of reading-log activity — pages converted to minutes at ~2 min/page so audiobooks and page-logged books rank in the same unit.'
                 : 'Ranked by minutes of reading-log activity across each author’s books — pages converted at ~2 min/page so all formats share one unit.'}
             </p>
           )}
