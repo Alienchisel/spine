@@ -122,6 +122,19 @@ export default function Collage() {
     if (!gridRef.current) return;
     if (!exportGuard.begin()) return;
     setError(null);
+    // html2canvas 1.4.x ignores the modern CSS `aspect-ratio`
+    // property, so each `aspect-[2/3]` tile gets width-from-layout
+    // but no height in the snapshot — covers come out squished.
+    // Pin each tile's live offsetHeight as an inline style before
+    // capture, restore after, so the engine sees a concrete height
+    // it can render against.
+    const tiles = gridRef.current.querySelectorAll('a');
+    const restores = [];
+    tiles.forEach(t => {
+      const prev = t.style.height;
+      t.style.height = `${t.offsetHeight}px`;
+      restores.push(() => { t.style.height = prev; });
+    });
     try {
       // Custom fonts (font-slab) might not be ready at first paint;
       // html2canvas would otherwise capture the fallback metric. Wait
@@ -129,11 +142,9 @@ export default function Collage() {
       if (document.fonts?.ready) await document.fonts.ready;
 
       // Snapshot the live grid element directly — no wrapper, no
-      // footer, no clone. Cloning was causing tiles to render at the
-      // wrong aspect ratio (html2canvas's aspect-ratio handling is
-      // shaky on cloned nodes that haven't been laid out yet), and
-      // the wrapper's padding was nudging columns narrower. Capturing
-      // the live node guarantees the PNG matches what the user sees.
+      // footer, no clone. Capturing the live node guarantees the PNG
+      // matches what the user sees (modulo the aspect-ratio shim
+      // above).
       const canvas = await html2canvas(gridRef.current, {
         backgroundColor: '#080e0d',  // bg-neutral-950 — fills behind gaps
         scale: 2,
@@ -157,6 +168,7 @@ export default function Collage() {
     } catch (err) {
       setError(`Export failed: ${err?.message || 'unknown error'}`);
     } finally {
+      restores.forEach(fn => fn());
       exportGuard.end();
     }
   }
