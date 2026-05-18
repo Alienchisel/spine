@@ -122,33 +122,20 @@ export default function Collage() {
     if (!gridRef.current) return;
     if (!exportGuard.begin()) return;
     setError(null);
-    let wrapper;
     try {
       // Custom fonts (font-slab) might not be ready at first paint;
       // html2canvas would otherwise capture the fallback metric. Wait
       // for the font registry to settle before snapshotting.
       if (document.fonts?.ready) await document.fonts.ready;
 
-      // Build the export-only frame out of band so the on-page grid
-      // stays bare. Position off-screen so the user doesn't see the
-      // wrapper flash in. Width matches the live grid so columns lay
-      // out identically; image clones inherit the browser's image
-      // cache so they paint instantly without re-fetching.
-      wrapper = document.createElement('div');
-      wrapper.style.position = 'absolute';
-      wrapper.style.left     = '-99999px';
-      wrapper.style.top      = '0';
-      wrapper.style.width    = `${gridRef.current.offsetWidth}px`;
-      wrapper.className = 'bg-neutral-950 text-parchment p-6 rounded';
-      wrapper.appendChild(gridRef.current.cloneNode(true));
-      const footer = document.createElement('p');
-      footer.className   = 'mt-4 text-[10px] text-neutral-700 text-right tracking-wide';
-      footer.textContent = `spine · ${footerStamp} · ${todayIso}`;
-      wrapper.appendChild(footer);
-      document.body.appendChild(wrapper);
-
-      const canvas = await html2canvas(wrapper, {
-        backgroundColor: '#080e0d',  // bg-neutral-950
+      // Snapshot the live grid element directly — no wrapper, no
+      // footer, no clone. Cloning was causing tiles to render at the
+      // wrong aspect ratio (html2canvas's aspect-ratio handling is
+      // shaky on cloned nodes that haven't been laid out yet), and
+      // the wrapper's padding was nudging columns narrower. Capturing
+      // the live node guarantees the PNG matches what the user sees.
+      const canvas = await html2canvas(gridRef.current, {
+        backgroundColor: '#080e0d',  // bg-neutral-950 — fills behind gaps
         scale: 2,
         useCORS: true,
         logging: false,
@@ -170,7 +157,6 @@ export default function Collage() {
     } catch (err) {
       setError(`Export failed: ${err?.message || 'unknown error'}`);
     } finally {
-      if (wrapper) wrapper.remove();
       exportGuard.end();
     }
   }
@@ -193,7 +179,6 @@ export default function Collage() {
   // year_in_review shows exactly the books that were finished, no
   // empty cells needed.
   const blanks = needsYear ? 0 : Math.max(0, size * size - tiles.length);
-  const todayIso = new Date().toLocaleDateString('en-CA');
   // Tile links carry this state so the Book/Author page back-button
   // returns to the same Collage view the user came from (including the
   // selected mode / period / size, encoded in the URL).
@@ -201,10 +186,6 @@ export default function Collage() {
     from: 'Collage',
     fromPath: `/collage${params.toString() ? `?${params.toString()}` : ''}`,
   };
-  const footerStamp =
-      needsYear ? `Year · ${year}`
-    : mode === 'recently_finished' ? 'Recently finished'
-    : (PERIOD_OPTIONS.find(p => p.key === period)?.label ?? period);
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
