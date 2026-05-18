@@ -10,8 +10,11 @@ import ErrorBanner from '../components/ErrorBanner.jsx';
 const STORAGE_KEY = 'spine.collage.lastConfig';
 
 // Last.fm-style reading-collage grid. URL knobs (mode / period / size /
-// year / labels) round-trip so a chosen view is bookmarkable.
-// PNG export captures the framed grid + footer at the dark Spine palette.
+// year) round-trip so a chosen view is bookmarkable. The on-page view
+// is a bare grid matching every other cover-grid surface in Spine; the
+// PNG export adds a dark padded frame + attribution footer via a DOM
+// clone at capture time so the on-page chrome doesn't drift from the
+// rest of the app.
 const MODE_OPTIONS = [
   { key: 'top_books',         label: 'Top books' },
   { key: 'top_authors',       label: 'Top authors' },
@@ -33,7 +36,6 @@ export default function Collage() {
   const mode    = MODE_OPTIONS.some(m => m.key === params.get('mode'))     ? params.get('mode')     : 'top_books';
   const period  = PERIOD_OPTIONS.some(p => p.key === params.get('period')) ? params.get('period')   : '30d';
   const size    = SIZE_OPTIONS.includes(Number(params.get('size')))        ? Number(params.get('size')) : 3;
-  const showLabels = params.get('labels') !== '0'; // default on; user can turn off via URL
   // Year in review defaults to the current year if no ?year= is set —
   // matches the "what have I read this year so far" use case that
   // dominates January/early-year visits.
@@ -53,9 +55,10 @@ export default function Collage() {
   // Single-flight guard on the PNG export so a double-click can't fire
   // two parallel html2canvas passes (each is heavy — ~1 MB raster).
   const exportGuard = useActionGuard();
-  // Captured by html2canvas — we want the framed export region, not
-  // the whole page (no nav, no controls).
-  const exportRef = useRef(null);
+  // Source for the PNG export. html2canvas snapshots a styled clone
+  // of this element (see downloadPng) so the framing + footer only
+  // exist in the exported image, not on the live page.
+  const gridRef = useRef(null);
 
   // localStorage persistence — restore on a bare /collage visit so the
   // user lands on their preferred config without bookmarking. Explicit
@@ -116,15 +119,35 @@ export default function Collage() {
   }
 
   async function downloadPng() {
-    if (!exportRef.current) return;
+    if (!gridRef.current) return;
     if (!exportGuard.begin()) return;
     setError(null);
+    let wrapper;
     try {
       // Custom fonts (font-slab) might not be ready at first paint;
       // html2canvas would otherwise capture the fallback metric. Wait
       // for the font registry to settle before snapshotting.
       if (document.fonts?.ready) await document.fonts.ready;
-      const canvas = await html2canvas(exportRef.current, {
+
+      // Build the export-only frame out of band so the on-page grid
+      // stays bare. Position off-screen so the user doesn't see the
+      // wrapper flash in. Width matches the live grid so columns lay
+      // out identically; image clones inherit the browser's image
+      // cache so they paint instantly without re-fetching.
+      wrapper = document.createElement('div');
+      wrapper.style.position = 'absolute';
+      wrapper.style.left     = '-99999px';
+      wrapper.style.top      = '0';
+      wrapper.style.width    = `${gridRef.current.offsetWidth}px`;
+      wrapper.className = 'bg-neutral-950 text-parchment p-6 rounded';
+      wrapper.appendChild(gridRef.current.cloneNode(true));
+      const footer = document.createElement('p');
+      footer.className   = 'mt-4 text-[10px] text-neutral-700 text-right tracking-wide';
+      footer.textContent = `spine · ${footerStamp} · ${todayIso}`;
+      wrapper.appendChild(footer);
+      document.body.appendChild(wrapper);
+
+      const canvas = await html2canvas(wrapper, {
         backgroundColor: '#080e0d',  // bg-neutral-950
         scale: 2,
         useCORS: true,
@@ -147,6 +170,7 @@ export default function Collage() {
     } catch (err) {
       setError(`Export failed: ${err?.message || 'unknown error'}`);
     } finally {
+      if (wrapper) wrapper.remove();
       exportGuard.end();
     }
   }
@@ -243,15 +267,6 @@ export default function Collage() {
             </select>
           </label>
         )}
-        <label className="inline-flex items-center gap-1.5 text-neutral-500 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={showLabels}
-            onChange={(e) => update('labels', e.target.checked ? '1' : '0')}
-            className="accent-oak"
-          />
-          <span>Labels</span>
-        </label>
         <button
           type="button"
           onClick={resetConfig}
@@ -264,7 +279,7 @@ export default function Collage() {
           type="button"
           onClick={downloadPng}
           disabled={exportGuard.busy || tiles.length === 0}
-          className="text-xs px-3 py-1.5 rounded bg-oak text-neutral-950 font-medium hover:bg-leather disabled:opacity-50 disabled:cursor-wait transition-colors"
+          className="text-xs px-3 py-1 rounded bg-neutral-800 border border-neutral-700 text-neutral-300 hover:text-neutral-100 hover:bg-neutral-700 disabled:opacity-50 disabled:cursor-wait transition-colors"
           title="Download a PNG of this collage"
         >
           {exportGuard.busy ? 'Rendering…' : '↓ Download PNG'}
@@ -281,45 +296,37 @@ export default function Collage() {
             : 'No reading activity in this period.'}
         </p>
       ) : (
-        // Captured frame — this is what html2canvas snapshots. Padding
-        // gives the PNG breathing room so it doesn't read as edge-to-
-        // edge.
-        <div ref={exportRef} className="bg-neutral-950 text-parchment p-6 rounded">
-          <div className="grid gap-2" style={gridStyle}>
-            {tiles.map(t => (
-              <Tile
-                key={`${t.href}-${t.id}`}
-                tile={t}
-                showLabel={showLabels}
-                linkState={fromState}
-              />
-            ))}
-            {/* Blank placeholders fill the grid when the data set is
-                smaller than size*size — keeps the rectangle's shape so
-                the user sees their actual coverage relative to the
-                chosen grid. */}
-            {Array.from({ length: blanks }).map((_, i) => (
-              <div key={`blank-${i}`} className="aspect-[2/3] bg-neutral-900/40 rounded" />
-            ))}
-          </div>
-          {/* Footer is the attribution stamp on the exported PNG so
-              shared screenshots aren't anonymous. Visible on-page too
-              as part of the captured layout. */}
-          <p className="mt-4 text-[10px] text-neutral-700 text-right tracking-wide">
-            spine · {footerStamp} · {todayIso}
-          </p>
+        // Bare grid on-page, matching every other cover-grid surface
+        // (Library, Loved, BrowsePage). The PNG export adds the dark
+        // padded frame + attribution footer by cloning this node into
+        // a styled off-screen wrapper at capture time.
+        <div ref={gridRef} className="grid gap-2" style={gridStyle}>
+          {tiles.map(t => (
+            <Tile
+              key={`${t.href}-${t.id}`}
+              tile={t}
+              linkState={fromState}
+            />
+          ))}
+          {/* Blank placeholders fill the grid when the data set is
+              smaller than size*size — keeps the rectangle's shape so
+              the user sees their actual coverage relative to the
+              chosen grid. */}
+          {Array.from({ length: blanks }).map((_, i) => (
+            <div key={`blank-${i}`} className="aspect-[2/3] bg-neutral-900/40 rounded" />
+          ))}
         </div>
       )}
     </div>
   );
 }
 
-function Tile({ tile, showLabel, linkState }) {
+function Tile({ tile, linkState }) {
   return (
     <Link
       to={tile.href}
       state={linkState}
-      className="group relative block aspect-[2/3] rounded overflow-hidden bg-neutral-900 focus:outline-none focus:ring-2 focus:ring-oak/50"
+      className="block aspect-[2/3] rounded overflow-hidden bg-neutral-900 focus:outline-none focus:ring-2 focus:ring-oak/50"
       title={tile.sublabel ? `${tile.label} · ${tile.sublabel}` : tile.label}
     >
       {tile.image ? (
@@ -336,14 +343,6 @@ function Tile({ tile, showLabel, linkState }) {
         // tile size. Mononyms ("Plato") fall through as one letter.
         <div className="w-full h-full bg-gradient-to-br from-neutral-800 to-neutral-900 flex items-center justify-center text-neutral-700 text-3xl font-slab tracking-wide">
           {initialsFor(tile.label)}
-        </div>
-      )}
-      {showLabel && (
-        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/55 to-transparent p-2">
-          <p className="text-xs text-neutral-100 font-medium leading-tight line-clamp-2">{tile.label}</p>
-          {tile.sublabel && (
-            <p className="text-[10px] text-neutral-400 mt-0.5">{tile.sublabel}</p>
-          )}
         </div>
       )}
     </Link>
