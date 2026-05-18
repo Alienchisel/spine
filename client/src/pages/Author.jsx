@@ -14,7 +14,7 @@ function GenderPicker({ value, onChange }) {
     <select
       value={value ?? ''}
       onChange={(e) => onChange(e.target.value === '' ? null : e.target.value)}
-      className="appearance-none bg-transparent border-0 p-0 m-0 text-sm text-neutral-500 hover:text-neutral-300 hover:underline focus:text-neutral-300 focus:underline focus:outline-none cursor-pointer transition-colors"
+      className="appearance-none bg-transparent border-0 p-0 m-0 text-sm text-neutral-700 hover:text-neutral-400 hover:underline focus:text-neutral-400 focus:underline focus:outline-none cursor-pointer transition-colors"
       aria-label="Author gender"
     >
       <option value="">unassigned</option>
