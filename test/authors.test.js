@@ -134,6 +134,40 @@ describe('authors — Open Library refresh', () => {
     assert.ok(refresh.body.bio_fetched_at, 'bio_fetched_at should bump on miss');
   });
 
+  it('PATCH birth_year and death_year round-trip and validate range', async () => {
+    const { body: book } = await req('POST', '/api/books', {
+      title: 'Dates Edit Book', authors: ['Dates Edit Author'], fiction: true,
+    });
+    const aid = book.authors[0].id;
+
+    // Set both years.
+    const set = await req('PATCH', `/api/authors/${aid}`, { birth_year: 1724, death_year: 1793 });
+    assert.equal(set.status, 200);
+    assert.equal(set.body.birth_year, 1724);
+    assert.equal(set.body.death_year, 1793);
+
+    // Clear death (author still alive — common edit shape).
+    const clr = await req('PATCH', `/api/authors/${aid}`, { death_year: null });
+    assert.equal(clr.status, 200);
+    assert.equal(clr.body.death_year, null);
+    assert.equal(clr.body.birth_year, 1724, 'birth_year should survive a death_year clear');
+
+    // BCE years are allowed.
+    const bce = await req('PATCH', `/api/authors/${aid}`, { birth_year: -428, death_year: -348 });
+    assert.equal(bce.status, 200);
+    assert.equal(bce.body.birth_year, -428);
+
+    // Non-integer rejected.
+    const bad = await req('PATCH', `/api/authors/${aid}`, { birth_year: 'nineteen' });
+    assert.equal(bad.status, 400);
+
+    // Out-of-range rejected.
+    const tooOld = await req('PATCH', `/api/authors/${aid}`, { birth_year: -9999 });
+    assert.equal(tooOld.status, 400);
+    const tooFar = await req('PATCH', `/api/authors/${aid}`, { death_year: 3000 });
+    assert.equal(tooFar.status, 400);
+  });
+
   it('PATCH bio persists the text and bumps bio_fetched_at to suppress auto-refresh', async () => {
     const { body: book } = await req('POST', '/api/books', {
       title: 'Bio Edit Book', authors: ['Bio Edit Author'], fiction: true,

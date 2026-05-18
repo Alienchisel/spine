@@ -33,6 +33,65 @@ function lifespan(birth, death) {
   return `– ${death}`;
 }
 
+// Inline editor for birth/death year. Default state shows the dates
+// (or "+ Add dates" if both null) as a hover-revealed link; clicking
+// swaps in two compact year inputs. Enter commits, Esc cancels.
+// Same hover-reveal aesthetic as GenderPicker so the dates feel like
+// ambient metadata rather than a form control.
+function DatesPicker({ birth, death, onChange }) {
+  const [editing, setEditing] = useState(false);
+  const [birthDraft, setBirthDraft] = useState('');
+  const [deathDraft, setDeathDraft] = useState('');
+  function start() {
+    setBirthDraft(birth ?? '');
+    setDeathDraft(death ?? '');
+    setEditing(true);
+  }
+  function commit() {
+    const parse = (v) => {
+      if (v === '' || v == null) return null;
+      const n = parseInt(v, 10);
+      return Number.isInteger(n) ? n : null;
+    };
+    onChange({ birth_year: parse(birthDraft), death_year: parse(deathDraft) });
+    setEditing(false);
+  }
+  function onKey(e) {
+    if (e.key === 'Escape') { setEditing(false); }
+    if (e.key === 'Enter')  { e.preventDefault(); commit(); }
+  }
+  if (editing) {
+    return (
+      <span className="inline-flex items-center gap-1">
+        <input
+          type="number" value={birthDraft} onChange={(e) => setBirthDraft(e.target.value)}
+          onKeyDown={onKey} autoFocus aria-label="Birth year"
+          placeholder="born"
+          className="w-16 bg-neutral-900 border border-neutral-700 rounded px-1.5 py-0.5 text-sm text-neutral-200 placeholder-neutral-700 focus:outline-none focus:border-oak/50"
+        />
+        <span className="text-neutral-700">–</span>
+        <input
+          type="number" value={deathDraft} onChange={(e) => setDeathDraft(e.target.value)}
+          onKeyDown={onKey} aria-label="Death year"
+          placeholder="died"
+          className="w-16 bg-neutral-900 border border-neutral-700 rounded px-1.5 py-0.5 text-sm text-neutral-200 placeholder-neutral-700 focus:outline-none focus:border-oak/50"
+        />
+        <button onClick={commit} className="text-xs text-oak hover:text-leather transition-colors">Save</button>
+        <button onClick={() => setEditing(false)} className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors">Cancel</button>
+      </span>
+    );
+  }
+  const text = lifespan(birth, death);
+  return (
+    <button
+      onClick={start}
+      className="text-sm text-neutral-700 hover:text-neutral-400 hover:underline focus:text-neutral-400 focus:underline focus:outline-none transition-colors"
+    >
+      {text ?? '+ Add dates'}
+    </button>
+  );
+}
+
 // Author entity page: lists all books bylined under this specific
 // author plus an "also writes as" section linking to alias siblings.
 // Distinct from /browse/author/:name which is a name-based filter view —
@@ -228,7 +287,6 @@ export default function Author() {
     [author?.name, pathname],
   );
 
-  const dates = author ? lifespan(author.birth_year, author.death_year) : null;
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
@@ -333,12 +391,20 @@ export default function Author() {
                   }
                 }}
               />
-              {dates && (
-                <>
-                  <span className="text-neutral-700">·</span>
-                  <span>{dates}</span>
-                </>
-              )}
+              <span className="text-neutral-700">·</span>
+              <DatesPicker
+                birth={author.birth_year}
+                death={author.death_year}
+                onChange={async (next) => {
+                  const prev = { birth_year: author.birth_year, death_year: author.death_year };
+                  setAuthor(a => ({ ...a, ...next }));
+                  try {
+                    await api.updateAuthor(author.id, next);
+                  } catch {
+                    setAuthor(a => ({ ...a, ...prev }));
+                  }
+                }}
+              />
             </p>
           )}
           {!loading && author && (

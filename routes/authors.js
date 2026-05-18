@@ -60,15 +60,33 @@ router.get('/:id', (req, res) => {
 // has been looked at"; both cases stop the auto-retry. The manual
 // "↻ Refresh from Open Library" button still overwrites, by design.
 const ALLOWED_GENDERS = new Set(['male', 'female', 'other']);
+const YEAR_MIN = -3000;
+const YEAR_MAX = new Date().getFullYear() + 1;
+// Empty string / null clears, otherwise must be an integer in range.
+// Range is wide enough for BCE classical authors (Plato et al.) on the
+// low end and a small buffer past today on the high end (OL sometimes
+// has speculative dates). Returns { value } on success, { error } on
+// failure.
+function parseYearField(raw, fieldName) {
+  if (raw === '' || raw == null) return { value: null };
+  const n = typeof raw === 'number' ? raw : parseInt(raw, 10);
+  if (!Number.isInteger(n)) return { error: `${fieldName} must be an integer` };
+  if (n < YEAR_MIN || n > YEAR_MAX) {
+    return { error: `${fieldName} must be between ${YEAR_MIN} and ${YEAR_MAX}` };
+  }
+  return { value: n };
+}
 router.patch('/:id', (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid author id' });
   const author = db.prepare('SELECT id FROM authors WHERE id = ?').get(id);
   if (!author) return res.status(404).json({ error: 'Author not found' });
   const body = req.body ?? {};
-  const hasGender = 'gender' in body;
-  const hasBio    = 'bio'    in body;
-  if (!hasGender && !hasBio) {
+  const hasGender = 'gender'     in body;
+  const hasBio    = 'bio'        in body;
+  const hasBirth  = 'birth_year' in body;
+  const hasDeath  = 'death_year' in body;
+  if (!hasGender && !hasBio && !hasBirth && !hasDeath) {
     return res.status(400).json({ error: 'No supported fields to update' });
   }
   const sets = [];
@@ -91,6 +109,18 @@ router.patch('/:id', (req, res) => {
     sets.push('bio = ?');
     params.push(next);
     sets.push("bio_fetched_at = datetime('now', 'localtime')");
+  }
+  if (hasBirth) {
+    const r = parseYearField(body.birth_year, 'birth_year');
+    if (r.error) return res.status(400).json({ error: r.error });
+    sets.push('birth_year = ?');
+    params.push(r.value);
+  }
+  if (hasDeath) {
+    const r = parseYearField(body.death_year, 'death_year');
+    if (r.error) return res.status(400).json({ error: r.error });
+    sets.push('death_year = ?');
+    params.push(r.value);
   }
   db.prepare(`UPDATE authors SET ${sets.join(', ')} WHERE id = ?`).run(...params, id);
   res.json(loadAuthor(id));
