@@ -12,7 +12,7 @@ import { useStaleGuard } from '../hooks/useStaleGuard.js';
 const FIELD_LABEL = {
   author: 'Author', translator: 'Translator', publisher: 'Publisher',
   series: 'Series', tag: 'Tag', fiction: '', format: '', language: 'Language',
-  narrator: 'Narrator', rating: 'Rating', year_finished: 'Finished',
+  narrator: 'Narrator', rating: 'Rating', year_finished: 'Finished', year_acquired: 'Acquired',
   author_gender: 'Author gender',
 };
 
@@ -31,6 +31,7 @@ function starsLabel(r) {
 function browseSort(field) {
   if (field === 'series')       return 'series_order';
   if (field === 'year_finished') return 'finished';
+  if (field === 'year_acquired') return 'acquired';
   return 'title';
 }
 

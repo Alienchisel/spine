@@ -383,10 +383,11 @@ export default function Stats() {
   if (!stats && error) return <div role="alert" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-warn text-sm">{error}</div>;
   if (!stats) return null;
 
-  const { totals, formats, fiction, ownedStatus, ratings, acquisitionSources, pagesRead, minutesListened, byYear, byMonth = [], topAuthors, topNarrators, languages, authorsByGender = { male: 0, female: 0, other: 0, unassigned: 0 }, streaks, todayPages, thisYearBooks, thisYearPages, topTags, topSeries, avgPagesPerDay, avgDaysToFinish, inProgressPace = [], decadesPublished = [], records } = stats;
+  const { totals, formats, fiction, ownedStatus, ratings, acquisitionSources, pagesRead, minutesListened, byYear, acquiredByYear = [], byMonth = [], topAuthors, topNarrators, languages, authorsByGender = { male: 0, female: 0, other: 0, unassigned: 0 }, streaks, todayPages, thisYearBooks, thisYearPages, topTags, topSeries, avgPagesPerDay, avgDaysToFinish, inProgressPace = [], decadesPublished = [], records } = stats;
 
   const maxRating = Math.max(...ratings.map(r => r.count), 1);
-  const maxYear   = Math.max(...byYear.map(y => y.count), 1);
+  const maxYear     = Math.max(...byYear.map(y => y.count), 1);
+  const maxAcquired = Math.max(...acquiredByYear.map(y => y.count), 1);
   const maxMonth  = Math.max(...byMonth.map(m => m.days), 1);
   const maxAuthor   = Math.max(...topAuthors.map(a => a.count), 1);
   const maxNarrator = Math.max(...(topNarrators?.map(n => n.count) || []), 1);
@@ -750,6 +751,24 @@ export default function Stats() {
                 />
               );
             })}
+          </div>
+        </Section>
+      )}
+
+      {acquiredByYear.length > 0 && (
+        <Section title="Acquired by year">
+          <div className="space-y-2.5">
+            {acquiredByYear.map(y => (
+              <Bar
+                key={y.year}
+                label={y.year}
+                count={y.count}
+                max={maxAcquired}
+                color="bg-oak"
+                href={`/browse/year_acquired/${y.year}`}
+                caption={plural(y.count, 'book')}
+              />
+            ))}
           </div>
         </Section>
       )}
