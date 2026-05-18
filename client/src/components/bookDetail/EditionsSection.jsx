@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../api.js';
-import { initialsFor } from '../../utils.js';
+import { initialsFor, formatPartialDate } from '../../utils.js';
 import { useStaleGuard } from '../../hooks/useStaleGuard.js';
 
 const FORMAT_LABEL = { physical: 'Physical', ebook: 'Digital', audiobook: 'Audiobook' };
 
 function statusBadge(e) {
   if (e.status === 'finished') {
-    return e.date_finished ? `Finished · ${e.date_finished}` : 'Finished';
+    return e.date_finished ? `Finished · ${formatPartialDate(e.date_finished)}` : 'Finished';
   }
   if (e.status === 'reading') return 'Reading';
   return 'Unread';

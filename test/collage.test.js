@@ -32,6 +32,19 @@ describe('collage', () => {
     return new Date().toLocaleDateString('en-CA');
   }
 
+  // Mirror of the server's formatPartialDate in lib/stats/collage.js so
+  // the recently_finished / year_in_review sublabel asserts stay in
+  // sync with the live formatter shape.
+  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  function fmtPartial(val) {
+    if (!val) return null;
+    const [y, m, d] = String(val).split('-');
+    if (!m) return y;
+    const monthName = MONTHS[parseInt(m, 10) - 1];
+    if (!d) return `${monthName} ${y}`;
+    return `${parseInt(d, 10)} ${monthName} ${y}`;
+  }
+
   it('defaults to top_books / 30d / size=3 when no params are given', async () => {
     const { status, body } = await req('GET', '/api/collage');
     assert.equal(status, 200);
@@ -107,7 +120,9 @@ describe('collage', () => {
     const { body } = await req('GET', '/api/collage?mode=recently_finished&size=5');
     assert.ok(body.tiles.length >= 1);
     assert.equal(body.tiles[0].id, book.id, 'most recent finish should be top-left');
-    assert.equal(body.tiles[0].sublabel, today);
+    // Sublabel is the formatted date (server-side mirror of the
+    // client's formatPartialDate helper) — '19 May 2026' style.
+    assert.equal(body.tiles[0].sublabel, fmtPartial(today));
   });
 
   it('returns 400 on invalid mode / period', async () => {
@@ -157,10 +172,10 @@ describe('collage', () => {
     assert.ok(oldYear.tiles.some(t => t.id === bLast.id), 'last-year query should include last-year finish');
     assert.ok(!oldYear.tiles.some(t => t.id === bThis.id), 'last-year query should exclude current-year finish');
 
-    // Sublabel is the date_finished (used by the client to render the
-    // small caption under each tile).
+    // Sublabel is the formatted date_finished (used by the client to
+    // render the small caption under each tile).
     const tileThis = thisYear.tiles.find(t => t.id === bThis.id);
-    assert.equal(tileThis.sublabel, today);
+    assert.equal(tileThis.sublabel, fmtPartial(today));
   });
 
   it('year_in_review rejects bad year inputs with 400', async () => {
