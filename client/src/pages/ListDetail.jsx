@@ -48,7 +48,7 @@ function DragHandle() {
 // — same covers, same per-card buttons, same hover behaviour. The drag
 // listeners live on the handle button (not the wrapper), so a click on the
 // cover still routes to BookDetail without arming a drag.
-function SortableBookCard({ book, onRemove, draggable }) {
+function SortableBookCard({ book, onRemove, draggable, linkState }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: book.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
 
@@ -89,7 +89,7 @@ function SortableBookCard({ book, onRemove, draggable }) {
       {...(draggable ? listeners : {})}
       className={`group relative select-none transition-opacity ring-2 ring-binding/40 rounded-lg ${isDragging ? 'opacity-40' : ''} ${draggable ? 'cursor-grab active:cursor-grabbing' : ''}`}
     >
-      <BookCard book={book} coverOverlay={overlay} hideActions fadeUnowned />
+      <BookCard book={book} coverOverlay={overlay} hideActions fadeUnowned linkState={linkState} />
     </div>
   );
 }
@@ -532,7 +532,7 @@ export default function ListDetail() {
               <SortableContext items={list.books.map(b => b.id)} strategy={rectSortingStrategy}>
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-x-3 gap-y-5 items-start">
                   {list.books.map(book => (
-                    <SortableBookCard key={book.id} book={book} onRemove={handleRemove} draggable={draggable} />
+                    <SortableBookCard key={book.id} book={book} onRemove={handleRemove} draggable={draggable} linkState={fromState} />
                   ))}
                 </div>
               </SortableContext>

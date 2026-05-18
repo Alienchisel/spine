@@ -113,7 +113,7 @@ function DragHandle() {
 // is purely decorative (pointer-events:none) and only appears on hover as
 // a "this is grabbable" cue. Cover navigation is already suppressed by
 // hideActions, so there's no competing click semantic to preserve.
-function SortableBookCard({ book, compact }) {
+function SortableBookCard({ book, compact, linkState }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: book.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
   const overlay = (
@@ -131,7 +131,7 @@ function SortableBookCard({ book, compact }) {
       {...listeners}
       className={`group relative select-none transition-opacity ring-2 ring-binding/40 rounded-lg cursor-grab active:cursor-grabbing ${isDragging ? 'opacity-40' : ''}`}
     >
-      <BookCard book={book} coverOverlay={overlay} compact={compact} hideActions />
+      <BookCard book={book} coverOverlay={overlay} compact={compact} hideActions linkState={linkState} />
     </div>
   );
 }
@@ -882,7 +882,7 @@ export default function Library() {
               <SortableContext items={books.map(b => b.id)} strategy={rectSortingStrategy}>
                 <div className={gridClassName} style={gridStyle}>
                   {books.map(book => (
-                    <SortableBookCard key={book.id} book={book} compact={compact} />
+                    <SortableBookCard key={book.id} book={book} compact={compact} linkState={fromState} />
                   ))}
                 </div>
               </SortableContext>
