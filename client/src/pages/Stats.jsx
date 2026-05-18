@@ -612,7 +612,7 @@ export default function Stats() {
                   { name: 'Kindle',   value: acquisitionSources.kindle   ?? 0, color: '#a97954', href: '/?tab=all&sources=Kindle' },
                   { name: 'Audible',  value: acquisitionSources.audible  ?? 0, color: '#c29b87', href: '/?tab=all&sources=Audible' },
                   { name: 'Amazon',   value: acquisitionSources.amazon   ?? 0, color: '#532c2e', href: '/?tab=all&sources=Amazon' },
-                  { name: 'Other',    value: acquisitionSources.other    ?? 0, color: '#6a5d4f' },
+                  { name: 'Other',    value: acquisitionSources.other    ?? 0, color: '#6a5d4f', href: '/?tab=all&sources=other' },
                   { name: 'Internet', value: acquisitionSources.internet ?? 0, color: '#5a7a8a', href: '/?tab=all&sources=Internet' },
                   { name: 'Unknown',  value: acquisitionSources.unknown  ?? 0, color: '#404040', href: '/?tab=all&missing=source' },
                 ].filter(d => d.value > 0)}
