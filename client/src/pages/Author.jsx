@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useLocation, useNavigate, Link } from 'react-router-dom';
 import { api } from '../api.js';
-import { plural, initialsFor } from '../utils.js';
+import { plural, initialsFor, MOD_KEY } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
 
 // Inline gender picker. Stores 'male' | 'female' | 'other' | null;
@@ -349,7 +349,7 @@ export default function Author() {
                     >
                       Cancel
                     </button>
-                    <span className="text-neutral-700">⌘↵ to save · Esc to cancel</span>
+                    <span className="text-neutral-700">{MOD_KEY}+↵ to save · Esc to cancel</span>
                     {bioError && <span role="alert" className="text-warn ml-auto">{bioError}</span>}
                   </div>
                 </div>

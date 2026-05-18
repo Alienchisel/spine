@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate, useLocation, useSearchParams, useMatch } from 'react-router-dom';
 import { api } from '../api.js';
-import { plural, pluralWord, initialsFor } from '../utils.js';
+import { plural, pluralWord, initialsFor, MOD_KEY } from '../utils.js';
 import { useConfirm } from './ConfirmModal.jsx';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import { useSpineEvent, dispatchSpineEvent } from '../hooks/useSpineEvent.js';
@@ -1233,7 +1233,7 @@ export default function CommandPalette() {
           <p role="status" className="px-4 py-3 text-xs text-neutral-600">No matches.</p>
         )}
         <div className="border-t border-neutral-800 px-4 py-2 text-[10px] text-neutral-600 flex items-center justify-between">
-          <span>{subPrompt ? '↑↓ navigate · ↵ select · esc back' : '↑↓ navigate · ↵ open · ⌘↵ new tab · esc close'}</span>
+          <span>{subPrompt ? '↑↓ navigate · ↵ select · esc back' : `↑↓ navigate · ↵ open · ${MOD_KEY}+↵ new tab · esc close`}</span>
           <span>Ctrl+K</span>
         </div>
       </div>
