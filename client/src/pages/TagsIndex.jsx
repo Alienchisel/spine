@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
+import IncomingBackLink from '../components/IncomingBackLink.jsx';
 
 // Sort modes for the Tags index. Name (alphabetical scan) is the
 // default. Books asc surfaces prune candidates (single-book tags worth
@@ -30,12 +31,10 @@ export default function TagsIndex() {
   const [tags,    setTags]    = useState([]);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState(null);
-  const [params, setParams]    = useSearchParams();
-  const { pathname, search, state } = useLocation();
-  const incomingBackLabel = state?.from ? `← ${state.from}` : null;
-  const incomingBackPath  = state?.fromPath ?? '/';
-  // Outgoing back-link contract — '← Tags' on BrowsePage returns to the
-  // current filter+sort view, not the Library default.
+  const [params, setParams]   = useSearchParams();
+  const { pathname, search }  = useLocation();
+  // Back-link contract — '← Tags' on BrowsePage returns to the current
+  // filter+sort view, not the Library default.
   const fromState = { from: 'Tags', fromPath: pathname + search };
   const query = params.get('q') ?? '';
   const sort  = VALID_SORTS.has(params.get('sort')) ? params.get('sort') : 'name';
@@ -88,11 +87,7 @@ export default function TagsIndex() {
 
   return (
     <div className="max-w-3xl">
-      {incomingBackLabel && (
-        <Link to={incomingBackPath} className="text-sm text-neutral-600 hover:text-neutral-300 mb-4 inline-block transition-colors">
-          {incomingBackLabel}
-        </Link>
-      )}
+      <IncomingBackLink />
       <header className="mb-6">
         <h1 className="text-2xl font-slab text-parchment uppercase tracking-wider">Tags</h1>
         {!loading && !error && (

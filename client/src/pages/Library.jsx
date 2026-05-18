@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Link, useSearchParams, useLocation } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
+import IncomingBackLink from '../components/IncomingBackLink.jsx';
 import {
   DndContext,
   closestCenter,
@@ -139,12 +140,6 @@ const VALID_TABS = new Set(['reading', 'finished', 'unread', 'owned', 'prev_owne
 
 export default function Library() {
   const [searchParams, setSearchParams] = useSearchParams();
-  // Optional back link when arriving from a state-carrying referrer
-  // (e.g. Stats hero StatCard click → Library?tab=owned). Cold visits
-  // and Nav clicks render no back affordance.
-  const { state } = useLocation();
-  const incomingBackLabel = state?.from ? `← ${state.from}` : null;
-  const incomingBackPath  = state?.fromPath ?? '/';
   // useMemo with [] keeps the localStorage read + JSON.parse to a single
   // mount-time cost. Previously this ran on every render even though
   // only the three useState lazy initializers below consume it.
@@ -688,11 +683,7 @@ export default function Library() {
 
   return (
     <div>
-      {incomingBackLabel && (
-        <Link to={incomingBackPath} className="text-sm text-neutral-600 hover:text-neutral-300 mb-4 inline-block transition-colors">
-          {incomingBackLabel}
-        </Link>
-      )}
+      <IncomingBackLink />
       <div className="flex flex-col gap-3 mb-8">
         {/* Toolbar is always two rows: tab strip on top (filter the corpus),
             controls cluster below (how to view it). Single-row layout used

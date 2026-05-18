@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import IncomingBackLink from '../components/IncomingBackLink.jsx';
 import { api } from '../api.js';
 import BookCard from '../components/BookCard.jsx';
 import CoverSizeSlider from '../components/CoverSizeSlider.jsx';
@@ -15,10 +16,6 @@ export default function Loved() {
   const [error, setError] = useState(null);
   const refreshTick = useRefreshTick();
   const { size: coverSize, setSize: setCoverSize, compact, gridStyle, gridClassName, MIN: coverMin, MAX: coverMax } = useCoverSize();
-  // Optional back link when arriving from a state-carrying referrer.
-  const { state } = useLocation();
-  const incomingBackLabel = state?.from ? `← ${state.from}` : null;
-  const incomingBackPath  = state?.fromPath ?? '/';
 
   useEffect(() => {
     let stale = false;
@@ -42,11 +39,7 @@ export default function Loved() {
 
   return (
     <div>
-      {incomingBackLabel && (
-        <Link to={incomingBackPath} className="text-sm text-neutral-600 hover:text-neutral-300 mb-4 inline-block transition-colors">
-          {incomingBackLabel}
-        </Link>
-      )}
+      <IncomingBackLink />
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-bold text-white">Loved</h1>
         {books.length > 0 && (
