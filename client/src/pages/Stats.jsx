@@ -47,12 +47,17 @@ function DonutChart({ title, data }) {
               <span className="text-neutral-500 group-hover:text-parchment transition-colors">{Math.round((d.value / total) * 100)}%</span>
             </>
           );
+          // Tooltip carries the absolute count — the donut chart's
+          // recharts tooltip shows it on slice hover, but the legend
+          // rows below it only show the percent. Hovering the legend
+          // now reveals the raw number that drives the percent.
+          const tooltip = `${d.name} · ${d.value.toLocaleString()}`;
           return d.href ? (
-            <Link key={i} to={d.href} state={FROM_STATS} className="group flex items-center justify-between text-xs">
+            <Link key={i} to={d.href} state={FROM_STATS} className="group flex items-center justify-between text-xs" title={tooltip}>
               {inner}
             </Link>
           ) : (
-            <div key={i} className="flex items-center justify-between text-xs">
+            <div key={i} className="flex items-center justify-between text-xs" title={tooltip}>
               {inner}
             </div>
           );
