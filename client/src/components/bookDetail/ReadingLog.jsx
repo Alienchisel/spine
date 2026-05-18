@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { formatDate } from './dates.js';
+import { formatDate } from '../../utils.js';
 
 const COLLAPSED_LIMIT = 10;
 
