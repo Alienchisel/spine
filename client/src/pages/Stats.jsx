@@ -579,7 +579,14 @@ export default function Stats() {
         </div>
       </Section>
 
-      <Section title="Library breakdown">
+      <Section
+        title="Library breakdown"
+        action={topTags?.length > 0 ? (
+          <Link to="/tags" state={FROM_STATS} className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors">
+            All tags →
+          </Link>
+        ) : null}
+      >
         {/* Donut row on the left (responsive 2×2 on the breakpoint that the
             treemap appears alongside), tag treemap on the right. The two
             sub-views complement each other: donuts cover the four
@@ -640,12 +647,11 @@ export default function Stats() {
             )}
           </div>
           {topTags?.length > 0 && (
-            <div className="flex flex-col gap-1">
-              <TagTreemap tags={topTags} />
-              <Link to="/tags" state={FROM_STATS} className="self-end text-xs text-neutral-600 hover:text-neutral-300 transition-colors">
-                All tags →
-              </Link>
-            </div>
+            // Treemap renders solo so its height aligns with the donut
+            // grid on the left — the "All tags →" affordance lives in
+            // the Section header (action prop above) where it doesn't
+            // disturb the row geometry.
+            <TagTreemap tags={topTags} />
           )}
         </div>
       </Section>
