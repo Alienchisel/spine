@@ -1608,6 +1608,34 @@ describe('books', () => {
       assert.deepEqual(defaulted.authors, []);
     });
 
+    it('missing=binding surfaces physical books with no binding (audiobook / ebook excluded)', async () => {
+      const stem = 'bindfilter' + Math.random().toString(36).slice(2, 6);
+      // Physical, no binding — should appear.
+      const { body: a } = await req('POST', '/api/books', { title: `${stem}-physical empty`, format: 'physical' });
+      // Physical, binding set — should NOT appear.
+      const { body: b } = await req('POST', '/api/books', { title: `${stem}-physical full`, format: 'physical', binding: 'hardcover' });
+      // Audiobook, no binding — should NOT appear (binding is N/A for audiobooks).
+      const { body: c } = await req('POST', '/api/books', { title: `${stem}-audiobook empty`, format: 'audiobook' });
+      // Ebook, no binding — should NOT appear (binding is N/A for ebooks).
+      const { body: d } = await req('POST', '/api/books', { title: `${stem}-ebook empty`, format: 'ebook' });
+
+      try {
+        const { status, body: list } = await req('GET', `/api/books?missing=binding&q=${stem}&limit=200`);
+        assert.equal(status, 200);
+        const ids = new Set(list.books.map(b => b.id));
+        assert.ok(ids.has(a.id), 'physical book without binding should appear');
+        assert.ok(!ids.has(b.id), 'physical book with binding must NOT appear');
+        assert.ok(!ids.has(c.id), 'audiobook without binding must NOT appear');
+        assert.ok(!ids.has(d.id), 'ebook without binding must NOT appear');
+      } finally {
+        // Clean up so the in-memory test DB doesn't accumulate books past
+        // the 200-row cap that downstream sort=author tests rely on.
+        for (const id of [a.id, b.id, c.id, d.id]) {
+          await req('DELETE', `/api/books/${id}`);
+        }
+      }
+    });
+
     it('missing=stories surfaces Stories/Anthology-tagged books with no contents', async () => {
       const stem = 'storiesfilter' + Math.random().toString(36).slice(2, 6);
       // Tagged Stories, no contents yet — should appear.
