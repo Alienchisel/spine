@@ -87,43 +87,49 @@ export default function App() {
   return (
     <ConfirmModalProvider>
       <div className="min-h-screen bg-neutral-950">
-        {/* Left-gutter atmosphere art. Width is sized to the exact
-            gutter at any viewport via calc((100vw - 1280px) / 2) —
-            content is max-w-7xl centered with mx-auto, so the gutter
-            on each side is half the leftover viewport space. The art
-            never overlaps the content column. object-cover + object-
-            left shows the lit left half of the image, cropping the
-            dark void on the right; a soft mask fade on the rendered
-            right edge blends what's left into the page bg without a
-            visible seam. Hidden below xl: where the gutter collapses
-            to zero. Height comes from the JS-managed gutterHeight (see
-            the effect above) so Ctrl-F's find bar doesn't rescale the
-            art. Negative z-index isn't safe here (static parents don't
+        {/* Gutter atmosphere art. ONE source image at
+            client/public/gutter.png holds both compositions side-by-
+            side with a dark middle; each gutter wrapper clips to its
+            half via overflow-hidden, with the inner img anchored
+            left or right so each side reveals its own composition.
+            The source needs to be roughly 2:3 portrait with the lit
+            compositions pushed to the outer edges (middle is the dark
+            void). Width is sized to the exact gutter at any viewport
+            via calc((100vw - 1280px) / 2) — content is max-w-7xl
+            centered, so the gutter is half the leftover viewport on
+            each side. Height comes from the JS-managed gutterHeight
+            so Ctrl-F's find bar doesn't rescale the art. A mask fade
+            on the inner edge blends the dark middle into the page bg.
+            Hidden below xl: where the gutter collapses to zero.
+            Negative z-index isn't safe here (static parents don't
             create a stacking context for negative-z kids and the
             wrapper's bg would hide it) — DOM order + pointer-events-
             none does the stacking instead. */}
         {gutterHeight > 0 && (
-          <img
-            src="/gutter-left.png"
-            alt=""
-            aria-hidden="true"
+          <div
+            className="hidden xl:block fixed top-0 left-0 w-[calc((100vw-1280px)/2)] overflow-hidden pointer-events-none select-none [mask-image:linear-gradient(to_right,black_70%,transparent)]"
             style={{ height: `${gutterHeight}px` }}
-            className="hidden xl:block fixed top-0 left-0 w-[calc((100vw-1280px)/2)] object-cover object-left pointer-events-none select-none [mask-image:linear-gradient(to_right,black_70%,transparent)]"
-          />
+            aria-hidden="true"
+          >
+            <img
+              src="/gutter.png"
+              alt=""
+              className="absolute left-0 top-0 h-full w-auto max-w-none"
+            />
+          </div>
         )}
-        {/* Right-gutter atmosphere art. Mirror of the left: object-right
-            shows the lit art on the right edge of the source image, and
-            the mask fades the LEFT side (the rendered inner edge) into
-            the page bg so the seam against the content column
-            disappears. */}
         {gutterHeight > 0 && (
-          <img
-            src="/gutter-right.png"
-            alt=""
-            aria-hidden="true"
+          <div
+            className="hidden xl:block fixed top-0 right-0 w-[calc((100vw-1280px)/2)] overflow-hidden pointer-events-none select-none [mask-image:linear-gradient(to_left,black_70%,transparent)]"
             style={{ height: `${gutterHeight}px` }}
-            className="hidden xl:block fixed top-0 right-0 w-[calc((100vw-1280px)/2)] object-cover object-right pointer-events-none select-none [mask-image:linear-gradient(to_left,black_70%,transparent)]"
-          />
+            aria-hidden="true"
+          >
+            <img
+              src="/gutter.png"
+              alt=""
+              className="absolute right-0 top-0 h-full w-auto max-w-none"
+            />
+          </div>
         )}
         {/* Skip link for keyboard users: invisible until focused (Tab
             from the URL bar lands here first), then appears as a
