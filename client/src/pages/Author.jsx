@@ -64,71 +64,63 @@ function lifespan(birth, death) {
   return `– ${d}`;
 }
 
-// Extract just the year from a stored date string for the year-only
-// edit input. "1938-07-18" → "1938"; "-428" → "-428"; null → "".
-function yearOnly(dateStr) {
-  if (!dateStr) return '';
-  const m = String(dateStr).match(/^(-?\d{1,4})/);
-  return m ? m[1] : '';
-}
+// Mirrors the server's parseDateField regex — used to flag malformed
+// input before we hit the API.
+const DATE_INPUT_RE = /^-?\d{1,4}(?:-(?:0[1-9]|1[0-2])(?:-(?:0[1-9]|[12]\d|3[01]))?)?$/;
 
-// Splice a new year into an existing date string, preserving any
-// month/day suffix the user hasn't seen in the editor. Empty / null
-// new year clears the whole field.
-function replaceYear(existing, newYearStr) {
-  if (newYearStr === '' || newYearStr == null) return null;
-  if (!/^-?\d{1,4}$/.test(String(newYearStr).trim())) return null;
-  const suffix = existing
-    ? (String(existing).match(/^-?\d{1,4}(-\d{2}(?:-\d{2})?)?$/)?.[1] ?? '')
-    : '';
-  return `${String(newYearStr).trim()}${suffix}`;
-}
-
-// Inline editor for birth/death date. Default state shows the dates
-// (or a dim "add dates" hint if both null) as a hover-revealed link;
-// clicking swaps in two compact year inputs. Enter commits, Esc cancels.
-// The editor only edits the year — month/day precision from OL is
-// preserved transparently when the year is changed, and only cleared
-// when the user empties the field. Same hover-reveal aesthetic as
-// GenderPicker so the dates feel like ambient metadata.
+// Inline editor for birth/death date. Default state shows the formatted
+// dates (or a dim "add dates" hint if both null) as a hover-revealed
+// link; clicking swaps in two text inputs that accept YYYY, YYYY-MM,
+// or YYYY-MM-DD (BCE: "-428"). Enter commits, Esc cancels. Same hover-
+// reveal aesthetic as GenderPicker so the dates feel like ambient
+// metadata rather than a form control.
 function DatesPicker({ birth, death, onChange }) {
   const [editing, setEditing] = useState(false);
   const [birthDraft, setBirthDraft] = useState('');
   const [deathDraft, setDeathDraft] = useState('');
+  const [error, setError] = useState(null);
   function start() {
-    setBirthDraft(yearOnly(birth));
-    setDeathDraft(yearOnly(death));
+    setBirthDraft(birth ?? '');
+    setDeathDraft(death ?? '');
+    setError(null);
     setEditing(true);
   }
   function commit() {
+    setError(null);
+    const b = birthDraft.trim();
+    const d = deathDraft.trim();
+    if (b !== '' && !DATE_INPUT_RE.test(b)) return setError('Use YYYY, YYYY-MM, or YYYY-MM-DD');
+    if (d !== '' && !DATE_INPUT_RE.test(d)) return setError('Use YYYY, YYYY-MM, or YYYY-MM-DD');
     onChange({
-      birth_date: replaceYear(birth, birthDraft),
-      death_date: replaceYear(death, deathDraft),
+      birth_date: b === '' ? null : b,
+      death_date: d === '' ? null : d,
     });
     setEditing(false);
   }
+  function cancel() { setEditing(false); setError(null); }
   function onKey(e) {
-    if (e.key === 'Escape') { setEditing(false); }
+    if (e.key === 'Escape') cancel();
     if (e.key === 'Enter')  { e.preventDefault(); commit(); }
   }
   if (editing) {
     return (
-      <span className="inline-flex items-center gap-1">
+      <span className="inline-flex items-center gap-1 flex-wrap">
         <input
-          type="number" value={birthDraft} onChange={(e) => setBirthDraft(e.target.value)}
-          onKeyDown={onKey} autoFocus aria-label="Birth year"
-          placeholder="born"
-          className="w-20 bg-neutral-900 border border-neutral-700 rounded px-1.5 py-0.5 text-sm text-neutral-200 placeholder-neutral-700 focus:outline-none focus:border-oak/50"
+          type="text" value={birthDraft} onChange={(e) => setBirthDraft(e.target.value)}
+          onKeyDown={onKey} autoFocus aria-label="Birth date"
+          placeholder="1938-07-18"
+          className="w-28 bg-neutral-900 border border-neutral-700 rounded px-1.5 py-0.5 text-sm text-neutral-200 placeholder-neutral-700 focus:outline-none focus:border-oak/50"
         />
         <span className="text-neutral-700">–</span>
         <input
-          type="number" value={deathDraft} onChange={(e) => setDeathDraft(e.target.value)}
-          onKeyDown={onKey} aria-label="Death year"
-          placeholder="died"
-          className="w-20 bg-neutral-900 border border-neutral-700 rounded px-1.5 py-0.5 text-sm text-neutral-200 placeholder-neutral-700 focus:outline-none focus:border-oak/50"
+          type="text" value={deathDraft} onChange={(e) => setDeathDraft(e.target.value)}
+          onKeyDown={onKey} aria-label="Death date"
+          placeholder="2007"
+          className="w-28 bg-neutral-900 border border-neutral-700 rounded px-1.5 py-0.5 text-sm text-neutral-200 placeholder-neutral-700 focus:outline-none focus:border-oak/50"
         />
         <button onClick={commit} className="text-xs text-oak hover:text-leather transition-colors">Save</button>
-        <button onClick={() => setEditing(false)} className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors">Cancel</button>
+        <button onClick={cancel}  className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors">Cancel</button>
+        {error && <span role="alert" className="text-xs text-warn ml-1">{error}</span>}
       </span>
     );
   }
