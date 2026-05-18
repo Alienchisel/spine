@@ -326,7 +326,7 @@ function Tile({ tile, showLabel, linkState }) {
         <img
           src={tile.image}
           alt=""
-          className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
+          className="w-full h-full object-cover"
         />
       ) : (
         // Skeleton fallback — initials carry more meaning than a single
