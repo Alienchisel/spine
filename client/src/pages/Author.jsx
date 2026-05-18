@@ -34,8 +34,8 @@ function lifespan(birth, death) {
 }
 
 // Inline editor for birth/death year. Default state shows the dates
-// (or "+ Add dates" if both null) as a hover-revealed link; clicking
-// swaps in two compact year inputs. Enter commits, Esc cancels.
+// (or a dim "add dates" hint if both null) as a hover-revealed link;
+// clicking swaps in two compact year inputs. Enter commits, Esc cancels.
 // Same hover-reveal aesthetic as GenderPicker so the dates feel like
 // ambient metadata rather than a form control.
 function DatesPicker({ birth, death, onChange }) {
@@ -87,7 +87,7 @@ function DatesPicker({ birth, death, onChange }) {
       onClick={start}
       className="text-sm text-neutral-700 hover:text-neutral-400 hover:underline focus:text-neutral-400 focus:underline focus:outline-none transition-colors"
     >
-      {text ?? '+ Add dates'}
+      {text ?? 'add dates'}
     </button>
   );
 }
