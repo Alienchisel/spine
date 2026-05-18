@@ -39,7 +39,11 @@ export default function App() {
             dark void on the right; a soft mask fade on the rendered
             right edge blends what's left into the page bg without a
             visible seam. Hidden below xl: where the gutter collapses
-            to zero. Negative z-index isn't safe here (static parents
+            to zero. Height is 100lvh (largest viewport height) rather
+            than h-screen / 100vh so transient browser chrome like
+            Ctrl-F's find bar doesn't shrink the viewport and rescale
+            the art — the bar floats over the bottom of the image
+            instead. Negative z-index isn't safe here (static parents
             don't create a stacking context for negative-z kids and the
             wrapper's bg would hide it) — DOM order + pointer-events-
             none does the stacking instead. */}
@@ -47,7 +51,7 @@ export default function App() {
           src="/gutter-left.png"
           alt=""
           aria-hidden="true"
-          className="hidden xl:block fixed top-0 left-0 h-screen w-[calc((100vw-1280px)/2)] object-cover object-left pointer-events-none select-none [mask-image:linear-gradient(to_right,black_70%,transparent)]"
+          className="hidden xl:block fixed top-0 left-0 h-[100lvh] w-[calc((100vw-1280px)/2)] object-cover object-left pointer-events-none select-none [mask-image:linear-gradient(to_right,black_70%,transparent)]"
         />
         {/* Right-gutter atmosphere art. Mirror of the left: object-right
             shows the lit art on the right edge of the source image, and
@@ -58,7 +62,7 @@ export default function App() {
           src="/gutter-right.png"
           alt=""
           aria-hidden="true"
-          className="hidden xl:block fixed top-0 right-0 h-screen w-[calc((100vw-1280px)/2)] object-cover object-right pointer-events-none select-none [mask-image:linear-gradient(to_left,black_70%,transparent)]"
+          className="hidden xl:block fixed top-0 right-0 h-[100lvh] w-[calc((100vw-1280px)/2)] object-cover object-right pointer-events-none select-none [mask-image:linear-gradient(to_left,black_70%,transparent)]"
         />
         {/* Skip link for keyboard users: invisible until focused (Tab
             from the URL bar lands here first), then appears as a
