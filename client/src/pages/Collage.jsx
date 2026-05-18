@@ -35,7 +35,7 @@ const SIZE_OPTIONS = [3, 4, 5, 6];
 // localStorage restore, on mount sanitization, and on every update()
 // call so stale params from removed features (theme, series, title,
 // quote, labels, books, ...) can't accumulate or get re-saved.
-const VALID_PARAMS = new Set(['mode', 'period', 'size', 'year']);
+const VALID_PARAMS = new Set(['mode', 'period', 'size', 'year', 'names']);
 function pickValidParams(src) {
   const out = new URLSearchParams();
   for (const [k, v] of src.entries()) {
@@ -55,6 +55,11 @@ export default function Collage() {
   const mode    = MODE_OPTIONS.some(m => m.key === params.get('mode'))     ? params.get('mode')     : 'top_books';
   const period  = PERIOD_OPTIONS.some(p => p.key === params.get('period')) ? params.get('period')   : '30d';
   const size    = SIZE_OPTIONS.includes(Number(params.get('size')))        ? Number(params.get('size')) : 3;
+  // 'names=1' overlays the author name on each tile — useful for PNG
+  // exports where the hover title="" tooltip doesn't survive. Only
+  // applies to top_authors; the URL param is allowed in any mode but
+  // the toggle is hidden + the overlay suppressed elsewhere.
+  const namesOverlay = params.get('names') === '1';
   // Year in review defaults to the current year if no ?year= is set —
   // matches the "what have I read this year so far" use case that
   // dominates January/early-year visits.
@@ -298,6 +303,17 @@ export default function Collage() {
             </select>
           </label>
         )}
+        {mode === 'top_authors' && (
+          <label className="inline-flex items-center gap-1.5 text-neutral-500 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={namesOverlay}
+              onChange={(e) => update('names', e.target.checked ? '1' : null)}
+              className="accent-oak cursor-pointer"
+            />
+            <span>Show names</span>
+          </label>
+        )}
         <button
           type="button"
           onClick={resetConfig}
@@ -354,6 +370,7 @@ export default function Collage() {
                 key={`${t.href}-${t.id}`}
                 tile={t}
                 linkState={fromState}
+                showName={mode === 'top_authors' && namesOverlay}
               />
             ))}
             {/* Blank placeholders fill the grid when the data set is
@@ -370,12 +387,12 @@ export default function Collage() {
   );
 }
 
-function Tile({ tile, linkState }) {
+function Tile({ tile, linkState, showName }) {
   return (
     <Link
       to={tile.href}
       state={linkState}
-      className="block aspect-[2/3] rounded overflow-hidden bg-neutral-900 focus:outline-none focus:ring-2 focus:ring-oak/50"
+      className="relative block aspect-[2/3] rounded overflow-hidden bg-neutral-900 focus:outline-none focus:ring-2 focus:ring-oak/50"
       title={tile.sublabel ? `${tile.label} · ${tile.sublabel}` : tile.label}
     >
       {tile.image ? (
@@ -395,6 +412,16 @@ function Tile({ tile, linkState }) {
             {initialsFor(tile.label)}
           </span>
           <span className="text-xs text-neutral-500 font-medium leading-tight line-clamp-3 text-center">{tile.label}</span>
+        </div>
+      )}
+      {/* Optional name overlay for top_authors — survives into the PNG
+          export (which loses hover tooltips). Suppressed on the
+          skeleton tiles since the name already shows there. */}
+      {showName && tile.image && (
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/60 to-transparent pt-7 pb-2 px-2 pointer-events-none">
+          <p className="text-xs text-neutral-100 font-medium leading-tight text-center line-clamp-2 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+            {tile.label}
+          </p>
         </div>
       )}
     </Link>
