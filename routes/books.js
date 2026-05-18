@@ -35,6 +35,15 @@ router.put('/desire-order', (req, res) => {
   res.json({ ok: true });
 });
 
+// Random non-archived book — backs the `R` shortcut. Must sit above the
+// /:id route so "random" isn't read as a numeric id. Archived books are
+// excluded so the surprise lands on something in the current library.
+router.get('/random', (_req, res) => {
+  const row = db.prepare('SELECT id FROM books WHERE archived = 0 ORDER BY RANDOM() LIMIT 1').get();
+  if (!row) return res.status(404).json({ error: 'No books in library' });
+  res.json({ id: row.id });
+});
+
 router.get('/:id', (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });

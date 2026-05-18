@@ -344,6 +344,23 @@ describe('books', () => {
     });
   });
 
+  describe('GET /api/books/random', () => {
+    it('returns the id of an existing non-archived book', async () => {
+      // Doesn't add fixtures — the test DB has plenty by this point in
+      // the suite. Adding rows here would risk pushing other tests'
+      // fixtures past the 200-row cap on `?limit=500` queries. Draw a
+      // few times; every result must be a real, non-archived book id.
+      for (let i = 0; i < 5; i++) {
+        const { status, body } = await req('GET', '/api/books/random');
+        assert.equal(status, 200);
+        assert.ok(Number.isInteger(body.id) && body.id >= 1);
+        const { status: lookup, body: book } = await req('GET', `/api/books/${body.id}`);
+        assert.equal(lookup, 200);
+        assert.equal(book.archived, 0, 'random draw must not be archived');
+      }
+    });
+  });
+
   describe('PUT /api/books/:id', () => {
     it('updates book fields', async () => {
       const { body: created } = await req('POST', '/api/books', { title: 'Old Title' });

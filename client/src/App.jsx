@@ -1,14 +1,42 @@
 import { useEffect, useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useNavigate } from 'react-router-dom';
 import Nav from './components/Nav.jsx';
 import { ConfirmModalProvider } from './components/ConfirmModal.jsx';
 import CommandPalette from './components/CommandPalette.jsx';
+import { api } from './api.js';
 
 // Layout route for the data router defined in main.jsx — renders the
 // shared shell (Nav + main wrapper) and the per-route page via <Outlet/>.
 // ConfirmModalProvider must wrap <Outlet/> so every page can call
 // useConfirm() through context.
 export default function App() {
+  const navigate = useNavigate();
+  // Plain `R` jumps to a random book — Wikipedia/Letterboxd convention.
+  // Guarded so input fields, textareas, and contenteditable surfaces
+  // (bio editor, search bars, etc.) still get the keystroke. Any
+  // modifier (Ctrl/Meta/Alt/Shift) bows out so Ctrl-R stays the
+  // browser reload and Shift-R is free as an escalation if R alone
+  // ever proves too misfire-prone.
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key !== 'r' && e.key !== 'R') return;
+      if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+      const el = document.activeElement;
+      if (el && (
+        el.tagName === 'INPUT' ||
+        el.tagName === 'TEXTAREA' ||
+        el.tagName === 'SELECT' ||
+        el.isContentEditable
+      )) return;
+      e.preventDefault();
+      api.getRandomBook()
+        .then(({ id }) => navigate(`/books/${id}`))
+        .catch(() => {});
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [navigate]);
+
   // The gutter art's height is captured once at mount and only updates
   // on substantial window resizes — so transient viewport jitters from
   // Firefox's find bar (Ctrl-F shrinks the viewport by ~60 px) don't
