@@ -9,6 +9,7 @@ import BrowsePage from './pages/BrowsePage.jsx';
 import Author from './pages/Author.jsx';
 import AuthorsIndex from './pages/AuthorsIndex.jsx';
 import TagsIndex from './pages/TagsIndex.jsx';
+import SeriesIndex from './pages/SeriesIndex.jsx';
 import Readlist from './pages/Readlist.jsx';
 import Loved from './pages/Loved.jsx';
 import Lists from './pages/Lists.jsx';
@@ -48,6 +49,7 @@ const router = createBrowserRouter(
         <Route path="authors"               element={<AuthorsIndex />} />
         <Route path="authors/:id"           element={<Author />} />
         <Route path="tags"                  element={<TagsIndex />} />
+        <Route path="series"                element={<SeriesIndex />} />
         <Route path="readlist"              element={<Readlist />} />
         <Route path="loved"                 element={<Loved />} />
         <Route path="lists"                 element={<Lists />} />

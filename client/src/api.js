@@ -38,6 +38,7 @@ export const api = {
   getRandomBook: () => request('/books/random'),
   getAuthors: () => request('/authors'),
   getTags: () => request('/tags'),
+  getSeries: () => request('/series'),
   getAuthor: (id, params = {}) => request(`/authors/${id}${buildQuery(params)}`),
   updateAuthor: (id, data) => request(`/authors/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   refreshAuthor: (id) => request(`/authors/${id}/refresh`, { method: 'POST' }),

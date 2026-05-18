@@ -872,7 +872,14 @@ export default function Stats() {
         )}
 
         {topSeries?.length > 0 && (
-          <Section title="Top series">
+          <Section
+            title="Top series"
+            action={
+              <Link to="/series" state={FROM_STATS} className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors">
+                All series →
+              </Link>
+            }
+          >
             <div className="space-y-2.5">
               {topSeries.map(s => (
                 <Bar key={s.series} label={s.series} count={s.count} max={topSeries[0].count} color="bg-leather" href={`/browse/series/${encodeURIComponent(s.series)}`} />
