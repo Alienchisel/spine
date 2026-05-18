@@ -49,6 +49,7 @@ const NAV_ENTRIES = [
   { id: 'nav.library.never_owned',  label: 'Never owned',          hint: 'Library — Never owned',    path: '/?tab=never_owned' },
   { id: 'nav.library.archived',     label: 'Archived',             hint: 'Library — Archived tab',   path: '/?tab=archived' },
   { id: 'nav.library.custom',       label: 'Custom collections',   hint: 'Library — custom only',    path: '/?tab=all&custom=true' },
+  { id: 'nav.library.missing_binding', label: 'Missing binding',   hint: 'Library curation',         path: '/?tab=all&missing=binding' },
   { id: 'nav.readlist',             label: 'Readlist',                                              path: '/readlist' },
   { id: 'nav.loved',                label: 'Loved',                                                 path: '/loved' },
   { id: 'nav.lists',                label: 'Lists',                hint: 'All lists',                path: '/lists' },
