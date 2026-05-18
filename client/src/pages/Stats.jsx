@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { api } from '../api.js';
-import { fmtShortDate, fmtShortMonth, fmtIsoWeekMonday, formatYear, plural, initialsFor } from '../utils.js';
+import { fmtShortDate, fmtShortMonth, fmtIsoWeekMonday, formatYear, plural, initialsFor, formatPartialDate } from '../utils.js';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import ErrorBanner from '../components/ErrorBanner.jsx';
@@ -756,7 +756,6 @@ export default function Stats() {
 
       {Object.values(records).some(Boolean) && (() => {
         const pages = (b) => b ? `${b.page_count.toLocaleString()} pages` : null;
-        const fmtDate = (d) => d ? new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : null;
         const subhead = "text-[11px] font-semibold text-neutral-700 uppercase tracking-wider mb-2";
         const subgrid = "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3";
         const hasPhysical  = records.longestReadPhysical  || records.shortestReadPhysical  || records.longestLibraryPhysical  || records.shortestLibraryPhysical;
@@ -813,8 +812,8 @@ export default function Stats() {
                 <div>
                   <h3 className={subhead}>Reading</h3>
                   <div className={subgrid}>
-                    <RecordCard label="First finished" book={records.firstFinished} value={fmtDate(records.firstFinished?.date_finished)} />
-                    <RecordCard label="Last finished"  book={records.lastFinished}  value={fmtDate(records.lastFinished?.date_finished)} />
+                    <RecordCard label="First finished" book={records.firstFinished} value={formatPartialDate(records.firstFinished?.date_finished)} />
+                    <RecordCard label="Last finished"  book={records.lastFinished}  value={formatPartialDate(records.lastFinished?.date_finished)} />
                     {records.mostReread && <RecordCard label="Most re-read" book={records.mostReread} value={records.mostReread.read_count ? `${records.mostReread.read_count} times` : null} />}
                   </div>
                 </div>

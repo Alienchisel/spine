@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { formatPartialDate } from './dates.js';
+import { formatPartialDate } from '../../utils.js';
 import { formatYear, pluralWord } from '../../utils.js';
 
 function Row({ label, children }) {

@@ -83,6 +83,24 @@ export const MOD_KEY = (() => {
   return /Mac|iPhone|iPad|iPod/.test(navigator.platform) ? '⌘' : 'Ctrl';
 })();
 
+// Render a full ISO YYYY-MM-DD date as "18 July 1938". Anchors at noon
+// so any UTC-vs-local boundary doesn't drift to the prior day.
+export function formatDate(dateStr) {
+  return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-GB', {
+    day: 'numeric', month: 'long', year: 'numeric',
+  });
+}
+
+// Format a partial date — YYYY / YYYY-MM / YYYY-MM-DD — as a human
+// label: "1938" / "July 1938" / "18 July 1938". Returns null for empty.
+export function formatPartialDate(val) {
+  if (!val) return null;
+  const parts = String(val).split('-');
+  if (parts.length === 1) return parts[0];
+  if (parts.length === 2) return new Date(`${val}-01T12:00:00`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  return formatDate(val);
+}
+
 // Map the current page's pathname to a sensible back-link label so a
 // shortcut-driven navigation (R → BookDetail, palette → anywhere)
 // reads "← Authors" / "← Stats" / "← Library" appropriately on the

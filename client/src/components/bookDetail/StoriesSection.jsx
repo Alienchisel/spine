@@ -4,7 +4,7 @@ import { useActionGuard } from '../../hooks/useActionGuard.js';
 import PartialDateInput from '../PartialDateInput.jsx';
 import StarRating from '../StarRating.jsx';
 import { useConfirm } from '../ConfirmModal.jsx';
-import { formatPartialDate } from './dates.js';
+import { formatPartialDate } from '../../utils.js';
 
 // Per-story table of contents for a collection. Each story belongs to a
 // parent book and tracks its own status / rating / date_finished / DNF,
