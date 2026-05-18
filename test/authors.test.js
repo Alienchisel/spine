@@ -5,7 +5,7 @@
 import { describe, it, before, after, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createTestServer } from './helpers.js';
-import { parseYear, normalizeBio } from '../lib/authors/openLibrary.js';
+import { parseYear, normalizeBio, stripBioDates } from '../lib/authors/openLibrary.js';
 
 describe('authors — Open Library refresh', () => {
   let url;
@@ -57,6 +57,39 @@ describe('authors — Open Library refresh', () => {
     assert.equal(parseYear(''),                null);
     assert.equal(parseYear(null),              null);
     assert.equal(parseYear(undefined),         null);
+  });
+
+  it('stripBioDates removes the leading date paren in every shape OL emits', () => {
+    // Year-only and ranged forms, with and without prefixes.
+    assert.equal(stripBioDates('Smith (1962) was an English writer.'),         'Smith was an English writer.');
+    assert.equal(stripBioDates('Smith (1850-1920) was an English writer.'),    'Smith was an English writer.');
+    assert.equal(stripBioDates('Smith (1850 – 1920) was an English writer.'),  'Smith was an English writer.');
+    assert.equal(stripBioDates('Smith (born 1962) was an English writer.'),    'Smith was an English writer.');
+    assert.equal(stripBioDates('Smith (b. 1850) was an English writer.'),      'Smith was an English writer.');
+    assert.equal(stripBioDates('Smith (d. 1920) was an English writer.'),      'Smith was an English writer.');
+    assert.equal(stripBioDates('Smith (c. 1850-1920) was an English writer.'), 'Smith was an English writer.');
+    assert.equal(stripBioDates('Smith (fl. 1850) was an English writer.'),     'Smith was an English writer.');
+    // Day + month + year (Dan Abnett shape).
+    assert.equal(stripBioDates('Abnett (born 12 October 1965) is an English writer.'), 'Abnett is an English writer.');
+    // BCE / negative-year forms.
+    assert.equal(stripBioDates('Plato (c. 428 BCE – 348 BCE) was a Greek philosopher.'), 'Plato was a Greek philosopher.');
+
+    // Non-date parens are preserved (only date-shaped parens are stripped).
+    assert.equal(
+      stripBioDates('Seneca (commonly known as Seneca the Younger) was a Roman Stoic.'),
+      'Seneca (commonly known as Seneca the Younger) was a Roman Stoic.',
+    );
+
+    // Mid-bio publication year survives — the regex is anchored to the
+    // start of the bio (within ~120 chars), so "(1973)" later in the
+    // text isn't touched.
+    const midBio = 'Smith was an American novelist whose first major work, Lighthouse (1973), drew on his New England childhood.';
+    assert.equal(stripBioDates(midBio), midBio);
+
+    // Empty / null passthrough.
+    assert.equal(stripBioDates(null),      null);
+    assert.equal(stripBioDates(undefined), undefined);
+    assert.equal(stripBioDates(''),        '');
   });
 
   it('normalizeBio handles plain strings and { type, value } objects', () => {
