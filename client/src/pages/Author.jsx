@@ -67,14 +67,14 @@ function DatesPicker({ birth, death, onChange }) {
           type="number" value={birthDraft} onChange={(e) => setBirthDraft(e.target.value)}
           onKeyDown={onKey} autoFocus aria-label="Birth year"
           placeholder="born"
-          className="w-16 bg-neutral-900 border border-neutral-700 rounded px-1.5 py-0.5 text-sm text-neutral-200 placeholder-neutral-700 focus:outline-none focus:border-oak/50"
+          className="w-20 bg-neutral-900 border border-neutral-700 rounded px-1.5 py-0.5 text-sm text-neutral-200 placeholder-neutral-700 focus:outline-none focus:border-oak/50"
         />
         <span className="text-neutral-700">–</span>
         <input
           type="number" value={deathDraft} onChange={(e) => setDeathDraft(e.target.value)}
           onKeyDown={onKey} aria-label="Death year"
           placeholder="died"
-          className="w-16 bg-neutral-900 border border-neutral-700 rounded px-1.5 py-0.5 text-sm text-neutral-200 placeholder-neutral-700 focus:outline-none focus:border-oak/50"
+          className="w-20 bg-neutral-900 border border-neutral-700 rounded px-1.5 py-0.5 text-sm text-neutral-200 placeholder-neutral-700 focus:outline-none focus:border-oak/50"
         />
         <button onClick={commit} className="text-xs text-oak hover:text-leather transition-colors">Save</button>
         <button onClick={() => setEditing(false)} className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors">Cancel</button>
