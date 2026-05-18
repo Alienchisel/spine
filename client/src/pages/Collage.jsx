@@ -140,10 +140,14 @@ export default function Collage() {
       // captured tiles match what the user sees without any
       // pre-capture dimension shims.
       const canvas = await html2canvas(gridRef.current, {
-        backgroundColor: '#080e0d',  // bg-neutral-950 — fills behind gaps
+        backgroundColor: '#080e0d',  // bg-neutral-950 — fills behind gaps + padding
         scale: 2,
         useCORS: true,
         logging: false,
+        // Padding is added to the cloned DOM only so the captured PNG
+        // gets breathing room around the grid; the live page stays
+        // edge-to-edge.
+        onclone: (_doc, el) => { el.style.padding = '24px'; },
       });
       const stamp = new Date().toLocaleDateString('en-CA').replace(/-/g, '');
       const slug = mode + (needsYear ? `-${year}` : `-${period}`);
