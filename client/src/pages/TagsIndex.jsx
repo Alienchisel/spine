@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
 
 // Sort modes for the Tags index. Name (alphabetical scan) is the
@@ -31,6 +31,10 @@ export default function TagsIndex() {
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState(null);
   const [params, setParams]   = useSearchParams();
+  const { pathname, search }  = useLocation();
+  // Back-link contract — '← Tags' on BrowsePage returns to the current
+  // filter+sort view, not the Library default.
+  const fromState = { from: 'Tags', fromPath: pathname + search };
   const query = params.get('q') ?? '';
   const sort  = VALID_SORTS.has(params.get('sort')) ? params.get('sort') : 'name';
 
@@ -124,7 +128,7 @@ export default function TagsIndex() {
             {filtered.map((t) => (
               <tr key={t.id} className="border-b border-neutral-900 hover:bg-neutral-900/50 transition-colors">
                 <td className="py-1.5 pr-3">
-                  <Link to={`/browse/tag/${encodeURIComponent(t.name)}`} className="text-neutral-300 hover:text-parchment transition-colors">
+                  <Link to={`/browse/tag/${encodeURIComponent(t.name)}`} state={fromState} className="text-neutral-300 hover:text-parchment transition-colors">
                     {t.name}
                   </Link>
                 </td>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
 
 // Sort modes for the Authors index. Name is the default (alphabetical
@@ -67,6 +67,11 @@ export default function AuthorsIndex() {
   // replace:true — filter state is view config, not navigation, and a
   // history entry per keystroke would clog back/forward.
   const [params, setParams] = useSearchParams();
+  const { pathname, search } = useLocation();
+  // Back-link contract for any detail page reached from a row click —
+  // matches Author/BrowsePage's { from, fromPath } shape so '← Authors'
+  // returns to the current filter+sort view, not the Library default.
+  const fromState = { from: 'Authors', fromPath: pathname + search };
   const query = params.get('q') ?? '';
   const sort  = VALID_SORTS.has(params.get('sort')) ? params.get('sort') : 'name';
 
@@ -175,7 +180,7 @@ export default function AuthorsIndex() {
               return (
                 <tr key={a.id} className="border-b border-neutral-900 hover:bg-neutral-900/50 transition-colors">
                   <td className="py-1.5 pr-3">
-                    <Link to={`/authors/${a.id}`} className="text-neutral-300 hover:text-parchment transition-colors">
+                    <Link to={`/authors/${a.id}`} state={fromState} className="text-neutral-300 hover:text-parchment transition-colors">
                       {a.name}
                     </Link>
                   </td>
