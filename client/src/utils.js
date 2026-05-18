@@ -74,6 +74,15 @@ export function fmtIsoWeekMonday(isoWeekStr) {
   return fmtShortDate(monday.toISOString().slice(0, 10));
 }
 
+// Modifier-key glyph for the user's platform — '⌘' on macOS/iOS,
+// 'Ctrl' everywhere else (Windows/Linux/Android). Used to render
+// keyboard-shortcut hints correctly; the underlying handlers all
+// accept e.ctrlKey || e.metaKey regardless of platform.
+export const MOD_KEY = (() => {
+  if (typeof navigator === 'undefined') return 'Ctrl';
+  return /Mac|iPhone|iPad|iPod/.test(navigator.platform) ? '⌘' : 'Ctrl';
+})();
+
 // Up to 3-letter initials for skeleton tiles / covers / portraits when
 // the image is missing. Strips a leading article ("the", "a", "an") on
 // titles so "The Dispossessed" → "D" not "T". Mononyms ("Plato") fall
