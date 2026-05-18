@@ -100,6 +100,29 @@ node scripts/estimate-finish-dates-from-listening.js path/to/Listening.csv --app
 
 Walks per-ASIN listening events chronologically, detects completions (End Position ≥ 95% of Book Length) and re-reads (position resets back to ≤ 5% with at least 7 days gap since the last completion). Backfills `books.date_started`, `books.date_finished`, `books.read_count`, `books.status`, and inserts `reads` rows — only fills, never overwrites manually-entered dates.
 
+### Kindle reading sessions → diary
+
+```bash
+node scripts/import-kindle-reading-sessions.js path/to/Reading-Sessions.csv
+node scripts/import-kindle-reading-sessions.js path/to/Reading-Sessions.csv --apply
+node scripts/import-kindle-reading-sessions.js path/to/Reading-Sessions.csv --apply --asin=B075MRHZBV
+```
+
+Kindle parallel to the Audible listening importer. Groups CSV rows by (ASIN, date), sums `total_reading_millis` to per-day minutes, and upserts into `reading_log` using the same idempotent shape so re-runs are safe. Books are matched by ASIN; filter to specific titles with `--asin=<id>[,...]` or `--book-id=<n>[,...]`. Short sessions are dropped via `--min-event-seconds` (default 60); pass `--include-page-flips` to keep them.
+
+## Backfill scripts
+
+One-off and re-runnable scripts that don't follow the CSV-import shape:
+
+### Fill SF author dates from ISFDB
+
+```bash
+node scripts/fill-sf-dates-from-isfdb.js
+node scripts/fill-sf-dates-from-isfdb.js --apply
+```
+
+For every author tagged as Science Fiction with no `birth_date`, searches ISFDB by exact name, parses Birthdate / Deathdate, and PATCHes into Spine. The PATCH is the existing non-destructive merge — already-set values are preserved. 800ms polite delay between requests. Re-runnable as the SF corpus grows.
+
 ## Troubleshooting
 
 `better-sqlite3` is a native module that compiles against your local Node/OS during `npm install`. If the setup fails, make sure you have the required build tools:
