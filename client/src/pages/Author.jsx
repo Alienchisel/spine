@@ -64,6 +64,10 @@ export default function Author() {
   // id (e.g. after the refresh itself triggers a setAuthor and another
   // render). Records ids whose bio_fetched_at we've already kicked off.
   const autoRefreshedRef = useRef(new Set());
+  // True while the first-visit OL fetch is in flight so the bio area
+  // can show a "Looking up on Open Library…" hint instead of just
+  // staying silent for a couple of seconds.
+  const [autoFetching, setAutoFetching] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -93,6 +97,7 @@ export default function Author() {
     if (!author || author.bio_fetched_at) return;
     if (autoRefreshedRef.current.has(author.id)) return;
     autoRefreshedRef.current.add(author.id);
+    setAutoFetching(true);
     api.refreshAuthor(author.id)
       .then(updated => {
         // Merge only the fields the refresh owns. The /refresh response
@@ -103,7 +108,8 @@ export default function Author() {
       .catch(() => {
         // Silent fail — the manual refresh button is the user's
         // recovery path. Logged in the server-side response anyway.
-      });
+      })
+      .finally(() => setAutoFetching(false));
   }, [author]);
 
   function startBioEdit() {
@@ -380,6 +386,14 @@ export default function Author() {
                     </button>
                   </div>
                 </>
+              ) : autoFetching ? (
+                // Subtle in-flight indicator for the first-visit OL
+                // fetch — replaces the "+ Add bio" affordance while
+                // the background lookup runs so the page doesn't feel
+                // empty for the few seconds before the bio lands.
+                <p className="text-xs text-neutral-600 italic" role="status">
+                  Looking up on Open Library…
+                </p>
               ) : (
                 <button
                   onClick={startBioEdit}
