@@ -109,9 +109,14 @@ const FROM_STATS = { from: 'Stats', fromPath: '/stats' };
 
 function Bar({ label, count, max, color = 'bg-oak', href, caption }) {
   const pct = max > 0 ? Math.round((count / max) * 100) : 0;
+  // Tooltip pairs the label with the bar's actual value — the bar shows
+  // the magnitude visually, but the exact count was only visible at the
+  // end of the row. Now the same hover that reveals a truncated label
+  // also tells you the number.
+  const tooltip = count != null ? `${label} · ${count.toLocaleString()}` : label;
   const labelEl = href
-    ? <Link to={href} state={FROM_STATS} className="text-xs text-neutral-400 w-28 flex-shrink-0 truncate hover:text-parchment transition-colors" title={label}>{label}</Link>
-    : <span className="text-xs text-neutral-400 w-28 flex-shrink-0 truncate" title={label}>{label}</span>;
+    ? <Link to={href} state={FROM_STATS} className="text-xs text-neutral-400 w-28 flex-shrink-0 truncate hover:text-parchment transition-colors" title={tooltip}>{label}</Link>
+    : <span className="text-xs text-neutral-400 w-28 flex-shrink-0 truncate" title={tooltip}>{label}</span>;
   return (
     <div className="flex items-center gap-3">
       {labelEl}
