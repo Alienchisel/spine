@@ -89,7 +89,7 @@ function StatCard({ label, value, sub, href }) {
     </>
   );
   return href
-    ? <Link to={href} className="bg-card rounded-lg p-4 block hover:ring-1 hover:ring-neutral-600 transition-shadow">{inner}</Link>
+    ? <Link to={href} state={FROM_STATS} className="bg-card rounded-lg p-4 block hover:ring-1 hover:ring-neutral-600 transition-shadow">{inner}</Link>
     : <div className="bg-card rounded-lg p-4">{inner}</div>;
 }
 
