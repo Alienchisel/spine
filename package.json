@@ -1,6 +1,6 @@
 {
   "name": "spine",
-  "version": "1.97.0",
+  "version": "1.97.1",
   "type": "module",
   "scripts": {
     "setup": "npm install && cd client && npm install && npm run build",
@@ -9,7 +9,8 @@
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "build": "cd client && npm run build",
     "start": "NODE_ENV=production scripts/with-toolchain.sh node server.js",
-    "test": "scripts/with-toolchain.sh node --test test/*.test.js"
+    "test": "scripts/with-toolchain.sh node --test test/*.test.js",
+    "check": "npm test && npm run build"
   },
   "dependencies": {
     "better-sqlite3": "^9.4.3",
