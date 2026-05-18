@@ -35,10 +35,9 @@ router.get('/', (req, res) => {
   }
 });
 
-// Picker data for the client. Only includes series that have at
-// least one book and years that have at least one reading-log entry —
-// the UI's series / year dropdowns aren't useful unless populated
-// from real data.
+// Picker data for the client. Only includes years that have at least
+// one reading-log entry — the year_in_review dropdown isn't useful
+// unless populated from real data.
 router.get('/facets', (_req, res) => {
   res.json(getCollageFacets());
 });

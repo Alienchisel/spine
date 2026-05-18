@@ -31,6 +31,19 @@ const PERIOD_OPTIONS = [
 ];
 const SIZE_OPTIONS = [3, 4, 5, 6];
 
+// URL-param whitelist. Anything not listed gets stripped during
+// localStorage restore, on mount sanitization, and on every update()
+// call so stale params from removed features (theme, series, title,
+// quote, labels, books, ...) can't accumulate or get re-saved.
+const VALID_PARAMS = new Set(['mode', 'period', 'size', 'year']);
+function pickValidParams(src) {
+  const out = new URLSearchParams();
+  for (const [k, v] of src.entries()) {
+    if (VALID_PARAMS.has(k)) out.set(k, v);
+  }
+  return out;
+}
+
 export default function Collage() {
   const [params, setParams] = useSearchParams();
   const { state } = useLocation();
@@ -66,20 +79,31 @@ export default function Collage() {
   // exist in the exported image, not on the live page.
   const gridRef = useRef(null);
 
-  // localStorage persistence — restore on a bare /collage visit so the
-  // user lands on their preferred config without bookmarking. Explicit
-  // URL params always win; this only fills in for empty visits. Saved
-  // on every params change so the most recent state is always the one
-  // that survives a refresh.
+  // localStorage persistence + URL sanitization — restore on a bare
+  // /collage visit so the user lands on their preferred config without
+  // bookmarking. Explicit URL params always win; this only fills in
+  // for empty visits. Both paths strip stale params from removed
+  // features (theme, series, title, quote, labels, books) so a saved
+  // config from an earlier Spine version doesn't carry dead state.
   useEffect(() => {
     if (params.toString() === '') {
       const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) setParams(new URLSearchParams(saved), { replace: true });
+      if (saved) {
+        const cleaned = pickValidParams(new URLSearchParams(saved));
+        if (cleaned.toString()) setParams(cleaned, { replace: true });
+      }
+    } else if (Array.from(params.keys()).some(k => !VALID_PARAMS.has(k))) {
+      // URL arrived with stale params (deep-link from old bookmark).
+      // Strip them so the user doesn't keep them around accidentally.
+      setParams(pickValidParams(params), { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => {
-    const s = params.toString();
+    // Save only whitelisted params so an unexpected stale value
+    // (manual URL edit, dev tools) doesn't leak into localStorage.
+    const cleaned = pickValidParams(params);
+    const s = cleaned.toString();
     if (s) localStorage.setItem(STORAGE_KEY, s);
   }, [params]);
 
@@ -118,9 +142,12 @@ export default function Collage() {
   }, [mode, period, size, year]);
 
   function update(key, value) {
-    const next = new URLSearchParams(params);
-    if (value === '' || value == null) next.delete(key);
-    else                                next.set(key, String(value));
+    // Defense-in-depth: rebuild the params from only-whitelisted keys
+    // so a stale value carried over from a removed feature can't
+    // survive past the next change to any knob.
+    const next = pickValidParams(params);
+    if (value === '' || value == null)  next.delete(key);
+    else if (VALID_PARAMS.has(key))     next.set(key, String(value));
     setParams(next, { replace: true });
   }
 
@@ -154,14 +181,25 @@ export default function Collage() {
       const filename = `spine-collage-${slug.replace(/[^a-z0-9-]/gi, '_')}-${stamp}.png`;
       canvas.toBlob((blob) => {
         if (!blob) { setError('Failed to render PNG.'); return; }
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
+        // Wrap the download step in its own try/catch — the outer
+        // try doesn't catch async-callback throws, so a blocked
+        // anchor click (some browser extensions / ad blockers
+        // intercept programmatic downloads) would otherwise silently
+        // fail and the button would reset with no signal to the user.
+        let url;
+        try {
+          url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        } catch (err) {
+          setError(`Download blocked: ${err?.message || 'unknown error'}`);
+        } finally {
+          if (url) URL.revokeObjectURL(url);
+        }
       }, 'image/png');
     } catch (err) {
       setError(`Export failed: ${err?.message || 'unknown error'}`);
