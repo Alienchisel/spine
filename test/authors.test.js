@@ -162,8 +162,9 @@ describe('authors — Open Library refresh', () => {
     assert.equal(refresh.status, 200);
     assert.equal(refresh.body.bio, null);
     assert.equal(refresh.body.ol_key, null);
-    // bio_fetched_at SHOULD bump so the auto-refresh effect doesn't
-    // keep retrying every visit. Manual button re-triggers if desired.
+    // bio_fetched_at SHOULD bump on a miss so the row records that the
+    // lookup happened; the user can still re-attempt via the manual
+    // refresh button.
     assert.ok(refresh.body.bio_fetched_at, 'bio_fetched_at should bump on miss');
   });
 
@@ -201,14 +202,13 @@ describe('authors — Open Library refresh', () => {
     assert.equal(tooFar.status, 400);
   });
 
-  it('PATCH bio persists the text and bumps bio_fetched_at to suppress auto-refresh', async () => {
+  it('PATCH bio persists the text and bumps bio_fetched_at', async () => {
     const { body: book } = await req('POST', '/api/books', {
       title: 'Bio Edit Book', authors: ['Bio Edit Author'], fiction: true,
     });
     const aid = book.authors[0].id;
 
-    // Pre-edit: no bio, bio_fetched_at null (would normally trigger
-    // the auto-refresh effect on next visit).
+    // Pre-edit: no bio, bio_fetched_at null.
     const { body: pre } = await req('GET', `/api/authors/${aid}`);
     assert.equal(pre.bio, null);
     assert.equal(pre.bio_fetched_at, null);
@@ -216,7 +216,7 @@ describe('authors — Open Library refresh', () => {
     const set = await req('PATCH', `/api/authors/${aid}`, { bio: '  A bio with leading whitespace.  ' });
     assert.equal(set.status, 200);
     assert.equal(set.body.bio, 'A bio with leading whitespace.', 'bio should be trimmed');
-    assert.ok(set.body.bio_fetched_at, 'bio_fetched_at should bump so auto-refresh stops retrying');
+    assert.ok(set.body.bio_fetched_at, 'bio_fetched_at should bump when bio is edited');
 
     // Empty string clears back to null.
     const cleared = await req('PATCH', `/api/authors/${aid}`, { bio: '' });
@@ -294,8 +294,7 @@ describe('authors — Open Library refresh', () => {
 
     const refresh = await req('POST', `/api/authors/${aid}/refresh`);
     assert.equal(refresh.status, 502);
-    // No state was persisted, so bio_fetched_at stays null and the
-    // auto-refresh effect will try again on the next visit.
+    // No state was persisted, so bio_fetched_at stays null.
     const { body: after } = await req('GET', `/api/authors/${aid}`);
     assert.equal(after.bio_fetched_at, null);
   });

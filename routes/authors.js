@@ -188,11 +188,10 @@ router.delete('/:id/photo', async (req, res) => {
   res.json(loadAuthor(id));
 });
 
-// Fetch bio + portrait from Open Library and save locally. Manual or
-// auto-triggered by the client when bio_fetched_at is null. A miss
-// (no OL match) still bumps bio_fetched_at so the auto-refresh effect
-// doesn't keep retrying every visit — the manual button is the way to
-// re-attempt after a real failure.
+// Fetch bio + portrait from Open Library and save locally. Fires only
+// when the user clicks "↻ Refresh from Open Library" on the author
+// page — there is no auto-refresh path. A miss (no OL match) still
+// bumps bio_fetched_at so the row no longer reads as "never looked up".
 router.post('/:id/refresh', async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid author id' });

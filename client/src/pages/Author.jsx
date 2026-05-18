@@ -130,14 +130,6 @@ export default function Author() {
   const [refreshing, setRefreshing] = useState(false);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoError, setPhotoError] = useState(null);
-  // Guards the auto-refresh effect against re-firing for the same author
-  // id (e.g. after the refresh itself triggers a setAuthor and another
-  // render). Records ids whose bio_fetched_at we've already kicked off.
-  const autoRefreshedRef = useRef(new Set());
-  // True while the first-visit OL fetch is in flight so the bio area
-  // can show a "Looking up on Open Library…" hint instead of just
-  // staying silent for a couple of seconds.
-  const [autoFetching, setAutoFetching] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -154,51 +146,10 @@ export default function Author() {
     return () => { cancelled = true; };
   }, [id, sort]);
 
-  // Reset the bio collapse + auto-refresh memo when navigating to a
-  // different author — otherwise we'd carry the previous author's
-  // expanded state into a new visit.
+  // Reset bio collapse + edit state when navigating to a different
+  // author — otherwise we'd carry the previous author's expanded state
+  // into a new visit.
   useEffect(() => { setBioExpanded(false); setBioEditing(false); setBioError(null); }, [id]);
-
-  // Auto-refresh from Open Library. Two trigger paths:
-  //   1. First visit — bio_fetched_at is null, never looked up.
-  //   2. Living-author staleness — death_year is null (so the date
-  //      could change if they've since died) AND the last fetch was
-  //      90+ days ago. Already-deceased authors are skipped on path
-  //      2 because their dates won't change.
-  // The guard ref prevents re-firing for the same id if the auto-
-  // refresh itself causes a re-render.
-  useEffect(() => {
-    if (!author) return;
-    if (autoRefreshedRef.current.has(author.id)) return;
-    const ninetyDaysMs = 90 * 24 * 60 * 60 * 1000;
-    // SQLite stores datetime('now','localtime') as "YYYY-MM-DD HH:MM:SS";
-    // swap the space for 'T' so Date.parse honors it as ISO-ish.
-    const lastFetch = author.bio_fetched_at
-      ? new Date(author.bio_fetched_at.replace(' ', 'T')).getTime()
-      : null;
-    const firstVisit = !author.bio_fetched_at;
-    const livingStale = author.death_year == null
-      && lastFetch != null && !Number.isNaN(lastFetch)
-      && (Date.now() - lastFetch) > ninetyDaysMs;
-    if (!firstVisit && !livingStale) return;
-    autoRefreshedRef.current.add(author.id);
-    // Only flip the visible "Looking up…" indicator for first visits —
-    // for stale-living-author refreshes the bio is already on-screen
-    // and the refresh runs silently in the background.
-    if (firstVisit) setAutoFetching(true);
-    api.refreshAuthor(author.id)
-      .then(updated => {
-        // Merge only the fields the refresh owns. The /refresh response
-        // shape omits aliases/books/total, so we keep those from the
-        // current author state.
-        setAuthor(a => a ? { ...a, ...updated } : a);
-      })
-      .catch(() => {
-        // Silent fail — the manual refresh button is the user's
-        // recovery path. Logged in the server-side response anyway.
-      })
-      .finally(() => setAutoFetching(false));
-  }, [author]);
 
   function startBioEdit() {
     setBioDraft(author?.bio ?? '');
@@ -481,14 +432,6 @@ export default function Author() {
                     </button>
                   </div>
                 </>
-              ) : autoFetching ? (
-                // Subtle in-flight indicator for the first-visit OL
-                // fetch — replaces the "+ Add bio" affordance while
-                // the background lookup runs so the page doesn't feel
-                // empty for the few seconds before the bio lands.
-                <p className="text-xs text-neutral-600 italic" role="status">
-                  Looking up on Open Library…
-                </p>
               ) : (
                 <button
                   onClick={startBioEdit}
