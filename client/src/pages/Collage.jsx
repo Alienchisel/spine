@@ -338,11 +338,23 @@ export default function Collage() {
         // through tile content, and a label would just add chrome.
         <div ref={gridRef}>
           {(mode === 'top_books' || mode === 'top_authors') && (
-            <p className="text-xs text-neutral-500 uppercase tracking-wider mb-3">
-              {MODE_OPTIONS.find(m => m.key === mode)?.label}
-              {' · '}
-              {PERIOD_OPTIONS.find(p => p.key === period)?.label}
-            </p>
+            <div className="mb-3">
+              <p className="text-xs text-neutral-500 uppercase tracking-wider">
+                {MODE_OPTIONS.find(m => m.key === mode)?.label}
+                {' · '}
+                {PERIOD_OPTIONS.find(p => p.key === period)?.label}
+              </p>
+              {/* Explainer line — the ranking comes from reading_log
+                  sessions (pages_read + minutes_read summed), so a
+                  finished book with no logged sessions doesn't appear.
+                  The format (physical / ebook / audiobook) doesn't
+                  filter anything; only logged activity does. */}
+              <p className="text-[11px] text-neutral-600 mt-0.5">
+                {mode === 'top_books'
+                  ? 'Ranked by pages read and listening minutes recorded in the reading log. Books with no logged sessions don’t appear.'
+                  : 'Ranked by reading-log activity (pages + minutes) summed across each author’s books in the period.'}
+              </p>
+            </div>
           )}
           <div className="grid gap-2" style={gridStyle}>
             {tiles.map(t => (
