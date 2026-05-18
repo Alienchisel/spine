@@ -68,6 +68,21 @@ function lifespan(birth, death) {
 // input before we hit the API.
 const DATE_INPUT_RE = /^-?\d{1,4}(?:-(?:0[1-9]|1[0-2])(?:-(?:0[1-9]|[12]\d|3[01]))?)?$/;
 
+// Auto-insert dashes as the user types digits, so "19380718" becomes
+// "1938-07-18" on the fly. Strips any non-digit characters and re-
+// formats based on digit count: ≤4 → YYYY, 5-6 → YYYY-MM, 7+ → YYYY-MM-DD.
+// BCE years (leading '-') are passed through untouched — the digit
+// count is ambiguous when a sign and explicit separator are in play,
+// so user types those manually.
+function autoFormatDate(raw) {
+  if (!raw) return '';
+  if (raw.startsWith('-')) return raw;
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length <= 4) return digits;
+  if (digits.length <= 6) return digits.slice(0, 4) + '-' + digits.slice(4);
+  return digits.slice(0, 4) + '-' + digits.slice(4, 6) + '-' + digits.slice(6, 8);
+}
+
 // Inline editor for birth/death date. Default state shows the formatted
 // dates (or a dim "add dates" hint if both null) as a hover-revealed
 // link; clicking swaps in two text inputs that accept YYYY, YYYY-MM,
@@ -106,14 +121,14 @@ function DatesPicker({ birth, death, onChange }) {
     return (
       <span className="inline-flex items-center gap-1 flex-wrap">
         <input
-          type="text" value={birthDraft} onChange={(e) => setBirthDraft(e.target.value)}
+          type="text" value={birthDraft} onChange={(e) => setBirthDraft(autoFormatDate(e.target.value))}
           onKeyDown={onKey} autoFocus aria-label="Birth date"
           placeholder="1938-07-18"
           className="w-28 bg-neutral-900 border border-neutral-700 rounded px-1.5 py-0.5 text-sm text-neutral-200 placeholder-neutral-700 focus:outline-none focus:border-oak/50"
         />
         <span className="text-neutral-700">–</span>
         <input
-          type="text" value={deathDraft} onChange={(e) => setDeathDraft(e.target.value)}
+          type="text" value={deathDraft} onChange={(e) => setDeathDraft(autoFormatDate(e.target.value))}
           onKeyDown={onKey} aria-label="Death date"
           placeholder="2007"
           className="w-28 bg-neutral-900 border border-neutral-700 rounded px-1.5 py-0.5 text-sm text-neutral-200 placeholder-neutral-700 focus:outline-none focus:border-oak/50"
