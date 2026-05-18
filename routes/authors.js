@@ -190,8 +190,17 @@ router.delete('/:id/photo', async (req, res) => {
 
 // Fetch bio + portrait from Open Library and save locally. Fires only
 // when the user clicks "↻ Refresh from Open Library" on the author
-// page — there is no auto-refresh path. A miss (no OL match) still
-// bumps bio_fetched_at so the row no longer reads as "never looked up".
+// page — there is no auto-refresh path.
+//
+// Non-destructive merge: every user-facing field (bio / birth_year /
+// death_year / photo_path) is preserved if already set, and OL only
+// fills the blanks (`COALESCE(existing, ol_value)`). A user who wants
+// to replace a wrong value can clear it via the inline editor and
+// re-run Refresh. `ol_key` is the one exception — it always tracks
+// the current OL match because it's system metadata, not user data.
+//
+// A miss (no OL match) still bumps bio_fetched_at so the row no longer
+// reads as "never looked up".
 router.post('/:id/refresh', async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid author id' });
@@ -203,16 +212,21 @@ router.post('/:id/refresh', async (req, res) => {
       db.prepare("UPDATE authors SET bio_fetched_at = datetime('now', 'localtime') WHERE id = ?").run(id);
       return res.json(loadAuthor(id));
     }
-    if (author.photo_path && found.photo_path && author.photo_path !== found.photo_path) {
-      // Best-effort cleanup of the prior portrait; intentionally awaited
-      // so the unlink completes before we respond and the disk doesn't
-      // accumulate orphans on rapid refreshes.
-      await deleteAuthorPhoto(author.photo_path);
+    if (author.photo_path && found.photo_path) {
+      // OL handed us a portrait we won't use because the existing one
+      // wins under the non-destructive merge. Delete the just-downloaded
+      // orphan so uploads/authors/ doesn't accumulate strays on every
+      // refresh.
+      await deleteAuthorPhoto(found.photo_path);
     }
     db.prepare(`
       UPDATE authors SET
-        bio = ?, birth_year = ?, death_year = ?, photo_path = COALESCE(?, photo_path),
-        ol_key = ?, bio_fetched_at = datetime('now', 'localtime')
+        bio        = COALESCE(bio,        ?),
+        birth_year = COALESCE(birth_year, ?),
+        death_year = COALESCE(death_year, ?),
+        photo_path = COALESCE(photo_path, ?),
+        ol_key     = ?,
+        bio_fetched_at = datetime('now', 'localtime')
       WHERE id = ?
     `).run(found.bio, found.birth_year, found.death_year, found.photo_path, found.ol_key, id);
     res.json(loadAuthor(id));

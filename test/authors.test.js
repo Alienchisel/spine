@@ -145,6 +145,100 @@ describe('authors — Open Library refresh', () => {
     assert.equal(post.death_year, 1972);
   });
 
+  it('refresh is non-destructive: preserves user-set bio / dates / photo', async () => {
+    const { body: book } = await req('POST', '/api/books', {
+      title: 'Preserve Test Book', authors: ['Already Curated Author'], fiction: true,
+    });
+    const aid = book.authors[0].id;
+
+    // Pre-set every user-facing field so we can verify the refresh
+    // doesn't clobber any of them.
+    await req('PATCH', `/api/authors/${aid}`, {
+      bio:        'A hand-written bio that the user worked hard on.',
+      birth_year: 1850,
+      death_year: 1920,
+    });
+    // Upload a photo by hand so photo_path is set ahead of the refresh.
+    const jpegHeader  = Buffer.from([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00]);
+    const jpegPadding = Buffer.alloc(2048, 0);
+    const jpegEOI     = Buffer.from([0xFF, 0xD9]);
+    const jpeg = Buffer.concat([jpegHeader, jpegPadding, jpegEOI]);
+    const fd = new FormData();
+    fd.append('photo', new Blob([jpeg], { type: 'image/jpeg' }), 'manual.jpg');
+    const uploaded = await (await fetch(`${url}/api/authors/${aid}/photo`, { method: 'POST', body: fd })).json();
+    const userPhotoPath = uploaded.photo_path;
+
+    // OL returns a hit with entirely different values — none of which
+    // should land on the row because the user has already curated everything.
+    stubFetch([
+      {
+        match: (u) => u.startsWith('https://openlibrary.org/search/authors.json'),
+        respond: () => jsonResponse({ docs: [{ key: 'OL99999A', name: 'Already Curated Author' }] }),
+      },
+      {
+        match: (u) => u === 'https://openlibrary.org/authors/OL99999A.json',
+        respond: () => jsonResponse({
+          bio:        'OL would replace the user bio with this generic blurb.',
+          birth_date: '1700',
+          death_date: '1800',
+          photos:     [12345], // would download but get deleted as an orphan
+        }),
+      },
+      {
+        match: (u) => u.startsWith('https://covers.openlibrary.org/'),
+        // Return a >1 KB buffer so the placeholder filter doesn't drop it.
+        respond: () => new Response(Buffer.alloc(4096, 0xAB), { status: 200 }),
+      },
+    ]);
+
+    const refresh = await req('POST', `/api/authors/${aid}/refresh`);
+    assert.equal(refresh.status, 200);
+    // User-set fields untouched.
+    assert.equal(refresh.body.bio,        'A hand-written bio that the user worked hard on.');
+    assert.equal(refresh.body.birth_year, 1850);
+    assert.equal(refresh.body.death_year, 1920);
+    assert.equal(refresh.body.photo_path, userPhotoPath);
+    // System metadata still tracks the latest OL match.
+    assert.equal(refresh.body.ol_key, 'OL99999A');
+    assert.ok(refresh.body.bio_fetched_at);
+  });
+
+  it('refresh fills missing fields without overwriting set ones', async () => {
+    const { body: book } = await req('POST', '/api/books', {
+      title: 'Partial Fill Book', authors: ['Half Curated Author'], fiction: true,
+    });
+    const aid = book.authors[0].id;
+
+    // Pre-set bio + birth_year; leave death_year and photo blank.
+    await req('PATCH', `/api/authors/${aid}`, {
+      bio:        'User-written bio that stays.',
+      birth_year: 1810,
+    });
+
+    stubFetch([
+      {
+        match: (u) => u.startsWith('https://openlibrary.org/search/authors.json'),
+        respond: () => jsonResponse({ docs: [{ key: 'OL77777A', name: 'Half Curated Author' }] }),
+      },
+      {
+        match: (u) => u === 'https://openlibrary.org/authors/OL77777A.json',
+        respond: () => jsonResponse({
+          bio:        'OL bio that should NOT replace the user bio.',
+          birth_date: '1700', // shouldn't replace the user's 1810
+          death_date: '1888', // SHOULD land — user had no death_year
+          photos:     [-1],   // OL has no photo → leaves photo_path null
+        }),
+      },
+    ]);
+
+    const refresh = await req('POST', `/api/authors/${aid}/refresh`);
+    assert.equal(refresh.status, 200);
+    assert.equal(refresh.body.bio,        'User-written bio that stays.');
+    assert.equal(refresh.body.birth_year, 1810);
+    assert.equal(refresh.body.death_year, 1888); // filled from OL
+    assert.equal(refresh.body.photo_path, null);
+  });
+
   it('bumps bio_fetched_at even when OL has no match', async () => {
     const { body: book } = await req('POST', '/api/books', {
       title: 'No Match Book', authors: ['Indie Pseudonym ' + Date.now()], fiction: true,
