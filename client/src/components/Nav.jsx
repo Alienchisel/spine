@@ -1,7 +1,8 @@
 import { Link, useLocation } from 'react-router-dom';
+import { labelForPath } from '../utils.js';
 
 export default function Nav() {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const showAddButton = pathname === '/' || pathname.startsWith('/browse');
   const onReadlist = pathname === '/readlist';
   const onLoved = pathname === '/loved';
@@ -48,6 +49,7 @@ export default function Nav() {
         {showAddButton && (
           <Link
             to="/books/new"
+            state={{ from: labelForPath(pathname), fromPath: pathname + search }}
             className="text-sm font-medium bg-oak hover:bg-leather motion-safe:active:scale-[0.98] text-neutral-950 px-4 py-1.5 rounded-full transition-[transform,background-color] ease-out duration-150"
           >
             + Add book

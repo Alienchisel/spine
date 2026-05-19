@@ -145,7 +145,7 @@ export default function Library() {
   // navigations by default, so a tab/sort/filter/search-input change
   // would otherwise wipe the '← Stats' (or whatever) incoming back
   // link the moment the user touches a control.
-  const { state: navState } = useLocation();
+  const { state: navState, search: locationSearch } = useLocation();
   // useMemo with [] keeps the localStorage read + JSON.parse to a single
   // mount-time cost. Previously this ran on every render even though
   // only the three useState lazy initializers below consume it.
@@ -873,7 +873,11 @@ export default function Library() {
           ) : (
             <>
               <p className="text-neutral-600 mb-3">Nothing here yet.</p>
-              <Link to="/books/new" className="text-sm text-oak hover:text-leather">Add your first book →</Link>
+              <Link
+                to="/books/new"
+                state={{ from: 'Library', fromPath: '/' + locationSearch }}
+                className="text-sm text-oak hover:text-leather"
+              >Add your first book →</Link>
             </>
           )}
         </div>
