@@ -37,7 +37,11 @@ export default function App() {
       e.preventDefault();
       const fromPath = location.pathname + location.search;
       const from = labelForPath(location.pathname);
-      api.getRandomBook()
+      // On the Library (/, /?tab=X, with filters), forward the current
+      // search params so the random pick honours the active tab/filter.
+      // On any other page, pull from the whole library.
+      const search = location.pathname === '/' ? location.search : '';
+      api.getRandomBook(search)
         .then(({ id }) => navigate(`/books/${id}`, { state: { from, fromPath } }))
         .catch(() => {});
     }

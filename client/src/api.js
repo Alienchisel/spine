@@ -35,7 +35,10 @@ export const api = {
   getBookLists: (bookId) => request(`/books/${bookId}/lists`),
   getBookLog: (bookId) => request(`/books/${bookId}/log`),
   getBook: (id) => request(`/books/${id}`),
-  getRandomBook: () => request('/books/random'),
+  // Accepts an already-formed query string (e.g. location.search) so
+  // the caller can forward the current Library tab/filters and the
+  // random pick lands within that pool.
+  getRandomBook: (search = '') => request(`/books/random${search || ''}`),
   getAuthors: () => request('/authors'),
   getTags: () => request('/tags'),
   getSeries: () => request('/series'),

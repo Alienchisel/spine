@@ -359,6 +359,24 @@ describe('books', () => {
         assert.equal(book.archived, 0, 'random draw must not be archived');
       }
     });
+
+    it('?tab=reading restricts the pool to books with status=reading', async () => {
+      // Draw a few times; every result must be a reading book.
+      for (let i = 0; i < 3; i++) {
+        const { status, body } = await req('GET', '/api/books/random?tab=reading');
+        if (status === 404) return; // empty pool — accept and skip
+        assert.equal(status, 200);
+        const { body: book } = await req('GET', `/api/books/${body.id}`);
+        assert.equal(book.status, 'reading', `expected status=reading, got ${book.status}`);
+      }
+    });
+
+    it('returns 404 when the filter matches no books', async () => {
+      // A bogus filter value that no book has — the conditions form is
+      // valid but matches nothing.
+      const { status } = await req('GET', '/api/books/random?field=tag&value=__no_such_tag_zzz__');
+      assert.equal(status, 404);
+    });
   });
 
   describe('PUT /api/books/:id', () => {

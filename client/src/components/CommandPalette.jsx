@@ -797,7 +797,35 @@ export default function CommandPalette() {
     ];
   }, [currentBook, navigate, confirm, resetQuery, forget]);
 
-  const actionEntries = useMemo(() => [...bookActions, ...libraryActions], [bookActions, libraryActions]);
+  // Random-book action — palette parallel of the `R` keyboard shortcut.
+  // Forwards the current Library search params when on /, so a palette
+  // "Random book" pick from /?tab=reading lands on a random reading
+  // book just like R does.
+  const randomBookEntries = useMemo(() => [{
+    id: 'action.random_book',
+    kind: 'action',
+    label: 'Random book',
+    hint: 'Surprise me',
+    perform: async () => {
+      const search = location.pathname === '/' ? location.search : '';
+      try {
+        const { id } = await api.getRandomBook(search);
+        navigate(`/books/${id}`, {
+          state: {
+            from: labelForPath(location.pathname),
+            fromPath: location.pathname + location.search,
+          },
+        });
+      } catch {
+        // Empty-pool 404 etc. — silent; palette closes either way.
+      }
+    },
+  }], [navigate, location.pathname, location.search]);
+
+  const actionEntries = useMemo(
+    () => [...bookActions, ...libraryActions, ...randomBookEntries],
+    [bookActions, libraryActions, randomBookEntries],
+  );
 
   // Empty-state entry sets. Continue-reading maps the fetched book
   // objects to entry shape; recent rehydrates persisted MRU entries,

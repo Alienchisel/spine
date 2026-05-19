@@ -3,6 +3,7 @@ import db from '../db.js';
 import { validateBook, isValidDate, isValidPartialDate, partialDateBefore } from '../lib/books/validation.js';
 import { getBook, getBookCounts, getBookFacets, listBooks, createBook, updateBook, patchBook, deleteBook, updateBookCover, linkEditions, unlinkEdition } from '../lib/books/repository.js';
 import { syncStoryAuthors, pruneOrphanPeople } from '../lib/books/people.js';
+import { buildFilterConditions } from '../lib/books/filters.js';
 
 const router = express.Router();
 
@@ -35,12 +36,19 @@ router.put('/desire-order', (req, res) => {
   res.json({ ok: true });
 });
 
-// Random non-archived book — backs the `R` shortcut. Must sit above the
-// /:id route so "random" isn't read as a numeric id. Archived books are
-// excluded so the surprise lands on something in the current library.
-router.get('/random', (_req, res) => {
-  const row = db.prepare('SELECT id FROM books WHERE archived = 0 ORDER BY RANDOM() LIMIT 1').get();
-  if (!row) return res.status(404).json({ error: 'No books in library' });
+// Random book — backs the `R` shortcut. Must sit above the /:id route
+// so "random" isn't read as a numeric id. Accepts the same filter
+// query params as GET /books (tab, statuses, archived, owned, …) so a
+// random pick from /?tab=reading lands on a random reading book; the
+// shortcut respects whatever filter view the user is on. Archived
+// books are excluded by default (the buildFilterConditions helper
+// applies that rule, with the same exceptions: tab='archived' opts
+// in; archived='any' includes both).
+router.get('/random', (req, res) => {
+  const { conditions, params } = buildFilterConditions(req.query);
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  const row = db.prepare(`SELECT id FROM books ${where} ORDER BY RANDOM() LIMIT 1`).get(...params);
+  if (!row) return res.status(404).json({ error: 'No matching books' });
   res.json({ id: row.id });
 });
 
