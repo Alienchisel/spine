@@ -342,7 +342,12 @@ router.get('/buildings/:id/books', (req, res) => {
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid id' });
   const books = db.prepare(`
     SELECT b.id, b.title, b.cover_path, b.status, b.rating, b.series, b.series_number, b.format,
-           b.loved, b.is_custom, b.on_readlist, b.page_count, b.current_page, b.duration_minutes, b.current_minutes
+           b.loved, b.is_custom, b.on_readlist, b.page_count, b.current_page, b.duration_minutes, b.current_minutes,
+           -- Effective room (whichever level the book is pinned to). Surfaced
+           -- so the building view can group the flat list under per-room
+           -- headers; null = book is at the building level only.
+           COALESCE(r_direct.id,   r_via_u.id,   r_via_s.id)   AS effective_room_id,
+           COALESCE(r_direct.name, r_via_u.name, r_via_s.name) AS effective_room_name
     FROM books b
     -- resolve effective room
     LEFT JOIN rooms       r_direct ON r_direct.id = b.room_id

@@ -538,11 +538,43 @@ export default function ShelfView() {
         )}
         {booksLoading ? (
           <div role="status" className="text-neutral-700 text-sm mt-6">Loading…</div>
-        ) : books.length > 0 && (
-          <div className={`${gridClassName} ${rooms.length > 0 ? 'mt-8' : ''}`} style={gridStyle}>
-            {books.map(book => <BookCard key={book.id} book={book} compact={compact} linkState={fromState} />)}
-          </div>
-        )}
+        ) : books.length > 0 && (() => {
+          // Group the flat building-books list under per-room headers.
+          // The SQL ORDER BY guarantees same-room books are adjacent, so a
+          // single walk emits each group in order. Books pinned at the
+          // building level (effective_room_id null) sort last and get a
+          // "No room assigned" header — gives the user a clear cue that
+          // those rows are unfiled rather than mixing them silently into
+          // the first room's grid.
+          const groups = [];
+          for (const book of books) {
+            const last = groups[groups.length - 1];
+            const rid = book.effective_room_id ?? null;
+            if (last && last.id === rid) {
+              last.books.push(book);
+            } else {
+              groups.push({
+                id: rid,
+                name: book.effective_room_name ?? 'No room assigned',
+                books: [book],
+              });
+            }
+          }
+          return (
+            <div className={rooms.length > 0 ? 'mt-8 space-y-6' : 'space-y-6'}>
+              {groups.map(g => (
+                <div key={g.id ?? 'unassigned'}>
+                  <p className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-2">
+                    {g.name} <span className="text-neutral-700">· {plural(g.books.length, 'book')}</span>
+                  </p>
+                  <div className={gridClassName} style={gridStyle}>
+                    {g.books.map(book => <BookCard key={book.id} book={book} compact={compact} linkState={fromState} />)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
         {!booksLoading && rooms.length === 0 && books.length === 0 && (
           <p className="text-neutral-600 text-sm">No books in this building yet.</p>
         )}
