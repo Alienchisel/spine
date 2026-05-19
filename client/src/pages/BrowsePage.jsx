@@ -43,20 +43,24 @@ export default function BrowsePage() {
   const { state, pathname } = useLocation();
   const backLabel = state?.from ? `← ${state.from}` : '← Library';
   const backPath  = state?.fromPath ?? '/';
-  // BookDetail back-link state: returning lands on this same browse view.
-  // Use the human-readable heading (e.g. "Fiction" / "★★★★½") rather than
-  // the raw URL value, which for fiction/format/rating fields is "0" / "1" /
-  // "physical" — fine for the URL, useless as a back-link label.
-  // Year fields prefix the FIELD_LABEL so "← 2026" isn't ambiguous between
-  // acquired-by-year and finished-by-year browse paths.
-  const fromLabel = field === 'fiction'
+  // Human-readable name for the current browse view. The raw URL value
+  // for fiction/format/rating fields is "0" / "1" / "physical" — fine
+  // for the URL, useless to display. Year fields stay as the bare year:
+  // the eyebrow above (Acquired / Finished) provides the disambiguation
+  // on this page, so prefixing the heading would duplicate the eyebrow.
+  const heading = field === 'fiction'
     ? (decoded === 'fiction' ? 'Fiction' : decoded === 'nonfiction' ? 'Non-fiction' : 'Fiction / NF unset')
     : field === 'format'        ? (FORMAT_LABEL[decoded] ?? decoded)
     : field === 'rating'        ? starsLabel(parseFloat(decoded))
     : field === 'author_gender' ? (AUTHOR_GENDER_LABEL[decoded] ?? decoded)
-    : field === 'year_acquired' ? `Acquired ${decoded}`
-    : field === 'year_finished' ? `Finished ${decoded}`
     : decoded;
+  // Back-link label carried to BookDetail. Same as the heading except
+  // year fields fold the eyebrow into the label so "← 2026" isn't
+  // ambiguous between acquired-by-year and finished-by-year browse
+  // paths — once off this page, the eyebrow context is gone.
+  const fromLabel = field === 'year_acquired' ? `Acquired ${decoded}`
+                  : field === 'year_finished' ? `Finished ${decoded}`
+                  : heading;
   const fromState = useMemo(
     () => ({ from: fromLabel, fromPath: pathname }),
     [fromLabel, pathname],
@@ -173,7 +177,6 @@ export default function BrowsePage() {
   }
 
   const label = FIELD_LABEL[field] ?? field;
-  const heading = fromLabel;
 
   const hasMore = loadedRef.current < total;
 
