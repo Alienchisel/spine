@@ -198,7 +198,9 @@ export default function App() {
             void). Width is sized to the exact gutter at any viewport
             via calc((100vw - 1280px) / 2) — content is max-w-7xl
             centered, so the gutter is half the leftover viewport on
-            each side. Height comes from the JS-managed gutterHeight
+            each side — capped at 640 px so ultra-wide screens don't
+            stretch the composition (2560 px viewport = 640 px gutter,
+            the design target). Height comes from the JS-managed gutterHeight
             so Ctrl-F's find bar doesn't rescale the art. A mask fade
             on the inner edge blends the dark middle into the page bg.
             Hidden below xl: where the gutter collapses to zero.
@@ -208,7 +210,7 @@ export default function App() {
             none does the stacking instead. */}
         {gutterHeight > 0 && (
           <div
-            className="hidden xl:block fixed top-0 left-0 w-[calc((100vw-1280px)/2)] overflow-hidden pointer-events-none select-none [mask-image:linear-gradient(to_right,black_70%,transparent)]"
+            className="hidden xl:block fixed top-0 left-0 w-[calc((100vw-1280px)/2)] max-w-[640px] overflow-hidden pointer-events-none select-none [mask-image:linear-gradient(to_right,black_70%,transparent)]"
             style={{ height: `${gutterHeight}px` }}
             aria-hidden="true"
           >
@@ -221,7 +223,7 @@ export default function App() {
         )}
         {gutterHeight > 0 && (
           <div
-            className="hidden xl:block fixed top-0 right-0 w-[calc((100vw-1280px)/2)] overflow-hidden pointer-events-none select-none [mask-image:linear-gradient(to_left,black_70%,transparent)]"
+            className="hidden xl:block fixed top-0 right-0 w-[calc((100vw-1280px)/2)] max-w-[640px] overflow-hidden pointer-events-none select-none [mask-image:linear-gradient(to_left,black_70%,transparent)]"
             style={{ height: `${gutterHeight}px` }}
             aria-hidden="true"
           >
