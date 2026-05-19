@@ -147,6 +147,17 @@ export function labelForPath(pathname) {
   // outgoing card Links, so this only matters for surfaces that
   // synthesise their own from-label (Nav's + Add book, R shortcut,
   // palette random book). 'Browse' is generic but honest.
+  //
+  // Year fields mirror BrowsePage's rich label because the raw value
+  // is ambiguous off-page ("2026" alone doesn't say acquired vs
+  // finished). Other browse paths have self-identifying values
+  // (audiobook, male, 4.5) and degrade to 'Browse' fine.
+  if (pathname.startsWith('/browse/year_acquired/')) {
+    return `Acquired ${decodeURIComponent(pathname.split('/').at(-1))}`;
+  }
+  if (pathname.startsWith('/browse/year_finished/')) {
+    return `Finished ${decodeURIComponent(pathname.split('/').at(-1))}`;
+  }
   if (pathname.startsWith('/browse'))   return 'Browse';
   if (pathname.startsWith('/stats'))    return 'Stats';
   if (pathname.startsWith('/authors'))  return 'Authors';
