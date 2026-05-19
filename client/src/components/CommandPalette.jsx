@@ -284,6 +284,13 @@ export default function CommandPalette() {
     ? Number(bookMatch.params.id)
     : null;
   const [currentBook, setCurrentBook] = useState(null);
+  // Same shape for /lists/:id — the palette already caches `lists` for
+  // the navigation section, so the list's name is free to look up. Used
+  // by pick() to produce an accurate from-label when navigating away.
+  const listMatch = useMatch('/lists/:id');
+  const currentListId = listMatch && /^\d+$/.test(listMatch.params.id)
+    ? Number(listMatch.params.id)
+    : null;
   const [reading, setReading] = useState([]);
   const [recent, setRecent] = useState(loadMRU);
   // Sub-prompt state. null when in root mode; otherwise { action,
@@ -1100,13 +1107,21 @@ export default function CommandPalette() {
       // Library tab — instead of falling back to document.referrer
       // (which inside an SPA only updates on hard navigations and is
       // routinely stale).
-      // On /books/:id, prefer the book's title over labelForPath, which
-      // falls through to "Library" for /books/* paths. Without this the
-      // destination's back link would read "← Library" while clicking it
-      // returned to the book detail — label and path disagree.
+      // On entity-specific paths (/books/:id, /lists/:id) prefer the
+      // entity's name over labelForPath, which only knows about index
+      // routes and would otherwise produce a "← Library" / "← Lists"
+      // label pointing at the specific entity URL — label and path
+      // disagreeing. /lists is free because the palette already caches
+      // every list's name; /authors/:id is skipped because it would
+      // require an extra fetch for a narrow win.
       const onBookDetail = currentBookId != null;
+      const currentListName = currentListId != null
+        ? lists.find(l => l.id === currentListId)?.name
+        : null;
       const fromLabel = onBookDetail
         ? (currentBook?.title ?? 'Book')
+        : currentListName
+        ? currentListName
         : labelForPath(location.pathname);
       navigate(entry.path, {
         state: {
