@@ -480,7 +480,7 @@ export default function BookForm() {
   return (
     <div className="max-w-2xl">
       <Link
-        to={isEdit ? `/books/${id}` : '/'}
+        to={isEdit ? `/books/${id}` : (navState?.fromPath ?? '/')}
         state={navState}
         className="text-sm text-neutral-600 hover:text-neutral-300 mb-8 inline-block transition-colors"
       >
