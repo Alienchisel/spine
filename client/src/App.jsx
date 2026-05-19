@@ -72,9 +72,47 @@ export default function App() {
         fromPath = location.pathname + location.search;
         from     = labelForPath(location.pathname);
       }
+
+      // Scope-aware random for pages where R should pick within the
+      // page's natural set rather than the entire library. /readlist and
+      // /shelf-view fetch the page's own set and pick client-side —
+      // typically small enough that the over-fetch is unnoticeable, and
+      // it avoids a new server endpoint per scope.
+      if (location.pathname === '/readlist') {
+        api.getReadlist()
+          .then(books => {
+            if (!Array.isArray(books) || !books.length) return;
+            const pick = books[Math.floor(Math.random() * books.length)];
+            navigate(`/books/${pick.id}`, { state: { from, fromPath } });
+          })
+          .catch(() => {});
+        return;
+      }
+      if (location.pathname === '/shelf-view') {
+        const sp = new URLSearchParams(location.search);
+        const s = sp.get('s'), u = sp.get('u'), r = sp.get('r'), b = sp.get('b');
+        const fetch = s ? api.getShelfBooks(Number(s))
+                    : u ? api.getUnitBooks(Number(u))
+                    : r ? api.getRoomBooks(Number(r))
+                    : b ? api.getBuildingBooks(Number(b))
+                    : null;
+        if (fetch) {
+          fetch
+            .then(books => {
+              if (!Array.isArray(books) || !books.length) return;
+              const pick = books[Math.floor(Math.random() * books.length)];
+              navigate(`/books/${pick.id}`, { state: { from, fromPath } });
+            })
+            .catch(() => {});
+          return;
+        }
+        // No scope → fall through to global random (whole library).
+      }
+
       // On the Library (/, /?tab=X, with filters), forward the current
       // search params so the random pick honours the active tab/filter.
-      // On any other page, pull from the whole library.
+      // On /loved, forward ?tab=loved (server already maps tab='loved' to
+      // loved = 1). On any other page, pull from the whole library.
       // Library deliberately drops the canonical ?tab=reading from the
       // URL when on its default tab (cleaner URL), so on bare /,
       // synthesise tab=reading here — without this, R from the visually-
@@ -84,6 +122,8 @@ export default function App() {
         const params = new URLSearchParams(location.search);
         if (!params.has('tab')) params.set('tab', 'reading');
         search = `?${params.toString()}`;
+      } else if (location.pathname === '/loved') {
+        search = '?tab=loved';
       }
       api.getRandomBook(search)
         .then(({ id }) => navigate(`/books/${id}`, { state: { from, fromPath } }))

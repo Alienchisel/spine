@@ -1,6 +1,6 @@
 {
   "name": "spine",
-  "version": "1.102.10",
+  "version": "1.103.0",
   "type": "module",
   "scripts": {
     "setup": "npm install && cd client && npm install && npm run build",
