@@ -13,16 +13,18 @@ import { labelForPath } from './utils.js';
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
-  // Plain `R` jumps to a random book — Wikipedia/Letterboxd convention.
-  // Guarded so input fields, textareas, and contenteditable surfaces
-  // (bio editor, search bars, etc.) still get the keystroke. Any
-  // modifier (Ctrl/Meta/Alt/Shift) bows out so Ctrl-R stays the
-  // browser reload and Shift-R is free as an escalation if R alone
-  // ever proves too misfire-prone. Passes the current pathname+search
-  // as fromPath so BookDetail's '← Library' (or wherever) returns to
-  // the exact view the user was on — including the active tab — rather
-  // than falling back to document.referrer, which inside an SPA can
-  // be stale (only updates on hard navigations).
+  // Plain `R` jumps to a random thing in the current context —
+  // Wikipedia/Letterboxd convention. Default: random book. On `/authors`
+  // and `/authors/:id`, random author instead — surfing through authors
+  // is the natural intent on those pages. Guarded so input fields,
+  // textareas, and contenteditable surfaces (bio editor, search bars,
+  // etc.) still get the keystroke. Any modifier (Ctrl/Meta/Alt/Shift)
+  // bows out so Ctrl-R stays the browser reload and Shift-R is free as
+  // an escalation if R alone ever proves too misfire-prone. Passes the
+  // current pathname+search as fromPath so BookDetail's '← Library' (or
+  // wherever) returns to the exact view the user was on — including the
+  // active tab — rather than falling back to document.referrer, which
+  // inside an SPA can be stale (only updates on hard navigations).
   useEffect(() => {
     function onKey(e) {
       if (e.key !== 'r' && e.key !== 'R') return;
@@ -35,13 +37,33 @@ export default function App() {
         el.isContentEditable
       )) return;
       e.preventDefault();
-      // When chaining R from one random book to the next (i.e. already
-      // on /books/X), inherit the incoming back-link state so the chain
-      // all returns to the ORIGINAL referrer (Library / Stats / etc.)
-      // rather than each step pointing at the previous random pick.
-      // Cold-deep-link → R on /books/X with no incoming state defaults
-      // to Library — saves the self-referential trap. All other pages
-      // capture their own pathname as the back target.
+      // Author context: /authors (index) or /authors/:id. Chain from
+      // /authors/:id inherits the incoming back-link state so R-R-R
+      // still returns to the original referrer (Library / Stats / etc.)
+      // rather than the previous random author. A cold deep-link → R on
+      // /authors/:id with no incoming state defaults to the index.
+      const onAuthorPath = location.pathname === '/authors'
+        || location.pathname.startsWith('/authors/');
+      if (onAuthorPath) {
+        let fromPath, from;
+        if (location.pathname.startsWith('/authors/')) {
+          fromPath = location.state?.fromPath ?? '/authors';
+          from     = location.state?.from     ?? 'Authors';
+        } else {
+          fromPath = location.pathname + location.search;
+          from     = labelForPath(location.pathname);
+        }
+        api.getRandomAuthor()
+          .then(({ id }) => navigate(`/authors/${id}`, { state: { from, fromPath } }))
+          .catch(() => {});
+        return;
+      }
+      // Book context (everything else). When chaining R from one random
+      // book to the next (i.e. already on /books/X), inherit the incoming
+      // back-link state so the chain all returns to the ORIGINAL referrer
+      // (Library / Stats / etc.) rather than each step pointing at the
+      // previous random pick. Cold-deep-link → R on /books/X with no
+      // incoming state defaults to Library.
       let fromPath, from;
       if (location.pathname.startsWith('/books/')) {
         fromPath = location.state?.fromPath ?? '/';
@@ -60,7 +82,7 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [navigate, location.pathname, location.search]);
+  }, [navigate, location.pathname, location.search, location.state]);
 
   // The gutter art's height is captured once at mount and only updates
   // on substantial window resizes — so transient viewport jitters from

@@ -40,6 +40,7 @@ export const api = {
   // random pick lands within that pool.
   getRandomBook: (search = '') => request(`/books/random${search || ''}`),
   getAuthors: (params = {}) => request(`/authors${buildQuery(params)}`),
+  getRandomAuthor: () => request('/authors/random'),
   getTags: () => request('/tags'),
   getSeries: () => request('/series'),
   getAuthor: (id, params = {}) => request(`/authors/${id}${buildQuery(params)}`),

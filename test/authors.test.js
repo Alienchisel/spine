@@ -537,6 +537,23 @@ describe('authors — index', () => {
     assert.equal(body.length, 0);
   });
 
+  it('GET /api/authors/random returns an author bylined on at least one book', async () => {
+    const stem = 'rand' + Math.random().toString(36).slice(2, 6);
+    const { body: book } = await req('POST', '/api/books', { title: `${stem}-A`, authors: [`Bylined ${stem}`] });
+    const aid = book.authors[0].id;
+    const { status, body } = await req('GET', '/api/authors/random');
+    assert.equal(status, 200);
+    assert.ok(Number.isInteger(body.id) && body.id >= 1);
+    // The author we just created is one valid candidate among all
+    // bylined authors in the DB — at minimum, the bylined index lookup
+    // must succeed (404 only when there are zero bylined authors).
+    const { status: rs } = await req('GET', `/api/authors/${body.id}`);
+    assert.equal(rs, 200);
+    // Sanity: our author appears in the unfiltered list.
+    const { body: idx } = await req('GET', '/api/authors');
+    assert.ok(idx.some(a => a.id === aid));
+  });
+
   it('GET /api/authors is sorted by name (case-insensitive)', async () => {
     const stem = 'sort' + Math.random().toString(36).slice(2, 6);
     await req('POST', '/api/books', { title: `${stem}-A`, authors: [`zebra ${stem}`] });

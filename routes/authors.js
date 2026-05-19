@@ -85,6 +85,23 @@ router.get('/', (req, res) => {
   res.json(rows);
 });
 
+// Random author — backs the `R` shortcut on author pages. Sits above
+// /:id so "random" isn't read as a numeric id. Only picks from authors
+// who are actually bylined on at least one book; pure-alias rows with
+// zero books would land the user on a dead-end page.
+router.get('/random', (_req, res) => {
+  const row = db.prepare(`
+    SELECT a.id
+    FROM authors a
+    JOIN book_authors ba ON ba.author_id = a.id
+    GROUP BY a.id
+    ORDER BY RANDOM()
+    LIMIT 1
+  `).get();
+  if (!row) return res.status(404).json({ error: 'No authors' });
+  res.json({ id: row.id });
+});
+
 // Author detail: returns the author's identity, alias siblings, and the
 // books bylined under THIS specific author (not the alias group as a
 // whole — the aliases UI lets the user navigate to a sibling's page for
