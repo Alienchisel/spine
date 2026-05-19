@@ -777,7 +777,12 @@ export default function CommandPalette() {
         kind: 'action',
         label: 'Edit book…',
         hint: title,
-        perform: () => navigate(`/books/${id}/edit`),
+        // Forward the user's current BookDetail navState so the editor's
+        // Back / Save round-trip restores the same back-link the user
+        // had before opening the palette. Otherwise editing from /loved →
+        // /books/X via Edit-from-palette dropped back to '/' instead of
+        // /loved.
+        perform: () => navigate(`/books/${id}/edit`, { state: location.state }),
       },
       {
         id: 'book.delete',
@@ -807,7 +812,7 @@ export default function CommandPalette() {
         },
       },
     ];
-  }, [currentBook, navigate, confirm, resetQuery, forget]);
+  }, [currentBook, navigate, confirm, resetQuery, forget, location.state]);
 
   // Random-book action — palette parallel of the `R` keyboard shortcut.
   // Forwards the current Library search params when on /, so a palette

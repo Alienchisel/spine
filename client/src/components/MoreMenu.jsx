@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
-import { realTagNames } from '../utils.js';
+import { realTagNames, labelForPath } from '../utils.js';
 import { useConfirm } from './ConfirmModal.jsx';
 import StarRating from './StarRating.jsx';
 import { useClickOutside } from '../hooks/useClickOutside.js';
@@ -63,6 +63,7 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
   const buttonRef = useRef(null);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
+  const { pathname, search } = useLocation();
   const confirm = useConfirm();
   const { lists, memberIds, busyIds, loading: loadingLists, error, load, toggle, clearError } = useListMembership(book.id, {
     onToggled: () => dispatchSpineEvent('spine:book-mutated', { id: book.id }),
@@ -185,7 +186,13 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
     e.preventDefault();
     e.stopPropagation();
     setOpen(false);
-    navigate(`/books/${book.id}/edit`);
+    // Carry the current page as the editor's return target. Without
+    // this, editing from a Loved / Lists / Author card lost the
+    // listing context after Save / Back — BookDetail would render
+    // with no navState and fall back to '← Library' → '/'.
+    navigate(`/books/${book.id}/edit`, {
+      state: { from: labelForPath(pathname), fromPath: pathname + search },
+    });
   }
 
   // Surface BookCard's inline progress editor from the menu — useful as
