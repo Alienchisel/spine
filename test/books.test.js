@@ -1654,6 +1654,50 @@ describe('books', () => {
       }
     });
 
+    it('missing=position surfaces shelved books with no shelf_position', async () => {
+      // Books pinned to a shelf but never dragged into order — the
+      // "unpositioned tail" at the end of each shelf. Building / room /
+      // unit-level pins shouldn't appear (shelf_position is meaningless
+      // there). Books that have been reordered (and therefore have a
+      // position) shouldn't appear either.
+      const stem = 'posfilter' + Math.random().toString(36).slice(2, 6);
+      const { body: bld } = await req('POST', '/api/shelf/buildings', { name: `${stem}-building` });
+      const { body: rm  } = await req('POST', '/api/shelf/rooms',     { building_id: bld.id, name: `${stem}-room` });
+      const { body: un  } = await req('POST', '/api/shelf/units',     { room_id: rm.id, name: `${stem}-unit` });
+      const { body: sh  } = await req('POST', '/api/shelf/shelves',   { unit_id: un.id, label: `${stem}-shelf` });
+
+      // Two on the shelf — one will be positioned via reorder, the other won't.
+      const { body: unpinned } = await req('POST', '/api/books', { title: `${stem}-unpinned`, format: 'physical', owned: true, shelf_id: sh.id });
+      const { body: pinned   } = await req('POST', '/api/books', { title: `${stem}-pinned`,   format: 'physical', owned: true, shelf_id: sh.id });
+      // One at unit level, one at building level — neither should appear.
+      const { body: atUnit     } = await req('POST', '/api/books', { title: `${stem}-atunit`,     format: 'physical', owned: true, unit_id:     un.id });
+      const { body: atBuilding } = await req('POST', '/api/books', { title: `${stem}-atbuilding`, format: 'physical', owned: true, building_id: bld.id });
+
+      // Drag-reorder assigns shelf_position to both ids; we'll then expect
+      // only `unpinned` to remain — but we want exactly one positioned
+      // book on this shelf for the inverse assertion, so reorder with
+      // only `pinned.id`.
+      await req('PUT', `/api/shelf/shelves/${sh.id}/order`, { ids: [pinned.id] });
+
+      try {
+        const { status, body: list } = await req('GET', `/api/books?missing=position&q=${stem}&limit=200`);
+        assert.equal(status, 200);
+        const ids = new Set(list.books.map(b => b.id));
+        assert.ok( ids.has(unpinned.id),   'shelved book without position should appear');
+        assert.ok(!ids.has(pinned.id),     'shelved book with position must NOT appear');
+        assert.ok(!ids.has(atUnit.id),     'unit-level book must NOT appear');
+        assert.ok(!ids.has(atBuilding.id), 'building-level book must NOT appear');
+      } finally {
+        // Don't let fixtures drift the row count — sort=author runs with
+        // limit=500 against the same DB and the API caps at 200, so a
+        // few extra rows can push that test's fixtures off the result.
+        for (const b of [unpinned, pinned, atUnit, atBuilding]) {
+          await req('DELETE', `/api/books/${b.id}`);
+        }
+        await req('DELETE', `/api/shelf/buildings/${bld.id}`);
+      }
+    });
+
     it('missing=stories surfaces Stories/Anthology-tagged books with no contents', async () => {
       const stem = 'storiesfilter' + Math.random().toString(36).slice(2, 6);
       // Tagged Stories, no contents yet — should appear.
