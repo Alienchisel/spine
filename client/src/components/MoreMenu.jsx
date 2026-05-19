@@ -209,6 +209,11 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
     }
     try {
       await api.updateBook(book.id, payload);
+      // Successful mutation clears any stale badge from a different
+      // earlier action — auto-clear on menu reopen would only catch it
+      // after the user clicks the button again, which can be many
+      // seconds away.
+      setActionError(null);
       dispatchSpineEvent('spine:book-mutated', { id: book.id });
     } catch {
       setActionError('Failed to update status. Try again.');
@@ -248,6 +253,7 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
     setOpen(false);
     try {
       await api.patchBook(book.id, { archived: !book.archived });
+      setActionError(null);
       dispatchSpineEvent('spine:book-mutated', { id: book.id });
     } catch {
       setActionError(book.archived
