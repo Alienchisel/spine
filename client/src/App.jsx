@@ -61,35 +61,41 @@ export default function App() {
       // Book context (everything else). When chaining R from one random
       // book to the next (i.e. already on /books/X), inherit the incoming
       // back-link state so the chain all returns to the ORIGINAL referrer
-      // (Library / Stats / etc.) rather than each step pointing at the
-      // previous random pick. Cold-deep-link → R on /books/X with no
+      // — AND drives subsequent picks within that referrer's scope, so
+      // chaining from /loved keeps picking loved books, /readlist keeps
+      // picking readlist, etc. Cold-deep-link → R on /books/X with no
       // incoming state defaults to Library.
-      let fromPath, from;
+      let fromPath, from, originPath;
       if (location.pathname.startsWith('/books/')) {
-        fromPath = location.state?.fromPath ?? '/';
-        from     = location.state?.from     ?? 'Library';
+        fromPath   = location.state?.fromPath ?? '/';
+        from       = location.state?.from     ?? 'Library';
+        originPath = fromPath;
       } else {
-        fromPath = location.pathname + location.search;
-        from     = labelForPath(location.pathname);
+        fromPath   = location.pathname + location.search;
+        from       = labelForPath(location.pathname);
+        originPath = fromPath;
       }
+      const [originPathname, originSearchRaw] = originPath.split('?');
+      const originSearch = originSearchRaw ?? '';
+      const navState = { from, fromPath };
 
       // Scope-aware random for pages where R should pick within the
       // page's natural set rather than the entire library. /readlist and
       // /shelf-view fetch the page's own set and pick client-side —
       // typically small enough that the over-fetch is unnoticeable, and
       // it avoids a new server endpoint per scope.
-      if (location.pathname === '/readlist') {
+      if (originPathname === '/readlist') {
         api.getReadlist()
           .then(books => {
             if (!Array.isArray(books) || !books.length) return;
             const pick = books[Math.floor(Math.random() * books.length)];
-            navigate(`/books/${pick.id}`, { state: { from, fromPath } });
+            navigate(`/books/${pick.id}`, { state: navState });
           })
           .catch(() => {});
         return;
       }
-      if (location.pathname === '/shelf-view') {
-        const sp = new URLSearchParams(location.search);
+      if (originPathname === '/shelf-view') {
+        const sp = new URLSearchParams(originSearch);
         const s = sp.get('s'), u = sp.get('u'), r = sp.get('r'), b = sp.get('b');
         const fetch = s ? api.getShelfBooks(Number(s))
                     : u ? api.getUnitBooks(Number(u))
@@ -101,7 +107,7 @@ export default function App() {
             .then(books => {
               if (!Array.isArray(books) || !books.length) return;
               const pick = books[Math.floor(Math.random() * books.length)];
-              navigate(`/books/${pick.id}`, { state: { from, fromPath } });
+              navigate(`/books/${pick.id}`, { state: navState });
             })
             .catch(() => {});
           return;
@@ -109,24 +115,23 @@ export default function App() {
         // No scope → fall through to global random (whole library).
       }
 
-      // On the Library (/, /?tab=X, with filters), forward the current
+      // On the Library (/, /?tab=X, with filters), forward the origin's
       // search params so the random pick honours the active tab/filter.
       // On /loved, forward ?tab=loved (server already maps tab='loved' to
-      // loved = 1). On any other page, pull from the whole library.
+      // loved = 1). On any other origin, pull from the whole library.
       // Library deliberately drops the canonical ?tab=reading from the
       // URL when on its default tab (cleaner URL), so on bare /,
-      // synthesise tab=reading here — without this, R from the visually-
-      // active Reading tab would pick from every book in the library.
+      // synthesise tab=reading here.
       let search = '';
-      if (location.pathname === '/') {
-        const params = new URLSearchParams(location.search);
+      if (originPathname === '/') {
+        const params = new URLSearchParams(originSearch);
         if (!params.has('tab')) params.set('tab', 'reading');
         search = `?${params.toString()}`;
-      } else if (location.pathname === '/loved') {
+      } else if (originPathname === '/loved') {
         search = '?tab=loved';
       }
       api.getRandomBook(search)
-        .then(({ id }) => navigate(`/books/${id}`, { state: { from, fromPath } }))
+        .then(({ id }) => navigate(`/books/${id}`, { state: navState }))
         .catch(() => {});
     }
     window.addEventListener('keydown', onKey);
