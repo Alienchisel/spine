@@ -60,6 +60,17 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
   // or if the card swapped to a different book).
   const [localRating, setLocalRating] = useState(book.rating ?? null);
   useEffect(() => { setLocalRating(book.rating ?? null); }, [book.rating, book.id]);
+  // Inline error for actions that close the menu before completing
+  // (status change / archive / delete). The menu has no other render
+  // slot for feedback, so the button icon swaps to a '!' with the
+  // message on `title=`. Auto-clears after a few seconds so the badge
+  // doesn't sit forever on a card the user has stopped interacting with.
+  const [actionError, setActionError] = useState(null);
+  useEffect(() => {
+    if (!actionError) return;
+    const t = setTimeout(() => setActionError(null), 5000);
+    return () => clearTimeout(t);
+  }, [actionError]);
   const buttonRef = useRef(null);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
@@ -106,6 +117,9 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
     });
     setOpen(true);
     setSubPrompt(null);
+    // Opening the menu acknowledges the prior error — drop the badge
+    // so it doesn't sit through subsequent interactions.
+    setActionError(null);
     clearError();
   }
 
@@ -176,9 +190,7 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
       await api.updateBook(book.id, payload);
       dispatchSpineEvent('spine:book-mutated', { id: book.id });
     } catch {
-      // Phase 2 swallows status-mutation errors silently — the menu
-      // already closed. Future: surface via a toast or a BookCard
-      // banner. The user can retry; the book stays in its prior state.
+      setActionError('Failed to update status. Try again.');
     }
   }
 
@@ -217,7 +229,9 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
       await api.patchBook(book.id, { archived: !book.archived });
       dispatchSpineEvent('spine:book-mutated', { id: book.id });
     } catch {
-      // Phase 4 swallows archive errors silently — menu already closed.
+      setActionError(book.archived
+        ? 'Failed to restore from archive. Try again.'
+        : 'Failed to archive book. Try again.');
     }
   }
 
@@ -235,8 +249,7 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
       await api.deleteBook(book.id);
       dispatchSpineEvent('spine:book-deleted', { id: book.id });
     } catch {
-      // Phase 1 swallows delete errors silently — confirm flow already
-      // closed the menu. Future: surface via a toast or BookCard error.
+      setActionError('Failed to delete book. Try again.');
     }
   }
 
@@ -360,13 +373,17 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
         ref={buttonRef}
         type="button"
         onClick={handleOpen}
-        aria-label="More actions"
+        aria-label={actionError ? `${actionError} Click to retry.` : 'More actions'}
         aria-haspopup="menu"
         aria-expanded={open}
-        title="More actions"
-        className={`leading-none transition-colors text-white hover:text-neutral-300 ${buttonClassName}`}
+        title={actionError ?? 'More actions'}
+        className={`leading-none transition-colors ${
+          actionError ? 'text-warn hover:text-warn/80' : 'text-white hover:text-neutral-300'
+        } ${buttonClassName}`}
       >
-        <DotsIcon className={iconClassName} />
+        {actionError
+          ? <span aria-hidden="true" className={`inline-flex items-center justify-center font-bold ${iconClassName}`}>!</span>
+          : <DotsIcon className={iconClassName} />}
       </button>
       {dropdown}
     </>
