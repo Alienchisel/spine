@@ -177,8 +177,16 @@ function QuickAdd({ listId, onAdded }) {
 
 export default function ListDetail() {
   const { id } = useParams();
-  const fromState = useMemo(() => ({ from: 'List', fromPath: `/lists/${id}` }), [id]);
   const [list, setList] = useState(null);
+  // Prefer the specific list name so the destination's back link reads
+  // "← [list name]" (matching the rest of Spine's entity-aware back
+  // labels). 'List' is the fallback for the brief window before the
+  // fetch lands, though book cards aren't rendered until `loading`
+  // flips false — so the fallback rarely fires in practice.
+  const fromState = useMemo(
+    () => ({ from: list?.name ?? 'List', fromPath: `/lists/${id}` }),
+    [id, list?.name],
+  );
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
