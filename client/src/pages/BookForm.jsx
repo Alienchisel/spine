@@ -481,7 +481,14 @@ export default function BookForm() {
     <div className="max-w-2xl">
       <Link
         to={isEdit ? `/books/${id}` : (navState?.fromPath ?? '/')}
-        state={navState}
+        // Edit mode: preserve navState so BookDetail's own back link
+        // restores the original chain (Library → Book → Edit → Back →
+        // Book → Library). New-book Back: clear it — we're already
+        // returning to the origin (Library / Loved / AuthorsIndex /
+        // etc.), and those pages render an IncomingBackLink when
+        // state.from is set, which would draw a self-referential
+        // '← Library' pointing at the same Library page.
+        state={isEdit ? navState : null}
         className="text-sm text-neutral-600 hover:text-neutral-300 mb-8 inline-block transition-colors"
       >
         ← Back
