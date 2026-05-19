@@ -699,7 +699,8 @@ export default function Stats() {
           <div className="space-y-2.5">
             {languages.map(l => (
               <Bar key={l.language} label={l.language} count={l.count}
-                max={Math.max(...languages.map(x => x.count))} color="bg-binding" href={`/browse/language/${encodeURIComponent(l.language)}`} />
+                max={Math.max(...languages.map(x => x.count))} color="bg-binding" href={`/browse/language/${encodeURIComponent(l.language)}`}
+                caption={plural(l.count, 'book')} />
             ))}
           </div>
         </Section>
@@ -864,6 +865,7 @@ export default function Stats() {
                   max={maxRating}
                   color="bg-oak"
                   href={`/browse/rating/${r}`}
+                  caption={plural(entry.count, 'book')}
                 />
               );
             })}
@@ -889,6 +891,7 @@ export default function Stats() {
                   max={maxAuthor}
                   color="bg-binding"
                   href={a.author_id ? `/authors/${a.author_id}` : `/browse/author/${encodeURIComponent(a.author)}`}
+                  caption={plural(a.count, 'book')}
                 />
               ))}
             </div>
@@ -899,7 +902,7 @@ export default function Stats() {
           <Section title="Top narrators">
             <div className="space-y-2.5">
               {topNarrators.map(n => (
-                <Bar key={n.narrator} label={n.narrator} count={n.count} max={maxNarrator} color="bg-oak" href={`/browse/narrator/${encodeURIComponent(n.narrator)}`} />
+                <Bar key={n.narrator} label={n.narrator} count={n.count} max={maxNarrator} color="bg-oak" href={`/browse/narrator/${encodeURIComponent(n.narrator)}`} caption={plural(n.count, 'book')} />
               ))}
             </div>
           </Section>
@@ -916,7 +919,7 @@ export default function Stats() {
           >
             <div className="space-y-2.5">
               {topSeries.map(s => (
-                <Bar key={s.series} label={s.series} count={s.count} max={topSeries[0].count} color="bg-leather" href={`/browse/series/${encodeURIComponent(s.series)}`} />
+                <Bar key={s.series} label={s.series} count={s.count} max={topSeries[0].count} color="bg-leather" href={`/browse/series/${encodeURIComponent(s.series)}`} caption={plural(s.count, 'book')} />
               ))}
             </div>
           </Section>
@@ -942,6 +945,7 @@ export default function Stats() {
                     max={max}
                     color={r.key === 'unassigned' ? 'bg-neutral-700' : 'bg-binding'}
                     href={`/browse/author_gender/${r.key}`}
+                    caption={plural(r.count, 'author')}
                   />
                 ))}
               </div>
