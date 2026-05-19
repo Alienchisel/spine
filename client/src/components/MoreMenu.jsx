@@ -78,6 +78,10 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
   const confirm = useConfirm();
   const { lists, memberIds, busyIds, loading: loadingLists, error, load, toggle, clearError } = useListMembership(book.id, {
     onToggled: () => dispatchSpineEvent('spine:book-mutated', { id: book.id }),
+    // The picker's own 'Failed to update list' banner disappears with
+    // the menu — surface a persistent warn-icon on the trigger button
+    // so the user notices the failure after closing.
+    onError:   () => setActionError('Failed to update list. Try again.'),
   });
 
   useClickOutside([buttonRef, dropdownRef], () => setOpen(false), open);

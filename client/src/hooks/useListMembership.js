@@ -14,7 +14,11 @@ import { useSpineEvent } from './useSpineEvent.js';
 // dispatchSpineEvent('spine:book-mutated') so other surfaces refetch.
 // ListPicker omits it: its own dispatch would loop back into this hook's
 // listener and trigger a redundant refetch on the same component.
-export function useListMembership(bookId, { onToggled } = {}) {
+// onError mirrors onToggled but for failure — lets a consumer (MoreMenu)
+// surface the failure outside the picker dropdown, since the in-dropdown
+// error message disappears with the menu and is easy to miss. ListPicker
+// stays open and shows the error inline, so it doesn't need the callback.
+export function useListMembership(bookId, { onToggled, onError } = {}) {
   const [lists, setLists]         = useState([]);
   const [memberIds, setMemberIds] = useState(new Set());
   const [loading, setLoading]     = useState(false);
@@ -89,6 +93,7 @@ export function useListMembership(bookId, { onToggled } = {}) {
       onToggled?.();
     } catch {
       setError('Failed to update list');
+      onError?.();
     } finally {
       busyIdsRef.current.delete(listId);
       setBusyIds(s => { const n = new Set(s); n.delete(listId); return n; });
