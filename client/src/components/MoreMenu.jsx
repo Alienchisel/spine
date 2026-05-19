@@ -32,9 +32,10 @@ import { dispatchSpineEvent } from '../hooks/useSpineEvent.js';
 // when moving into 'reading'.
 //
 // Mutations dispatch two events so other surfaces stay in sync:
-//   - spine:book-mutated  — fired after list add/remove and after
-//     status mutations. BookDetail / ListPicker / Library all listen
-//     and refetch the affected book (or its sub-data).
+//   - spine:book-mutated  — fired after list add/remove, rating,
+//     status, and archive/restore mutations. BookDetail / ListPicker /
+//     Library all listen and refetch the affected book (or its
+//     sub-data).
 //   - spine:book-deleted  — fired after successful api.deleteBook.
 //     Library listens and removes the book from its visible list
 //     without a refetch round-trip.
