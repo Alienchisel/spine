@@ -274,6 +274,10 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
     if (!ok) return;
     try {
       await api.deleteBook(book.id);
+      // Card unmounts via spine:book-deleted on most surfaces, but a
+      // parent could delay removal — keep the consistency with the
+      // other mutation success paths.
+      setActionError(null);
       dispatchSpineEvent('spine:book-deleted', { id: book.id });
     } catch {
       setActionError('Failed to delete book. Try again.');
