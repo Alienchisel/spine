@@ -2497,6 +2497,57 @@ describe('books', () => {
       assert.ok(!ids.includes(other.id),   'expected field=year_finished&value=2023 to exclude the 2024-finished book');
     });
 
+    it('field=year_acquired orders by acquisition_date ASC within the year', async () => {
+      // Same shape as year_finished — buildOrderBy returns
+      // "acquisition_date ASC" for field=year_acquired. Insert in reverse
+      // chronological order to confirm the SQL sort. owned: true is required
+      // because repository.js nulls acquisition_date on unowned books
+      // (mirrors the AcquisitionFields UI gating).
+      const { body: later } = await req('POST', '/api/books', {
+        title: 'year_acquired order — Nov 2029', acquisition_date: '2029-11-04', owned: true,
+      });
+      const { body: earlier } = await req('POST', '/api/books', {
+        title: 'year_acquired order — Feb 2029', acquisition_date: '2029-02-18', owned: true,
+      });
+      try {
+        const { body: results } = await req('GET', '/api/books?field=year_acquired&value=2029&limit=200');
+        const ids = results.books.map(b => b.id);
+        const earlierIdx = ids.indexOf(earlier.id);
+        const laterIdx   = ids.indexOf(later.id);
+        assert.ok(earlierIdx >= 0 && laterIdx >= 0, 'both fixtures should be in result');
+        assert.ok(earlierIdx < laterIdx,
+          `expected earlier (#${earlier.id} Feb) before later (#${later.id} Nov); got positions ${earlierIdx}, ${laterIdx}`);
+      } finally {
+        // Keep the in-memory test DB below the 200-row cap that the
+        // downstream sort=author test relies on.
+        for (const id of [later.id, earlier.id]) await req('DELETE', `/api/books/${id}`);
+      }
+    });
+
+    it('field=year_acquired filters by acquisition_date year prefix', async () => {
+      // Branch: acquisition_date LIKE 'YYYY%'. Year-only acquisition_date
+      // should also match the prefix (the column stores partial dates as
+      // substrings; LIKE 'YYYY%' catches both 'YYYY' and 'YYYY-MM-DD').
+      const { body: matched } = await req('POST', '/api/books', {
+        title: 'year_acquired — 2028 full',     acquisition_date: '2028-05-19', owned: true,
+      });
+      const { body: partial } = await req('POST', '/api/books', {
+        title: 'year_acquired — 2028 yearonly', acquisition_date: '2028',      owned: true,
+      });
+      const { body: other } = await req('POST', '/api/books', {
+        title: 'year_acquired — 2027 full',     acquisition_date: '2027-08-10', owned: true,
+      });
+      try {
+        const { body: results } = await req('GET', '/api/books?field=year_acquired&value=2028&limit=200');
+        const ids = results.books.map(b => b.id);
+        assert.ok( ids.includes(matched.id), 'expected field=year_acquired&value=2028 to include the full-date 2028 book');
+        assert.ok( ids.includes(partial.id), 'expected field=year_acquired&value=2028 to include the year-only 2028 book');
+        assert.ok(!ids.includes(other.id),   'expected field=year_acquired&value=2028 to exclude the 2027 book');
+      } finally {
+        for (const id of [matched.id, partial.id, other.id]) await req('DELETE', `/api/books/${id}`);
+      }
+    });
+
     it('field=fiction routes value=fiction/nonfiction/unset to the right sub-branch', async () => {
       // lib/books/filters.js has three sub-branches under f === 'fiction':
       // value='fiction' → fiction=1, value='nonfiction' → fiction=0, anything

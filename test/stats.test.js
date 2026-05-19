@@ -29,7 +29,7 @@ describe('stats', () => {
       const { status, body } = await req('GET', '/api/stats');
       assert.equal(status, 200);
       for (const key of ['totals', 'formats', 'fiction', 'ownedStatus', 'ratings',
-        'pagesRead', 'minutesListened', 'byYear', 'topAuthors', 'topNarrators',
+        'pagesRead', 'minutesListened', 'byYear', 'acquiredByYear', 'topAuthors', 'topNarrators',
         'languages', 'authorsByGender', 'streaks', 'todayPages', 'thisYearBooks', 'thisYearPages',
         'topTags', 'topSeries', 'avgPagesPerDay', 'avgMinutesPerDay',
         'avgDaysToFinish', 'inProgressPace', 'decadesPublished', 'records']) {
@@ -113,6 +113,29 @@ describe('stats', () => {
       assert.ok(y2024 && y2024.count >= 2, 'expected at least 2 books finished in 2024');
       const y2023 = body.byYear.find(r => r.year === '2023');
       assert.ok(y2023 && y2023.count >= 2, 'expected at least 2 books finished in 2023');
+    });
+
+    it('acquiredByYear groups by the acquisition_date year prefix', async () => {
+      // Seed two books in distinct years (one with a YYYY-MM-DD acquisition
+      // and one with a year-only partial) so the substr(...,1,4) grouping
+      // is exercised for both shapes. owned: true is required —
+      // repository.js nulls acquisition_date on unowned books.
+      await req('POST', '/api/books', {
+        title: 'Acquired Full 2031', acquisition_date: '2031-04-15', owned: true,
+      });
+      await req('POST', '/api/books', {
+        title: 'Acquired YearOnly 2032', acquisition_date: '2032', owned: true,
+      });
+      const { body } = await req('GET', '/api/stats');
+      const y2031 = body.acquiredByYear.find(r => r.year === '2031');
+      const y2032 = body.acquiredByYear.find(r => r.year === '2032');
+      assert.ok(y2031 && y2031.count >= 1, 'expected at least 1 acquisition in 2031');
+      assert.ok(y2032 && y2032.count >= 1, 'expected at least 1 acquisition in 2032 (year-only date)');
+      // Sorted DESC by year — most recent at the top.
+      const years = body.acquiredByYear.map(r => r.year);
+      for (let i = 1; i < years.length; i++) {
+        assert.ok(years[i - 1] >= years[i], `acquiredByYear should sort DESC: got ${years.join(', ')}`);
+      }
     });
 
     it('pagesRead sums page_count of finished non-audiobooks', async () => {
