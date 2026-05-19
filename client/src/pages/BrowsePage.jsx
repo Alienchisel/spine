@@ -47,11 +47,15 @@ export default function BrowsePage() {
   // Use the human-readable heading (e.g. "Fiction" / "★★★★½") rather than
   // the raw URL value, which for fiction/format/rating fields is "0" / "1" /
   // "physical" — fine for the URL, useless as a back-link label.
+  // Year fields prefix the FIELD_LABEL so "← 2026" isn't ambiguous between
+  // acquired-by-year and finished-by-year browse paths.
   const fromLabel = field === 'fiction'
     ? (decoded === 'fiction' ? 'Fiction' : decoded === 'nonfiction' ? 'Non-fiction' : 'Fiction / NF unset')
     : field === 'format'        ? (FORMAT_LABEL[decoded] ?? decoded)
     : field === 'rating'        ? starsLabel(parseFloat(decoded))
     : field === 'author_gender' ? (AUTHOR_GENDER_LABEL[decoded] ?? decoded)
+    : field === 'year_acquired' ? `Acquired ${decoded}`
+    : field === 'year_finished' ? `Finished ${decoded}`
     : decoded;
   const fromState = useMemo(
     () => ({ from: fromLabel, fromPath: pathname }),
