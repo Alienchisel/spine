@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { useParams, useLocation, useNavigate, Link } from 'react-router-dom';
+import { useParams, useLocation, Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { plural, initialsFor, MOD_KEY } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
@@ -158,8 +158,8 @@ function DatesPicker({ birth, death, onChange }) {
 export default function Author() {
   const { id }       = useParams();
   const { state, pathname } = useLocation();
-  const navigate     = useNavigate();
   const backLabel    = state?.from ? `← ${state.from}` : '← Library';
+  const backPath     = state?.fromPath ?? '/';
 
   const [author, setAuthor] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -300,22 +300,18 @@ export default function Author() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
       {/*
-        Back: use browser history (navigate(-1)) so re-visiting an earlier
-        page restores its original state (incl. its own back-link label),
-        instead of clobbering it with the current page's state. Without
-        this, looping through alias pages (A → B → A) leaves the back-link
-        on A stuck pointing at B even after returning. Falls back to
-        Link to="/" when there's no in-app referrer (deep-link arrivals).
+        Back: navigate directly to state.fromPath so the click destination
+        matches the label. Pass no `state` so the destination renders
+        fresh — otherwise we'd clobber its existing state with the current
+        page's (the alias-loop A → B → A trap). Necessary for the R-chain:
+        chain-preservation freezes the label at the original referrer
+        through many random hops, and navigate(-1) would walk one step at
+        a time, sending the user to the previous random author instead of
+        where the label promises.
       */}
-      {state?.from ? (
-        <button type="button" onClick={() => navigate(-1)} className="text-sm text-neutral-500 hover:text-neutral-200 transition-colors">
-          {backLabel}
-        </button>
-      ) : (
-        <Link to="/" className="text-sm text-neutral-500 hover:text-neutral-200 transition-colors">
-          {backLabel}
-        </Link>
-      )}
+      <Link to={backPath} className="text-sm text-neutral-500 hover:text-neutral-200 transition-colors">
+        {backLabel}
+      </Link>
 
       <div className="mt-6 mb-8 flex flex-col sm:flex-row gap-6">
         {/* Portrait. Skeleton-style placeholder when no photo (OL miss
