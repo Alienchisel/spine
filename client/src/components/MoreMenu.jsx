@@ -60,11 +60,12 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
   // or if the card swapped to a different book).
   const [localRating, setLocalRating] = useState(book.rating ?? null);
   useEffect(() => { setLocalRating(book.rating ?? null); }, [book.rating, book.id]);
-  // Inline error for actions that close the menu before completing
-  // (status change / archive / delete). The menu has no other render
-  // slot for feedback, so the button icon swaps to a '!' with the
-  // message on `title=`. Auto-clears after a few seconds so the badge
-  // doesn't sit forever on a card the user has stopped interacting with.
+  // Inline error for any action that may fail after the menu has
+  // moved on — rating, list toggle, status change, archive, delete.
+  // The menu has no other render slot for feedback, so the button
+  // icon swaps to a '!' with the message on `title=`. Auto-clears
+  // after a few seconds so the badge doesn't sit forever on a card
+  // the user has stopped interacting with.
   const [actionError, setActionError] = useState(null);
   useEffect(() => {
     if (!actionError) return;
