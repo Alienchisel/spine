@@ -1147,10 +1147,17 @@ export default function CommandPalette() {
         : currentListName
         ? currentListName
         : labelForPath(location.pathname);
+      // Don't carry state when picking an entry that points at the page
+      // we're already on — IncomingBackLink-rendering destinations
+      // (Library / Loved / AuthorsIndex / TagsIndex / SeriesIndex) would
+      // otherwise draw a self-referential '← Library' that links to the
+      // same Library you're already on.
+      const currentPathWithSearch = location.pathname + location.search;
+      const isSelfNavigation = entry.path === currentPathWithSearch;
       navigate(entry.path, {
-        state: {
+        state: isSelfNavigation ? null : {
           from: fromLabel,
-          fromPath: location.pathname + location.search,
+          fromPath: currentPathWithSearch,
         },
       });
     }
