@@ -79,7 +79,12 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
   const { pathname, search } = useLocation();
   const confirm = useConfirm();
   const { lists, memberIds, busyIds, loading: loadingLists, error, load, toggle, clearError } = useListMembership(book.id, {
-    onToggled: () => dispatchSpineEvent('spine:book-mutated', { id: book.id }),
+    onToggled: () => {
+      // Successful toggle clears any stale badge — list toggles keep
+      // the picker open, so the auto-clear on menu reopen doesn't fire.
+      setActionError(null);
+      dispatchSpineEvent('spine:book-mutated', { id: book.id });
+    },
     // The picker's own 'Failed to update list' banner disappears with
     // the menu — surface a persistent warn-icon on the trigger button
     // so the user notices the failure after closing.
@@ -163,6 +168,10 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
         tags:        realTagNames(book.tags),
         rating,
       });
+      // Successful retry should clear any stale badge from a previous
+      // failure — rating actions keep the menu open, so the auto-clear
+      // on reopen doesn't fire.
+      setActionError(null);
       dispatchSpineEvent('spine:book-mutated', { id: book.id });
     } catch {
       setLocalRating(prior);
