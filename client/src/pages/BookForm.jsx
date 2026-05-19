@@ -477,18 +477,22 @@ export default function BookForm() {
 
   const ic = (field) => filledByLookup.has(field) ? inputFilled : input;
 
+  // Back-link target/state. The two values must agree on `isEdit` —
+  // edit mode returns to the book's detail page and forwards navState
+  // so BookDetail's own back link restores the original chain (Library
+  // → Book → Edit → Back → Book → Library). New-book mode returns
+  // directly to the origin (Library / Loved / AuthorsIndex / etc.) and
+  // clears state — those pages render IncomingBackLink when state.from
+  // is set, which would otherwise draw a self-referential '← Library'
+  // pointing at the same page the user just landed on.
+  const backTo    = isEdit ? `/books/${id}` : (navState?.fromPath ?? '/');
+  const backState = isEdit ? navState : null;
+
   return (
     <div className="max-w-2xl">
       <Link
-        to={isEdit ? `/books/${id}` : (navState?.fromPath ?? '/')}
-        // Edit mode: preserve navState so BookDetail's own back link
-        // restores the original chain (Library → Book → Edit → Back →
-        // Book → Library). New-book Back: clear it — we're already
-        // returning to the origin (Library / Loved / AuthorsIndex /
-        // etc.), and those pages render an IncomingBackLink when
-        // state.from is set, which would draw a self-referential
-        // '← Library' pointing at the same Library page.
-        state={isEdit ? navState : null}
+        to={backTo}
+        state={backState}
         className="text-sm text-neutral-600 hover:text-neutral-300 mb-8 inline-block transition-colors"
       >
         ← Back
