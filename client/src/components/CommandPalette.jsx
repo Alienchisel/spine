@@ -10,7 +10,8 @@ import { useSpineEvent, dispatchSpineEvent } from '../hooks/useSpineEvent.js';
 // Ctrl/Cmd+Shift+P (VS Code muscle memory; Chrome/Edge/Safari only —
 // Firefox reserves it for Private Window at the browser level).
 //
-// Phase 1: book search via /api/books?q= (debounced 200ms, capped 20).
+// Phase 1: book search via /api/books?q= and author search via
+//   /api/authors?q= (both debounced 200ms, capped 20 books / 20 authors).
 // Phase 2: navigation entries (top-level views + Library tabs) and
 //   user-created lists, both filtered client-side. Sections group the
 //   kinds (Navigate / Actions / Lists / Books); arrow keys traverse the

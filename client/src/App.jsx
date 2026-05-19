@@ -198,11 +198,12 @@ export default function App() {
             void). Width is sized to the exact gutter at any viewport
             via calc((100vw - 1280px) / 2) — content is max-w-7xl
             centered, so the gutter is half the leftover viewport on
-            each side — capped at 640 px so ultra-wide screens don't
-            stretch the composition (2560 px viewport = 640 px gutter,
-            the design target). Height comes from the JS-managed gutterHeight
-            so Ctrl-F's find bar doesn't rescale the art. A mask fade
-            on the inner edge blends the dark middle into the page bg.
+            each side — capped proportional to the viewport height
+            (see the comment on the inner wrapper for the exact ratio)
+            so the same crop renders on home and remote displays alike.
+            Height comes from the JS-managed gutterHeight so Ctrl-F's
+            find bar doesn't rescale the art. A mask fade on the inner
+            edge blends the dark middle into the page bg.
             Hidden below xl: where the gutter collapses to zero.
             Negative z-index isn't safe here (static parents don't
             create a stacking context for negative-z kids and the
