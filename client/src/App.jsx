@@ -214,10 +214,17 @@ export default function App() {
             style={{ height: `${gutterHeight}px` }}
             aria-hidden="true"
           >
+            {/* object-cover w-full h-full guarantees the image always
+                fills the gutter container regardless of viewport height
+                — at short viewports h-full w-auto used to render the
+                image narrower than the container, exposing the source's
+                other half and producing a "both compositions on the
+                same side" look. object-left/right anchors the visible
+                portion to the correct composition. */}
             <img
               src="/gutter.png"
               alt=""
-              className="absolute left-0 top-0 h-full w-auto max-w-none"
+              className="w-full h-full object-cover object-left"
             />
           </div>
         )}
@@ -230,7 +237,7 @@ export default function App() {
             <img
               src="/gutter.png"
               alt=""
-              className="absolute right-0 top-0 h-full w-auto max-w-none"
+              className="w-full h-full object-cover object-right"
             />
           </div>
         )}
