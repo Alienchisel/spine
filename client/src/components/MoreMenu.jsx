@@ -155,6 +155,7 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
       dispatchSpineEvent('spine:book-mutated', { id: book.id });
     } catch {
       setLocalRating(prior);
+      setActionError('Failed to save rating. Try again.');
     }
   }
 
