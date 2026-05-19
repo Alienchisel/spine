@@ -116,7 +116,13 @@ router.get('/:id', (req, res) => {
     ? db.prepare('SELECT id, name FROM authors WHERE alias_group_id = ? AND id != ? ORDER BY name').all(author.alias_group_id, id)
     : [];
   const sort = req.query.sort || 'year_published';
-  const { books, total } = listBooks({ field: 'author', value: author.name, sort, limit: 200, offset: 0 });
+  // Author bibliographies are history-style — archived books are part
+  // of the author's catalog and should show up. Without the override,
+  // listBooks's default-hide-archived would exclude an author's only
+  // book when archived, producing a "0 books" page contradicting the
+  // index's "1 book" count. The card grid still dims archived covers
+  // so the user sees the state at a glance.
+  const { books, total } = listBooks({ field: 'author', value: author.name, archived: 'any', sort, limit: 200, offset: 0 });
   res.json({ ...author, aliases, books, total });
 });
 
