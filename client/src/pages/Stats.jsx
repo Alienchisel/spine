@@ -407,9 +407,9 @@ export default function Stats() {
   const hero = [
     { label: 'Books in library', value: totals?.books?.toLocaleString() ?? '—', to: '/?tab=all' },
     { label: 'Authors',          value: authorTotal > 0 ? authorTotal.toLocaleString() : '—', to: '/authors' },
-    { label: 'Pages read',       value: pagesRead?.toLocaleString() ?? '—' },
-    { label: 'Hours listened',   value: minutesListened > 0 ? Math.floor(minutesListened / 60).toLocaleString() : '—' },
-    { label: 'Day streak',       value: streaks?.days?.current?.toLocaleString() ?? '0' },
+    { label: 'Pages read',       value: pagesRead?.toLocaleString() ?? '—', to: '/?tab=all&formats=physical' },
+    { label: 'Hours listened',   value: minutesListened > 0 ? Math.floor(minutesListened / 60).toLocaleString() : '—', to: '/?tab=all&formats=audiobook' },
+    { label: 'Day streak',       value: streaks?.days?.current?.toLocaleString() ?? '0', to: '/diary' },
   ];
 
   return (
