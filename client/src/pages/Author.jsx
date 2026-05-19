@@ -3,6 +3,7 @@ import { useParams, useLocation, Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { plural, initialsFor, MOD_KEY } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
+import { dispatchSpineEvent } from '../hooks/useSpineEvent.js';
 
 // Inline gender picker. Stores 'male' | 'female' | 'other' | null;
 // empty string in the select maps back to null so the user can clear
@@ -187,7 +188,14 @@ export default function Author() {
       .then(data => { if (!cancelled) setAuthor(data); })
       .catch(err => {
         if (cancelled) return;
-        setErrorKind(err?.status === 404 ? 'notfound' : 'fetch');
+        const notFound = err?.status === 404;
+        setErrorKind(notFound ? 'notfound' : 'fetch');
+        // Self-heal stale references — palette MRU / Recent / future
+        // surfaces caching author ids can prune themselves when the
+        // user actually hits a dead entry. Pruning happens via the
+        // existing spine event bus. Fires for any 404 path: cascade
+        // prune from a last-book delete, direct API delete, anything.
+        if (notFound) dispatchSpineEvent('spine:author-deleted', { id: Number(id) });
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };

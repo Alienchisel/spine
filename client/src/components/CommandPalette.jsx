@@ -494,6 +494,18 @@ export default function CommandPalette() {
     forget(`book.${id}`);
   });
 
+  // Self-healing prune for stale author MRU entries. Authors get
+  // cascade-deleted via pruneOrphanPeople when their last byline is
+  // removed; the deletion isn't broadcast directly, but Author.jsx
+  // fires this event whenever its own fetch 404s — so the moment the
+  // user actually hits a dead `author.${id}` entry from Recent, the
+  // page tells us and we drop it.
+  useSpineEvent('spine:author-deleted', (e) => {
+    const id = e.detail?.id;
+    if (id == null) return;
+    forget(`author.${id}`);
+  });
+
   // Track Library's paging state so we can surface Load more / Load all
   // entries — and only when those buttons would otherwise be visible.
   useSpineEvent('spine:library-paging', (e) => {
