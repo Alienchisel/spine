@@ -178,6 +178,11 @@ export default function Author() {
   const [refreshing, setRefreshing] = useState(false);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoError, setPhotoError] = useState(null);
+  // Archived books default-hide. Toggle shows them inline when the user
+  // wants to see the full bibliography. Reset on author change so a
+  // toggle stuck on for Author A doesn't carry over to Author B.
+  const [showArchived, setShowArchived] = useState(false);
+  useEffect(() => { setShowArchived(false); }, [id]);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -515,30 +520,52 @@ export default function Author() {
       ) : errorKind === 'notfound' ? null
       : !author?.books?.length ? (
         <div className="text-neutral-600 text-sm">No books found.</div>
-      ) : (
-        <>
-          <div className="mb-4">
-            <label className="inline-flex items-center gap-1.5 text-xs text-neutral-500">
-              <span>Sort:</span>
-              <select
-                value={sort}
-                onChange={(e) => setSort(e.target.value)}
-                className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-xs text-neutral-300 hover:text-neutral-100 focus:outline-none focus:border-oak/50 cursor-pointer transition-colors"
-                aria-label="Sort author's books"
-              >
-                <option value="year_published">Chronological</option>
-                <option value="year_published_desc">Reverse chronological</option>
-                <option value="title">Title</option>
-                <option value="rating">Rating</option>
-                <option value="added">Recently added</option>
-              </select>
-            </label>
-          </div>
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-3 gap-y-5 items-start">
-            {author.books.map(book => <BookCard key={book.id} book={book} linkState={fromState} />)}
-          </div>
-        </>
-      )}
+      ) : (() => {
+        const allBooks      = author.books;
+        const archivedCount = allBooks.filter(b => b.archived).length;
+        const visibleBooks  = showArchived ? allBooks : allBooks.filter(b => !b.archived);
+        return (
+          <>
+            <div className="mb-4 flex items-center gap-4 flex-wrap">
+              <label className="inline-flex items-center gap-1.5 text-xs text-neutral-500">
+                <span>Sort:</span>
+                <select
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value)}
+                  className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-xs text-neutral-300 hover:text-neutral-100 focus:outline-none focus:border-oak/50 cursor-pointer transition-colors"
+                  aria-label="Sort author's books"
+                >
+                  <option value="year_published">Chronological</option>
+                  <option value="year_published_desc">Reverse chronological</option>
+                  <option value="title">Title</option>
+                  <option value="rating">Rating</option>
+                  <option value="added">Recently added</option>
+                </select>
+              </label>
+              {archivedCount > 0 && (
+                <label className="inline-flex items-center gap-1.5 text-xs text-neutral-500 cursor-pointer hover:text-neutral-300 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={showArchived}
+                    onChange={(e) => setShowArchived(e.target.checked)}
+                    className="accent-oak"
+                  />
+                  <span>Show archived ({archivedCount})</span>
+                </label>
+              )}
+            </div>
+            {visibleBooks.length === 0 ? (
+              <div className="text-neutral-600 text-sm">
+                No active books — {plural(archivedCount, 'book')} archived.
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-3 gap-y-5 items-start">
+                {visibleBooks.map(book => <BookCard key={book.id} book={book} linkState={fromState} />)}
+              </div>
+            )}
+          </>
+        );
+      })()}
     </div>
   );
 }
