@@ -243,6 +243,7 @@ export default function CommandPalette() {
   const [query, setQuery] = useState('');
   const [bookResults, setBookResults] = useState([]);
   const [bookLoading, setBookLoading] = useState(false);
+  const [authorResults, setAuthorResults] = useState([]);
   const [lists, setLists] = useState([]);
   const [listsLoaded, setListsLoaded] = useState(false);
   // Cached facet data for qualifier-value autocomplete (tag:, author:,
@@ -575,35 +576,39 @@ export default function CommandPalette() {
     });
   }, [context, query]);
 
-  // Debounced book search. Empty query → no books (we still show the
-  // nav directory; books wait for a real query because they're a
-  // round-trip). Runs even when autocomplete is active so books matching
-  // the current qualifier (e.g. `tag:manga`) sit alongside the value
-  // suggestions — the backend already parses qualifier syntax.
+  // Debounced book + author search. Empty query → no results (we still
+  // show the nav directory; books / authors wait for a real query because
+  // they're round-trips). Books run even when autocomplete is active so
+  // books matching the current qualifier (e.g. `tag:manga`) sit alongside
+  // the value suggestions — the backend already parses qualifier syntax.
+  // Authors skip the autocomplete branch: the user has committed to a
+  // qualifier-value pick, not a direct jump to an author page. Both
+  // fetches share one debounce window and a single stale-response guard,
+  // since the query that triggers them is the same.
   useEffect(() => {
     if (!open) return;
     const q = query.trim();
     if (!q) {
       setBookResults([]);
+      setAuthorResults([]);
       setBookLoading(false);
       return;
     }
     setBookLoading(true);
     const epoch = queryGuard.next();
+    const skipAuthors = !!context;
     const t = setTimeout(async () => {
-      try {
-        const { books } = await api.getBooks({ q, limit: 20 });
-        if (!queryGuard.isFresh(epoch)) return;
-        setBookResults(books);
-      } catch {
-        if (!queryGuard.isFresh(epoch)) return;
-        setBookResults([]);
-      } finally {
-        if (queryGuard.isFresh(epoch)) setBookLoading(false);
-      }
+      const [booksRes, authorsRes] = await Promise.allSettled([
+        api.getBooks({ q, limit: 20 }),
+        skipAuthors ? Promise.resolve([]) : api.getAuthors({ q }),
+      ]);
+      if (!queryGuard.isFresh(epoch)) return;
+      setBookResults(booksRes.status === 'fulfilled' ? (booksRes.value.books || []) : []);
+      setAuthorResults(authorsRes.status === 'fulfilled' ? (Array.isArray(authorsRes.value) ? authorsRes.value : []) : []);
+      setBookLoading(false);
     }, 200);
     return () => clearTimeout(t);
-  }, [query, open]);
+  }, [query, open, context]);
 
   // Clear any stale sub-prompt / action error when the user keeps typing
   // or when the sub-prompt itself toggles. Prevents a "failed" message
@@ -1023,17 +1028,30 @@ export default function CommandPalette() {
         path:   `/books/${b.id}`,
       }));
 
+      // Author direct-jump entries — typing "tolkien" gives the user a
+      // one-click route to /authors/:id instead of having to pick a book
+      // and then click the byline. Placed above Books because that intent
+      // wins for queries that are clearly a name.
+      const authorEntries = authorResults.map(a => ({
+        id:    `author.${a.id}`,
+        kind:  'author',
+        label: a.name,
+        hint:  a.book_count != null ? plural(a.book_count, 'book') : null,
+        path:  `/authors/${a.id}`,
+      }));
+
       _sections = [
         { kind: 'nav',    label: 'Navigate', entries: navEntries },
         { kind: 'action', label: 'Actions',  entries: matchedActions },
         { kind: 'list',   label: 'Lists',    entries: listEntries },
+        { kind: 'author', label: 'Authors',  entries: authorEntries },
         { kind: 'book',   label: 'Books',    entries: bookEntries },
       ];
     }
 
     _sections = _sections.filter(s => s.entries.length > 0);
     return { sections: _sections, flat: _sections.flatMap(s => s.entries) };
-  }, [query, lists, bookResults, actionEntries, bookActions, continueEntries, recentEntries, subPrompt, context, suggestions, suggestionsTotal, applyCompletion, libraryActions]);
+  }, [query, lists, bookResults, authorResults, actionEntries, bookActions, continueEntries, recentEntries, subPrompt, context, suggestions, suggestionsTotal, applyCompletion, libraryActions]);
 
   // Clamp the selected index whenever the result set shrinks (e.g.
   // user typed a more restrictive query). Reset to 0 on each query
@@ -1250,6 +1268,7 @@ export default function CommandPalette() {
                               {entry.kind === 'nav'     ? '→'
                                 : entry.kind === 'action'  ? '⚡'
                                 : entry.kind === 'suggest' ? ':'
+                                : entry.kind === 'author'  ? '✎'
                                 : '☰'}
                             </div>
                           )}

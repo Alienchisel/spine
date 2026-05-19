@@ -39,7 +39,7 @@ export const api = {
   // the caller can forward the current Library tab/filters and the
   // random pick lands within that pool.
   getRandomBook: (search = '') => request(`/books/random${search || ''}`),
-  getAuthors: () => request('/authors'),
+  getAuthors: (params = {}) => request(`/authors${buildQuery(params)}`),
   getTags: () => request('/tags'),
   getSeries: () => request('/series'),
   getAuthor: (id, params = {}) => request(`/authors/${id}${buildQuery(params)}`),

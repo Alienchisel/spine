@@ -38,7 +38,34 @@ function loadAuthor(id) {
 // each author has one. Dates / gender are returned in full because the
 // table shows them. Sorted alphabetically (NOCASE) so the client can
 // render straight without a follow-up sort step.
-router.get('/', (_req, res) => {
+//
+// Optional `?q=` substring filter (case-insensitive LIKE on name) caps
+// results to 20 — sized for the command palette's author search section.
+// Bare callers (AuthorsIndex) omit `q` and get the full corpus unchanged.
+router.get('/', (req, res) => {
+  const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+  if (q) {
+    const like = `%${q.replace(/[\\%_]/g, m => '\\' + m)}%`;
+    const rows = db.prepare(`
+      SELECT
+        a.id,
+        a.name,
+        a.gender,
+        a.birth_date,
+        a.death_date,
+        (a.bio IS NOT NULL)         AS has_bio,
+        (a.photo_path IS NOT NULL)  AS has_photo,
+        (a.ol_key IS NOT NULL)      AS has_ol_key,
+        COUNT(ba.book_id)           AS book_count
+      FROM authors a
+      LEFT JOIN book_authors ba ON ba.author_id = a.id
+      WHERE a.name LIKE ? ESCAPE '\\'
+      GROUP BY a.id
+      ORDER BY a.name COLLATE NOCASE
+      LIMIT 20
+    `).all(like);
+    return res.json(rows);
+  }
   const rows = db.prepare(`
     SELECT
       a.id,

@@ -508,6 +508,35 @@ describe('authors — index', () => {
     assert.equal(idx.find(a => a.id === aid).has_bio, 1);
   });
 
+  it('GET /api/authors?q= filters by substring (case-insensitive) and caps results', async () => {
+    const stem = 'qfilt' + Math.random().toString(36).slice(2, 6);
+    // Two authors share the stem; one unrelated. The query should pick
+    // up both stem-bearing names and skip the unrelated one.
+    await req('POST', '/api/books', { title: `${stem}-A`, authors: [`Alice ${stem}`] });
+    await req('POST', '/api/books', { title: `${stem}-B`, authors: [`Bob ${stem}`]   });
+    await req('POST', '/api/books', { title: `${stem}-C`, authors: [`Carol unrelated ${Math.random().toString(36).slice(2, 6)}`] });
+
+    // Case-insensitive: query in uppercase, names stored mixed-case.
+    const { status, body } = await req('GET', `/api/authors?q=${stem.toUpperCase()}`);
+    assert.equal(status, 200);
+    assert.ok(Array.isArray(body));
+    const names = body.map(a => a.name);
+    assert.ok(names.includes(`Alice ${stem}`));
+    assert.ok(names.includes(`Bob ${stem}`));
+    assert.ok(!names.some(n => n.startsWith('Carol unrelated')));
+    assert.ok(body.length <= 20, 'filtered response should be capped');
+  });
+
+  it('GET /api/authors?q= escapes SQL LIKE wildcards in user input', async () => {
+    // A literal "%" in the query must not match every author. Verifies
+    // the ESCAPE clause is doing its job.
+    const stem = 'esc' + Math.random().toString(36).slice(2, 6);
+    await req('POST', '/api/books', { title: `${stem}-A`, authors: [`Author ${stem}`] });
+    const { body } = await req('GET', `/api/authors?q=${encodeURIComponent('%' + stem)}`);
+    // No author name contains a literal "%", so the match set should be empty.
+    assert.equal(body.length, 0);
+  });
+
   it('GET /api/authors is sorted by name (case-insensitive)', async () => {
     const stem = 'sort' + Math.random().toString(36).slice(2, 6);
     await req('POST', '/api/books', { title: `${stem}-A`, authors: [`zebra ${stem}`] });
