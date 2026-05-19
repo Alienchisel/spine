@@ -49,7 +49,7 @@ function DotsIcon({ className }) {
   );
 }
 
-export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-5', buttonClassName = '', onOpenProgress }) {
+export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-5', buttonClassName = '', onOpenProgress, returnState }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState(null);
   const [subPrompt, setSubPrompt] = useState(null);  // null | 'add-to-lists'
@@ -186,13 +186,13 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
     e.preventDefault();
     e.stopPropagation();
     setOpen(false);
-    // Carry the current page as the editor's return target. Without
-    // this, editing from a Loved / Lists / Author card lost the
-    // listing context after Save / Back — BookDetail would render
-    // with no navState and fall back to '← Library' → '/'.
-    navigate(`/books/${book.id}/edit`, {
-      state: { from: labelForPath(pathname), fromPath: pathname + search },
-    });
+    // Prefer the parent's linkState — it carries the rich entity-aware
+    // label the rest of the card uses (list name, author name, browse
+    // facet value), where labelForPath would degrade to the index
+    // label ("Lists", "Authors") and disagree with the path. Fall back
+    // to a computed state for callers that don't pass one.
+    const state = returnState ?? { from: labelForPath(pathname), fromPath: pathname + search };
+    navigate(`/books/${book.id}/edit`, { state });
   }
 
   // Surface BookCard's inline progress editor from the menu — useful as

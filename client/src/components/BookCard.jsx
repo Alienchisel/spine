@@ -324,6 +324,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
                 dropUp
                 iconClassName="w-5 h-5"
                 onOpenProgress={openEditor}
+                returnState={linkState}
               />
             </div>
           )}
