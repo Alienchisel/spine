@@ -114,11 +114,13 @@ const FROM_STATS = { from: 'Stats', fromPath: '/stats' };
 
 function Bar({ label, count, max, color = 'bg-oak', href, caption }) {
   const pct = max > 0 ? Math.round((count / max) * 100) : 0;
-  // Tooltip pairs the label with the bar's actual value — the bar shows
-  // the magnitude visually, but the exact count was only visible at the
-  // end of the row. Now the same hover that reveals a truncated label
-  // also tells you the number.
-  const tooltip = count != null ? `${label} · ${count.toLocaleString()}` : label;
+  // Tooltip pairs the label with the bar's value. Prefer the explicit
+  // `caption` ("12 books" / "3 authors") when the caller supplied one
+  // so the hover text matches the polished row-end caption; fall back
+  // to the raw count when no caption was given.
+  const tooltip = caption
+    ? `${label} · ${caption}`
+    : count != null ? `${label} · ${count.toLocaleString()}` : label;
   const labelEl = href
     ? <Link to={href} state={FROM_STATS} className="text-xs text-neutral-400 w-28 flex-shrink-0 truncate hover:text-parchment transition-colors" title={tooltip}>{label}</Link>
     : <span className="text-xs text-neutral-400 w-28 flex-shrink-0 truncate" title={tooltip}>{label}</span>;
