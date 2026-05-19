@@ -839,7 +839,16 @@ export default function CommandPalette() {
     label: 'Random book',
     hint: 'Surprise me',
     perform: async () => {
-      const search = location.pathname === '/' ? location.search : '';
+      // Library's canonical Reading URL is bare `/` (the tab param is
+      // dropped on the default tab for cleaner URLs); synthesise
+      // tab=reading here so R / palette-random from / picks from
+      // reading books, not the entire library. Same fix as App.jsx.
+      let search = '';
+      if (location.pathname === '/') {
+        const sp = new URLSearchParams(location.search);
+        if (!sp.has('tab')) sp.set('tab', 'reading');
+        search = `?${sp.toString()}`;
+      }
       let fromPath, from;
       if (location.pathname.startsWith('/books/')) {
         fromPath = location.state?.fromPath ?? '/';

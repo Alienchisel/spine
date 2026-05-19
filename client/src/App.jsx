@@ -75,7 +75,16 @@ export default function App() {
       // On the Library (/, /?tab=X, with filters), forward the current
       // search params so the random pick honours the active tab/filter.
       // On any other page, pull from the whole library.
-      const search = location.pathname === '/' ? location.search : '';
+      // Library deliberately drops the canonical ?tab=reading from the
+      // URL when on its default tab (cleaner URL), so on bare /,
+      // synthesise tab=reading here — without this, R from the visually-
+      // active Reading tab would pick from every book in the library.
+      let search = '';
+      if (location.pathname === '/') {
+        const params = new URLSearchParams(location.search);
+        if (!params.has('tab')) params.set('tab', 'reading');
+        search = `?${params.toString()}`;
+      }
       api.getRandomBook(search)
         .then(({ id }) => navigate(`/books/${id}`, { state: { from, fromPath } }))
         .catch(() => {});
