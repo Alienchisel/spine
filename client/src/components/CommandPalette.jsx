@@ -1100,9 +1100,17 @@ export default function CommandPalette() {
       // Library tab — instead of falling back to document.referrer
       // (which inside an SPA only updates on hard navigations and is
       // routinely stale).
+      // On /books/:id, prefer the book's title over labelForPath, which
+      // falls through to "Library" for /books/* paths. Without this the
+      // destination's back link would read "← Library" while clicking it
+      // returned to the book detail — label and path disagree.
+      const onBookDetail = currentBookId != null;
+      const fromLabel = onBookDetail
+        ? (currentBook?.title ?? 'Book')
+        : labelForPath(location.pathname);
       navigate(entry.path, {
         state: {
-          from: labelForPath(location.pathname),
+          from: fromLabel,
           fromPath: location.pathname + location.search,
         },
       });
