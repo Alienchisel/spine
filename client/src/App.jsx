@@ -208,36 +208,37 @@ export default function App() {
             create a stacking context for negative-z kids and the
             wrapper's bg would hide it) — DOM order + pointer-events-
             none does the stacking instead. */}
+        {/* Cap the gutter at a width proportional to its height. The
+            source image is 1024×1536 (2:3 portrait); at h-full the
+            rendered width is gutterHeight × 2/3. The 'home' look was
+            container = 640 at gutterHeight = 1440 — 2/3 of that
+            rendered width. Generalised: maxWidth = gutterHeight × 4/9
+            keeps the same crop at any viewport height, where a fixed
+            640 cap fails on shorter remotes (image renders < 640 wide,
+            so the source's other half is no longer clipped). */}
         {gutterHeight > 0 && (
           <div
-            className="hidden xl:block fixed top-0 left-0 w-[calc((100vw-1280px)/2)] max-w-[640px] overflow-hidden pointer-events-none select-none [mask-image:linear-gradient(to_right,black_70%,transparent)]"
-            style={{ height: `${gutterHeight}px` }}
+            className="hidden xl:block fixed top-0 left-0 w-[calc((100vw-1280px)/2)] overflow-hidden pointer-events-none select-none [mask-image:linear-gradient(to_right,black_70%,transparent)]"
+            style={{ height: `${gutterHeight}px`, maxWidth: `${Math.round(gutterHeight * 4 / 9)}px` }}
             aria-hidden="true"
           >
-            {/* object-cover w-full h-full guarantees the image always
-                fills the gutter container regardless of viewport height
-                — at short viewports h-full w-auto used to render the
-                image narrower than the container, exposing the source's
-                other half and producing a "both compositions on the
-                same side" look. object-left/right anchors the visible
-                portion to the correct composition. */}
             <img
               src="/gutter.png"
               alt=""
-              className="w-full h-full object-cover object-left"
+              className="absolute left-0 top-0 h-full w-auto max-w-none"
             />
           </div>
         )}
         {gutterHeight > 0 && (
           <div
-            className="hidden xl:block fixed top-0 right-0 w-[calc((100vw-1280px)/2)] max-w-[640px] overflow-hidden pointer-events-none select-none [mask-image:linear-gradient(to_left,black_70%,transparent)]"
-            style={{ height: `${gutterHeight}px` }}
+            className="hidden xl:block fixed top-0 right-0 w-[calc((100vw-1280px)/2)] overflow-hidden pointer-events-none select-none [mask-image:linear-gradient(to_left,black_70%,transparent)]"
+            style={{ height: `${gutterHeight}px`, maxWidth: `${Math.round(gutterHeight * 4 / 9)}px` }}
             aria-hidden="true"
           >
             <img
               src="/gutter.png"
               alt=""
-              className="w-full h-full object-cover object-right"
+              className="absolute right-0 top-0 h-full w-auto max-w-none"
             />
           </div>
         )}
