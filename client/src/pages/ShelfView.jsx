@@ -596,11 +596,40 @@ export default function ShelfView() {
         )}
         {booksLoading ? (
           <div role="status" className="text-neutral-700 text-sm mt-6">Loading…</div>
-        ) : books.length > 0 && (
-          <div className={`${gridClassName} ${units.length > 0 ? 'mt-8' : ''}`} style={gridStyle}>
-            {books.map(book => <BookCard key={book.id} book={book} compact={compact} linkState={fromState} />)}
-          </div>
-        )}
+        ) : books.length > 0 && (() => {
+          // Same per-unit grouping as the building view's per-room
+          // headers — SQL ORDER BY keeps same-unit books adjacent, so a
+          // single walk emits each group. Room-only books (no unit/shelf
+          // pinned) sort last and get a "No unit assigned" header.
+          const groups = [];
+          for (const book of books) {
+            const last = groups[groups.length - 1];
+            const uid = book.effective_unit_id ?? null;
+            if (last && last.id === uid) {
+              last.books.push(book);
+            } else {
+              groups.push({
+                id: uid,
+                name: book.effective_unit_name ?? 'No unit assigned',
+                books: [book],
+              });
+            }
+          }
+          return (
+            <div className={units.length > 0 ? 'mt-8 space-y-6' : 'space-y-6'}>
+              {groups.map(g => (
+                <div key={g.id ?? 'unassigned'}>
+                  <p className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-2">
+                    {g.name} <span className="text-neutral-700">· {plural(g.books.length, 'book')}</span>
+                  </p>
+                  <div className={gridClassName} style={gridStyle}>
+                    {g.books.map(book => <BookCard key={book.id} book={book} compact={compact} linkState={fromState} />)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
         {!booksLoading && units.length === 0 && books.length === 0 && (
           <p className="text-neutral-600 text-sm">No books in this room yet.</p>
         )}
