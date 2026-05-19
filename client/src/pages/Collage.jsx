@@ -91,16 +91,20 @@ export default function Collage() {
   // features (theme, series, title, quote, labels, books) so a saved
   // config from an earlier Spine version doesn't carry dead state.
   useEffect(() => {
+    // Preserve location.state across the replace: setSearchParams does
+    // NOT carry state forward by default, so an unprotected replace
+    // here wipes the { from, fromPath } that Stats / palette / etc.
+    // passed in — back link silently degrades to '← Library'.
     if (params.toString() === '') {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const cleaned = pickValidParams(new URLSearchParams(saved));
-        if (cleaned.toString()) setParams(cleaned, { replace: true });
+        if (cleaned.toString()) setParams(cleaned, { replace: true, state });
       }
     } else if (Array.from(params.keys()).some(k => !VALID_PARAMS.has(k))) {
       // URL arrived with stale params (deep-link from old bookmark).
       // Strip them so the user doesn't keep them around accidentally.
-      setParams(pickValidParams(params), { replace: true });
+      setParams(pickValidParams(params), { replace: true, state });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -149,11 +153,12 @@ export default function Collage() {
   function update(key, value) {
     // Defense-in-depth: rebuild the params from only-whitelisted keys
     // so a stale value carried over from a removed feature can't
-    // survive past the next change to any knob.
+    // survive past the next change to any knob. Pass `state` through
+    // so toggling a knob doesn't wipe the incoming '← Stats' back link.
     const next = pickValidParams(params);
     if (value === '' || value == null)  next.delete(key);
     else if (VALID_PARAMS.has(key))     next.set(key, String(value));
-    setParams(next, { replace: true });
+    setParams(next, { replace: true, state });
   }
 
   async function downloadPng() {

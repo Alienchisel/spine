@@ -32,7 +32,7 @@ export default function TagsIndex() {
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState(null);
   const [params, setParams]   = useSearchParams();
-  const { pathname, search }  = useLocation();
+  const { pathname, search, state }  = useLocation();
   // Back-link contract — '← Tags' on BrowsePage returns to the current
   // filter+sort view, not the Library default.
   const fromState = { from: 'Tags', fromPath: pathname + search };
@@ -43,7 +43,7 @@ export default function TagsIndex() {
   // prior version doesn't sit there cluttering the URL.
   useEffect(() => {
     if (Array.from(params.keys()).some(k => !VALID_PARAMS.has(k))) {
-      setParams(pickValidParams(params), { replace: true });
+      setParams(pickValidParams(params), { replace: true, state });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -52,7 +52,7 @@ export default function TagsIndex() {
     const next = pickValidParams(params);
     if (value === '' || value == null) next.delete(key);
     else                                next.set(key, String(value));
-    setParams(next, { replace: true });
+    setParams(next, { replace: true, state });
   }
 
   useEffect(() => {

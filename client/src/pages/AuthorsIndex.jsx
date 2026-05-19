@@ -69,7 +69,7 @@ export default function AuthorsIndex() {
   // replace:true — filter state is view config, not navigation, and a
   // history entry per keystroke would clog back/forward.
   const [params, setParams] = useSearchParams();
-  const { pathname, search } = useLocation();
+  const { pathname, search, state } = useLocation();
   // Back-link contract for any detail page reached from a row click —
   // matches Author/BrowsePage's { from, fromPath } shape so '← Authors'
   // returns to the current filter+sort view, not the Library default.
@@ -78,10 +78,11 @@ export default function AuthorsIndex() {
   const sort  = VALID_SORTS.has(params.get('sort')) ? params.get('sort') : 'name';
 
   // Drop any unknown query params on mount so a stale bookmark from a
-  // prior version doesn't sit there cluttering the URL.
+  // prior version doesn't sit there cluttering the URL. Pass `state`
+  // through so a Stats-arrived '← Stats' back link survives the replace.
   useEffect(() => {
     if (Array.from(params.keys()).some(k => !VALID_PARAMS.has(k))) {
-      setParams(pickValidParams(params), { replace: true });
+      setParams(pickValidParams(params), { replace: true, state });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -90,7 +91,7 @@ export default function AuthorsIndex() {
     const next = pickValidParams(params);
     if (value === '' || value == null) next.delete(key);
     else                                next.set(key, String(value));
-    setParams(next, { replace: true });
+    setParams(next, { replace: true, state });
   }
 
   useEffect(() => {
