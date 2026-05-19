@@ -511,7 +511,12 @@ export default function BookForm() {
         />
 
         <div className="flex-1 min-w-0">
-          <div role="tablist" aria-label="Form sections" className="flex gap-6 border-b border-neutral-800 mb-7">
+          {/* Sticky at the same top-20 offset as the CoverPicker so the
+              tabs stay reachable while the long form body scrolls. The
+              form body scrolls behind, so the strip needs a solid bg
+              to occlude it; z-30 keeps it above form content and below
+              the z-50 Nav. */}
+          <div role="tablist" aria-label="Form sections" className="flex gap-6 border-b border-neutral-800 mb-7 sticky top-20 z-30 bg-neutral-950 pt-3">
             {TABS.map((t, i) => (
               <button
                 key={t.key}
