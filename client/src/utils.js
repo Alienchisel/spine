@@ -139,7 +139,15 @@ export function libraryLabelForUrl(url) {
 // reads "← Authors" / "← Stats" / "← Library" appropriately on the
 // destination page. Anything unrecognised falls back to "Library".
 export function labelForPath(pathname) {
-  if (pathname === '/' || pathname.startsWith('/browse')) return 'Library';
+  if (pathname === '/')                 return 'Library';
+  // /browse/* used to collapse to 'Library' too — convenient but
+  // misleading, since back-link labels then point at /browse/X
+  // ("← Library" → /browse/year_acquired/2026). The browse page itself
+  // already produces a rich fromState ("Acquired 2026") for its own
+  // outgoing card Links, so this only matters for surfaces that
+  // synthesise their own from-label (Nav's + Add book, R shortcut,
+  // palette random book). 'Browse' is generic but honest.
+  if (pathname.startsWith('/browse'))   return 'Browse';
   if (pathname.startsWith('/stats'))    return 'Stats';
   if (pathname.startsWith('/authors'))  return 'Authors';
   if (pathname.startsWith('/tags'))     return 'Tags';
