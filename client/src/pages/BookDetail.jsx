@@ -5,7 +5,7 @@ import { api } from '../api.js';
 import StarRating from '../components/StarRating.jsx';
 import ListPicker from '../components/ListPicker.jsx';
 import { useConfirm } from '../components/ConfirmModal.jsx';
-import { realTagNames, initialsFor } from '../utils.js';
+import { realTagNames, initialsFor, libraryLabelForUrl } from '../utils.js';
 import ProgressSection from '../components/bookDetail/ProgressSection.jsx';
 import ReadsSection from '../components/bookDetail/ReadsSection.jsx';
 import StoriesSection from '../components/bookDetail/StoriesSection.jsx';
@@ -45,12 +45,17 @@ export default function BookDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { state: navState } = useLocation();
-  const backLabel = navState?.from ?? 'Library';
   // navState wins (same-tab navigation carries the exact Library URL
   // we came from); document.referrer is the fallback for new-tab
   // opens where location.state is lost. Default to '/' if neither
-  // applies (direct deep link / bookmark / typed URL).
-  const backPath  = navState?.fromPath ?? libraryReferrerPath() ?? '/';
+  // applies (direct deep link / bookmark / typed URL). When recovery
+  // kicks in, the label is derived from the recovered URL's ?tab=
+  // param so a new-tab BookDetail opened from /?tab=reading reads
+  // "← Reading" instead of always literal "Library".
+  const recoveredLibraryPath = navState?.fromPath ? null : libraryReferrerPath();
+  const backLabel = navState?.from
+    ?? (recoveredLibraryPath ? libraryLabelForUrl(recoveredLibraryPath) : 'Library');
+  const backPath  = navState?.fromPath ?? recoveredLibraryPath ?? '/';
   // Forward to links that should preserve the Library context (Edit,
   // prev/next series siblings). When navState is null — i.e. new-tab
   // arrival where document.referrer recovered the Library URL — we

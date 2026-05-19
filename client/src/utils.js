@@ -101,6 +101,39 @@ export function formatPartialDate(val) {
   return formatDate(val);
 }
 
+// Display labels for Library tabs. Mirrors the TABS table in
+// pages/Library.jsx — kept here so libraryLabelForUrl can read it
+// without importing a page component (cyclic-import risk).
+const LIBRARY_TAB_LABEL = {
+  reading: 'Reading',
+  finished: 'Finished',
+  unread: 'Unread',
+  owned: 'Owned',
+  prev_owned: 'Prev. owned',
+  never_owned: 'Never owned',
+  all: 'All',
+  archived: 'Archived',
+};
+
+// Given a Library URL ("/", "/?tab=reading", "/?tab=finished&tags=...")
+// return the most informative back-link label. Only the `tab` param is
+// honoured — going deeper (tags, statuses, etc.) is plausible but risks
+// getting clever. Anything else degrades to "Library". Used to label
+// the back link on cold-tab BookDetail arrivals where document.referrer
+// recovers the Library URL but no `from` label arrived with the state.
+export function libraryLabelForUrl(url) {
+  if (!url) return 'Library';
+  const q = url.indexOf('?');
+  if (q < 0) return 'Library';
+  try {
+    const params = new URLSearchParams(url.slice(q + 1));
+    const tab = params.get('tab');
+    return (tab && LIBRARY_TAB_LABEL[tab]) || 'Library';
+  } catch {
+    return 'Library';
+  }
+}
+
 // Map the current page's pathname to a sensible back-link label so a
 // shortcut-driven navigation (R → BookDetail, palette → anywhere)
 // reads "← Authors" / "← Stats" / "← Library" appropriately on the
