@@ -145,7 +145,12 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
   // tags filtered. Optimistic local update so the stars react
   // instantly; rolled back on error.
   async function handleRate(rating) {
-    const prior = book.rating ?? null;
+    // Roll back to the last visible optimistic value, not the parent's
+    // possibly-stale book.rating. After a rapid 3→4→5 sequence where
+    // 4's save lands before the parent refetch propagates, book.rating
+    // is still 3 but the user has seen 4 — a failed 5 should restore
+    // 4, not 3.
+    const prior = localRating;
     setLocalRating(rating);
     try {
       await api.updateBook(book.id, {
