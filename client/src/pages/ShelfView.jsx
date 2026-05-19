@@ -543,9 +543,8 @@ export default function ShelfView() {
           // The SQL ORDER BY guarantees same-room books are adjacent, so a
           // single walk emits each group in order. Books pinned at the
           // building level (effective_room_id null) sort last and get a
-          // "No room assigned" header — gives the user a clear cue that
-          // those rows are unfiled rather than mixing them silently into
-          // the first room's grid.
+          // "Unfiled · building level" header that can't collide with a
+          // user-named room (no one would pick that as a room name).
           const groups = [];
           for (const book of books) {
             const last = groups[groups.length - 1];
@@ -555,7 +554,7 @@ export default function ShelfView() {
             } else {
               groups.push({
                 id: rid,
-                name: book.effective_room_name ?? 'No room assigned',
+                name: rid == null ? 'Unfiled · building level' : book.effective_room_name,
                 books: [book],
               });
             }
@@ -600,7 +599,8 @@ export default function ShelfView() {
           // Same per-unit grouping as the building view's per-room
           // headers — SQL ORDER BY keeps same-unit books adjacent, so a
           // single walk emits each group. Room-only books (no unit/shelf
-          // pinned) sort last and get a "No unit assigned" header.
+          // pinned) sort last and get a "Unfiled · room level" header
+          // that can't collide with a user-named unit.
           const groups = [];
           for (const book of books) {
             const last = groups[groups.length - 1];
@@ -610,7 +610,7 @@ export default function ShelfView() {
             } else {
               groups.push({
                 id: uid,
-                name: book.effective_unit_name ?? 'No unit assigned',
+                name: uid == null ? 'Unfiled · room level' : book.effective_unit_name,
                 books: [book],
               });
             }
