@@ -51,6 +51,14 @@ export default function BookDetail() {
   // opens where location.state is lost. Default to '/' if neither
   // applies (direct deep link / bookmark / typed URL).
   const backPath  = navState?.fromPath ?? libraryReferrerPath() ?? '/';
+  // Forward to links that should preserve the Library context (Edit,
+  // prev/next series siblings). When navState is null — i.e. new-tab
+  // arrival where document.referrer recovered the Library URL — we
+  // synthesise the equivalent state so downstream pages don't lose
+  // that context on Save / Back / sibling-hop. The recovered backPath
+  // is /<library URL> in that case, so children get the same '←
+  // Library' affordance they'd have had under same-tab navigation.
+  const detailReturnState = navState ?? { from: backLabel, fromPath: backPath };
   const confirm = useConfirm();
   const [book, setBook] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -495,7 +503,7 @@ export default function BookDetail() {
               <span className="text-neutral-800">·</span>
               <Link
                 to={`/books/${book.id}/edit`}
-                state={navState}
+                state={detailReturnState}
                 className="text-sm text-neutral-500 hover:text-neutral-200 transition-colors"
               >
                 Edit
@@ -588,7 +596,7 @@ export default function BookDetail() {
                 {prev ? (() => {
                   const prevLabel = `${prev.series_number != null ? `#${prev.series_number} ` : ''}${prev.title}`;
                   return (
-                    <Link to={`/books/${prev.id}`} state={navState} title={prevLabel} className="hover:text-neutral-400 transition-colors flex items-center gap-1 min-w-0">
+                    <Link to={`/books/${prev.id}`} state={detailReturnState} title={prevLabel} className="hover:text-neutral-400 transition-colors flex items-center gap-1 min-w-0">
                       <span className="flex-shrink-0">←</span>
                       <span className="truncate">{prevLabel}</span>
                     </Link>
@@ -597,7 +605,7 @@ export default function BookDetail() {
                 {next && (() => {
                   const nextLabel = `${next.series_number != null ? `#${next.series_number} ` : ''}${next.title}`;
                   return (
-                    <Link to={`/books/${next.id}`} state={navState} title={nextLabel} className="hover:text-neutral-400 transition-colors flex items-center gap-1 min-w-0 ml-4">
+                    <Link to={`/books/${next.id}`} state={detailReturnState} title={nextLabel} className="hover:text-neutral-400 transition-colors flex items-center gap-1 min-w-0 ml-4">
                       <span className="truncate text-right">{nextLabel}</span>
                       <span className="flex-shrink-0">→</span>
                     </Link>
