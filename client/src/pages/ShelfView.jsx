@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, useLocation, Link } from 'react-router-dom';
 import {
   DndContext,
   closestCenter,
@@ -162,6 +162,10 @@ function ShelfRow({ shelf, books, onReorder, onLabelClick, linkState }) {
 
 export default function ShelfView() {
   const [params, setParams] = useSearchParams();
+  // Captured for setParams calls so internal navigation (breadcrumb
+  // clicks, URL-normalisation effect) doesn't wipe the incoming
+  // location.state ('← Stats' / '← Library' etc.).
+  const { state: navState } = useLocation();
   const [tree, setTree] = useState([]);
   // treeLoaded gates the URL-pruning effect: we only consider the tree
   // canonical (and therefore safe to use as a basis for stripping stale
@@ -318,7 +322,7 @@ export default function ShelfView() {
     // every render that already matches.
     const keys = ['b', 'r', 'u', 's', ...preserveKeys];
     const diff = keys.some(k => (params.get(k) ?? '') !== (next[k] ?? ''));
-    if (diff) setParams(next, { replace: true });
+    if (diff) setParams(next, { replace: true, state: navState });
   }, [treeLoaded, tree, buildingId, roomId, unitId, shelfId, params, setParams]);
 
   useEffect(() => {
@@ -433,11 +437,11 @@ export default function ShelfView() {
     if (updates.r != null) next.r = updates.r;
     if (updates.u != null) next.u = updates.u;
     if (updates.s != null) next.s = updates.s;
-    setParams(next);
+    setParams(next, { state: navState });
   }
 
   const crumbs = [
-    { label: 'Shelves', action: () => setParams({}) },
+    { label: 'Shelves', action: () => setParams({}, { state: navState }) },
     building && { label: building.name, action: () => nav({ b: buildingId }) },
     room     && { label: room.name,     action: () => nav({ b: buildingId, r: roomId }) },
     unit     && { label: unit.name,     action: () => nav({ b: buildingId, r: roomId, u: unitId }) },

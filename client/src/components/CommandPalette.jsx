@@ -631,7 +631,7 @@ export default function CommandPalette() {
     const changeSort = (key) => () => {
       const next = new URLSearchParams(currentParams);
       next.set('sort', key);
-      setSearchParams(next);
+      setSearchParams(next, { state: location.state });
     };
 
     // Strip everything paramsToFilters / the search field reads, but
@@ -648,7 +648,7 @@ export default function CommandPalette() {
     const clearAll = () => {
       const next = new URLSearchParams(currentParams);
       for (const k of FILTER_PARAM_KEYS) next.delete(k);
-      setSearchParams(next);
+      setSearchParams(next, { state: location.state });
     };
 
     // Load more / Load all mirror Library's two paging buttons — only
@@ -691,7 +691,7 @@ export default function CommandPalette() {
         perform: changeSort(s.key),
       })),
     ];
-  }, [isOnLibrary, searchParams, setSearchParams, paging]);
+  }, [isOnLibrary, searchParams, setSearchParams, paging, location.state]);
 
   // Book-detail actions — only present when on /books/:id and the book
   // has loaded. Mutating actions hit the PATCH endpoint and then

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useLocation } from 'react-router-dom';
 import IncomingBackLink from '../components/IncomingBackLink.jsx';
 import {
   DndContext,
@@ -140,6 +140,12 @@ const VALID_TABS = new Set(['reading', 'finished', 'unread', 'owned', 'prev_owne
 
 export default function Library() {
   const [searchParams, setSearchParams] = useSearchParams();
+  // Captured here so every setSearchParams call below can pass it
+  // through; react-router-dom does NOT preserve location.state across
+  // navigations by default, so a tab/sort/filter/search-input change
+  // would otherwise wipe the '← Stats' (or whatever) incoming back
+  // link the moment the user touches a control.
+  const { state: navState } = useLocation();
   // useMemo with [] keeps the localStorage read + JSON.parse to a single
   // mount-time cost. Previously this ran on every render even though
   // only the three useState lazy initializers below consume it.
@@ -190,7 +196,7 @@ export default function Library() {
       // it on every subsequent URL push.
       next.delete('sort');
       return next;
-    });
+    }, { state: navState });
   }
   function setFilters(value) {
     const current = paramsToFilters(searchParams);
@@ -209,7 +215,7 @@ export default function Library() {
     setExpandedSeries(new Set());
     const next = new URLSearchParams(searchParams);
     writeFiltersToParams(next, resolved);
-    setSearchParams(next);
+    setSearchParams(next, { state: navState });
   }
   // Random-sort seed lives only in component state — refresh re-rolls,
   // which matches the user's mental model of "each session is a fresh
@@ -222,7 +228,7 @@ export default function Library() {
       const next = new URLSearchParams(prev);
       if (resolved === 'updated') next.delete('sort'); else next.set('sort', resolved);
       return next;
-    });
+    }, { state: navState });
     // Re-roll on switch INTO random so the user sees a fresh shuffle
     // (otherwise the same seed would carry forward from a prior random
     // tab, which feels stale).
@@ -370,7 +376,7 @@ export default function Library() {
         const next = new URLSearchParams(prev);
         if (queryRaw) next.set('q', queryRaw); else next.delete('q');
         return next;
-      }, { replace: true });
+      }, { replace: true, state: navState });
     }, 300);
     return () => clearTimeout(timer);
   }, [queryRaw, query, setSearchParams]);
@@ -794,7 +800,7 @@ export default function Library() {
                       const next = new URLSearchParams(prev);
                       if (queryRaw) next.set('q', queryRaw); else next.delete('q');
                       return next;
-                    }, { replace: true });
+                    }, { replace: true, state: navState });
                   }
                 }}
                 placeholder="Search title, people, series, or tags…"

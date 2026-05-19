@@ -118,7 +118,7 @@ export default function Collage() {
 
   function resetConfig() {
     localStorage.removeItem(STORAGE_KEY);
-    setParams(new URLSearchParams(), { replace: true });
+    setParams(new URLSearchParams(), { replace: true, state });
   }
 
   // Lazy-fetch facets on first mount. Cached for the session — a long-
