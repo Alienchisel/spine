@@ -846,7 +846,14 @@ export default function CommandPalette() {
         from     = location.state?.from     ?? 'Library';
       } else {
         fromPath = location.pathname + location.search;
-        from     = labelForPath(location.pathname);
+        // Same entity-aware fallback chain as pick(): on /lists/X the
+        // cached lists array gives us the actual list name, so the
+        // destination's back link reads "← [list name]" → /lists/X
+        // instead of "← Lists" (the index label) → /lists/X.
+        const currentListName = currentListId != null
+          ? lists.find(l => l.id === currentListId)?.name
+          : null;
+        from = currentListName ?? labelForPath(location.pathname);
       }
       try {
         const { id } = await api.getRandomBook(search);
@@ -855,7 +862,7 @@ export default function CommandPalette() {
         // Empty-pool 404 etc. — silent; palette closes either way.
       }
     },
-  }], [navigate, location.pathname, location.search, location.state]);
+  }], [navigate, location.pathname, location.search, location.state, currentListId, lists]);
 
   const actionEntries = useMemo(
     () => [...bookActions, ...libraryActions, ...randomBookEntries],
