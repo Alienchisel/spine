@@ -800,7 +800,10 @@ export default function CommandPalette() {
   // Random-book action — palette parallel of the `R` keyboard shortcut.
   // Forwards the current Library search params when on /, so a palette
   // "Random book" pick from /?tab=reading lands on a random reading
-  // book just like R does.
+  // book just like R does. Mirrors App.jsx's chain-preservation rule:
+  // when invoked from /books/X, inherit the incoming back-link state
+  // so the chain returns to the original referrer rather than the
+  // previous random pick.
   const randomBookEntries = useMemo(() => [{
     id: 'action.random_book',
     kind: 'action',
@@ -808,19 +811,22 @@ export default function CommandPalette() {
     hint: 'Surprise me',
     perform: async () => {
       const search = location.pathname === '/' ? location.search : '';
+      let fromPath, from;
+      if (location.pathname.startsWith('/books/')) {
+        fromPath = location.state?.fromPath ?? '/';
+        from     = location.state?.from     ?? 'Library';
+      } else {
+        fromPath = location.pathname + location.search;
+        from     = labelForPath(location.pathname);
+      }
       try {
         const { id } = await api.getRandomBook(search);
-        navigate(`/books/${id}`, {
-          state: {
-            from: labelForPath(location.pathname),
-            fromPath: location.pathname + location.search,
-          },
-        });
+        navigate(`/books/${id}`, { state: { from, fromPath } });
       } catch {
         // Empty-pool 404 etc. — silent; palette closes either way.
       }
     },
-  }], [navigate, location.pathname, location.search]);
+  }], [navigate, location.pathname, location.search, location.state]);
 
   const actionEntries = useMemo(
     () => [...bookActions, ...libraryActions, ...randomBookEntries],

@@ -35,8 +35,21 @@ export default function App() {
         el.isContentEditable
       )) return;
       e.preventDefault();
-      const fromPath = location.pathname + location.search;
-      const from = labelForPath(location.pathname);
+      // When chaining R from one random book to the next (i.e. already
+      // on /books/X), inherit the incoming back-link state so the chain
+      // all returns to the ORIGINAL referrer (Library / Stats / etc.)
+      // rather than each step pointing at the previous random pick.
+      // Cold-deep-link → R on /books/X with no incoming state defaults
+      // to Library — saves the self-referential trap. All other pages
+      // capture their own pathname as the back target.
+      let fromPath, from;
+      if (location.pathname.startsWith('/books/')) {
+        fromPath = location.state?.fromPath ?? '/';
+        from     = location.state?.from     ?? 'Library';
+      } else {
+        fromPath = location.pathname + location.search;
+        from     = labelForPath(location.pathname);
+      }
       // On the Library (/, /?tab=X, with filters), forward the current
       // search params so the random pick honours the active tab/filter.
       // On any other page, pull from the whole library.
