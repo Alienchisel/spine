@@ -404,7 +404,7 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
         ref={buttonRef}
         type="button"
         onClick={handleOpen}
-        aria-label={actionError ? `${actionError} Click to retry.` : 'More actions'}
+        aria-label={actionError ? `${actionError} Open actions.` : 'More actions'}
         aria-haspopup="menu"
         aria-expanded={open}
         title={actionError ?? 'More actions'}
