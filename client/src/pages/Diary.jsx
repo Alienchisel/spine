@@ -562,7 +562,7 @@ export default function Diary() {
               ))}
             </div>
 
-            <div className="w-[28rem] flex-shrink-0 sticky top-20 space-y-3">
+            <div className="flex-1 min-w-0 sticky top-20 space-y-3">
               <div className="bg-neutral-800 rounded-xl p-4 space-y-1 text-xs">
                 <div
                   className="flex items-baseline justify-between"
