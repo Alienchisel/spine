@@ -38,12 +38,16 @@ export default function Nav() {
             <span className="text-[10px] tracking-normal text-neutral-700 font-normal normal-case">v{__APP_VERSION__}</span>
           </Link>
           <nav className="flex items-center gap-5">
-            {navLink('/readlist', 'Readlist', onReadlist, 'text-sky-400')}
-            {navLink('/loved',    'Loved',    onLoved,    'text-rose-400')}
-            {navLink('/lists',    'Lists',    onLists,    'text-sky-400')}
-            {navLink('/diary',    'Diary',    onDiary,    'text-amber-400')}
-            {navLink('/stats',   'Stats',    onStats,    'text-neutral-300')}
-            {navLink('/shelf-view', 'Shelves', onShelfView, 'text-neutral-300')}
+            {/* Each nav item has its own identity colour. Cool tones
+                (sky/emerald/violet) for the curation + analytical
+                surfaces, warm tones (rose/amber/oak) for the more
+                emotional / theme-aligned ones. */}
+            {navLink('/readlist',   'Readlist', onReadlist,  'text-sky-400')}
+            {navLink('/loved',      'Loved',    onLoved,     'text-rose-400')}
+            {navLink('/lists',      'Lists',    onLists,     'text-emerald-400')}
+            {navLink('/diary',      'Diary',    onDiary,     'text-amber-400')}
+            {navLink('/stats',      'Stats',    onStats,     'text-violet-400')}
+            {navLink('/shelf-view', 'Shelves',  onShelfView, 'text-oak')}
           </nav>
         </div>
         {showAddButton && (
