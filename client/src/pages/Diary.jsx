@@ -154,7 +154,21 @@ function ReadingCalendar({ days, selectedYear, totals, onDayClick }) {
           const hasEntry = readingDates.has(dateStr);
           const isFuture = dateStr > todayStr;
           const isToday  = dateStr === todayStr;
-          const tipParts = [pages > 0 && `${pages}p`, minutes > 0 && `${minutes}m`].filter(Boolean);
+          // Spell-out tooltip — "23 pages · 2h 10m" reads as natural prose
+          // (the prior "23p · 45m" was code shorthand). Minutes follow the
+          // diary's day-header format (Xh Ym), collapsing the 0h prefix
+          // for under-an-hour values so it reads as "45m" not "0h 45m".
+          const fmtMin = (m) => {
+            const h = Math.floor(m / 60);
+            const mm = m % 60;
+            if (h === 0)  return `${mm}m`;
+            if (mm === 0) return `${h}h`;
+            return `${h}h ${mm}m`;
+          };
+          const tipParts = [
+            pages > 0   && plural(pages, 'page'),
+            minutes > 0 && fmtMin(minutes),
+          ].filter(Boolean);
           // Merge consecutive read days within the same row by squaring inner edges.
           // col 0 = Monday, col 6 = Sunday — bands can't span across rows.
           const col = i % 7;
