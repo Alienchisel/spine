@@ -7,7 +7,11 @@ export default function PersonalFields({ form, set, pastTags, tagInput, setTagIn
     <div className="space-y-6">
       <div>
         <label className={label}>Rating</label>
-        <StarRating value={form.rating} onChange={(v) => set('rating', v)} />
+        <StarRating
+          value={form.rating}
+          onChange={(v) => set('rating', v)}
+          ariaLabel={form.title ? `Rating for ${form.title}` : 'Book rating'}
+        />
         {form.rating && (
           <button type="button" onClick={() => set('rating', null)}
             className="text-xs text-neutral-600 hover:text-neutral-400 mt-1.5">
