@@ -352,8 +352,7 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
               click handler (registered on document.mousedown) from
               firing on the dead space between stars. */}
           <div
-            role="group"
-            aria-label="Rating"
+            role="none"
             className="px-3 py-2 border-b border-neutral-800 flex justify-center"
             onMouseDown={(e) => e.stopPropagation()}
           >
