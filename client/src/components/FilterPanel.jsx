@@ -1,27 +1,35 @@
 import { useState } from 'react';
 import { VIRTUAL_TAG_NAMES } from '../../../shared/bookFields.js';
 
+// Ordered by semantic cluster (identity → bibliographic → size →
+// descriptive → ownership). When adding a new pill, slot it into the
+// matching cluster rather than appending at the end.
 const MISSING_FIELDS = [
-  { key: 'cover',     label: 'Cover' },
-  { key: 'author',    label: 'Author' },
-  { key: 'narrator',  label: 'Narrator' },
-  { key: 'translator', label: 'Translator' },
-  { key: 'format',    label: 'Format' },
-  { key: 'binding',    label: 'Binding' },
-  { key: 'isbn',      label: 'ISBN/ASIN' },
-  { key: 'publisher',  label: 'Publisher' },
-  { key: 'year',       label: 'Year' },
-  { key: 'pages',      label: 'Pages' },
-  { key: 'duration',   label: 'Duration' },
-  { key: 'language',   label: 'Language' },
+  // Identity & people
+  { key: 'cover',       label: 'Cover' },
+  { key: 'author',      label: 'Author' },
+  { key: 'narrator',    label: 'Narrator' },
+  { key: 'translator',  label: 'Translator' },
+  // Bibliographic
+  { key: 'format',      label: 'Format' },
+  { key: 'binding',     label: 'Binding' },
+  { key: 'position',    label: 'Shelf position' },
+  { key: 'isbn',        label: 'ISBN/ASIN' },
+  { key: 'publisher',   label: 'Publisher' },
+  { key: 'year',        label: 'Year' },
+  // Size
+  { key: 'pages',       label: 'Pages' },
+  { key: 'page_count',  label: 'Page count' },
+  { key: 'duration',    label: 'Duration' },
+  // Descriptive
+  { key: 'language',    label: 'Language' },
   { key: 'fiction',     label: 'Fiction/NF' },
   { key: 'description', label: 'Description' },
   { key: 'rating',      label: 'Rating' },
+  { key: 'stories',     label: 'Contents' },
+  // Ownership
   { key: 'source',      label: 'Source' },
   { key: 'acquired',    label: 'Acquired' },
-  { key: 'stories',     label: 'Contents' },
-  { key: 'position',    label: 'Shelf position' },
-  { key: 'page_count',  label: 'Page count' },
 ];
 
 const FORMAT_LABEL = { physical: 'Physical', ebook: 'Digital', audiobook: 'Audiobook' };
