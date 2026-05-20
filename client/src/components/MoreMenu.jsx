@@ -416,6 +416,13 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
           ? <span aria-hidden="true" className={`inline-flex items-center justify-center font-bold ${iconClassName}`}>!</span>
           : <DotsIcon className={iconClassName} />}
       </button>
+      {/* The icon swap and aria-label update tell sighted users + AT
+          users who focus the button, but a passive AT user whose focus
+          is elsewhere wouldn't hear about the failure. role="alert" is
+          implicitly assertive — announces on change. */}
+      {actionError && (
+        <span role="alert" className="sr-only">{actionError}</span>
+      )}
       {dropdown}
     </>
   );
