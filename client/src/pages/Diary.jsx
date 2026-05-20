@@ -170,7 +170,11 @@ function ReadingCalendar({ days, selectedYear, totals, onDayClick }) {
           // plain divs — they're date labels with no action attached, so
           // adding them to the tab order would just be noise.
           const cellClass = [
-            'flex items-center justify-center text-xs h-7 select-none',
+            // aspect-square ties cell height to its grid-derived width
+            // so the calendar reads as a contribution-graph heatmap
+            // (the intensity colour is the primary signal) rather than
+            // a date-grid of rectangles.
+            'flex items-center justify-center text-xs aspect-square select-none',
             radiusClass,
             isFuture ? 'text-neutral-800' : hasEntry ? `${READ_DAY_CLASS} cursor-pointer hover:ring-1 hover:ring-oak/50` : 'text-neutral-700',
           ].join(' ');
