@@ -47,7 +47,7 @@ export default function ChipInput({
             <span key={it} className="flex items-center gap-1 text-xs bg-neutral-800 text-neutral-300 px-2.5 py-1 rounded-full">
               {it}
               <button type="button" onClick={() => remove(it)}
-                aria-label={`Remove ${it}`}
+                aria-label={`Remove ${it} from ${label.toLowerCase()}`}
                 className="text-neutral-500 hover:text-white leading-none ml-0.5">×</button>
             </span>
           ))}
