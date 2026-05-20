@@ -13,7 +13,8 @@ function ListsIcon({ className }) {
   );
 }
 
-export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-5 h-5', buttonClassName = '' }) {
+export default function ListPicker({ bookId, bookTitle, dropUp = false, iconClassName = 'w-5 h-5', buttonClassName = '' }) {
+  const triggerLabel = bookTitle ? `Add ${bookTitle} to list` : 'Add to list';
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState(null);
   const buttonRef = useRef(null);
@@ -72,7 +73,7 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
     <div
       ref={dropdownRef}
       role="menu"
-      aria-label="Add to list"
+      aria-label={triggerLabel}
       style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left }}
       className="z-[9999] w-52 max-h-[80vh] overflow-y-auto bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl py-1"
     >
@@ -133,8 +134,8 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
       <button
         ref={buttonRef}
         onClick={handleOpen}
-        title="Add to list"
-        aria-label="Add to list"
+        title={triggerLabel}
+        aria-label={triggerLabel}
         aria-haspopup="menu"
         aria-expanded={open}
         className={`leading-none transition-colors ${inAny ? 'text-sky-400' : 'text-neutral-600 hover:text-neutral-400'} ${buttonClassName}`}

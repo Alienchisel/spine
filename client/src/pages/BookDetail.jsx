@@ -438,7 +438,7 @@ export default function BookDetail() {
                 <span className="text-[10px] uppercase tracking-wider">Readlist</span>
               </button>
               <div className="flex flex-col items-center gap-1.5 text-neutral-600">
-                <ListPicker bookId={book.id} iconClassName="w-5 h-5" />
+                <ListPicker bookId={book.id} bookTitle={book.title} iconClassName="w-5 h-5" />
                 <span className="text-[10px] uppercase tracking-wider pointer-events-none">Lists</span>
               </div>
               <button
