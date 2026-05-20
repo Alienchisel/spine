@@ -361,6 +361,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
         <div className="mt-2">
           <button
             onClick={toggleEditor}
+            aria-label={`${progressLabel ?? 'Set progress'}: ${book.title}`}
             className="flex items-center gap-1 text-xs text-neutral-600 hover:text-neutral-300 transition-colors"
           >
             <span>{progressLabel ?? 'Set progress…'}</span>
@@ -432,7 +433,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
               <button
                 type="submit"
                 disabled={saveGuard.busy || isEmpty}
-                aria-label={saveGuard.busy ? 'Saving progress' : 'Save progress'}
+                aria-label={`${saveGuard.busy ? 'Saving progress' : 'Save progress'}: ${book.title}`}
                 className="text-xs bg-binding hover:bg-binding/80 motion-safe:active:scale-[0.98] disabled:opacity-40 text-parchment px-2 py-1 rounded transition-[transform,background-color] ease-out duration-150"
               >
                 {saveGuard.busy ? '…' : '✓'}
@@ -440,6 +441,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
               <button
                 type="button"
                 onClick={() => setOpen(false)}
+                aria-label={`Close progress editor for ${book.title}`}
                 className="text-xs text-neutral-600 hover:text-neutral-400 px-1 py-1"
               >
                 ✕
