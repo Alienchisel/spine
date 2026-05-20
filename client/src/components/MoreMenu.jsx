@@ -306,8 +306,8 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
           {loadingLists ? (
             <p role="status" className="text-xs text-neutral-600 px-3 py-2">Loading…</p>
           ) : lists.length === 0 ? (
-            <div className="px-3 py-2">
-              <p className="text-xs text-neutral-600 mb-1">No lists yet.</p>
+            <div role="none" className="px-3 py-2">
+              <p role="none" className="text-xs text-neutral-600 mb-1">No lists yet.</p>
               <Link to="/lists" role="menuitem" onClick={() => setOpen(false)} className="text-xs text-oak hover:text-leather">
                 Create a list →
               </Link>

@@ -83,8 +83,8 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
         // list content rather than sitting on top of an empty state.
         <p role="alert" className="text-xs text-warn px-3 py-2">{error}</p>
       ) : lists.length === 0 ? (
-        <div className="px-3 py-2">
-          <p className="text-xs text-neutral-600 mb-1">No lists yet.</p>
+        <div role="none" className="px-3 py-2">
+          <p role="none" className="text-xs text-neutral-600 mb-1">No lists yet.</p>
           <Link to="/lists" role="menuitem" className="text-xs text-oak hover:text-leather" onClick={() => setOpen(false)}>
             Create a list →
           </Link>
