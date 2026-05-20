@@ -77,11 +77,15 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
       className="z-[9999] w-52 max-h-[80vh] overflow-y-auto bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl py-1"
     >
       {loading ? (
-        <p role="status" className="text-xs text-neutral-600 px-3 py-2">Loading…</p>
+        <div role="none">
+          <p role="status" className="text-xs text-neutral-600 px-3 py-2">Loading…</p>
+        </div>
       ) : error && lists.length === 0 ? (
         // Load failed and we have nothing to show — error replaces the
         // list content rather than sitting on top of an empty state.
-        <p role="alert" className="text-xs text-warn px-3 py-2">{error}</p>
+        <div role="none">
+          <p role="alert" className="text-xs text-warn px-3 py-2">{error}</p>
+        </div>
       ) : lists.length === 0 ? (
         <div role="none" className="px-3 py-2">
           <p role="none" className="text-xs text-neutral-600 mb-1">No lists yet.</p>
@@ -92,7 +96,11 @@ export default function ListPicker({ bookId, dropUp = false, iconClassName = 'w-
       ) : (<>
         {/* Toggle failed but lists are loaded — surface the error above
             the list buttons so the user knows their click didn't take. */}
-        {error && <p role="alert" className="text-xs text-warn px-3 py-1.5 border-b border-neutral-800">{error}</p>}
+        {error && (
+          <div role="none">
+            <p role="alert" className="text-xs text-warn px-3 py-1.5 border-b border-neutral-800">{error}</p>
+          </div>
+        )}
         {lists.map(list => {
           const checked = memberIds.has(list.id);
           return (

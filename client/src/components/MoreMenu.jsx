@@ -302,9 +302,15 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
           >
             ← Back
           </button>
-          {error && <p role="alert" className="text-xs text-warn px-3 py-1.5 border-b border-neutral-800">{error}</p>}
+          {error && (
+            <div role="none">
+              <p role="alert" className="text-xs text-warn px-3 py-1.5 border-b border-neutral-800">{error}</p>
+            </div>
+          )}
           {loadingLists ? (
-            <p role="status" className="text-xs text-neutral-600 px-3 py-2">Loading…</p>
+            <div role="none">
+              <p role="status" className="text-xs text-neutral-600 px-3 py-2">Loading…</p>
+            </div>
           ) : lists.length === 0 ? (
             <div role="none" className="px-3 py-2">
               <p role="none" className="text-xs text-neutral-600 mb-1">No lists yet.</p>
