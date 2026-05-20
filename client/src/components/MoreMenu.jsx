@@ -296,6 +296,7 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
         <>
           <button
             type="button"
+            role="menuitem"
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSubPrompt(null); }}
             className="w-full px-3 py-1.5 text-left text-[11px] text-neutral-500 hover:text-neutral-300 border-b border-neutral-800"
           >
