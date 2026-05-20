@@ -356,7 +356,12 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
             className="px-3 py-2 border-b border-neutral-800 flex justify-center"
             onMouseDown={(e) => e.stopPropagation()}
           >
-            <StarRating value={localRating} onChange={handleRate} size="text-3xl" />
+            <StarRating
+              value={localRating}
+              onChange={handleRate}
+              size="text-3xl"
+              ariaLabel={`Rating for ${book.title}`}
+            />
           </div>
           {onOpenProgress && book.status === 'reading' && (
             <button type="button" onClick={handleOpenProgress} role="menuitem"

@@ -22,7 +22,7 @@ function clamp(v) {
   return Math.max(0, Math.min(5, v));
 }
 
-export default function StarRating({ value, onChange, readOnly = false, size = 'text-2xl' }) {
+export default function StarRating({ value, onChange, readOnly = false, size = 'text-2xl', ariaLabel = 'Rating' }) {
   const [hover, setHover] = useState(null);
   const display = hover ?? value ?? 0;
 
@@ -61,7 +61,7 @@ export default function StarRating({ value, onChange, readOnly = false, size = '
     <div
       className="flex"
       role={readOnly ? undefined : 'slider'}
-      aria-label={readOnly ? undefined : 'Rating'}
+      aria-label={readOnly ? undefined : ariaLabel}
       aria-valuemin={readOnly ? undefined : 0}
       aria-valuemax={readOnly ? undefined : 5}
       aria-valuenow={readOnly ? undefined : (value ?? 0)}
