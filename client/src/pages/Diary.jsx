@@ -490,7 +490,7 @@ export default function Diary() {
   }
 
   return (
-    <div className="max-w-5xl">
+    <div className="max-w-5xl mx-auto">
       <div className="flex items-center gap-4 mb-8">
         <h1 className="text-xl font-bold text-white">Diary</h1>
         {years.length > 1 && (
