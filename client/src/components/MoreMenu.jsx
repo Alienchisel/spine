@@ -288,7 +288,7 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
     <div
       ref={dropdownRef}
       role="menu"
-      aria-label={subPrompt === 'add-to-lists' ? 'Add to list' : 'Book actions'}
+      aria-label={subPrompt === 'add-to-lists' ? `Add ${book.title} to list` : `Actions for ${book.title}`}
       style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left }}
       className="z-[9999] w-56 max-h-[80vh] overflow-y-auto bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl py-1"
     >
@@ -417,7 +417,9 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
         ref={buttonRef}
         type="button"
         onClick={handleOpen}
-        aria-label={actionError ? `${actionError} Open actions.` : 'More actions'}
+        aria-label={actionError
+          ? `${actionError} Open actions for ${book.title}.`
+          : `More actions for ${book.title}`}
         aria-haspopup="menu"
         aria-expanded={open}
         title={actionError ?? 'More actions'}

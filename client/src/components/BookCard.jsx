@@ -302,7 +302,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
                 disabled={listGuard.busy}
                 className={`leading-none transition-colors disabled:opacity-50 ${book.on_readlist ? 'text-sky-400 hover:text-sky-300' : 'text-white hover:text-sky-300'}`}
                 title={book.on_readlist ? 'On readlist' : 'Add to readlist'}
-                aria-label={book.on_readlist ? 'Remove from readlist' : 'Add to readlist'}
+                aria-label={`${book.on_readlist ? 'Remove from readlist' : 'Add to readlist'}: ${book.title}`}
                 aria-pressed={!!book.on_readlist}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-5 h-5">
@@ -314,7 +314,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
                 disabled={loveGuard.busy}
                 className={`leading-none text-2xl transition-colors disabled:opacity-50 ${book.loved ? 'text-red-400 hover:text-red-300' : 'text-white hover:text-red-300'}`}
                 title={book.loved ? 'Loved' : 'Mark as loved'}
-                aria-label={book.loved ? 'Remove from loved' : 'Mark as loved'}
+                aria-label={`${book.loved ? 'Remove from loved' : 'Mark as loved'}: ${book.title}`}
                 aria-pressed={!!book.loved}
               >
                 {book.loved ? '♥' : '♡'}
