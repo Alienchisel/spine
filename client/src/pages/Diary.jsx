@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { Fragment, useState, useEffect, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { formatAuthors, fmtShortDate, plural, pluralWord, initialsFor } from '../utils.js';
@@ -225,21 +225,18 @@ function ReadingCalendar({ days, selectedYear, totals, onDayClick }) {
   );
 }
 
-// Year-at-a-glance heatmap. 7 rows (Mon–Sun) × ~53 columns (weeks).
-// Each cell is a small intensity-coloured square sized to fit the
-// available width via grid-flow-col on a fixed 7-row grid. Cells with
-// reading are clickable; on click, the parent scrolls to that day in
-// the entries list. Intensity scales by percentile of the user's own
-// most-active day this year — adaptive thresholds so a casual reader
-// and a heavy reader both get a useful range of shades.
+// Year-at-a-glance heatmap, vertical orientation. ~53 rows (weeks)
+// × 7 columns (days, Mon–Sun) — reads top-to-bottom through the year.
+// Lives in a narrow sidebar beside the entries list. Cells with
+// reading are clickable; on click, the parent scrolls to that day.
+// Intensity scales by percentile of the user's own active days so
+// casual and heavy readers both get a useful range of shades.
 function YearHeatmap({ days, selectedYear, onDayClick }) {
   const today = new Date();
   const todayStr = today.toLocaleDateString('en-CA');
 
-  // Per-day activity (pages + minutes/2 as a mixed-format intensity
-  // score — same shape as the OLD collage formula, used here only for
-  // bucketing). The display is in actual pages / minutes via the
-  // tooltip, so this constant doesn't bake into any visible number.
+  // Per-day activity. Score combines pages + minutes/2 only for
+  // intensity bucketing — the tooltip shows raw pages / minutes.
   const activityByDate = useMemo(() => {
     const map = {};
     for (const day of days) {
@@ -250,10 +247,8 @@ function YearHeatmap({ days, selectedYear, onDayClick }) {
     return map;
   }, [days]);
 
-  // Adaptive thresholds — top 25% of active days get level 4, 50–75%
-  // get 3, 25–50% get 2, anything else with activity is level 1. A
-  // single hot outlier won't flatten everything to level 1 because
-  // we percentile-bucket the non-zero days.
+  // Percentile-bucketed thresholds across non-zero days. A single hot
+  // outlier won't flatten everything to level 1.
   const thresholds = useMemo(() => {
     const scores = Object.values(activityByDate).map(a => a.score).filter(s => s > 0).sort((a, b) => a - b);
     if (scores.length === 0) return [0, 0, 0];
@@ -269,47 +264,38 @@ function YearHeatmap({ days, selectedYear, onDayClick }) {
     return 4;
   }
 
-  // Build the grid: from the Monday of the week containing Jan 1 to
-  // the Sunday of the week containing Dec 31. Each "week" is 7
-  // sequential dates; grid-flow-col with 7 rows turns the flat list
-  // into columns of weeks automatically.
-  const cells = useMemo(() => {
+  // Build a flat list of dates from the Monday of the week containing
+  // Jan 1 through the Sunday of the week containing Dec 31. Grouped
+  // into weeks (rows) of 7 dates each.
+  const weeks = useMemo(() => {
     const yearStart = new Date(selectedYear, 0, 1);
     const yearEnd   = new Date(selectedYear, 11, 31);
     const startDow  = (yearStart.getDay() + 6) % 7; // 0 = Monday
     const endDow    = (yearEnd.getDay()   + 6) % 7;
     const gridStart = new Date(yearStart); gridStart.setDate(yearStart.getDate() - startDow);
     const gridEnd   = new Date(yearEnd);   gridEnd.setDate(yearEnd.getDate() + (6 - endDow));
-    const out = [];
+    const all = [];
     const cursor = new Date(gridStart);
     while (cursor <= gridEnd) {
-      out.push(new Date(cursor));
+      all.push(new Date(cursor));
       cursor.setDate(cursor.getDate() + 1);
     }
-    return out;
+    const rows = [];
+    for (let i = 0; i < all.length; i += 7) rows.push(all.slice(i, i + 7));
+    return rows;
   }, [selectedYear]);
 
-  // Column count = total cells / 7. Used in the grid template so the
-  // squares stretch to fill the available row width.
-  const weekCount = Math.ceil(cells.length / 7);
-
-  // Month labels positioned by week index: for each month, place the
-  // label at the column where the first day of that month falls.
-  const monthHeaders = useMemo(() => {
-    const labels = [];
-    for (let m = 0; m < 12; m++) {
-      const first = new Date(selectedYear, m, 1);
-      // Find the cell index of `first`, then derive its week column.
-      const idx = cells.findIndex(d => d.toLocaleDateString('en-CA') === first.toLocaleDateString('en-CA'));
-      if (idx >= 0) labels.push({ col: Math.floor(idx / 7), label: MONTH_LABELS[m] });
+  // Month label for a row = the month of the 1st-of-the-month day if
+  // any of the row's days is the 1st. Renders in the row's label slot.
+  function rowMonthLabel(week) {
+    for (const d of week) {
+      if (d.getDate() === 1 && d.getFullYear() === selectedYear) {
+        return MONTH_LABELS[d.getMonth()];
+      }
     }
-    return labels;
-  }, [cells, selectedYear]);
+    return '';
+  }
 
-  // Day-label column: M, W, F to save space (GitHub convention).
-  const dayLabels = ['M', '', 'W', '', 'F', '', ''];
-
-  // tooltip helper — same format as the calendar.
   const fmtMin = (m) => {
     const h = Math.floor(m / 60);
     const mm = m % 60;
@@ -320,36 +306,24 @@ function YearHeatmap({ days, selectedYear, onDayClick }) {
 
   return (
     <div className="bg-neutral-800 rounded-xl p-4">
-      <div className="flex gap-2">
-        {/* Day labels column */}
-        <div className="grid grid-rows-7 gap-[3px] pt-[14px] flex-shrink-0">
-          {dayLabels.map((d, i) => (
-            <div key={i} className="text-[9px] text-neutral-500 h-3 leading-3 flex items-center">{d}</div>
-          ))}
-        </div>
+      <div
+        className="grid gap-[3px]"
+        style={{ gridTemplateColumns: 'auto repeat(7, minmax(0, 1fr))' }}
+      >
+        {/* Top-left empty spacer (no label) */}
+        <div />
+        {/* Day-of-week labels row (M T W T F S S) */}
+        {['M','T','W','T','F','S','S'].map((d, i) => (
+          <div key={i} className="text-[9px] text-neutral-500 text-center leading-3">{d}</div>
+        ))}
 
-        {/* Heatmap area */}
-        <div className="flex-1 min-w-0">
-          {/* Month labels row */}
-          <div
-            className="grid gap-[3px] mb-1"
-            style={{ gridTemplateColumns: `repeat(${weekCount}, minmax(0, 1fr))` }}
-          >
-            {Array.from({ length: weekCount }, (_, i) => {
-              const lbl = monthHeaders.find(m => m.col === i);
-              return (
-                <div key={i} className="text-[9px] text-neutral-500 h-3 leading-3">
-                  {lbl?.label ?? ''}
-                </div>
-              );
-            })}
-          </div>
-          {/* 7 rows × weekCount columns, grid-flow-col places cells day-by-day */}
-          <div
-            className="grid grid-rows-7 grid-flow-col gap-[3px]"
-            style={{ gridTemplateColumns: `repeat(${weekCount}, minmax(0, 1fr))` }}
-          >
-            {cells.map((d, i) => {
+        {/* Weeks: month label cell + 7 day cells per row. */}
+        {weeks.map((week, wIdx) => (
+          <Fragment key={wIdx}>
+            <div className="text-[9px] text-neutral-500 leading-3 pr-1 flex items-center justify-end min-w-[18px]">
+              {rowMonthLabel(week)}
+            </div>
+            {week.map((d, dIdx) => {
               const dateStr = d.toLocaleDateString('en-CA');
               const inYear  = d.getFullYear() === selectedYear;
               const future  = dateStr > todayStr;
@@ -370,7 +344,7 @@ function YearHeatmap({ days, selectedYear, onDayClick }) {
                 : null;
               return act && act.score > 0 ? (
                 <button
-                  key={i}
+                  key={dIdx}
                   type="button"
                   onClick={() => onDayClick(dateStr)}
                   title={tip}
@@ -378,11 +352,11 @@ function YearHeatmap({ days, selectedYear, onDayClick }) {
                   aria-label={tip ?? dateStr}
                 />
               ) : (
-                <div key={i} className={cls} title={tip ?? undefined} />
+                <div key={dIdx} className={cls} title={tip ?? undefined} />
               );
             })}
-          </div>
-        </div>
+          </Fragment>
+        ))}
       </div>
     </div>
   );
@@ -539,80 +513,85 @@ export default function Diary() {
               <button onClick={() => setDeleteError(null)} className="ml-4 text-red-600 hover:text-red-400">×</button>
             </div>
           )}
-          {/* Year-at-a-glance heatmap as a hero strip — replaces the
-              previous month-at-a-time ReadingCalendar in a sidebar.
-              Stats (streaks + period totals) sit inline below the
-              heatmap as a compact row; entries flow full-width below. */}
-          <YearHeatmap
-            days={days}
-            selectedYear={year}
-            onDayClick={dateStr => {
-              const el = dayRefs.current[dateStr];
-              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }}
-          />
-          <div className="flex flex-wrap gap-x-8 gap-y-2 mt-4 mb-10 text-xs">
-            <div
-              className="flex items-baseline gap-2"
-              title={[
-                stats.dayStreak > 0 && stats.dayStreakSince  && `Current: since ${fmtShortDate(stats.dayStreakSince)}`,
-                stats.dayStreakBest > 0 && stats.dayStreakBestStart && `Best: ${fmtShortDate(stats.dayStreakBestStart)} – ${fmtShortDate(stats.dayStreakBestEnd)}`,
-              ].filter(Boolean).join('\n') || undefined}
-            >
-              <span className="text-[10px] uppercase tracking-wider text-neutral-600">Day streak</span>
-              <span className="tabular-nums text-neutral-300">
-                {stats.dayStreak}
-                {stats.dayStreakBest > stats.dayStreak && (
-                  <span className="text-neutral-600 ml-1">(best {stats.dayStreakBest})</span>
-                )}
-              </span>
+          {/* Side-by-side layout: entries on the left, vertical
+              year heatmap on the right. The heatmap is tall (~53
+              weeks) and stays sticky so it follows the user as they
+              scroll through the entries. Stats sit inside the heatmap
+              card above the grid. */}
+          <div className="flex gap-8 items-start">
+            <div className="flex-1 min-w-0 space-y-8">
+              {days.map(day => (
+                <div key={day.date} ref={el => { if (el) dayRefs.current[day.date] = el; }}>
+                  <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-1 pb-2 border-b border-neutral-800 flex justify-between items-baseline">
+                    <span>{formatDate(day.date)}</span>
+                    <span className="text-neutral-700 normal-case tracking-normal font-normal">
+                      {(() => {
+                        const p = day.entries.reduce((s, e) => s + (e.pages_read   || 0), 0);
+                        const m = day.entries.reduce((s, e) => s + (e.minutes_read || 0), 0);
+                        const parts = [];
+                        if (p > 0) parts.push(plural(p, 'page'));
+                        if (m > 0) parts.push(`${Math.floor(m / 60)}h ${m % 60}m`);
+                        return parts.join(' · ');
+                      })()}
+                    </span>
+                  </h2>
+                  <div className="divide-y divide-neutral-800/50">
+                    {day.entries.map(entry => (
+                      <DiaryEntry key={entry.id} entry={entry} onDelete={id => handleDelete(id, entry.story_title || entry.title)} />
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-[10px] uppercase tracking-wider text-neutral-600">Week streak</span>
-              <span className="tabular-nums text-neutral-300">
-                {stats.weekStreak}
-                {stats.weekStreakBest > stats.weekStreak && (
-                  <span className="text-neutral-600 ml-1">(best {stats.weekStreakBest})</span>
-                )}
-              </span>
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-[10px] uppercase tracking-wider text-neutral-600">This week</span>
-              <span className="tabular-nums text-neutral-300">{formatTotal(stats.thisWeek)}</span>
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-[10px] uppercase tracking-wider text-neutral-600">This month</span>
-              <span className="tabular-nums text-neutral-300">{formatTotal(stats.thisMonth)}</span>
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-[10px] uppercase tracking-wider text-neutral-600">This year</span>
-              <span className="tabular-nums text-neutral-300">{formatTotal(stats.thisYear)}</span>
-            </div>
-          </div>
 
-          <div className="space-y-8">
-            {days.map(day => (
-              <div key={day.date} ref={el => { if (el) dayRefs.current[day.date] = el; }}>
-                <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-1 pb-2 border-b border-neutral-800 flex justify-between items-baseline">
-                  <span>{formatDate(day.date)}</span>
-                  <span className="text-neutral-700 normal-case tracking-normal font-normal">
-                    {(() => {
-                      const p = day.entries.reduce((s, e) => s + (e.pages_read   || 0), 0);
-                      const m = day.entries.reduce((s, e) => s + (e.minutes_read || 0), 0);
-                      const parts = [];
-                      if (p > 0) parts.push(plural(p, 'page'));
-                      if (m > 0) parts.push(`${Math.floor(m / 60)}h ${m % 60}m`);
-                      return parts.join(' · ');
-                    })()}
+            <div className="w-56 flex-shrink-0 space-y-3">
+              <div className="bg-neutral-800 rounded-xl p-4 space-y-1 text-xs">
+                <div
+                  className="flex items-baseline justify-between"
+                  title={[
+                    stats.dayStreak > 0 && stats.dayStreakSince  && `Current: since ${fmtShortDate(stats.dayStreakSince)}`,
+                    stats.dayStreakBest > 0 && stats.dayStreakBestStart && `Best: ${fmtShortDate(stats.dayStreakBestStart)} – ${fmtShortDate(stats.dayStreakBestEnd)}`,
+                  ].filter(Boolean).join('\n') || undefined}
+                >
+                  <span className="text-[10px] uppercase tracking-wider text-neutral-600">Day streak</span>
+                  <span className="tabular-nums text-neutral-300">
+                    {stats.dayStreak}
+                    {stats.dayStreakBest > stats.dayStreak && (
+                      <span className="text-neutral-600 ml-1">(best {stats.dayStreakBest})</span>
+                    )}
                   </span>
-                </h2>
-                <div className="divide-y divide-neutral-800/50">
-                  {day.entries.map(entry => (
-                    <DiaryEntry key={entry.id} entry={entry} onDelete={id => handleDelete(id, entry.story_title || entry.title)} />
-                  ))}
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[10px] uppercase tracking-wider text-neutral-600">Week streak</span>
+                  <span className="tabular-nums text-neutral-300">
+                    {stats.weekStreak}
+                    {stats.weekStreakBest > stats.weekStreak && (
+                      <span className="text-neutral-600 ml-1">(best {stats.weekStreakBest})</span>
+                    )}
+                  </span>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[10px] uppercase tracking-wider text-neutral-600">This week</span>
+                  <span className="tabular-nums text-neutral-300">{formatTotal(stats.thisWeek)}</span>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[10px] uppercase tracking-wider text-neutral-600">This month</span>
+                  <span className="tabular-nums text-neutral-300">{formatTotal(stats.thisMonth)}</span>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[10px] uppercase tracking-wider text-neutral-600">This year</span>
+                  <span className="tabular-nums text-neutral-300">{formatTotal(stats.thisYear)}</span>
                 </div>
               </div>
-            ))}
+              <YearHeatmap
+                days={days}
+                selectedYear={year}
+                onDayClick={dateStr => {
+                  const el = dayRefs.current[dateStr];
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+              />
+            </div>
           </div>
         </div>
       )}
