@@ -308,7 +308,7 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
           ) : lists.length === 0 ? (
             <div className="px-3 py-2">
               <p className="text-xs text-neutral-600 mb-1">No lists yet.</p>
-              <Link to="/lists" onClick={() => setOpen(false)} className="text-xs text-oak hover:text-leather">
+              <Link to="/lists" role="menuitem" onClick={() => setOpen(false)} className="text-xs text-oak hover:text-leather">
                 Create a list →
               </Link>
             </div>
