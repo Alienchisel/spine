@@ -661,9 +661,9 @@ export default function Diary() {
                           className="flex items-start gap-2.5 hover:bg-neutral-700/30 rounded p-1 -mx-1 transition-colors"
                         >
                           {b.cover_path ? (
-                            <img src={b.cover_path} alt="" className="w-10 h-14 object-cover rounded flex-shrink-0" />
+                            <img src={b.cover_path} alt="" className="w-12 h-[4.5rem] object-cover rounded flex-shrink-0" />
                           ) : (
-                            <div className="w-10 h-14 bg-gradient-to-br from-neutral-700 to-neutral-900 rounded flex-shrink-0 flex items-center justify-center text-[10px] text-neutral-500 font-medium">
+                            <div className="w-12 h-[4.5rem] bg-gradient-to-br from-neutral-700 to-neutral-900 rounded flex-shrink-0 flex items-center justify-center text-[10px] text-neutral-500 font-medium">
                               {initialsFor(b.title)}
                             </div>
                           )}
