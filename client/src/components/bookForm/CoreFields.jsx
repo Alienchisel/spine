@@ -68,6 +68,23 @@ export default function CoreFields({
         inputClassName={ic('authors')}
       />
 
+      {/* Narrators sit beside Authors for audiobooks — both are people
+          credited on the book and the user thinks of them together when
+          ingesting. Hidden for non-audiobook formats. */}
+      {form.format === 'audiobook' && (
+        <ChipInput
+          label="Narrators"
+          items={form.narrators}
+          onItemsChange={(items) => set('narrators', items)}
+          inputValue={narratorInput}
+          onInputChange={setNarratorInput}
+          datalistId="narrators-list"
+          datalistOptions={pastNarrators}
+          placeholder="Type a name, press Enter or comma to add"
+          inputClassName={input}
+        />
+      )}
+
       <div>
         <label htmlFor={idFor('fiction')} className={label}>Fiction / Non-fiction</label>
         <select id={idFor('fiction')} className={input} value={form.fiction === null ? '' : String(form.fiction)}
@@ -267,17 +284,6 @@ export default function CoreFields({
               value={form.page_count} onChange={(e) => set('page_count', e.target.value)}
               placeholder="e.g. 342" />
           </div>
-          <ChipInput
-            label="Narrators"
-            items={form.narrators}
-            onItemsChange={(items) => set('narrators', items)}
-            inputValue={narratorInput}
-            onInputChange={setNarratorInput}
-            datalistId="narrators-list"
-            datalistOptions={pastNarrators}
-            placeholder="Type a name, press Enter or comma to add"
-            inputClassName={input}
-          />
         </>
       )}
     </div>
