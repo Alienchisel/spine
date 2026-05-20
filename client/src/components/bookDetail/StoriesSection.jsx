@@ -274,6 +274,7 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
         value={form.rating}
         onChange={v => setForm(f => ({ ...f, rating: v }))}
         size="text-sm"
+        ariaLabel={form.title ? `Rating for ${form.title}` : 'Rating'}
       />
       <label className="flex items-center gap-1 text-xs text-neutral-500 select-none cursor-pointer">
         <input type="checkbox" checked={form.did_not_finish} onChange={e => setForm(f => ({ ...f, did_not_finish: e.target.checked }))} className="accent-warn" />

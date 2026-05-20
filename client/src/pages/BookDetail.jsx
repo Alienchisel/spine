@@ -472,7 +472,12 @@ export default function BookDetail() {
                 {ratingPrompt ? 'How was it?' : 'Rate'}
               </p>
               <div className="flex justify-center">
-                <StarRating value={book.rating} onChange={handleRate} size="text-3xl" />
+                <StarRating
+                  value={book.rating}
+                  onChange={handleRate}
+                  size="text-3xl"
+                  ariaLabel={`Rating for ${book.title}`}
+                />
               </div>
               {ratingPrompt && !book.rating && (
                 <div className="text-center mt-2">
