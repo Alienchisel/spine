@@ -304,21 +304,30 @@ function YearHeatmap({ days, selectedYear, onDayClick }) {
     return `${h}h ${mm}m`;
   };
 
-  return (
-    <div className="bg-neutral-800 rounded-xl p-4">
+  // Split the year into two halves (Jan–Jun on the left, Jul–Dec on
+  // the right) so the heatmap fits in roughly half the vertical
+  // space. Boundary weeks (last week of June bleeding into July) are
+  // assigned to the half whose Monday they belong to. The right half
+  // can start with an aligned-row by-day, since each half renders its
+  // own independent grid.
+  const halves = useMemo(() => {
+    const left  = weeks.filter(w => w[0].getMonth() < 6 || w[0].getFullYear() < selectedYear);
+    const right = weeks.filter(w => !(w[0].getMonth() < 6 || w[0].getFullYear() < selectedYear));
+    return [left, right];
+  }, [weeks, selectedYear]);
+
+  function renderHalf(halfWeeks, key) {
+    return (
       <div
-        className="grid gap-[3px]"
+        key={key}
+        className="grid gap-[3px] flex-1 min-w-0"
         style={{ gridTemplateColumns: 'auto repeat(7, minmax(0, 1fr))' }}
       >
-        {/* Top-left empty spacer (no label) */}
         <div />
-        {/* Day-of-week labels row (M T W T F S S) */}
         {['M','T','W','T','F','S','S'].map((d, i) => (
           <div key={i} className="text-[9px] text-neutral-500 text-center leading-3">{d}</div>
         ))}
-
-        {/* Weeks: month label cell + 7 day cells per row. */}
-        {weeks.map((week, wIdx) => (
+        {halfWeeks.map((week, wIdx) => (
           <Fragment key={wIdx}>
             <div className="text-[9px] text-neutral-500 leading-3 pr-1 flex items-center justify-end min-w-[18px]">
               {rowMonthLabel(week)}
@@ -357,6 +366,15 @@ function YearHeatmap({ days, selectedYear, onDayClick }) {
             })}
           </Fragment>
         ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-neutral-800 rounded-xl p-4">
+      <div className="flex gap-3 items-start">
+        {renderHalf(halves[0], 'h1')}
+        {renderHalf(halves[1], 'h2')}
       </div>
     </div>
   );
@@ -544,7 +562,7 @@ export default function Diary() {
               ))}
             </div>
 
-            <div className="w-56 flex-shrink-0 space-y-3">
+            <div className="w-80 flex-shrink-0 space-y-3">
               <div className="bg-neutral-800 rounded-xl p-4 space-y-1 text-xs">
                 <div
                   className="flex items-baseline justify-between"
