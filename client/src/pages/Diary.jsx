@@ -489,10 +489,11 @@ export default function Diary() {
     }
   }
 
-  // Aggregate top-5 books of the year by activity (pages + minutes/2 as
-  // a mixed-format score, matching the heatmap intensity bucketing).
-  // Drives the middle column; uses the already-loaded days data so no
-  // extra fetch. Limited to 5 — keeps the column compact.
+  // Aggregate top-10 books of the year by activity (pages + minutes/2
+  // as a mixed-format score, matching the heatmap intensity bucketing).
+  // Drives the right column; uses the already-loaded days data so no
+  // extra fetch. 10 matches the canonical "top 10" convention and gives
+  // the column visual weight comparable to the heatmap.
   const topBooks = useMemo(() => {
     const byBook = new Map();
     for (const day of days) {
@@ -509,7 +510,7 @@ export default function Diary() {
     return Array.from(byBook.values())
       .map(b => ({ ...b, activity: b.pages + b.minutes / 2 }))
       .sort((a, b) => b.activity - a.activity)
-      .slice(0, 5);
+      .slice(0, 10);
   }, [days]);
 
   // Tooltip-friendly minutes formatter (same shape used in the heatmap).
@@ -643,7 +644,7 @@ export default function Diary() {
               />
             </div>
 
-            {/* Right column: top 5 books by activity in the selected
+            {/* Right column: top 10 books by activity in the selected
                 year. Sticky like the heatmap; takes whatever space
                 remains after the two fixed columns. Hidden if the year
                 has no activity. */}
