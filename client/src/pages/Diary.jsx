@@ -307,15 +307,6 @@ export default function Diary() {
     }
   }
 
-  const totalPages   = days.flatMap(d => d.entries).reduce((s, e) => s + (e.pages_read   || 0), 0);
-  const totalMinutes = days.flatMap(d => d.entries).reduce((s, e) => s + (e.minutes_read || 0), 0);
-
-  const summaryParts = [];
-  if (totalPages   > 0) summaryParts.push(`${totalPages.toLocaleString()} ${pluralWord(totalPages, 'page')}`);
-  if (totalMinutes > 0) summaryParts.push(`${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m listened`);
-  if (days.length  > 0) summaryParts.push(plural(days.length, 'day'));
-  if (stats.dayStreak > 1) summaryParts.push(`${stats.dayStreak}-day streak`);
-
   return (
     <div className="max-w-4xl">
       <div className="flex items-center gap-4 mb-8">
@@ -357,9 +348,6 @@ export default function Diary() {
               {deleteError}
               <button onClick={() => setDeleteError(null)} className="ml-4 text-red-600 hover:text-red-400">×</button>
             </div>
-          )}
-          {summaryParts.length > 0 && (
-            <p className="text-xs text-neutral-600 mb-6">{summaryParts.join(' · ')}</p>
           )}
           <div className="flex gap-10 items-start">
             <div className="flex-1 min-w-0 space-y-8">
