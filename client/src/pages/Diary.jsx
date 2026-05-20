@@ -387,7 +387,7 @@ export default function Diary() {
               ))}
             </div>
 
-            <div className="w-64 flex-shrink-0 sticky top-20 bg-neutral-800 rounded-xl p-4">
+            <div className="w-80 flex-shrink-0 sticky top-20 bg-neutral-800 rounded-xl p-4">
               <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-3 pb-2 border-b border-neutral-700/60">Overview</p>
               <div className="space-y-1 mb-1 text-xs">
                 <div
