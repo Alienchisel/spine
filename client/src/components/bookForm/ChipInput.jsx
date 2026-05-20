@@ -67,6 +67,7 @@ export default function ChipInput({
           type="button"
           onClick={commit}
           disabled={!inputValue.trim()}
+          aria-label={`Add ${label.toLowerCase()}`}
           className="text-xs text-oak hover:text-leather disabled:opacity-40 transition-colors flex-shrink-0"
         >
           add
