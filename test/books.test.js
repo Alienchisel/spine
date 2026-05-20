@@ -1654,6 +1654,59 @@ describe('books', () => {
       }
     });
 
+    it('missing=pages / duration / page_count split by format and intent', async () => {
+      // Three curation queues with distinct intent:
+      //   missing=pages       → non-audiobook with no page_count (print-pages curation).
+      //   missing=duration    → audiobook with no duration_minutes (unusable audiobook).
+      //   missing=page_count  → page_count missing on any format (cross-format size).
+      const stem = 'pagesfilter' + Math.random().toString(36).slice(2, 6);
+      // Physical without page_count → in pages + page_count, not duration.
+      const { body: a } = await req('POST', '/api/books', { title: `${stem}-phys-nopages`, format: 'physical' });
+      // Physical with page_count → in none.
+      const { body: b } = await req('POST', '/api/books', { title: `${stem}-phys-full`, format: 'physical', page_count: 300 });
+      // Audiobook without duration → in duration; page_count also null so in page_count too.
+      const { body: c } = await req('POST', '/api/books', { title: `${stem}-audio-nodur`, format: 'audiobook' });
+      // Audiobook with duration but no page_count → in page_count only.
+      const { body: d } = await req('POST', '/api/books', { title: `${stem}-audio-nopg`, format: 'audiobook', duration_minutes: 600 });
+      // Audiobook fully filled (duration + page_count) → in none.
+      const { body: e } = await req('POST', '/api/books', { title: `${stem}-audio-full`, format: 'audiobook', duration_minutes: 600, page_count: 400 });
+
+      try {
+        const { body: pages    } = await req('GET', `/api/books?missing=pages&q=${stem}&limit=200`);
+        const { body: duration } = await req('GET', `/api/books?missing=duration&q=${stem}&limit=200`);
+        const { body: pageCnt  } = await req('GET', `/api/books?missing=page_count&q=${stem}&limit=200`);
+
+        const pagesIds    = new Set(pages.books.map(b => b.id));
+        const durationIds = new Set(duration.books.map(b => b.id));
+        const pageCntIds  = new Set(pageCnt.books.map(b => b.id));
+
+        // pages: non-audiobook + page_count IS NULL → only a
+        assert.ok( pagesIds.has(a.id),    'physical without page_count in pages');
+        assert.ok(!pagesIds.has(b.id),    'physical with page_count not in pages');
+        assert.ok(!pagesIds.has(c.id),    'audiobook not in pages (format-gated)');
+        assert.ok(!pagesIds.has(d.id),    'audiobook not in pages (format-gated)');
+        assert.ok(!pagesIds.has(e.id),    'audiobook not in pages (format-gated)');
+
+        // duration: audiobook + duration_minutes IS NULL → only c
+        assert.ok(!durationIds.has(a.id), 'physical not in duration (format-gated)');
+        assert.ok(!durationIds.has(b.id), 'physical not in duration (format-gated)');
+        assert.ok( durationIds.has(c.id), 'audiobook without duration in duration');
+        assert.ok(!durationIds.has(d.id), 'audiobook with duration not in duration');
+        assert.ok(!durationIds.has(e.id), 'audiobook with duration not in duration');
+
+        // page_count: any format + page_count IS NULL → a, c, d
+        assert.ok( pageCntIds.has(a.id),  'physical without page_count in page_count');
+        assert.ok(!pageCntIds.has(b.id),  'physical with page_count not in page_count');
+        assert.ok( pageCntIds.has(c.id),  'audiobook without page_count in page_count');
+        assert.ok( pageCntIds.has(d.id),  'audiobook without page_count in page_count');
+        assert.ok(!pageCntIds.has(e.id),  'audiobook with page_count not in page_count');
+      } finally {
+        for (const id of [a.id, b.id, c.id, d.id, e.id]) {
+          await req('DELETE', `/api/books/${id}`);
+        }
+      }
+    });
+
     it('missing=position surfaces shelved books with no shelf_position', async () => {
       // Books pinned to a shelf but never dragged into order — the
       // "unpositioned tail" at the end of each shelf. Building / room /

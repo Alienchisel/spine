@@ -12,6 +12,7 @@ const MISSING_FIELDS = [
   { key: 'publisher',  label: 'Publisher' },
   { key: 'year',       label: 'Year' },
   { key: 'pages',      label: 'Pages' },
+  { key: 'duration',   label: 'Duration' },
   { key: 'language',   label: 'Language' },
   { key: 'fiction',     label: 'Fiction/NF' },
   { key: 'description', label: 'Description' },
