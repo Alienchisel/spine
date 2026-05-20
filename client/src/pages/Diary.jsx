@@ -490,7 +490,7 @@ export default function Diary() {
   }
 
   return (
-    <div className="max-w-4xl">
+    <div className="max-w-5xl">
       <div className="flex items-center gap-4 mb-8">
         <h1 className="text-xl font-bold text-white">Diary</h1>
         {years.length > 1 && (
@@ -562,7 +562,7 @@ export default function Diary() {
               ))}
             </div>
 
-            <div className="w-80 flex-shrink-0 space-y-3">
+            <div className="w-[28rem] flex-shrink-0 space-y-3">
               <div className="bg-neutral-800 rounded-xl p-4 space-y-1 text-xs">
                 <div
                   className="flex items-baseline justify-between"
