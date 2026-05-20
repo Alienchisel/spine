@@ -490,7 +490,7 @@ export default function Diary() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="max-w-7xl mx-auto">
       <div className="flex items-center gap-4 mb-8">
         <h1 className="text-xl font-bold text-white">Diary</h1>
         {years.length > 1 && (
@@ -536,8 +536,8 @@ export default function Diary() {
               weeks) and stays sticky so it follows the user as they
               scroll through the entries. Stats sit inside the heatmap
               card above the grid. */}
-          <div className="flex gap-20 items-start">
-            <div className="flex-1 min-w-0 space-y-8">
+          <div className="flex justify-between items-start gap-8">
+            <div className="w-[28rem] flex-shrink-0 space-y-8">
               {days.map(day => (
                 <div key={day.date} ref={el => { if (el) dayRefs.current[day.date] = el; }}>
                   <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-1 pb-2 border-b border-neutral-800 flex justify-between items-baseline">
@@ -562,7 +562,7 @@ export default function Diary() {
               ))}
             </div>
 
-            <div className="flex-1 min-w-0 sticky top-20 space-y-3">
+            <div className="w-[28rem] flex-shrink-0 sticky top-20 space-y-3">
               <div className="bg-neutral-800 rounded-xl p-4 space-y-1 text-xs">
                 <div
                   className="flex items-baseline justify-between"
