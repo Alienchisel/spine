@@ -481,7 +481,12 @@ export default function BookDetail() {
               </div>
               {ratingPrompt && !book.rating && (
                 <div className="text-center mt-2">
-                  <button onClick={() => setRatingPrompt(false)} className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors">
+                  <button
+                    type="button"
+                    aria-label={`Skip rating for ${book.title}`}
+                    onClick={() => setRatingPrompt(false)}
+                    className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors"
+                  >
                     skip
                   </button>
                 </div>
