@@ -318,6 +318,7 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
                 <span className="text-neutral-700 w-6 text-right flex-shrink-0 tabular-nums">{s.position}.</span>
               )}
               <button
+                type="button"
                 onClick={() => cycleStatus(s)}
                 className={`uppercase tracking-wider px-1.5 py-0.5 rounded text-[10px] transition-colors ${
                   s.status === 'finished' ? 'bg-binding/30 text-leather hover:bg-binding/40'
@@ -353,8 +354,8 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
               {s.did_not_finish ? (
                 <span className="text-[10px] uppercase tracking-wider text-warn/80 border border-warn/30 rounded px-1 py-px flex-shrink-0">DNF</span>
               ) : null}
-              <button onClick={() => startEdit(s)} className="text-neutral-700 hover:text-neutral-400 opacity-30 group-hover:opacity-100 group-focus-within:opacity-100 transition-all flex-shrink-0">Edit</button>
-              <button onClick={() => handleDelete(s.id, s.title)} title={`Delete ${noun}`} aria-label={`Delete ${noun}`} className="text-neutral-700 hover:text-warn opacity-30 group-hover:opacity-100 group-focus-within:opacity-100 transition-all flex-shrink-0">×</button>
+              <button type="button" onClick={() => startEdit(s)} className="text-neutral-700 hover:text-neutral-400 opacity-30 group-hover:opacity-100 group-focus-within:opacity-100 transition-all flex-shrink-0">Edit</button>
+              <button type="button" onClick={() => handleDelete(s.id, s.title)} title={`Delete ${noun}`} aria-label={`Delete ${noun}`} className="text-neutral-700 hover:text-warn opacity-30 group-hover:opacity-100 group-focus-within:opacity-100 transition-all flex-shrink-0">×</button>
             </div>
           ))}
         </div>
@@ -376,7 +377,7 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
           <button type="button" onClick={cancel} className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors">Cancel</button>
         </form>
       ) : (
-        <button onClick={startAdd} className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors">
+        <button type="button" onClick={startAdd} className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors">
           + Add {noun}
         </button>
       )}

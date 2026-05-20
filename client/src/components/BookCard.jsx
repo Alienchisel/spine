@@ -360,6 +360,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
       {!compact && book.status === 'reading' && (
         <div className="mt-2">
           <button
+            type="button"
             onClick={toggleEditor}
             aria-label={`${progressLabel ?? 'Set progress'}: ${book.title}`}
             className="flex items-center gap-1 text-xs text-neutral-600 hover:text-neutral-300 transition-colors"
