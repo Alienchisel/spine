@@ -52,6 +52,7 @@ export default function ReadingLog({ log, isAudiobook, status, pageCount }) {
       </div>
       {overLimit && (
         <button
+          type="button"
           onClick={() => setExpanded(e => !e)}
           className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors mt-3"
         >
