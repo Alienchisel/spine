@@ -594,46 +594,6 @@ export default function Diary() {
               ))}
             </div>
 
-            {/* Middle column: top 5 books by activity in the selected
-                year. Sticky like the heatmap, sized to whatever space
-                remains between the two fixed-width columns. Hidden if
-                the year has no activity at all. */}
-            {topBooks.length > 0 && (
-              <div className="flex-1 min-w-0 sticky top-20">
-                <div className="bg-neutral-800 rounded-xl p-4">
-                  <p className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-3 pb-2 border-b border-neutral-700/60">Top this year</p>
-                  <ul className="space-y-2.5">
-                    {topBooks.map(b => (
-                      <li key={b.id}>
-                        <Link
-                          to={`/books/${b.id}`}
-                          state={FROM_DIARY}
-                          className="flex items-start gap-2.5 hover:bg-neutral-700/30 rounded p-1 -mx-1 transition-colors"
-                        >
-                          {b.cover_path ? (
-                            <img src={b.cover_path} alt="" className="w-10 h-14 object-cover rounded flex-shrink-0" />
-                          ) : (
-                            <div className="w-10 h-14 bg-gradient-to-br from-neutral-700 to-neutral-900 rounded flex-shrink-0 flex items-center justify-center text-[10px] text-neutral-500 font-medium">
-                              {initialsFor(b.title)}
-                            </div>
-                          )}
-                          <div className="min-w-0 flex-1 pt-0.5">
-                            <p className="text-xs text-neutral-300 leading-tight line-clamp-2">{b.title}</p>
-                            <p className="text-[10px] text-neutral-600 mt-1 tabular-nums">
-                              {[
-                                b.pages   > 0 && `${b.pages.toLocaleString()} ${pluralWord(b.pages, 'page')}`,
-                                b.minutes > 0 && fmtMin(b.minutes),
-                              ].filter(Boolean).join(' · ')}
-                            </p>
-                          </div>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            )}
-
             <div className="w-[28rem] flex-shrink-0 sticky top-20 space-y-3">
               <div className="bg-neutral-800 rounded-xl p-4 space-y-1 text-xs">
                 <div
@@ -682,6 +642,46 @@ export default function Diary() {
                 }}
               />
             </div>
+
+            {/* Right column: top 5 books by activity in the selected
+                year. Sticky like the heatmap; takes whatever space
+                remains after the two fixed columns. Hidden if the year
+                has no activity. */}
+            {topBooks.length > 0 && (
+              <div className="flex-1 min-w-0 sticky top-20">
+                <div className="bg-neutral-800 rounded-xl p-4">
+                  <p className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-3 pb-2 border-b border-neutral-700/60">Top this year</p>
+                  <ul className="space-y-2.5">
+                    {topBooks.map(b => (
+                      <li key={b.id}>
+                        <Link
+                          to={`/books/${b.id}`}
+                          state={FROM_DIARY}
+                          className="flex items-start gap-2.5 hover:bg-neutral-700/30 rounded p-1 -mx-1 transition-colors"
+                        >
+                          {b.cover_path ? (
+                            <img src={b.cover_path} alt="" className="w-10 h-14 object-cover rounded flex-shrink-0" />
+                          ) : (
+                            <div className="w-10 h-14 bg-gradient-to-br from-neutral-700 to-neutral-900 rounded flex-shrink-0 flex items-center justify-center text-[10px] text-neutral-500 font-medium">
+                              {initialsFor(b.title)}
+                            </div>
+                          )}
+                          <div className="min-w-0 flex-1 pt-0.5">
+                            <p className="text-xs text-neutral-300 leading-tight line-clamp-2">{b.title}</p>
+                            <p className="text-[10px] text-neutral-600 mt-1 tabular-nums">
+                              {[
+                                b.pages   > 0 && `${b.pages.toLocaleString()} ${pluralWord(b.pages, 'page')}`,
+                                b.minutes > 0 && fmtMin(b.minutes),
+                              ].filter(Boolean).join(' · ')}
+                            </p>
+                          </div>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
