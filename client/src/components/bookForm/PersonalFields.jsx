@@ -13,8 +13,12 @@ export default function PersonalFields({ form, set, pastTags, tagInput, setTagIn
           ariaLabel={form.title ? `Rating for ${form.title}` : 'Book rating'}
         />
         {form.rating && (
-          <button type="button" onClick={() => set('rating', null)}
-            className="text-xs text-neutral-600 hover:text-neutral-400 mt-1.5">
+          <button
+            type="button"
+            aria-label={form.title ? `Clear rating for ${form.title}` : 'Clear book rating'}
+            onClick={() => set('rating', null)}
+            className="text-xs text-neutral-600 hover:text-neutral-400 mt-1.5"
+          >
             Clear rating
           </button>
         )}
