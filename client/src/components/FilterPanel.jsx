@@ -20,6 +20,7 @@ const MISSING_FIELDS = [
   { key: 'acquired',    label: 'Acquired' },
   { key: 'stories',     label: 'Contents' },
   { key: 'position',    label: 'Shelf position' },
+  { key: 'page_count',  label: 'Page count' },
 ];
 
 const FORMAT_LABEL = { physical: 'Physical', ebook: 'Digital', audiobook: 'Audiobook' };

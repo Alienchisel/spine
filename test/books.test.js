@@ -3472,6 +3472,8 @@ describe('books', () => {
       const audio = await req('POST', '/api/books', {
         title: 'Long Audiobook', format: 'audiobook', duration_minutes: 1200,
       });
+      // page_count is now allowed on audiobooks (print-equivalent size
+      // for cross-format stats); when omitted it stays null.
       assert.equal(audio.body.page_count, null);
       assert.equal(audio.body.duration_minutes, 1200);
     });
@@ -3869,9 +3871,10 @@ describe('books', () => {
     });
 
     it('format gates which physical/audio fields persist on POST', async () => {
-      // Mirrors CoreFields.jsx:22-25 — the form clears these on format
+      // Mirrors CoreFields.jsx — the form clears these on format
       // change; the API now scrubs them too. Cases:
-      //   - audiobook: binding/condition/page_count → null; duration kept.
+      //   - audiobook: binding/condition → null; page_count + duration kept
+      //     (page_count is the print-equivalent size for cross-format stats).
       //   - ebook:     binding/condition/duration → null; page_count kept.
       //   - physical:  duration → null; the rest kept.
       const audio = await req('POST', '/api/books', {
@@ -3881,7 +3884,7 @@ describe('books', () => {
       });
       assert.equal(audio.body.binding, null);
       assert.equal(audio.body.condition, null);
-      assert.equal(audio.body.page_count, null);
+      assert.equal(audio.body.page_count, 320);
       assert.equal(audio.body.duration_minutes, 600);
 
       const ebook = await req('POST', '/api/books', {
@@ -3907,8 +3910,8 @@ describe('books', () => {
 
     it('PUT applies the same format-gated scrub as POST', async () => {
       // Editing a physical book into an audiobook (rare but real) must clear
-      // shelf_id/unit_id/room_id/building_id/binding/condition/page_count
-      // while the new audiobook-only fields persist.
+      // shelf_id/unit_id/room_id/building_id/binding/condition while
+      // page_count (cross-format size) and duration_minutes persist.
       const { body: created } = await req('POST', '/api/books', {
         title: 'Was Physical', format: 'physical', owned: true,
         binding: 'hardcover', condition: 'fine',
@@ -3931,7 +3934,8 @@ describe('books', () => {
       assert.equal(updated.duration_minutes, 700);
       assert.equal(updated.binding, null);
       assert.equal(updated.condition, null);
-      assert.equal(updated.page_count, null);
+      // page_count survives the format flip — same print-equivalent size.
+      assert.equal(updated.page_count, 400);
       assert.equal(updated.shelf_id, null);
       assert.equal(updated.unit_id, null);
       assert.equal(updated.room_id, null);

@@ -31,7 +31,9 @@ export default function CoreFields({
               ...prev, format: f,
               binding: f === 'physical' ? prev.binding : '',
               condition: f === 'physical' ? prev.condition : '',
-              page_count: f === 'audiobook' ? '' : prev.page_count,
+              // page_count survives format switches now — audiobooks
+              // track it as the print-equivalent size for cross-format
+              // stats.
               duration_minutes: f !== 'audiobook' ? '' : prev.duration_minutes,
               shelf_id: f === 'physical' ? prev.shelf_id : null,
               building_id: f === 'physical' ? prev.building_id : null,
@@ -253,6 +255,17 @@ export default function CoreFields({
               />
               <span className="text-neutral-500 text-sm flex-shrink-0">m</span>
             </div>
+          </div>
+          {/* Print-equivalent page count for cross-format stats — the
+              user fills it from the print edition so the collage and
+              pages-read hero can compare audiobooks in the same unit
+              as print/ebook. Optional; audiobooks without page_count
+              just drop out of cross-format rankings. */}
+          <div>
+            <label htmlFor={idFor('page_count')} className={label}>Page count (print-equivalent)</label>
+            <input id={idFor('page_count')} type="number" min="1" max="99999" className={ic('page_count')}
+              value={form.page_count} onChange={(e) => set('page_count', e.target.value)}
+              placeholder="e.g. 342" />
           </div>
           <ChipInput
             label="Narrators"

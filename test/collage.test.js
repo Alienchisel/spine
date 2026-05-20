@@ -100,8 +100,9 @@ describe('collage', () => {
     const { body } = await req('GET', '/api/collage?mode=top_authors&period=all&size=5');
     const tile = body.tiles.find(t => t.label === 'Aggregate Smith');
     assert.ok(tile, 'expected Smith in top_authors');
-    // 50 pages + 60 pages = 110 pages, × 2 min/page = 220 min = 3h 40m.
-    assert.equal(tile.sublabel, '3h 40m · 2 books', `expected '3h 40m · 2 books', got: ${tile.sublabel}`);
+    // Activity is now in pages (per-session derivation for audiobooks;
+    // raw pages_read for print/ebook). 50 pages + 60 pages = 110 pages.
+    assert.equal(tile.sublabel, '110 pages · 2 books', `expected '110 pages · 2 books', got: ${tile.sublabel}`);
     assert.ok(tile.href.startsWith('/authors/'));
   });
 

@@ -170,11 +170,32 @@ describe('stats', () => {
       assert.equal(after.pagesRead, before.pagesRead + 200);
     });
 
-    it('pagesRead excludes audiobooks even when finished', async () => {
+    it('pagesRead now includes audiobooks via their print-equivalent page_count', async () => {
+      // Audiobooks contribute to the lifetime pagesRead aggregate
+      // once the user has filled in page_count (the print-equivalent
+      // size). Before: audiobooks were excluded entirely; this kept
+      // the metric pages-only but made cross-format ranking apples-to-
+      // oranges. Now: a finished 400-page audiobook adds 400 to the
+      // total just like any other format.
       const { body: before } = await req('GET', '/api/stats');
       await req('POST', '/api/books', {
         title: 'Finished Audiobook',
         page_count: 400,
+        format: 'audiobook',
+        status: 'finished',
+        date_finished: '2024-06-01',
+      });
+      const { body: after } = await req('GET', '/api/stats');
+      assert.equal(after.pagesRead, before.pagesRead + 400);
+    });
+
+    it('pagesRead skips audiobooks that have no page_count', async () => {
+      // page_count > 0 is the gate — an audiobook the user hasn't yet
+      // filled a print-equivalent for stays out of the aggregate so we
+      // don't silently undercount the missing data.
+      const { body: before } = await req('GET', '/api/stats');
+      await req('POST', '/api/books', {
+        title: 'Audiobook No Pages',
         format: 'audiobook',
         status: 'finished',
         date_finished: '2024-06-01',
