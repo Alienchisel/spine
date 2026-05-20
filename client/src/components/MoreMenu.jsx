@@ -383,7 +383,7 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
               Mark as unread
             </button>
           )}
-          <div className="my-1 border-t border-neutral-800" />
+          <div role="separator" aria-orientation="horizontal" className="my-1 border-t border-neutral-800" />
           <button type="button" onClick={openListsSubPrompt} role="menuitem"
             className="w-full px-3 py-2 text-left text-sm text-neutral-300 hover:bg-neutral-800 transition-colors">
             Add to lists…
@@ -396,7 +396,7 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
             className="w-full px-3 py-2 text-left text-sm text-neutral-300 hover:bg-neutral-800 transition-colors">
             {book.archived ? 'Restore from archive' : 'Archive book'}
           </button>
-          <div className="my-1 border-t border-neutral-800" />
+          <div role="separator" aria-orientation="horizontal" className="my-1 border-t border-neutral-800" />
           <button type="button" onClick={handleDelete} role="menuitem"
             className="w-full px-3 py-2 text-left text-sm text-warn hover:bg-warn/10 transition-colors">
             Delete book…
