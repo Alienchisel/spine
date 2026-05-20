@@ -536,7 +536,7 @@ export default function Diary() {
               weeks) and stays sticky so it follows the user as they
               scroll through the entries. Stats sit inside the heatmap
               card above the grid. */}
-          <div className="flex gap-8 items-start">
+          <div className="flex gap-12 items-start">
             <div className="flex-1 min-w-0 space-y-8">
               {days.map(day => (
                 <div key={day.date} ref={el => { if (el) dayRefs.current[day.date] = el; }}>
@@ -562,7 +562,7 @@ export default function Diary() {
               ))}
             </div>
 
-            <div className="w-[28rem] flex-shrink-0 space-y-3">
+            <div className="w-[28rem] flex-shrink-0 sticky top-20 space-y-3">
               <div className="bg-neutral-800 rounded-xl p-4 space-y-1 text-xs">
                 <div
                   className="flex items-baseline justify-between"
