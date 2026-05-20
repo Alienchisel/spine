@@ -38,10 +38,10 @@ export default function PersonalFields({ form, set, pastTags, tagInput, setTagIn
 
       <div>
         <div className="flex items-baseline justify-between mb-1.5">
-          <label className={label} style={{marginBottom:0}}>Notes</label>
+          <label htmlFor="book-notes" className={label} style={{marginBottom:0}}>Notes</label>
           <span className="text-xs text-neutral-600 cursor-help underline decoration-dotted decoration-neutral-700 underline-offset-2" title={MARKDOWN_HINT}>Markdown supported</span>
         </div>
-        <textarea className={`${input} resize-none`} rows={6}
+        <textarea id="book-notes" className={`${input} resize-none`} rows={6}
           value={form.notes} onChange={(e) => set('notes', e.target.value)}
           onKeyDown={submitOnModEnter}
           placeholder="Your thoughts…" />
@@ -50,10 +50,10 @@ export default function PersonalFields({ form, set, pastTags, tagInput, setTagIn
       {(form.status === 'finished' || form.read_count > 0) && (
         <div>
           <div className="flex items-baseline justify-between mb-1.5">
-            <label className={label} style={{marginBottom:0}}>Review</label>
+            <label htmlFor="book-review" className={label} style={{marginBottom:0}}>Review</label>
             <span className="text-xs text-neutral-600 cursor-help underline decoration-dotted decoration-neutral-700 underline-offset-2" title={MARKDOWN_HINT}>Markdown supported</span>
           </div>
-          <textarea className={`${input} resize-none`} rows={8}
+          <textarea id="book-review" className={`${input} resize-none`} rows={8}
             value={form.review} onChange={(e) => set('review', e.target.value)}
             onKeyDown={submitOnModEnter}
             placeholder="Your review…" />
