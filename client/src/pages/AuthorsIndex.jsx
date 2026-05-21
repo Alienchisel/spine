@@ -15,7 +15,6 @@ const SORTS = [
   { key: 'no_photo',  label: 'Missing photo' },
   { key: 'no_dates',  label: 'Missing dates' },
   { key: 'no_gender', label: 'Missing gender' },
-  { key: 'no_ol',     label: 'Missing OL key' },
   { key: 'recent',    label: 'Recently added' },
 ];
 const VALID_SORTS = new Set(SORTS.map(s => s.key));
@@ -109,7 +108,6 @@ export default function AuthorsIndex() {
     withPhoto: authors.filter(a => a.has_photo).length,
     withDates: authors.filter(a => a.birth_date || a.death_date).length,
     withGender: authors.filter(a => a.gender).length,
-    withOl:    authors.filter(a => a.has_ol_key).length,
   }), [authors]);
 
   const filtered = useMemo(() => {
@@ -124,7 +122,6 @@ export default function AuthorsIndex() {
       case 'no_photo':  rows.sort((a, b) => (a.has_photo - b.has_photo) || byName(a, b)); break;
       case 'no_dates':  rows.sort((a, b) => (Number(!!a.birth_date || !!a.death_date) - Number(!!b.birth_date || !!b.death_date)) || byName(a, b)); break;
       case 'no_gender': rows.sort((a, b) => (Number(!!a.gender) - Number(!!b.gender)) || byName(a, b)); break;
-      case 'no_ol':     rows.sort((a, b) => (a.has_ol_key - b.has_ol_key) || byName(a, b)); break;
       case 'recent':    rows.sort((a, b) => b.id - a.id); break;
       default:          rows.sort(byName);
     }
@@ -141,7 +138,7 @@ export default function AuthorsIndex() {
         <h1 className="text-2xl font-slab text-parchment uppercase tracking-wider">Authors</h1>
         {!loading && !error && (
           <p className="text-xs text-neutral-600 mt-2">
-            {counts.total} authors · {counts.withBio} with bios · {counts.withPhoto} with portraits · {counts.withDates} with dates · {counts.withGender} with gender · {counts.withOl} matched to OL
+            {counts.total} authors · {counts.withBio} with bios · {counts.withPhoto} with portraits · {counts.withDates} with dates · {counts.withGender} with gender
           </p>
         )}
       </header>
@@ -177,7 +174,6 @@ export default function AuthorsIndex() {
               <th className="text-center py-2 px-3 w-14">Photo</th>
               <th className="text-left  py-2 px-3 w-40">Dates</th>
               <th className="text-center py-2 px-3 w-12" title="Gender">G</th>
-              <th className="text-center py-2 px-3 w-12" title="Open Library key">OL</th>
             </tr>
           </thead>
           <tbody>
@@ -196,7 +192,6 @@ export default function AuthorsIndex() {
                   <td className="text-center py-1.5 px-3">{a.has_photo ? present : missing}</td>
                   <td className="py-1.5 px-3 text-neutral-500">{lifespan ?? missing}</td>
                   <td className="text-center py-1.5 px-3 text-neutral-500">{gender ?? missing}</td>
-                  <td className="text-center py-1.5 px-3">{a.has_ol_key ? present : missing}</td>
                 </tr>
               );
             })}
