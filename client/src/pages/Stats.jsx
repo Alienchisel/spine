@@ -386,7 +386,7 @@ export default function Stats() {
   if (!stats && error) return <div role="alert" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-warn text-sm">{error}</div>;
   if (!stats) return null;
 
-  const { totals, formats, fiction, ownedStatus, ratings, acquisitionSources, pagesRead, minutesListened, byYear, acquiredByYear = [], byMonth = [], topAuthors, topNarrators, languages, authorsByGender = { male: 0, female: 0, other: 0, unassigned: 0 }, streaks, todayPages, thisYearBooks, thisYearPages, topTags, topSeries, avgPagesPerDay, avgDaysToFinish, inProgressPace = [], decadesPublished = [], records, audit = [] } = stats;
+  const { totals, formats, fiction, ownedStatus, ratings, acquisitionSources, pagesRead, minutesListened, byYear, acquiredByYear = [], byMonth = [], topAuthors, topNarrators, languages, authorsByGender = { male: 0, female: 0, other: 0, unassigned: 0 }, streaks, todayPages, thisYearBooks, thisYearPages, topTags, topSeries, avgPagesPerDay, avgDaysToFinish, inProgressPace = [], decadesPublished = [], records } = stats;
 
   const maxRating = Math.max(...ratings.map(r => r.count), 1);
   const maxYear     = Math.max(...byYear.map(y => y.count), 1);
@@ -417,9 +417,14 @@ export default function Stats() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
       <div className="flex items-center justify-between gap-4">
         <h1 className="font-slab text-2xl text-parchment tracking-wide uppercase">Stats</h1>
-        <Link to="/collage" state={FROM_STATS} className="text-xs text-neutral-500 hover:text-neutral-200 transition-colors">
-          Reading collage →
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link to="/audit" state={FROM_STATS} className="text-xs text-neutral-500 hover:text-neutral-200 transition-colors">
+            Library audit →
+          </Link>
+          <Link to="/collage" state={FROM_STATS} className="text-xs text-neutral-500 hover:text-neutral-200 transition-colors">
+            Reading collage →
+          </Link>
+        </div>
       </div>
 
       <ErrorBanner message={error} onDismiss={() => setError(null)} />
@@ -955,43 +960,6 @@ export default function Stats() {
             </Section>
           );
         })()}
-
-        {audit.length > 0 && (
-          <Section title="Curation health">
-            <div className="space-y-6">
-              {audit.map(group => (
-                <div key={group.heading}>
-                  <p className="text-[11px] font-medium text-neutral-500 uppercase tracking-wider mb-2">{group.heading}</p>
-                  <ul className="space-y-1">
-                    {group.rows.map(row => {
-                      const resolved = row.count === 0;
-                      const countCell = resolved
-                        ? <span className="text-neutral-600 text-sm tabular-nums w-10 text-right">✓</span>
-                        : <span className="text-parchment text-sm tabular-nums w-10 text-right">{row.count.toLocaleString()}</span>;
-                      // Resolved rows aren't actionable — keep them visible
-                      // for the "all clear" signal but skip the link wrapper.
-                      const inner = (
-                        <>
-                          {countCell}
-                          <span className={`text-sm ${resolved ? 'text-neutral-600' : 'text-neutral-300'}`}>{row.label}</span>
-                          {!resolved && <span className="text-neutral-700 ml-auto group-hover:text-neutral-400 transition-colors">→</span>}
-                        </>
-                      );
-                      return (
-                        <li key={row.label}>
-                          {resolved
-                            ? <div className="flex items-center gap-3 px-2 py-1">{inner}</div>
-                            : <Link to={`/?${row.query}`} state={FROM_STATS} className="group flex items-center gap-3 px-2 py-1 rounded hover:bg-neutral-900/50 transition-colors">{inner}</Link>
-                          }
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          </Section>
-        )}
       </div>
     </div>
   );
