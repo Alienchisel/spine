@@ -1824,6 +1824,30 @@ describe('books', () => {
       assert.ok(!finIds.has(f.id), 'finished with date_finished must NOT appear');
     });
 
+    it('missing=year_edition surfaces physical books with no printing year', async () => {
+      const stem = 'ZZZ-yredition' + Math.random().toString(36).slice(2, 6);
+      const author = `ZZZ-YearEdition ${stem}`;
+      // Physical, no year_edition — should appear.
+      const { body: noYe } = await req('POST', '/api/books', {
+        title: `${stem}-no-ye`, format: 'physical', binding: 'paperback', authors: [author],
+      });
+      // Physical with year_edition — should NOT appear.
+      const { body: hasYe } = await req('POST', '/api/books', {
+        title: `${stem}-has-ye`, format: 'physical', binding: 'paperback', year_edition: 1997, authors: [author],
+      });
+      // Audiobook with no year_edition — must NOT appear (filter is
+      // physical-only since the virtual tags it serves are physical-only).
+      const { body: audio } = await req('POST', '/api/books', {
+        title: `${stem}-audio`, format: 'audiobook', authors: [author],
+      });
+
+      const { body: list } = await req('GET', `/api/books?missing=year_edition&q=${stem}&limit=200`);
+      const ids = new Set(list.books.map(x => x.id));
+      assert.ok(ids.has(noYe.id), 'physical without year_edition should appear');
+      assert.ok(!ids.has(hasYe.id), 'physical with year_edition must NOT appear');
+      assert.ok(!ids.has(audio.id), 'audiobook must NOT appear in physical-only filter');
+    });
+
     it('missing=date_started surfaces reading books with no recorded start date', async () => {
       const stem = 'ZZZ-startdate' + Math.random().toString(36).slice(2, 6);
       const author = `ZZZ-StartDate ${stem}`;
