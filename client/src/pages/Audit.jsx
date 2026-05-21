@@ -113,7 +113,7 @@ export default function Audit() {
               image carries the caption; aria-label on the figure ties
               the image to its meaning for screen readers. */}
           <figure className="mt-6" aria-label={`Library state: ${displayed.label}`}>
-            <div className="aspect-[3/4] rounded-sm border border-neutral-700 bg-neutral-800/60 overflow-hidden">
+            <div className="aspect-[2/3] rounded-sm border border-neutral-700 bg-neutral-800/60 overflow-hidden">
               <img
                 src={`/audit-archivist/${displayed.key}.png`}
                 alt=""
@@ -144,7 +144,7 @@ export default function Audit() {
                   onBlur={() => setPreviewKey(null)}
                   aria-label={`Preview ${s.label}${isReal ? ' (current)' : ''}`}
                   title={s.label}
-                  className={`aspect-[3/4] rounded-sm overflow-hidden border transition-colors ${
+                  className={`aspect-[2/3] rounded-sm overflow-hidden border transition-colors ${
                     isReal     ? 'border-oak' :
                     isShown    ? 'border-neutral-400' :
                                  'border-neutral-700 hover:border-neutral-500'
