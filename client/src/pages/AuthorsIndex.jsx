@@ -175,7 +175,7 @@ export default function AuthorsIndex() {
               <th className="text-right py-2 px-3 w-16">Books</th>
               <th className="text-center py-2 px-3 w-12">Bio</th>
               <th className="text-center py-2 px-3 w-14">Photo</th>
-              <th className="text-left  py-2 px-3 w-32">Dates</th>
+              <th className="text-left  py-2 px-3 w-40">Dates</th>
               <th className="text-center py-2 px-3 w-12" title="Gender">G</th>
               <th className="text-center py-2 px-3 w-12" title="Open Library key">OL</th>
             </tr>
