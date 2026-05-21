@@ -47,12 +47,14 @@ export default function Audit() {
 
       <ErrorBanner message={error} onDismiss={() => setError(null)} />
 
-      <p className="text-sm text-neutral-500">
-        <span className="text-parchment tabular-nums">{cleanPctLabel} clean</span>
-        {' · '}
-        {summary.totalGaps.toLocaleString()} outstanding gaps across {summary.rowCount} audits.
-        Resolved audits show <span className="text-neutral-400">✓</span>.
-      </p>
+      <div className="py-4">
+        <p className="text-[10px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">Library clean</p>
+        <p className="font-slab text-5xl sm:text-6xl text-parchment tabular-nums leading-none">{cleanPctLabel}</p>
+        <p className="text-xs text-neutral-500 mt-3">
+          {summary.totalGaps.toLocaleString()} outstanding gaps across {summary.rowCount} audits.
+          Resolved audits show <span className="text-neutral-400">✓</span>.
+        </p>
+      </div>
 
       <div className="space-y-6">
         {audit.map(group => (
