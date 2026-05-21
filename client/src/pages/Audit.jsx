@@ -107,11 +107,15 @@ export default function Audit() {
                       )}
                     </>
                   );
+                  // Path defaults to '/' for backward compatibility; author
+                  // audits supply '/authors' so the click-through lands on
+                  // the right index.
+                  const href = `${row.path || '/'}?${row.query}`;
                   return (
                     <li key={row.label}>
                       {resolved
                         ? <div className="flex items-center gap-3 px-2 py-1">{inner}</div>
-                        : <Link to={`/?${row.query}`} state={FROM_AUDIT} className="group flex items-center gap-3 px-2 py-1 rounded hover:bg-neutral-900/50 transition-colors">{inner}</Link>
+                        : <Link to={href} state={FROM_AUDIT} className="group flex items-center gap-3 px-2 py-1 rounded hover:bg-neutral-900/50 transition-colors">{inner}</Link>
                       }
                     </li>
                   );
