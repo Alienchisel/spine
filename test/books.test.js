@@ -1824,6 +1824,29 @@ describe('books', () => {
       assert.ok(!finIds.has(f.id), 'finished with date_finished must NOT appear');
     });
 
+    it('missing=date_started surfaces reading books with no recorded start date', async () => {
+      const stem = 'ZZZ-startdate' + Math.random().toString(36).slice(2, 6);
+      const author = `ZZZ-StartDate ${stem}`;
+      // Reading, no date_started — should appear.
+      const { body: noStart } = await req('POST', '/api/books', {
+        title: `${stem}-no-start`, status: 'reading', authors: [author],
+      });
+      // Reading with date_started — should NOT appear.
+      const { body: started } = await req('POST', '/api/books', {
+        title: `${stem}-started`, status: 'reading', date_started: '2026-05-15', authors: [author],
+      });
+      // Unread without date_started — should NOT appear (status gate).
+      const { body: unread } = await req('POST', '/api/books', {
+        title: `${stem}-unread`, status: 'unread', authors: [author],
+      });
+
+      const { body: list } = await req('GET', `/api/books?missing=date_started&q=${stem}&limit=200`);
+      const ids = new Set(list.books.map(x => x.id));
+      assert.ok(ids.has(noStart.id), 'reading without start date should appear');
+      assert.ok(!ids.has(started.id), 'reading with start date must NOT appear');
+      assert.ok(!ids.has(unread.id),  'unread must NOT appear');
+    });
+
     it('missing=stories_anthology surfaces the mutually-exclusive tag conflict', async () => {
       // Stem buried after "ZZZ-" so fixtures sort to the end of every
       // alphabetical list (author + title), keeping later sort=author /
