@@ -1824,6 +1824,41 @@ describe('books', () => {
       assert.ok(!finIds.has(f.id), 'finished with date_finished must NOT appear');
     });
 
+    it('missing=series / series_number filter two-sided series metadata gaps', async () => {
+      const stem = 'seriesfilter' + Math.random().toString(36).slice(2, 6);
+      const author = `ZZZ-Series ${stem}`;
+      // Series field set, series_number null — should appear in missing=series_number.
+      const { body: a } = await req('POST', '/api/books', {
+        title: `${stem}-series no num`, series: `${stem} Saga`, authors: [author],
+      });
+      // series_number set, series null — should appear in missing=series.
+      const { body: b } = await req('POST', '/api/books', {
+        title: `${stem}-num no series`, series_number: 3, authors: [author],
+      });
+      // Both set — should NOT appear in either.
+      const { body: c } = await req('POST', '/api/books', {
+        title: `${stem}-both set`, series: `${stem} Saga`, series_number: 1, authors: [author],
+      });
+      // Neither set — should NOT appear in either.
+      const { body: d } = await req('POST', '/api/books', {
+        title: `${stem}-neither`, authors: [author],
+      });
+
+      const { body: noNum } = await req('GET', `/api/books?missing=series_number&q=${stem}&limit=200`);
+      const noNumIds = new Set(noNum.books.map(x => x.id));
+      assert.ok(noNumIds.has(a.id), 'series-without-number should appear in missing=series_number');
+      assert.ok(!noNumIds.has(b.id), 'number-without-series must NOT appear in missing=series_number');
+      assert.ok(!noNumIds.has(c.id), 'both-set must NOT appear');
+      assert.ok(!noNumIds.has(d.id), 'neither-set must NOT appear');
+
+      const { body: noSer } = await req('GET', `/api/books?missing=series&q=${stem}&limit=200`);
+      const noSerIds = new Set(noSer.books.map(x => x.id));
+      assert.ok(noSerIds.has(b.id), 'number-without-series should appear in missing=series');
+      assert.ok(!noSerIds.has(a.id), 'series-without-number must NOT appear in missing=series');
+      assert.ok(!noSerIds.has(c.id), 'both-set must NOT appear');
+      assert.ok(!noSerIds.has(d.id), 'neither-set must NOT appear');
+    });
+
     it('cascade-deletes stories when the parent book is deleted', async () => {
       const { body: b } = await req('POST', '/api/books', { title: 'Parent To Delete' });
       const { body: created } = await req('POST', `/api/books/${b.id}/stories`, { title: 'Orphan-To-Be' });
