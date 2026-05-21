@@ -70,10 +70,10 @@ export default function Audit() {
           </p>
         </div>
 
-        <div className="space-y-6 min-w-0">
+        <div className="space-y-6 min-w-0" aria-label="Audit groups">
           {audit.map(group => (
-            <div key={group.heading}>
-              <p className="text-[11px] font-medium text-neutral-500 uppercase tracking-wider mb-2">{group.heading}</p>
+            <section key={group.heading} aria-labelledby={`audit-group-${group.heading.replace(/\s+/g, '-').toLowerCase()}`}>
+              <h2 id={`audit-group-${group.heading.replace(/\s+/g, '-').toLowerCase()}`} className="text-[11px] font-medium text-neutral-500 uppercase tracking-wider mb-2">{group.heading}</h2>
               <ul className="space-y-1">
                 {group.rows.map(row => {
                   const resolved = row.count === 0;
@@ -104,8 +104,8 @@ export default function Audit() {
                   // far right gives the ratio at a glance. Resolved rows
                   // collapse to a single ✓ and skip the right-side cells.
                   const countCell = resolved
-                    ? <span className="text-neutral-600 text-sm tabular-nums w-20 text-right">✓</span>
-                    : <span className="text-sm tabular-nums w-20 text-right">
+                    ? <span className="text-neutral-600 text-sm tabular-nums w-24 text-right" aria-label="resolved">✓</span>
+                    : <span className="text-sm tabular-nums w-24 text-right">
                         <span className="text-parchment">{row.count.toLocaleString()}</span>
                         <span className="text-neutral-600 ml-1">/&nbsp;{row.population.toLocaleString()}</span>
                       </span>;
@@ -118,7 +118,7 @@ export default function Audit() {
                       {!resolved && (
                         <>
                           <span className="text-xs text-neutral-500 tabular-nums w-12 text-right">{rowPctLabel}</span>
-                          <span className="text-neutral-700 ml-1 group-hover:text-neutral-400 transition-colors">→</span>
+                          <span className="text-neutral-700 ml-1 group-hover:text-neutral-400 transition-colors" aria-hidden="true">→</span>
                         </>
                       )}
                     </>
@@ -137,7 +137,7 @@ export default function Audit() {
                   );
                 })}
               </ul>
-            </div>
+            </section>
           ))}
         </div>
       </div>
