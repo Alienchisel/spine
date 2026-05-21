@@ -416,6 +416,7 @@ export default function BookDetail() {
           <div className="mt-3 border border-neutral-800 rounded-lg overflow-hidden">
             <div className="flex justify-around items-start py-3 px-2">
               <button
+                type="button"
                 onClick={toggleLoved}
                 disabled={loveGuard.busy}
                 className={`flex flex-col items-center gap-1.5 transition-colors disabled:opacity-50 ${book.loved ? 'text-red-400' : 'text-neutral-600 hover:text-neutral-300'}`}
@@ -426,6 +427,7 @@ export default function BookDetail() {
                 <span className="text-[10px] uppercase tracking-wider">Loved</span>
               </button>
               <button
+                type="button"
                 onClick={toggleReadlist}
                 disabled={listGuard.busy}
                 className={`flex flex-col items-center gap-1.5 transition-colors disabled:opacity-50 ${book.on_readlist ? 'text-sky-400' : 'text-neutral-600 hover:text-neutral-300'}`}
@@ -442,6 +444,7 @@ export default function BookDetail() {
                 <span className="text-[10px] uppercase tracking-wider pointer-events-none">Lists</span>
               </div>
               <button
+                type="button"
                 onClick={toggleArchived}
                 disabled={archiveGuard.busy}
                 className={`flex flex-col items-center gap-1.5 transition-colors disabled:opacity-50 ${book.archived ? 'text-amber-500' : 'text-neutral-600 hover:text-neutral-300'}`}
@@ -458,6 +461,7 @@ export default function BookDetail() {
             {book.status === 'reading' && (
               <div className="border-t border-neutral-800 py-2.5 px-3">
                 <button
+                  type="button"
                   onClick={handleFinish}
                   disabled={finishGuard.busy}
                   className="w-full text-xs text-neutral-500 hover:text-parchment disabled:opacity-40 disabled:cursor-default transition-colors text-center"
@@ -677,6 +681,7 @@ export default function BookDetail() {
                 </div>
                 {long && (
                   <button
+                    type="button"
                     onClick={() => setDescExpanded(e => !e)}
                     className="mt-1 text-xs text-neutral-600 hover:text-neutral-400 transition-colors"
                   >
@@ -808,6 +813,7 @@ export default function BookDetail() {
 
           <div className="mt-8 pt-6 border-t border-neutral-800/60">
             <button
+              type="button"
               onClick={handleDelete}
               disabled={deleteGuard.busy}
               className="text-sm text-neutral-600 hover:text-warn disabled:opacity-50 disabled:cursor-wait transition-colors"
