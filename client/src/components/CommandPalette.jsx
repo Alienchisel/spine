@@ -51,6 +51,8 @@ const NAV_ENTRIES = [
   { id: 'nav.library.archived',     label: 'Archived',             hint: 'Library — Archived tab',   path: '/?tab=archived' },
   { id: 'nav.library.custom',       label: 'Custom collections',   hint: 'Library — custom only',    path: '/?tab=all&custom=true' },
   { id: 'nav.library.missing_binding', label: 'Missing binding',   hint: 'Library curation',         path: '/?tab=all&missing=binding' },
+  { id: 'nav.library.condition_new',  label: 'Condition · new',  hint: 'Bookseller-grade: pristine',    path: '/?tab=all&condition=new' },
+  { id: 'nav.library.condition_good', label: 'Condition · good', hint: 'Bookseller-grade: typical used', path: `/?tab=all&condition=${encodeURIComponent('good')}` },
   { id: 'nav.readlist',             label: 'Readlist',                                              path: '/readlist' },
   { id: 'nav.loved',                label: 'Loved',                                                 path: '/loved' },
   { id: 'nav.lists',                label: 'Lists',                hint: 'All lists',                path: '/lists' },

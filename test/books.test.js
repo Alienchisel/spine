@@ -1874,6 +1874,41 @@ describe('books', () => {
     // SQL is straightforward NOT IN (SELECT id FROM…) and reviewed
     // by eye.
 
+    it('condition=<grade> filters by bookseller condition', async () => {
+      const stem = 'ZZZ-cond' + Math.random().toString(36).slice(2, 6);
+      const author = `ZZZ-Cond ${stem}`;
+      // condition only sticks on owned physical books — see
+      // repository.js (isPhysical && isOwned gate). owned mirrors the
+      // form's AcquisitionFields path that exposes the condition input.
+      const { body: nw }   = await req('POST', '/api/books', {
+        title: `${stem}-new`, format: 'physical', binding: 'paperback', owned: true, condition: 'new',  authors: [author],
+      });
+      const { body: gd }   = await req('POST', '/api/books', {
+        title: `${stem}-good`, format: 'physical', binding: 'paperback', owned: true, condition: 'good', authors: [author],
+      });
+      const { body: bare } = await req('POST', '/api/books', {
+        title: `${stem}-bare`, format: 'physical', binding: 'paperback', owned: true, authors: [author],
+      });
+
+      const { body: newList } = await req('GET', `/api/books?condition=new&q=${stem}&limit=200`);
+      const newIds = new Set(newList.books.map(x => x.id));
+      assert.ok( newIds.has(nw.id),   'condition=new should include new');
+      assert.ok(!newIds.has(gd.id),   'condition=new must NOT include good');
+      assert.ok(!newIds.has(bare.id), 'condition=new must NOT include bare');
+
+      const { body: gdList } = await req('GET', `/api/books?condition=good&q=${stem}&limit=200`);
+      const gdIds = new Set(gdList.books.map(x => x.id));
+      assert.ok( gdIds.has(gd.id),  'condition=good should include good');
+      assert.ok(!gdIds.has(nw.id),  'condition=good must NOT include new');
+      assert.ok(!gdIds.has(bare.id), 'condition=good must NOT include bare');
+
+      // Bogus value is silently ignored — query returns everything in
+      // the stem, not a 400.
+      const { status, body: bogusList } = await req('GET', `/api/books?condition=mint&q=${stem}&limit=200`);
+      assert.equal(status, 200);
+      assert.ok(bogusList.books.length >= 3, 'bogus condition value should not filter anything out');
+    });
+
     it('missing=original_language surfaces books with a translator but no source language', async () => {
       const stem = 'ZZZ-origlang' + Math.random().toString(36).slice(2, 6);
       const author = `ZZZ-OrigLang ${stem}`;
