@@ -77,21 +77,28 @@ export default function Audit() {
               <ul className="space-y-1">
                 {group.rows.map(row => {
                   const resolved = row.count === 0;
-                  // % open = how much of this audit's eligible population
-                  // still has the gap. Inverse of the hero "% clean", but
-                  // rows describe gaps ("books missing X"), so open %
-                  // reads more naturally next to the row's count than
-                  // clean % would. Edge case: pop=0 only happens when
-                  // count=0 too (can't have a gap in an empty set), which
-                  // is already the resolved branch.
-                  const openPct = row.population > 0
-                    ? (row.count / row.population) * 100
-                    : 0;
-                  const openPctLabel = openPct >= 99.95
-                    ? '100%'
-                    : openPct >= 10
-                      ? `${Math.round(openPct)}%`
-                      : `${openPct.toFixed(1)}%`;
+                  // % clean = how much of this audit's eligible population
+                  // is already past the gap. Aligned with the hero's
+                  // direction (higher = better) so every percentage on
+                  // the page points the same way. The count cell still
+                  // reports work-remaining; the % reports
+                  // progress-made — count drives action, % drives morale.
+                  // Pop=0 only happens when count=0 (can't have a gap in
+                  // an empty set), which is already the resolved branch.
+                  const rowCleanPct = row.population > 0
+                    ? ((row.population - row.count) / row.population) * 100
+                    : 100;
+                  // count > 0 in this branch, so the row isn't truly
+                  // 100% clean — clamp to 99.9% so the display doesn't
+                  // claim a ceiling it hasn't reached. Use one decimal
+                  // at the extremes (near-clean / near-broken) where
+                  // visible progress is in the fraction; whole percent
+                  // in the middle band where rounding is fine.
+                  const rowPctLabel = rowCleanPct >= 99.95
+                    ? '99.9%'
+                    : (rowCleanPct >= 90 || rowCleanPct < 10)
+                      ? `${rowCleanPct.toFixed(1)}%`
+                      : `${Math.round(rowCleanPct)}%`;
                   // Count cell shows "count / population" so the absolute
                   // gap and its scope sit side by side; the % cell at the
                   // far right gives the ratio at a glance. Resolved rows
@@ -110,7 +117,7 @@ export default function Audit() {
                       <span className={`text-sm flex-1 ${resolved ? 'text-neutral-600' : 'text-neutral-300'}`}>{row.label}</span>
                       {!resolved && (
                         <>
-                          <span className="text-xs text-neutral-500 tabular-nums w-12 text-right">{openPctLabel}</span>
+                          <span className="text-xs text-neutral-500 tabular-nums w-12 text-right">{rowPctLabel}</span>
                           <span className="text-neutral-700 ml-1 group-hover:text-neutral-400 transition-colors">→</span>
                         </>
                       )}
