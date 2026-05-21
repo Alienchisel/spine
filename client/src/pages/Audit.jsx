@@ -7,6 +7,20 @@ import ErrorBanner from '../components/ErrorBanner.jsx';
 
 const FROM_AUDIT = { from: 'Audit', fromPath: '/audit' };
 
+// The Archivist — visual library-health indicator beneath the hero %.
+// Six states: two rare bookends (Pristine at exactly 100%, Collapsed at
+// exactly 0%) bracketing four quarter-sized common states. Image asset
+// for each state lives at client/public/audit-archivist/<key>.png; the
+// placeholder div renders the state label until art is ready.
+function archivistState(cleanPct) {
+  if (cleanPct === 100) return { key: 'pristine',   label: 'Pristine'   };
+  if (cleanPct >= 75)   return { key: 'tidy',       label: 'Tidy'       };
+  if (cleanPct >= 50)   return { key: 'manageable', label: 'Manageable' };
+  if (cleanPct >= 25)   return { key: 'troubled',   label: 'Troubled'   };
+  if (cleanPct > 0)     return { key: 'critical',   label: 'Critical'   };
+  return                       { key: 'collapsed',  label: 'Collapsed'  };
+}
+
 // Curation health. Companion to Stats: where Stats describes the shape
 // of the catalogue, Audit surfaces completeness gaps that represent
 // real cleanup work. The audit list is opinionated (see lib/stats/
@@ -44,6 +58,7 @@ export default function Audit() {
   // restrained parchment the rest of the time. No spectrum, no
   // continuous coloring — just the one moment.
   const heroColor = atCeiling ? 'text-oak' : 'text-parchment';
+  const archivist = archivistState(summary.cleanPct);
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
@@ -68,6 +83,26 @@ export default function Audit() {
           <p className="text-xs text-neutral-600 mt-2">
             Resolved audits show <span className="text-neutral-500">✓</span>.
           </p>
+
+          {/* The Archivist — visual library-health indicator. Six PNGs
+              will live at /audit-archivist/<key>.png (place files at
+              client/public/audit-archivist/). Until the art is ready,
+              the slot renders as a bordered placeholder with the state
+              name. Swap the inner `<span>` for `<img src=... />` when
+              the illustrations land. */}
+          <figure className="mt-6">
+            <div
+              className="aspect-[3/4] rounded-sm border border-neutral-700 bg-neutral-800/60 flex items-center justify-center"
+              aria-hidden="true"
+            >
+              <span className="text-neutral-600 text-[10px] font-slab uppercase tracking-wider">
+                Archivist · {archivist.label}
+              </span>
+            </div>
+            <figcaption className="text-[10px] text-neutral-600 uppercase tracking-wider mt-2 text-center">
+              {archivist.label}
+            </figcaption>
+          </figure>
         </div>
 
         <div className="space-y-6 min-w-0" aria-label="Audit groups">
