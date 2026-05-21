@@ -1874,6 +1874,30 @@ describe('books', () => {
     // SQL is straightforward NOT IN (SELECT id FROM…) and reviewed
     // by eye.
 
+    it('missing=original_language surfaces books with a translator but no source language', async () => {
+      const stem = 'ZZZ-origlang' + Math.random().toString(36).slice(2, 6);
+      const author = `ZZZ-OrigLang ${stem}`;
+      // Translator set, no original_language — should appear.
+      const { body: noLang } = await req('POST', '/api/books', {
+        title: `${stem}-no-lang`, authors: [author], translators: ['Some Translator'],
+      });
+      // Translator + original_language both set — should NOT appear.
+      const { body: both } = await req('POST', '/api/books', {
+        title: `${stem}-both`, authors: [author], translators: ['Some Translator'], original_language: 'French',
+      });
+      // No translator, no original_language — should NOT appear
+      // (population gate: must have a translator to qualify).
+      const { body: neither } = await req('POST', '/api/books', {
+        title: `${stem}-neither`, authors: [author],
+      });
+
+      const { body: list } = await req('GET', `/api/books?missing=original_language&q=${stem}&limit=200`);
+      const ids = new Set(list.books.map(x => x.id));
+      assert.ok(ids.has(noLang.id), 'translator without original_language should appear');
+      assert.ok(!ids.has(both.id),    'both-set must NOT appear');
+      assert.ok(!ids.has(neither.id), 'no-translator must NOT appear');
+    });
+
     it('missing=year_edition surfaces physical books with no printing year', async () => {
       const stem = 'ZZZ-yredition' + Math.random().toString(36).slice(2, 6);
       const author = `ZZZ-YearEdition ${stem}`;
