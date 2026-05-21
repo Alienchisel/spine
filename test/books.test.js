@@ -1772,6 +1772,58 @@ describe('books', () => {
       assert.ok(!ids.has(d.id), 'Untagged book must NOT appear');
     });
 
+    it('missing=condition / location / date_finished filter physical-and-finished gaps', async () => {
+      const stem = 'auditfilter' + Math.random().toString(36).slice(2, 6);
+      // Authors set on every fixture so they don't pile into the
+      // empty-author bucket; named with a "ZZZ" prefix so they sort
+      // to the very end of every alphabetical author list and don't
+      // crowd earlier-letter fixtures off the 200-row limit cap in
+      // tests like sort=author further down the file.
+      const author = `ZZZ-Auditor ${stem}`;
+      // Physical, no condition — should appear in missing=condition.
+      const { body: a } = await req('POST', '/api/books', {
+        title: `${stem}-no condition`, format: 'physical', binding: 'paperback', owned: true, authors: [author],
+      });
+      // Physical with condition set — should NOT appear.
+      const { body: b } = await req('POST', '/api/books', {
+        title: `${stem}-with condition`, format: 'physical', binding: 'paperback', condition: 'new', owned: true, authors: [author],
+      });
+      // Physical, no shelf/unit/room/building — should appear in missing=location.
+      const { body: c } = await req('POST', '/api/books', {
+        title: `${stem}-no location`, format: 'physical', binding: 'paperback', owned: true, authors: [author],
+      });
+      // Audiobook with no condition — must NOT appear in missing=condition
+      // (the filter is physical-only).
+      const { body: d } = await req('POST', '/api/books', {
+        title: `${stem}-audio no cond`, format: 'audiobook', authors: [author],
+      });
+      // Finished without date_finished — should appear.
+      const { body: e } = await req('POST', '/api/books', {
+        title: `${stem}-finished nodate`, status: 'finished', authors: [author],
+      });
+      // Finished with date_finished — should NOT appear.
+      const { body: f } = await req('POST', '/api/books', {
+        title: `${stem}-finished dated`, status: 'finished', date_finished: '2026-01-15', authors: [author],
+      });
+
+      const { body: cond } = await req('GET', `/api/books?missing=condition&q=${stem}&limit=200`);
+      const condIds = new Set(cond.books.map(x => x.id));
+      assert.ok(condIds.has(a.id), 'physical no-condition should appear');
+      assert.ok(condIds.has(c.id), 'physical no-condition (no location) should appear');
+      assert.ok(!condIds.has(b.id), 'physical with condition must NOT appear');
+      assert.ok(!condIds.has(d.id), 'audiobook must NOT appear in missing=condition');
+
+      const { body: loc } = await req('GET', `/api/books?missing=location&q=${stem}&limit=200`);
+      const locIds = new Set(loc.books.map(x => x.id));
+      assert.ok(locIds.has(c.id), 'physical with no shelf pin should appear');
+      assert.ok(!locIds.has(d.id), 'audiobook must NOT appear in missing=location');
+
+      const { body: fin } = await req('GET', `/api/books?missing=date_finished&q=${stem}&limit=200`);
+      const finIds = new Set(fin.books.map(x => x.id));
+      assert.ok(finIds.has(e.id), 'finished without date_finished should appear');
+      assert.ok(!finIds.has(f.id), 'finished with date_finished must NOT appear');
+    });
+
     it('cascade-deletes stories when the parent book is deleted', async () => {
       const { body: b } = await req('POST', '/api/books', { title: 'Parent To Delete' });
       const { body: created } = await req('POST', `/api/books/${b.id}/stories`, { title: 'Orphan-To-Be' });
