@@ -417,14 +417,9 @@ export default function Stats() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
       <div className="flex items-center justify-between gap-4">
         <h1 className="font-slab text-2xl text-parchment tracking-wide uppercase">Stats</h1>
-        <div className="flex items-center gap-4">
-          <Link to="/audit" state={FROM_STATS} className="text-xs text-neutral-500 hover:text-neutral-200 transition-colors">
-            Library audit →
-          </Link>
-          <Link to="/collage" state={FROM_STATS} className="text-xs text-neutral-500 hover:text-neutral-200 transition-colors">
-            Reading collage →
-          </Link>
-        </div>
+        <Link to="/collage" state={FROM_STATS} className="text-xs text-neutral-500 hover:text-neutral-200 transition-colors">
+          Reading collage →
+        </Link>
       </div>
 
       <ErrorBanner message={error} onDismiss={() => setError(null)} />
