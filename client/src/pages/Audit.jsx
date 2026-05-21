@@ -34,11 +34,16 @@ export default function Audit() {
   // intermediate clamp keeps a near-ceiling reading (e.g. 99.998) from
   // displaying as the misleading "100.00%" — when not actually at the
   // ceiling, cap at "99.99%" so the number stays honest.
-  const cleanPctLabel = summary.cleanPct === 100
+  const atCeiling = summary.cleanPct === 100;
+  const cleanPctLabel = atCeiling
     ? '100%'
     : summary.cleanPct >= 99.995
       ? '99.99%'
       : `${summary.cleanPct.toFixed(2)}%`;
+  // Single earned-it reward: hero tints warm at literal 100%; sits as
+  // restrained parchment the rest of the time. No spectrum, no
+  // continuous coloring — just the one moment.
+  const heroColor = atCeiling ? 'text-oak' : 'text-parchment';
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
@@ -56,7 +61,7 @@ export default function Audit() {
             you scroll the audit list. Stacks above on narrow viewports. */}
         <div className="md:sticky md:top-8 md:self-start">
           <p className="text-[10px] font-semibold text-neutral-600 uppercase tracking-wider mb-2">Library clean</p>
-          <p className="font-slab text-7xl sm:text-8xl text-parchment tabular-nums leading-none tracking-tight">{cleanPctLabel}</p>
+          <p className={`font-slab text-7xl sm:text-8xl tabular-nums leading-none tracking-tight ${heroColor}`}>{cleanPctLabel}</p>
           <p className="text-xs text-neutral-500 mt-4">
             {summary.totalGaps.toLocaleString()} outstanding gaps across {summary.rowCount} audits.
           </p>
