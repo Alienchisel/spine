@@ -52,6 +52,7 @@ function EditionRow({ edition, onUnlink, disabled, linkState }) {
         </div>
       </Link>
       <button
+        type="button"
         onClick={onUnlink}
         disabled={disabled}
         className="text-neutral-700 hover:text-warn disabled:opacity-40 disabled:cursor-wait text-lg leading-none flex-shrink-0 transition-colors"
@@ -178,6 +179,7 @@ export default function EditionsSection({ book, onChange, linkState }) {
     return (
       <div className="border-t border-neutral-800 pt-5 mb-6">
         <button
+          type="button"
           onClick={() => setPicking(true)}
           className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors"
         >
@@ -222,6 +224,7 @@ export default function EditionsSection({ book, onChange, linkState }) {
                 return (
                   <button
                     key={r.id}
+                    type="button"
                     onClick={() => handlePick(r.id)}
                     disabled={mutatingId === r.id}
                     className="w-full text-left flex items-center gap-3 px-2 py-1.5 hover:bg-neutral-800/60 disabled:opacity-50 disabled:cursor-wait transition-colors"
@@ -241,6 +244,7 @@ export default function EditionsSection({ book, onChange, linkState }) {
             </div>
           )}
           <button
+            type="button"
             onClick={closePicker}
             className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors"
           >
@@ -249,6 +253,7 @@ export default function EditionsSection({ book, onChange, linkState }) {
         </div>
       ) : (
         <button
+          type="button"
           onClick={() => setPicking(true)}
           className="mt-2 text-xs text-neutral-600 hover:text-neutral-300 transition-colors"
         >
