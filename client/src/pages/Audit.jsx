@@ -26,7 +26,7 @@ export default function Audit() {
   }, [refreshTick]);
 
   if (!stats && error) return <div role="alert" className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-warn text-sm">{error}</div>;
-  if (!stats) return null;
+  if (!stats) return <div role="status" className="text-neutral-700 text-sm">Loading…</div>;
 
   const audit = stats.audit || [];
   const summary = stats.auditSummary || { cleanPct: 100, totalGaps: 0, totalPopulation: 0, rowCount: audit.reduce((s, g) => s + g.rows.length, 0) };
