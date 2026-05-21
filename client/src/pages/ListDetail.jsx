@@ -71,6 +71,7 @@ function SortableBookCard({ book, onRemove, draggable, linkState }) {
       )}
       {onRemove && (
         <button
+          type="button"
           onClick={(e) => { e.preventDefault(); onRemove(book.id); }}
           className="pointer-events-auto absolute top-1 right-1 bg-neutral-900/90 hover:bg-red-900 border border-neutral-700 rounded-full w-6 h-6 flex items-center justify-center text-neutral-400 hover:text-white transition-colors text-base leading-none shadow-lg"
           title="Remove from list"
@@ -515,6 +516,7 @@ export default function ListDetail() {
         <>
           <div className="flex items-center justify-between gap-3 mb-3">
             <button
+              type="button"
               onClick={toggleEditMode}
               className={`text-sm px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
                 editMode
@@ -556,6 +558,7 @@ export default function ListDetail() {
             <div className="mt-6 flex flex-col items-center gap-2">
               <div className="flex justify-center gap-3">
                 <button
+                  type="button"
                   onClick={loadMore}
                   disabled={loadingMore || loadingAll}
                   className="text-sm text-neutral-500 hover:text-neutral-300 disabled:opacity-40 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
@@ -563,6 +566,7 @@ export default function ListDetail() {
                   {loadingMore ? 'Loading…' : `Load more · ${total - list.books.length} remaining`}
                 </button>
                 <button
+                  type="button"
                   onClick={loadAll}
                   disabled={loadingMore || loadingAll}
                   className="text-sm text-neutral-500 hover:text-neutral-300 disabled:opacity-40 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"

@@ -307,6 +307,7 @@ function GoalCard({ label, current, goal, onSave, onEditStart, color = 'bg-oak' 
           </form>
         ) : (
           <button
+            type="button"
             onClick={() => { onEditStart?.(); setInput(goal ? String(goal) : ''); setEditing(true); }}
             className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors tabular-nums"
           >
