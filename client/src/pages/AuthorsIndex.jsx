@@ -132,7 +132,7 @@ export default function AuthorsIndex() {
   }, [authors, query, sort]);
 
   const missing = <span className="text-oak/50">—</span>;
-  const present = <span className="text-neutral-700">·</span>;
+  const present = <span className="text-neutral-500">✓</span>;
 
   return (
     <div className="max-w-5xl">
