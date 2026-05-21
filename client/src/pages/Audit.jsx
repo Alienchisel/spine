@@ -37,7 +37,7 @@ export default function Audit() {
     : `${summary.cleanPct.toFixed(1)}%`;
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       <div className="flex items-center justify-between gap-4">
         <h1 className="font-slab text-2xl text-parchment tracking-wide uppercase">Library audit</h1>
         <Link to="/stats" state={FROM_AUDIT} className="text-xs text-neutral-500 hover:text-neutral-200 transition-colors">
@@ -47,46 +47,52 @@ export default function Audit() {
 
       <ErrorBanner message={error} onDismiss={() => setError(null)} />
 
-      <div className="py-4">
-        <p className="text-[10px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">Library clean</p>
-        <p className="font-slab text-5xl sm:text-6xl text-parchment tabular-nums leading-none">{cleanPctLabel}</p>
-        <p className="text-xs text-neutral-500 mt-3">
-          {summary.totalGaps.toLocaleString()} outstanding gaps across {summary.rowCount} audits.
-          Resolved audits show <span className="text-neutral-400">✓</span>.
-        </p>
-      </div>
+      <div className="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-10">
+        {/* Hero column — sticky on md+ so the score stays in view while
+            you scroll the audit list. Stacks above on narrow viewports. */}
+        <div className="md:sticky md:top-8 md:self-start">
+          <p className="text-[10px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">Library clean</p>
+          <p className="font-slab text-5xl sm:text-6xl text-parchment tabular-nums leading-none">{cleanPctLabel}</p>
+          <p className="text-xs text-neutral-500 mt-3">
+            {summary.totalGaps.toLocaleString()} outstanding gaps across {summary.rowCount} audits.
+          </p>
+          <p className="text-xs text-neutral-600 mt-2">
+            Resolved audits show <span className="text-neutral-500">✓</span>.
+          </p>
+        </div>
 
-      <div className="space-y-6">
-        {audit.map(group => (
-          <div key={group.heading}>
-            <p className="text-[11px] font-medium text-neutral-500 uppercase tracking-wider mb-2">{group.heading}</p>
-            <ul className="space-y-1">
-              {group.rows.map(row => {
-                const resolved = row.count === 0;
-                const countCell = resolved
-                  ? <span className="text-neutral-600 text-sm tabular-nums w-10 text-right">✓</span>
-                  : <span className="text-parchment text-sm tabular-nums w-10 text-right">{row.count.toLocaleString()}</span>;
-                // Resolved rows aren't actionable — keep them visible
-                // for the "all clear" signal but skip the link wrapper.
-                const inner = (
-                  <>
-                    {countCell}
-                    <span className={`text-sm ${resolved ? 'text-neutral-600' : 'text-neutral-300'}`}>{row.label}</span>
-                    {!resolved && <span className="text-neutral-700 ml-auto group-hover:text-neutral-400 transition-colors">→</span>}
-                  </>
-                );
-                return (
-                  <li key={row.label}>
-                    {resolved
-                      ? <div className="flex items-center gap-3 px-2 py-1">{inner}</div>
-                      : <Link to={`/?${row.query}`} state={FROM_AUDIT} className="group flex items-center gap-3 px-2 py-1 rounded hover:bg-neutral-900/50 transition-colors">{inner}</Link>
-                    }
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
+        <div className="space-y-6 min-w-0">
+          {audit.map(group => (
+            <div key={group.heading}>
+              <p className="text-[11px] font-medium text-neutral-500 uppercase tracking-wider mb-2">{group.heading}</p>
+              <ul className="space-y-1">
+                {group.rows.map(row => {
+                  const resolved = row.count === 0;
+                  const countCell = resolved
+                    ? <span className="text-neutral-600 text-sm tabular-nums w-10 text-right">✓</span>
+                    : <span className="text-parchment text-sm tabular-nums w-10 text-right">{row.count.toLocaleString()}</span>;
+                  // Resolved rows aren't actionable — keep them visible
+                  // for the "all clear" signal but skip the link wrapper.
+                  const inner = (
+                    <>
+                      {countCell}
+                      <span className={`text-sm ${resolved ? 'text-neutral-600' : 'text-neutral-300'}`}>{row.label}</span>
+                      {!resolved && <span className="text-neutral-700 ml-auto group-hover:text-neutral-400 transition-colors">→</span>}
+                    </>
+                  );
+                  return (
+                    <li key={row.label}>
+                      {resolved
+                        ? <div className="flex items-center gap-3 px-2 py-1">{inner}</div>
+                        : <Link to={`/?${row.query}`} state={FROM_AUDIT} className="group flex items-center gap-3 px-2 py-1 rounded hover:bg-neutral-900/50 transition-colors">{inner}</Link>
+                      }
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
