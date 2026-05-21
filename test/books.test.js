@@ -1824,6 +1824,37 @@ describe('books', () => {
       assert.ok(!finIds.has(f.id), 'finished with date_finished must NOT appear');
     });
 
+    it('missing=stories_anthology surfaces the mutually-exclusive tag conflict', async () => {
+      // Stem buried after "ZZZ-" so fixtures sort to the end of every
+      // alphabetical list (author + title), keeping later sort=author /
+      // sort=title tests with their own 200-row caps unaffected.
+      const stem = 'ZZZ-tagxor' + Math.random().toString(36).slice(2, 6);
+      const author = `ZZZ-TagXor ${stem}`;
+      // Tagged with BOTH Stories and Anthology — should appear.
+      const { body: both } = await req('POST', '/api/books', {
+        title: `${stem}-both`, tags: ['Stories', 'Anthology'], authors: [author],
+      });
+      // Tagged with only Stories — should NOT appear.
+      const { body: storiesOnly } = await req('POST', '/api/books', {
+        title: `${stem}-stories`, tags: ['Stories'], authors: [author],
+      });
+      // Tagged with only Anthology — should NOT appear.
+      const { body: anthOnly } = await req('POST', '/api/books', {
+        title: `${stem}-anth`, tags: ['Anthology'], authors: [author],
+      });
+      // Untagged — should NOT appear.
+      const { body: untagged } = await req('POST', '/api/books', {
+        title: `${stem}-untagged`, authors: [author],
+      });
+
+      const { body: list } = await req('GET', `/api/books?missing=stories_anthology&q=${stem}&limit=200`);
+      const ids = new Set(list.books.map(x => x.id));
+      assert.ok(ids.has(both.id), 'book tagged with both should appear');
+      assert.ok(!ids.has(storiesOnly.id), 'Stories-only must NOT appear');
+      assert.ok(!ids.has(anthOnly.id),    'Anthology-only must NOT appear');
+      assert.ok(!ids.has(untagged.id),    'untagged must NOT appear');
+    });
+
     it('missing=series / series_number filter two-sided series metadata gaps', async () => {
       const stem = 'seriesfilter' + Math.random().toString(36).slice(2, 6);
       const author = `ZZZ-Series ${stem}`;
