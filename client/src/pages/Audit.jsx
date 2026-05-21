@@ -87,19 +87,17 @@ export default function Audit() {
           </p>
 
           {/* The Archivist — visual library-health indicator. Six PNGs
-              will live at /audit-archivist/<key>.png (place files at
-              client/public/audit-archivist/). Until the art is ready,
-              the slot renders as a bordered placeholder with the state
-              name. Swap the inner `<span>` for `<img src=... />` when
-              the illustrations land. */}
-          <figure className="mt-6">
-            <div
-              className="aspect-[3/4] rounded-sm border border-neutral-700 bg-neutral-800/60 flex items-center justify-center"
-              aria-hidden="true"
-            >
-              <span className="text-neutral-600 text-[10px] font-slab uppercase tracking-wider">
-                Archivist · {archivist.label}
-              </span>
+              live at client/public/audit-archivist/<key>.png, served at
+              /audit-archivist/<key>.png. The state.label below the
+              image carries the caption; aria-label on the figure ties
+              the image to its meaning for screen readers. */}
+          <figure className="mt-6" aria-label={`Library state: ${archivist.label}`}>
+            <div className="aspect-[3/4] rounded-sm border border-neutral-700 bg-neutral-800/60 overflow-hidden">
+              <img
+                src={`/audit-archivist/${archivist.key}.png`}
+                alt=""
+                className="w-full h-full object-cover"
+              />
             </div>
             <figcaption className="text-[10px] text-neutral-600 uppercase tracking-wider mt-2 text-center">
               {archivist.label}
