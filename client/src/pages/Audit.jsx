@@ -23,6 +23,19 @@ function archivistState(cleanPct) {
   return                       { key: 'collapsed',  label: 'Collapsed'  };
 }
 
+// TEMPORARY — preview strip showing all six Archivist states. Used to
+// verify final art across the cleanPct range without having to drive
+// the library % to each bucket. Remove the strip (and the previewKey
+// state) once the six portraits are all in.
+const ALL_ARCHIVIST_STATES = [
+  { key: 'pristine',   label: 'Pristine'   },
+  { key: 'well_kept',  label: 'Well Kept'  },
+  { key: 'manageable', label: 'Manageable' },
+  { key: 'troubled',   label: 'Troubled'   },
+  { key: 'critical',   label: 'Critical'   },
+  { key: 'collapsed',  label: 'Collapsed'  },
+];
+
 // Curation health. Companion to Stats: where Stats describes the shape
 // of the catalogue, Audit surfaces completeness gaps that represent
 // real cleanup work. The audit list is opinionated (see lib/stats/
@@ -31,6 +44,9 @@ function archivistState(cleanPct) {
 export default function Audit() {
   const [stats, setStats] = useState(null);
   const [error, setError] = useState(null);
+  // TEMPORARY — hover/focus key for the preview strip. null = display
+  // the real cleanPct-derived state.
+  const [previewKey, setPreviewKey] = useState(null);
   const refreshTick = useRefreshTick();
   const loadGuard = useStaleGuard();
 
@@ -61,6 +77,11 @@ export default function Audit() {
   // continuous coloring — just the one moment.
   const heroColor = atCeiling ? 'text-oak' : 'text-parchment';
   const archivist = archivistState(summary.cleanPct);
+  // TEMPORARY — overlay the previewed state on top of the real one when
+  // the user is hovering/focusing a thumbnail in the preview strip.
+  const displayed = previewKey
+    ? (ALL_ARCHIVIST_STATES.find(s => s.key === previewKey) || archivist)
+    : archivist;
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
@@ -91,18 +112,49 @@ export default function Audit() {
               /audit-archivist/<key>.png. The state.label below the
               image carries the caption; aria-label on the figure ties
               the image to its meaning for screen readers. */}
-          <figure className="mt-6" aria-label={`Library state: ${archivist.label}`}>
+          <figure className="mt-6" aria-label={`Library state: ${displayed.label}`}>
             <div className="aspect-[3/4] rounded-sm border border-neutral-700 bg-neutral-800/60 overflow-hidden">
               <img
-                src={`/audit-archivist/${archivist.key}.png`}
+                src={`/audit-archivist/${displayed.key}.png`}
                 alt=""
                 className="w-full h-full object-cover"
               />
             </div>
             <figcaption className="text-[10px] text-neutral-600 uppercase tracking-wider mt-2 text-center">
-              {archivist.label}
+              {displayed.label}
             </figcaption>
           </figure>
+
+          {/* TEMPORARY — preview strip. Hover (or focus) a thumbnail to
+              swap the main portrait + caption to that state without
+              touching the underlying library %. The current real state
+              is outlined in oak. Remove this whole block when all six
+              final illustrations are confirmed. */}
+          <div className="mt-3 grid grid-cols-6 gap-1" aria-label="Preview Archivist states">
+            {ALL_ARCHIVIST_STATES.map(s => {
+              const isReal = s.key === archivist.key;
+              const isShown = s.key === displayed.key;
+              return (
+                <button
+                  key={s.key}
+                  type="button"
+                  onMouseEnter={() => setPreviewKey(s.key)}
+                  onMouseLeave={() => setPreviewKey(null)}
+                  onFocus={() => setPreviewKey(s.key)}
+                  onBlur={() => setPreviewKey(null)}
+                  aria-label={`Preview ${s.label}${isReal ? ' (current)' : ''}`}
+                  title={s.label}
+                  className={`aspect-[3/4] rounded-sm overflow-hidden border transition-colors ${
+                    isReal     ? 'border-oak' :
+                    isShown    ? 'border-neutral-400' :
+                                 'border-neutral-700 hover:border-neutral-500'
+                  }`}
+                >
+                  <img src={`/audit-archivist/${s.key}.png`} alt="" className="w-full h-full object-cover" />
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <div className="space-y-6 min-w-0" aria-label="Audit groups">
