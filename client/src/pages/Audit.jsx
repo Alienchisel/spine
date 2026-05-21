@@ -8,15 +8,17 @@ import ErrorBanner from '../components/ErrorBanner.jsx';
 const FROM_AUDIT = { from: 'Audit', fromPath: '/audit' };
 
 // The Archivist — visual library-health indicator beneath the hero %.
-// Six states: two rare bookends (Pristine at exactly 100%, Collapsed at
-// exactly 0%) bracketing four quarter-sized common states. Image asset
-// for each state lives at client/public/audit-archivist/<key>.png; the
-// placeholder div renders the state label until art is ready.
+// Six states matching the source-image taxonomy: two rare bookends
+// (Pristine at exactly 100%, Collapsed at exactly 0%) bracketing four
+// quarter-sized common states (Well Kept 76-99, Manageable 51-75,
+// Troubled 26-50, Critical 1-25). Image asset for each state lives at
+// client/public/audit-archivist/<key>.png; until art is ready, the
+// placeholder div renders the state label.
 function archivistState(cleanPct) {
   if (cleanPct === 100) return { key: 'pristine',   label: 'Pristine'   };
-  if (cleanPct >= 75)   return { key: 'tidy',       label: 'Tidy'       };
-  if (cleanPct >= 50)   return { key: 'manageable', label: 'Manageable' };
-  if (cleanPct >= 25)   return { key: 'troubled',   label: 'Troubled'   };
+  if (cleanPct >= 76)   return { key: 'well_kept',  label: 'Well Kept'  };
+  if (cleanPct >= 51)   return { key: 'manageable', label: 'Manageable' };
+  if (cleanPct >= 26)   return { key: 'troubled',   label: 'Troubled'   };
   if (cleanPct > 0)     return { key: 'critical',   label: 'Critical'   };
   return                       { key: 'collapsed',  label: 'Collapsed'  };
 }
