@@ -68,16 +68,43 @@ export default function Audit() {
               <ul className="space-y-1">
                 {group.rows.map(row => {
                   const resolved = row.count === 0;
+                  // % open = how much of this audit's eligible population
+                  // still has the gap. Inverse of the hero "% clean", but
+                  // rows describe gaps ("books missing X"), so open %
+                  // reads more naturally next to the row's count than
+                  // clean % would. Edge case: pop=0 only happens when
+                  // count=0 too (can't have a gap in an empty set), which
+                  // is already the resolved branch.
+                  const openPct = row.population > 0
+                    ? (row.count / row.population) * 100
+                    : 0;
+                  const openPctLabel = openPct >= 99.95
+                    ? '100%'
+                    : openPct >= 10
+                      ? `${Math.round(openPct)}%`
+                      : `${openPct.toFixed(1)}%`;
+                  // Count cell shows "count / population" so the absolute
+                  // gap and its scope sit side by side; the % cell at the
+                  // far right gives the ratio at a glance. Resolved rows
+                  // collapse to a single ✓ and skip the right-side cells.
                   const countCell = resolved
-                    ? <span className="text-neutral-600 text-sm tabular-nums w-10 text-right">✓</span>
-                    : <span className="text-parchment text-sm tabular-nums w-10 text-right">{row.count.toLocaleString()}</span>;
+                    ? <span className="text-neutral-600 text-sm tabular-nums w-20 text-right">✓</span>
+                    : <span className="text-sm tabular-nums w-20 text-right">
+                        <span className="text-parchment">{row.count.toLocaleString()}</span>
+                        <span className="text-neutral-600 ml-1">/&nbsp;{row.population.toLocaleString()}</span>
+                      </span>;
                   // Resolved rows aren't actionable — keep them visible
                   // for the "all clear" signal but skip the link wrapper.
                   const inner = (
                     <>
                       {countCell}
-                      <span className={`text-sm ${resolved ? 'text-neutral-600' : 'text-neutral-300'}`}>{row.label}</span>
-                      {!resolved && <span className="text-neutral-700 ml-auto group-hover:text-neutral-400 transition-colors">→</span>}
+                      <span className={`text-sm flex-1 ${resolved ? 'text-neutral-600' : 'text-neutral-300'}`}>{row.label}</span>
+                      {!resolved && (
+                        <>
+                          <span className="text-xs text-neutral-500 tabular-nums w-12 text-right">{openPctLabel}</span>
+                          <span className="text-neutral-700 ml-1 group-hover:text-neutral-400 transition-colors">→</span>
+                        </>
+                      )}
                     </>
                   );
                   return (
