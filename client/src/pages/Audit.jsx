@@ -30,11 +30,15 @@ export default function Audit() {
 
   const audit = stats.audit || [];
   const summary = stats.auditSummary || { cleanPct: 100, totalGaps: 0, totalPopulation: 0, rowCount: audit.reduce((s, g) => s + g.rows.length, 0) };
-  // One decimal until we're near the ceiling; whole percent below
-  // that — avoids a meaningless "100.0%" while a single gap remains.
-  const cleanPctLabel = summary.cleanPct >= 99.95
+  // Two decimals everywhere except the literal 100% case. The
+  // intermediate clamp keeps a near-ceiling reading (e.g. 99.998) from
+  // displaying as the misleading "100.00%" — when not actually at the
+  // ceiling, cap at "99.99%" so the number stays honest.
+  const cleanPctLabel = summary.cleanPct === 100
     ? '100%'
-    : `${summary.cleanPct.toFixed(1)}%`;
+    : summary.cleanPct >= 99.995
+      ? '99.99%'
+      : `${summary.cleanPct.toFixed(2)}%`;
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
@@ -47,7 +51,7 @@ export default function Audit() {
 
       <ErrorBanner message={error} onDismiss={() => setError(null)} />
 
-      <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-10">
+      <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-10">
         {/* Hero column — sticky on md+ so the score stays in view while
             you scroll the audit list. Stacks above on narrow viewports. */}
         <div className="md:sticky md:top-8 md:self-start">
