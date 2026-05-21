@@ -47,13 +47,13 @@ export default function Audit() {
 
       <ErrorBanner message={error} onDismiss={() => setError(null)} />
 
-      <div className="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-10">
+      <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-10">
         {/* Hero column — sticky on md+ so the score stays in view while
             you scroll the audit list. Stacks above on narrow viewports. */}
         <div className="md:sticky md:top-8 md:self-start">
-          <p className="text-[10px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">Library clean</p>
-          <p className="font-slab text-5xl sm:text-6xl text-parchment tabular-nums leading-none">{cleanPctLabel}</p>
-          <p className="text-xs text-neutral-500 mt-3">
+          <p className="text-[10px] font-semibold text-neutral-600 uppercase tracking-wider mb-2">Library clean</p>
+          <p className="font-slab text-7xl sm:text-8xl text-parchment tabular-nums leading-none tracking-tight">{cleanPctLabel}</p>
+          <p className="text-xs text-neutral-500 mt-4">
             {summary.totalGaps.toLocaleString()} outstanding gaps across {summary.rowCount} audits.
           </p>
           <p className="text-xs text-neutral-600 mt-2">
