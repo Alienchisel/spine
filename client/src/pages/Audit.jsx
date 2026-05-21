@@ -29,8 +29,12 @@ export default function Audit() {
   if (!stats) return null;
 
   const audit = stats.audit || [];
-  const openCount = audit.reduce((sum, g) => sum + g.rows.reduce((s, r) => s + (r.count > 0 ? 1 : 0), 0), 0);
-  const totalCount = audit.reduce((sum, g) => sum + g.rows.length, 0);
+  const summary = stats.auditSummary || { cleanPct: 100, totalGaps: 0, totalPopulation: 0, rowCount: audit.reduce((s, g) => s + g.rows.length, 0) };
+  // One decimal until we're near the ceiling; whole percent below
+  // that — avoids a meaningless "100.0%" while a single gap remains.
+  const cleanPctLabel = summary.cleanPct >= 99.95
+    ? '100%'
+    : `${summary.cleanPct.toFixed(1)}%`;
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
@@ -44,7 +48,9 @@ export default function Audit() {
       <ErrorBanner message={error} onDismiss={() => setError(null)} />
 
       <p className="text-sm text-neutral-500">
-        Curation gaps that represent real cleanup work. {openCount} of {totalCount} audits have open items.
+        <span className="text-parchment tabular-nums">{cleanPctLabel} clean</span>
+        {' · '}
+        {summary.totalGaps.toLocaleString()} outstanding gaps across {summary.rowCount} audits.
         Resolved audits show <span className="text-neutral-400">✓</span>.
       </p>
 
