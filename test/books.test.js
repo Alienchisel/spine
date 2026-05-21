@@ -1824,6 +1824,56 @@ describe('books', () => {
       assert.ok(!finIds.has(f.id), 'finished with date_finished must NOT appear');
     });
 
+    it('missing=room / unit / shelf strict-cascade shelving filters', async () => {
+      const stem = 'ZZZ-cascade' + Math.random().toString(36).slice(2, 6);
+      const author = `ZZZ-Cascade ${stem}`;
+      // Location only sticks on owned physical books — see
+      // repository.js isShelvable gate. owned + physical + binding
+      // mirrors the form's AcquisitionFields path.
+      // 029_add_shelf_hierarchy.sql seeds the test DB with: building_id
+      // 1 (Home), 2 (Work), 3 (Mom's); room_id 1 (Work → Office); unit_id
+      // 1 (Office → Desk); shelf_id 1 (Desk → '1'). Use those FK-valid
+      // ids for fixtures so location pins stick under FK enforcement.
+      // building-only pinning → should appear in missing=room.
+      const { body: bld } = await req('POST', '/api/books', {
+        title: `${stem}-building`, format: 'physical', binding: 'paperback', owned: true, building_id: 1, authors: [author],
+      });
+      // room-only pinning → should appear in missing=unit.
+      const { body: rm } = await req('POST', '/api/books', {
+        title: `${stem}-room`, format: 'physical', binding: 'paperback', owned: true, room_id: 1, authors: [author],
+      });
+      // unit-only pinning → should appear in missing=shelf.
+      const { body: un } = await req('POST', '/api/books', {
+        title: `${stem}-unit`, format: 'physical', binding: 'paperback', owned: true, unit_id: 1, authors: [author],
+      });
+
+      const { body: roomList } = await req('GET', `/api/books?missing=room&q=${stem}&limit=200`);
+      const roomIds = new Set(roomList.books.map(x => x.id));
+      assert.ok(roomIds.has(bld.id), 'building-only must appear in missing=room');
+      assert.ok(!roomIds.has(rm.id), 'room-only must NOT appear in missing=room');
+      assert.ok(!roomIds.has(un.id), 'unit-only must NOT appear in missing=room');
+
+      const { body: unitList } = await req('GET', `/api/books?missing=unit&q=${stem}&limit=200`);
+      const unitIds = new Set(unitList.books.map(x => x.id));
+      assert.ok(unitIds.has(rm.id), 'room-only must appear in missing=unit');
+      assert.ok(!unitIds.has(bld.id), 'building-only must NOT appear in missing=unit');
+      assert.ok(!unitIds.has(un.id),  'unit-only must NOT appear in missing=unit');
+
+      const { body: shelfList } = await req('GET', `/api/books?missing=shelf&q=${stem}&limit=200`);
+      const shelfIds = new Set(shelfList.books.map(x => x.id));
+      assert.ok(shelfIds.has(un.id), 'unit-only must appear in missing=shelf');
+      assert.ok(!shelfIds.has(rm.id), 'room-only must NOT appear in missing=shelf');
+      assert.ok(!shelfIds.has(bld.id), 'building-only must NOT appear in missing=shelf');
+    });
+
+    // missing=orphan_pin isn't tested here: FK ON DELETE SET NULL /
+    // CASCADE on the hierarchy is the very mechanism that keeps
+    // production orphan-free. Creating an orphan would require
+    // bypassing FK enforcement with PRAGMA foreign_keys = OFF, which
+    // tests the SQL but not the user-visible code path. The audit
+    // SQL is straightforward NOT IN (SELECT id FROM…) and reviewed
+    // by eye.
+
     it('missing=year_edition surfaces physical books with no printing year', async () => {
       const stem = 'ZZZ-yredition' + Math.random().toString(36).slice(2, 6);
       const author = `ZZZ-YearEdition ${stem}`;
