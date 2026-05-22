@@ -13,6 +13,7 @@ const SORTS = [
   { key: 'books',     label: 'Books' },
   { key: 'stories',   label: 'Stories' },
   { key: 'no_bio',    label: 'Missing bio' },
+  { key: 'stale_tense', label: 'Stale-tense bio' },
   { key: 'no_photo',  label: 'Missing photo' },
   { key: 'no_dates',  label: 'Missing dates' },
   { key: 'no_gender', label: 'Missing gender' },
@@ -121,6 +122,7 @@ export default function AuthorsIndex() {
       case 'books':     rows.sort((a, b) => b.book_count - a.book_count || byName(a, b)); break;
       case 'stories':   rows.sort((a, b) => (b.story_count || 0) - (a.story_count || 0) || byName(a, b)); break;
       case 'no_bio':    rows.sort((a, b) => (a.has_bio - b.has_bio) || byName(a, b)); break;
+      case 'stale_tense': rows.sort((a, b) => ((b.has_stale_tense || 0) - (a.has_stale_tense || 0)) || byName(a, b)); break;
       case 'no_photo':  rows.sort((a, b) => (a.has_photo - b.has_photo) || byName(a, b)); break;
       case 'no_dates':  rows.sort((a, b) => (Number(!!a.birth_date || !!a.death_date) - Number(!!b.birth_date || !!b.death_date)) || byName(a, b)); break;
       case 'no_gender': rows.sort((a, b) => (Number(!!a.gender) - Number(!!b.gender)) || byName(a, b)); break;

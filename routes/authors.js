@@ -79,6 +79,12 @@ router.get('/', (req, res) => {
   // aren't bylined on the containing book). Counted as DISTINCT story_id
   // so a story with multiple author rows doesn't double; book_count gets
   // DISTINCT too for symmetry now that we're joining two tables.
+  // has_stale_tense fires when a deceased author's bio opens with
+  // "is a/an/the ..." (present tense) without a "was" appearing in the
+  // first 100 chars — i.e. a bio written for a still-living author that
+  // wasn't updated when the death date was added. Drives the
+  // "Deceased authors have past-tense bio" audit row and the
+  // sort=stale_tense order in AuthorsIndex.
   const rows = db.prepare(`
     SELECT
       a.id,
@@ -89,6 +95,13 @@ router.get('/', (req, res) => {
       (a.bio IS NOT NULL)         AS has_bio,
       (a.photo_path IS NOT NULL)  AS has_photo,
       (a.ol_key IS NOT NULL)      AS has_ol_key,
+      (
+        a.death_date IS NOT NULL AND a.bio IS NOT NULL AND a.bio != ''
+        AND (SUBSTR(a.bio, 1, 100) LIKE '% is a %'
+          OR SUBSTR(a.bio, 1, 100) LIKE '% is an %'
+          OR SUBSTR(a.bio, 1, 100) LIKE '% is the %')
+        AND SUBSTR(a.bio, 1, 100) NOT LIKE '% was %'
+      )                            AS has_stale_tense,
       COUNT(DISTINCT ba.book_id)  AS book_count,
       COUNT(DISTINCT sa.story_id) AS story_count
     FROM authors a
