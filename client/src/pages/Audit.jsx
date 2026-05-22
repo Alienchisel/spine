@@ -186,15 +186,20 @@ export default function Audit() {
                     : (rowCleanPct >= 90 || rowCleanPct < 10)
                       ? `${rowCleanPct.toFixed(1)}%`
                       : `${Math.round(rowCleanPct)}%`;
-                  // Count cell shows "count / population" so the absolute
-                  // gap and its scope sit side by side; the % cell at the
-                  // far right gives the ratio at a glance. Resolved rows
-                  // collapse to a single ✓ and skip the right-side cells.
+                  // Count cell shows "<satisfied>/<population> (N missing)"
+                  // — the foreground number matches the positive label
+                  // direction (higher = better, aligned with the % cell at
+                  // the far right), and the parenthetical preserves the
+                  // actionable gap count for at-a-glance work-remaining.
+                  // Resolved rows collapse to a single ✓ and skip the
+                  // right-side cells.
+                  const satisfied = row.population - row.count;
                   const countCell = resolved
-                    ? <span className="text-neutral-600 text-sm tabular-nums w-24 text-right" aria-label="resolved">✓</span>
-                    : <span className="text-sm tabular-nums w-24 text-right">
-                        <span className="text-parchment">{row.count.toLocaleString()}</span>
+                    ? <span className="text-neutral-600 text-sm tabular-nums w-48 text-right" aria-label="resolved">✓</span>
+                    : <span className="text-sm tabular-nums w-48 text-right">
+                        <span className="text-parchment">{satisfied.toLocaleString()}</span>
                         <span className="text-neutral-600 ml-1">/&nbsp;{row.population.toLocaleString()}</span>
+                        <span className="text-neutral-600 ml-2">({row.count.toLocaleString()} missing)</span>
                       </span>;
                   // Resolved rows aren't actionable — keep them visible
                   // for the "all clear" signal but skip the link wrapper.
