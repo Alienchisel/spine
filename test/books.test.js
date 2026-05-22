@@ -3119,12 +3119,22 @@ describe('books', () => {
       const { body: listening } = await req('POST', '/api/books', { title: `ZZZ-prog-listening ${tag}`, format: 'audiobook', duration_minutes: 600, status: 'reading', authors: author });
       await req('PATCH', `/api/books/${listening.id}`, { current_minutes: 90 });
       const { body: untouched } = await req('POST', '/api/books', { title: `ZZZ-prog-untouched ${tag}`, status: 'unread', authors: author });
+      // Story-only-logged: anthology where the user finishes individual
+      // stories. A finished story writes a reading_log row attributed to
+      // that story; without page_end the parent's current_page stays 0,
+      // and with a second unfinished story the parent doesn't auto-roll
+      // to 'finished'. So the book has logged reading via reading_log
+      // alone, no book-level state. progress=any must still catch it.
+      const { body: storyOnly } = await req('POST', '/api/books', { title: `ZZZ-prog-stories ${tag}`, status: 'unread', authors: author, tags: ['Stories'] });
+      await req('POST', `/api/books/${storyOnly.id}/stories`, { title: `ZZZ-prog-story-A ${tag}`, status: 'finished' });
+      await req('POST', `/api/books/${storyOnly.id}/stories`, { title: `ZZZ-prog-story-B ${tag}` });
 
       const { body } = await req('GET', '/api/books?tab=all&progress=any&limit=200');
       const ids = new Set(body.books.map(b => b.id));
       assert.ok(ids.has(finished.id),   'finished book qualifies');
       assert.ok(ids.has(paging.id),     'book with current_page > 0 qualifies');
       assert.ok(ids.has(listening.id),  'book with current_minutes > 0 qualifies');
+      assert.ok(ids.has(storyOnly.id),  'book with only story-level reading_log entries qualifies');
       assert.ok(!ids.has(untouched.id), 'plain unread book with no progress is excluded');
     });
 
