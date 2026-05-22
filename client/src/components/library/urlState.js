@@ -32,6 +32,8 @@ export function paramsToFilters(searchParams) {
     if      (v === 'true')  filters[key] = true;
     else if (v === 'false') filters[key] = false;
   }
+  const progress = searchParams.get('progress');
+  if (progress === 'any') filters.progress = 'any';
   // normalizeFilters does final shape validation (e.g. drops unknown
   // statuses), same guarantees as the old sessionStorage path. This
   // keeps the URL parser robust against hand-edited URLs too.
@@ -55,6 +57,8 @@ export function writeFiltersToParams(params, filters) {
     if (filters[key] === true)  params.set(key, 'true');
     if (filters[key] === false) params.set(key, 'false');
   }
+  params.delete('progress');
+  if (filters.progress) params.set('progress', filters.progress);
   return params;
 }
 
@@ -75,6 +79,7 @@ export function filtersEqual(a, b) {
   for (const k of TRISTATE_KEYS) {
     if ((a[k] ?? null) !== (b[k] ?? null)) return false;
   }
+  if ((a.progress ?? null) !== (b.progress ?? null)) return false;
   return true;
 }
 

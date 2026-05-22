@@ -25,6 +25,10 @@ export const EMPTY_FILTERS = {
   previouslyOwned: null,
   custom:          null,
   loved:           null,
+  // 'any' = books with any logged reading activity (finished, in-progress,
+  // or prior read on record). null = no filter. Currently only set by the
+  // Stats-page hero strip's URL — no FilterPanel control yet.
+  progress:        null,
 };
 
 const FILTER_ARRAY_KEYS = ['missing', 'formats', 'ratings', 'publishers', 'sources', 'series', 'tags', 'statuses'];
@@ -47,6 +51,7 @@ export function normalizeFilters(saved) {
   for (const key of TRISTATE_KEYS) {
     if (saved[key] === true || saved[key] === false || saved[key] === null) out[key] = saved[key];
   }
+  if (saved.progress === 'any') out.progress = 'any';
   return out;
 }
 
@@ -55,7 +60,8 @@ export function countFilters(f) {
     f.publishers.length + f.sources.length + f.series.length + f.tags.length +
     (f.statuses?.length || 0) +
     (f.owned !== null ? 1 : 0) + (f.previouslyOwned !== null ? 1 : 0) +
-    (f.custom !== null ? 1 : 0) + (f.loved !== null ? 1 : 0);
+    (f.custom !== null ? 1 : 0) + (f.loved !== null ? 1 : 0) +
+    (f.progress != null ? 1 : 0);
 }
 
 // Drop selected values that no longer exist in the current facet set
@@ -98,5 +104,6 @@ export function buildApiParams(tab, sort, filters, q, offset, seed) {
   if (filters.previouslyOwned !== null) p.previouslyOwned = String(filters.previouslyOwned);
   if (filters.custom !== null)          p.custom          = String(filters.custom);
   if (filters.loved !== null)           p.loved           = String(filters.loved);
+  if (filters.progress)                 p.progress        = filters.progress;
   return p;
 }

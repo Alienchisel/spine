@@ -3100,6 +3100,34 @@ describe('books', () => {
       assert.match(body.error, /positive integers/);
     });
 
+    it('progress=any restricts to books with any logged reading activity', async () => {
+      // Three positive signals (status=finished, current_page>0,
+      // current_minutes>0) all qualify; a plain unread book with zero
+      // progress is excluded. Used by the Stats hero strip so "Pages
+      // read" / "Hours listened" click through to the cohort the
+      // numbers actually came from. current_page / current_minutes
+      // are PATCH-only on the books model, so the two progress
+      // fixtures land via PATCH after POST.
+      const tag = Math.random().toString(36).slice(2, 6);
+      // ZZZ-prefixed authors keep these fixtures at the tail of sort=author /
+      // sort=title result sets so they don't crowd earlier fixtures past
+      // a result-page cap (see e.g. the sort=author limit=500 test).
+      const author = [`ZZZ-Prog ${tag}`];
+      const { body: finished } = await req('POST', '/api/books', { title: `ZZZ-prog-finished ${tag}`,  status: 'finished', page_count: 100, authors: author });
+      const { body: paging   } = await req('POST', '/api/books', { title: `ZZZ-prog-paging ${tag}`,    status: 'reading',  page_count: 100, authors: author });
+      await req('PATCH', `/api/books/${paging.id}`, { current_page: 42 });
+      const { body: listening } = await req('POST', '/api/books', { title: `ZZZ-prog-listening ${tag}`, format: 'audiobook', duration_minutes: 600, status: 'reading', authors: author });
+      await req('PATCH', `/api/books/${listening.id}`, { current_minutes: 90 });
+      const { body: untouched } = await req('POST', '/api/books', { title: `ZZZ-prog-untouched ${tag}`, status: 'unread', authors: author });
+
+      const { body } = await req('GET', '/api/books?tab=all&progress=any&limit=200');
+      const ids = new Set(body.books.map(b => b.id));
+      assert.ok(ids.has(finished.id),   'finished book qualifies');
+      assert.ok(ids.has(paging.id),     'book with current_page > 0 qualifies');
+      assert.ok(ids.has(listening.id),  'book with current_minutes > 0 qualifies');
+      assert.ok(!ids.has(untouched.id), 'plain unread book with no progress is excluded');
+    });
+
     it('POST /api/books/:id/fetch-cover returns 400 when book has no ISBN', async () => {
       // The route short-circuits with "No ISBN on this book" before any network
       // lookup, so this stays hermetic.
