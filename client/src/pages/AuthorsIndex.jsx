@@ -11,6 +11,7 @@ import IncomingBackLink from '../components/IncomingBackLink.jsx';
 const SORTS = [
   { key: 'name',      label: 'Name' },
   { key: 'books',     label: 'Books' },
+  { key: 'stories',   label: 'Stories' },
   { key: 'no_bio',    label: 'Missing bio' },
   { key: 'no_photo',  label: 'Missing photo' },
   { key: 'no_dates',  label: 'Missing dates' },
@@ -118,6 +119,7 @@ export default function AuthorsIndex() {
     const byName = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
     switch (sort) {
       case 'books':     rows.sort((a, b) => b.book_count - a.book_count || byName(a, b)); break;
+      case 'stories':   rows.sort((a, b) => (b.story_count || 0) - (a.story_count || 0) || byName(a, b)); break;
       case 'no_bio':    rows.sort((a, b) => (a.has_bio - b.has_bio) || byName(a, b)); break;
       case 'no_photo':  rows.sort((a, b) => (a.has_photo - b.has_photo) || byName(a, b)); break;
       case 'no_dates':  rows.sort((a, b) => (Number(!!a.birth_date || !!a.death_date) - Number(!!b.birth_date || !!b.death_date)) || byName(a, b)); break;
@@ -170,6 +172,7 @@ export default function AuthorsIndex() {
             <tr>
               <th className="text-left  py-2 pr-3">Name</th>
               <th className="text-right py-2 px-3 w-16">Books</th>
+              <th className="text-right py-2 px-3 w-16" title="Stories contributed (anthology entries not bylined on the containing book)">Stories</th>
               <th className="text-center py-2 px-3 w-12">Bio</th>
               <th className="text-center py-2 px-3 w-14">Photo</th>
               <th className="text-left  py-2 px-3 w-40">Dates</th>
@@ -188,6 +191,7 @@ export default function AuthorsIndex() {
                     </Link>
                   </td>
                   <td className="text-right py-1.5 px-3 text-neutral-500 tabular-nums">{a.book_count}</td>
+                  <td className="text-right py-1.5 px-3 text-neutral-500 tabular-nums">{a.story_count || 0}</td>
                   <td className="text-center py-1.5 px-3">{a.has_bio   ? present : missing}</td>
                   <td className="text-center py-1.5 px-3">{a.has_photo ? present : missing}</td>
                   <td className="py-1.5 px-3 text-neutral-500">{lifespan ?? missing}</td>

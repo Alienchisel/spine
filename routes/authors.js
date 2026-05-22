@@ -56,9 +56,11 @@ router.get('/', (req, res) => {
         (a.bio IS NOT NULL)         AS has_bio,
         (a.photo_path IS NOT NULL)  AS has_photo,
         (a.ol_key IS NOT NULL)      AS has_ol_key,
-        COUNT(ba.book_id)           AS book_count
+        COUNT(DISTINCT ba.book_id)  AS book_count,
+        COUNT(DISTINCT sa.story_id) AS story_count
       FROM authors a
-      LEFT JOIN book_authors ba ON ba.author_id = a.id
+      LEFT JOIN book_authors  ba ON ba.author_id  = a.id
+      LEFT JOIN story_authors sa ON sa.author_id = a.id
       WHERE a.name LIKE ? ESCAPE '\\'
       GROUP BY a.id
       ORDER BY a.name COLLATE NOCASE
@@ -66,6 +68,10 @@ router.get('/', (req, res) => {
     `).all(like);
     return res.json(rows);
   }
+  // story_count picks up per-story contributors (anthology authors who
+  // aren't bylined on the containing book). Counted as DISTINCT story_id
+  // so a story with multiple author rows doesn't double; book_count gets
+  // DISTINCT too for symmetry now that we're joining two tables.
   const rows = db.prepare(`
     SELECT
       a.id,
@@ -76,9 +82,11 @@ router.get('/', (req, res) => {
       (a.bio IS NOT NULL)         AS has_bio,
       (a.photo_path IS NOT NULL)  AS has_photo,
       (a.ol_key IS NOT NULL)      AS has_ol_key,
-      COUNT(ba.book_id)           AS book_count
+      COUNT(DISTINCT ba.book_id)  AS book_count,
+      COUNT(DISTINCT sa.story_id) AS story_count
     FROM authors a
-    LEFT JOIN book_authors ba ON ba.author_id = a.id
+    LEFT JOIN book_authors  ba ON ba.author_id  = a.id
+    LEFT JOIN story_authors sa ON sa.author_id = a.id
     GROUP BY a.id
     ORDER BY a.name COLLATE NOCASE
   `).all();
