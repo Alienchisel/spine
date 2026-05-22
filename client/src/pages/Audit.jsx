@@ -27,13 +27,17 @@ function archivistState(cleanPct) {
 // verify final art across the cleanPct range without having to drive
 // the library % to each bucket. Remove the strip (and the previewKey
 // state) once the six portraits are all in.
+// Range strings mirror the archivistState() thresholds — Pristine is the
+// literal ceiling, Collapsed the literal floor, the rest split the
+// middle into 25-point bands. The tooltip composes "Label · range" so a
+// hovering reader can map state to cleanPct at a glance.
 const ALL_ARCHIVIST_STATES = [
-  { key: 'pristine',   label: 'Pristine'   },
-  { key: 'well_kept',  label: 'Well Kept'  },
-  { key: 'manageable', label: 'Manageable' },
-  { key: 'troubled',   label: 'Troubled'   },
-  { key: 'critical',   label: 'Critical'   },
-  { key: 'collapsed',  label: 'Collapsed'  },
+  { key: 'pristine',   label: 'Pristine',   range: '100%'   },
+  { key: 'well_kept',  label: 'Well Kept',  range: '76–99%' },
+  { key: 'manageable', label: 'Manageable', range: '51–75%' },
+  { key: 'troubled',   label: 'Troubled',   range: '26–50%' },
+  { key: 'critical',   label: 'Critical',   range: '1–25%'  },
+  { key: 'collapsed',  label: 'Collapsed',  range: '0%'     },
 ];
 
 // Curation health. Companion to Stats: where Stats describes the shape
@@ -142,8 +146,8 @@ export default function Audit() {
                   onMouseLeave={() => setPreviewKey(null)}
                   onFocus={() => setPreviewKey(s.key)}
                   onBlur={() => setPreviewKey(null)}
-                  aria-label={`Preview ${s.label}${isReal ? ' (current)' : ''}`}
-                  title={s.label}
+                  aria-label={`Preview ${s.label} (${s.range})${isReal ? ' — current' : ''}`}
+                  title={`${s.label} · ${s.range}`}
                   className={`aspect-[2/3] rounded-sm overflow-hidden border transition-colors ${
                     isReal     ? 'border-oak' :
                     isShown    ? 'border-neutral-400' :
