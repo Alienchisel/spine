@@ -527,6 +527,26 @@ describe('authors — index', () => {
     assert.ok(body.length <= 20, 'filtered response should be capped');
   });
 
+  it('GET /api/authors?q= folds diacritics on both sides', async () => {
+    // nrm()-based search: an ASCII query should match diacritic-bearing
+    // stored names ("Stanislaw" → "Stanisław", "bohm" → "Böhm"), and a
+    // query with the right diacritics should still match too. ł/đ are
+    // included because NFD doesn't decompose them — they get an explicit
+    // substitution in nrm().
+    const stem = 'fold' + Math.random().toString(36).slice(2, 6);
+    await req('POST', '/api/books', { title: `${stem}-A`, authors: [`Stanisław ${stem}`] });
+    await req('POST', '/api/books', { title: `${stem}-B`, authors: [`Böhm ${stem}`] });
+
+    const { body: a } = await req('GET', `/api/authors?q=Stanislaw+${stem}`);
+    assert.ok(a.some(x => x.name === `Stanisław ${stem}`), 'ASCII "Stanislaw" should find stored "Stanisław"');
+
+    const { body: b } = await req('GET', `/api/authors?q=bohm+${stem}`);
+    assert.ok(b.some(x => x.name === `Böhm ${stem}`), 'ASCII "bohm" should find stored "Böhm"');
+
+    const { body: c } = await req('GET', `/api/authors?q=${encodeURIComponent(`Stanisław ${stem}`)}`);
+    assert.ok(c.some(x => x.name === `Stanisław ${stem}`), 'diacritic-bearing query still matches');
+  });
+
   it('GET /api/authors?q= escapes SQL LIKE wildcards in user input', async () => {
     // A literal "%" in the query must not match every author. Verifies
     // the ESCAPE clause is doing its job.

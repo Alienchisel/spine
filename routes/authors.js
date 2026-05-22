@@ -1,6 +1,6 @@
 import express from 'express';
 import multer from 'multer';
-import db from '../db.js';
+import db, { nrm } from '../db.js';
 import { linkAuthorAliases, unlinkAuthorAlias } from '../lib/books/people.js';
 import { listBooks } from '../lib/books/repository.js';
 import { lookupAuthor } from '../lib/authors/openLibrary.js';
@@ -45,7 +45,14 @@ function loadAuthor(id) {
 router.get('/', (req, res) => {
   const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
   if (q) {
-    const like = `%${q.replace(/[\\%_]/g, m => '\\' + m)}%`;
+    // Match against nrm(name) so diacritic and ligature variants collide
+    // ("Stanislaw" finds "Stanisław", "böhm" finds "Böhm-Bawerk", etc.).
+    // nrm() lowercases too, so the literal LIKE pattern needs to be
+    // lowercased — and the escape pass for LIKE wildcards happens on the
+    // raw query before the nrm() pass, since SQLite's LIKE-wildcard
+    // characters (% _) are not letters and nrm() leaves them alone.
+    const escaped = q.replace(/[\\%_]/g, m => '\\' + m);
+    const like = `%${nrm(escaped)}%`;
     const rows = db.prepare(`
       SELECT
         a.id,
@@ -61,7 +68,7 @@ router.get('/', (req, res) => {
       FROM authors a
       LEFT JOIN book_authors  ba ON ba.author_id  = a.id
       LEFT JOIN story_authors sa ON sa.author_id = a.id
-      WHERE a.name LIKE ? ESCAPE '\\'
+      WHERE nrm(a.name) LIKE ? ESCAPE '\\'
       GROUP BY a.id
       ORDER BY a.name COLLATE NOCASE
       LIMIT 20

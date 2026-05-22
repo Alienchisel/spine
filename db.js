@@ -27,17 +27,21 @@ runMigrations({
 });
 
 // nrm(text): lowercase + strip combining diacritics + fold a handful of
-// non-decomposing ligatures (æ→ae, œ→oe, ß→ss, ø→o, ð→d, þ→th). Used by
-// the search-bar LIKE clauses on both sides of the comparison so a query
-// for "thermae romae" matches stored "Thermæ Rōmæ", "café" matches
-// "cafe", etc. Cheap enough to run per-row at query time at this scale —
-// the LIKE is already non-indexable due to the leading wildcard.
+// non-decomposing ligatures (æ→ae, œ→oe, ß→ss, ø→o, ð→d, þ→th, ł→l, đ→d).
+// Used by the search-bar LIKE clauses on both sides of the comparison so
+// a query for "thermae romae" matches stored "Thermæ Rōmæ", "café"
+// matches "cafe", "Stanislaw Lem" matches "Stanisław Lem", etc. Cheap
+// enough to run per-row at query time at this scale — the LIKE is
+// already non-indexable due to the leading wildcard. The Slavic ł / đ
+// pair is included because NFD does NOT decompose them (the slash on
+// 'ł' is part of the base character, not a combining mark).
 export function nrm(s) {
   if (s == null) return null;
   return String(s).toLowerCase()
     .normalize('NFD').replace(/\p{Diacritic}/gu, '')
     .replace(/æ/g, 'ae').replace(/œ/g, 'oe').replace(/ß/g, 'ss')
-    .replace(/ø/g, 'o').replace(/ð/g, 'd').replace(/þ/g, 'th');
+    .replace(/ø/g, 'o').replace(/ð/g, 'd').replace(/þ/g, 'th')
+    .replace(/ł/g, 'l').replace(/đ/g, 'd');
 }
 
 db.function('nrm', { deterministic: true }, (s) => nrm(s));
