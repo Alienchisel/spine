@@ -62,6 +62,7 @@ function SortableRow({ book, onRemove, index }) {
         {index + 1}
       </span>
       <button
+        type="button"
         {...attributes}
         {...listeners}
         className="text-neutral-600 hover:text-neutral-400 transition-colors cursor-grab active:cursor-grabbing flex-shrink-0"
@@ -96,6 +97,7 @@ function SortableRow({ book, onRemove, index }) {
           <span className="text-xs text-neutral-600 capitalize hidden sm:block">{book.status}</span>
         )}
         <button
+          type="button"
           onClick={() => onRemove(book.id)}
           className="text-neutral-700 hover:text-warn transition-colors text-lg leading-none"
           title="Remove from readlist"
@@ -226,6 +228,7 @@ export default function Readlist() {
             return (
               <button
                 key={t.key}
+                type="button"
                 onClick={() => setTab(t.key)}
                 className={`text-sm px-3 py-1 rounded transition-colors ${active ? 'text-parchment bg-neutral-800/70' : 'text-neutral-500 hover:text-neutral-300'}`}
               >
