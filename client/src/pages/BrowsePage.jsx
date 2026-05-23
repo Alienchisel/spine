@@ -182,7 +182,12 @@ export default function BrowsePage() {
 
   return (
     <div>
-      <Link to={backPath} className="text-sm text-neutral-600 hover:text-neutral-300 mb-8 inline-block transition-colors">
+      {/* state.origin carries the deeper-back chain forward: when this page
+          was reached from a BookDetail that itself came from /?tab=all,
+          state.origin holds the original Library tab context. Passing
+          it through here lets BookDetail's back-link restore that tab
+          instead of falling back to the Reading default. */}
+      <Link to={backPath} state={state?.origin ?? undefined} className="text-sm text-neutral-600 hover:text-neutral-300 mb-8 inline-block transition-colors">
         {backLabel}
       </Link>
       <div className="mb-8 flex items-start justify-between gap-4">

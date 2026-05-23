@@ -443,10 +443,16 @@ export default function BookDetail() {
   // returns so the hook order stays consistent (the empty-fallback values
   // are never observed — the guards below skip rendering anything that
   // would read them).
+  // `origin` carries the page's own incoming navState forward to children,
+  // so a deeper page (Series browse, Author) can pass it back when the
+  // user clicks its back-arrow. Without it, the chain
+  // Library/All → Book → Series → back-to-Book → back-to-Library forgets
+  // that Library was on the All tab and lands on Reading (the default).
   const bookFromState = useMemo(() => ({
     from:     book?.title ?? '',
     fromPath: `/books/${id}`,
-  }), [book?.title, id]);
+    origin:   navState ?? null,
+  }), [book?.title, id, navState]);
 
   if (loading) return <div role="status" className="text-neutral-700 text-sm">Loading…</div>;
   if (!book) return <div className="text-neutral-600 text-sm">{loadError ? 'Failed to load book.' : 'Book not found.'}</div>;
