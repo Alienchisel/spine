@@ -134,8 +134,8 @@ function DatesPicker({ birth, death, onChange }) {
           placeholder="2007"
           className="w-28 bg-neutral-900 border border-neutral-700 rounded px-1.5 py-0.5 text-sm text-neutral-200 placeholder-neutral-700 focus:outline-none focus:border-oak/50"
         />
-        <button onClick={commit} className="text-xs text-oak hover:text-leather transition-colors">Save</button>
-        <button onClick={cancel}  className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors">Cancel</button>
+        <button type="button" onClick={commit} className="text-xs text-oak hover:text-leather transition-colors">Save</button>
+        <button type="button" onClick={cancel}  className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors">Cancel</button>
         {error && <span role="alert" className="text-xs text-warn ml-1">{error}</span>}
       </span>
     );
@@ -143,6 +143,7 @@ function DatesPicker({ birth, death, onChange }) {
   const text = lifespan(birth, death);
   return (
     <button
+      type="button"
       onClick={start}
       className="text-sm text-neutral-700 hover:text-neutral-400 hover:underline focus:text-neutral-400 focus:underline focus:outline-none transition-colors"
     >
@@ -450,6 +451,7 @@ export default function Author() {
                   />
                   <div className="flex items-center gap-3 text-xs">
                     <button
+                      type="button"
                       onClick={saveBio}
                       disabled={bioSaving}
                       className="text-oak hover:text-leather transition-colors disabled:opacity-50 disabled:cursor-wait"
@@ -457,6 +459,7 @@ export default function Author() {
                       {bioSaving ? 'Saving…' : 'Save'}
                     </button>
                     <button
+                      type="button"
                       onClick={() => { setBioEditing(false); setBioError(null); }}
                       disabled={bioSaving}
                       className="text-neutral-600 hover:text-neutral-300 transition-colors"
@@ -480,6 +483,7 @@ export default function Author() {
                         toggle. */}
                     {author.bio.length > 280 && (
                       <button
+                        type="button"
                         onClick={() => setBioExpanded(b => !b)}
                         className="text-oak hover:text-leather transition-colors"
                       >
@@ -487,6 +491,7 @@ export default function Author() {
                       </button>
                     )}
                     <button
+                      type="button"
                       onClick={startBioEdit}
                       className="text-neutral-700 hover:text-neutral-400 transition-colors opacity-60 group-hover:opacity-100 group-focus-within:opacity-100"
                     >
@@ -496,6 +501,7 @@ export default function Author() {
                 </>
               ) : (
                 <button
+                  type="button"
                   onClick={startBioEdit}
                   className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors"
                 >
@@ -506,6 +512,7 @@ export default function Author() {
           )}
           {!loading && author && (
             <button
+              type="button"
               onClick={handleManualRefresh}
               disabled={refreshing}
               className="text-[11px] text-neutral-700 hover:text-neutral-400 mt-3 transition-colors disabled:opacity-50 disabled:cursor-wait"
