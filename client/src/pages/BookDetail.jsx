@@ -137,6 +137,11 @@ export default function BookDetail() {
   // to live inside the child.
   const latestIdRef = useLatest(id);
   const [seriesSiblings, setSeriesSiblings] = useState([]);
+  // Cover-paste UX state. busy gates re-entry while an upload + PUT is in
+  // flight; error surfaces a transient inline message under the cover.
+  const [coverBusy, setCoverBusy] = useState(false);
+  const [coverError, setCoverError] = useState(null);
+  const coverBusyRef = useRef(false);
   const refreshTick = useRefreshTick();
 
   function loadReads() {
@@ -196,6 +201,63 @@ export default function BookDetail() {
       .catch(() => { if (idGuard.isFresh(epoch)) setLogError('Failed to load reading log.'); });
     loadReads();
   }, [id, refreshTick]);
+
+  // Paste-to-upload-cover: while on BookDetail, a clipboard image (Cmd/
+  // Ctrl-V on a screenshot or copied jacket art) uploads as this book's
+  // cover. Mirrors the Author page's paste-anywhere portrait upload.
+  // Skips when the paste target is a text field so typing notes / rating
+  // commentary stays unaffected. Two-step: upload the file to /upload,
+  // then PUT the book with the resulting cover_path (a merge-PUT, since
+  // PATCH's whitelist doesn't include cover_path).
+  useEffect(() => {
+    if (!book?.id) return;
+    async function uploadCoverFromFile(file) {
+      if (coverBusyRef.current) return;
+      coverBusyRef.current = true;
+      setCoverBusy(true);
+      setCoverError(null);
+      try {
+        const result = await api.uploadCover(file);
+        // Merge-PUT: re-send the current book's full payload with the
+        // new cover_path, since /books/:id PUT replaces all fields.
+        const payload = {
+          ...book,
+          authors:     (book.authors || []).map(a => a.name),
+          translators: (book.translators || []).map(t => t.name),
+          narrators:   (book.narrators || []).map(n => n.name),
+          tags:        (book.tags || []).filter(t => !t.virtual).map(t => t.name),
+          cover_path:  result.path,
+        };
+        delete payload.editions;
+        delete payload.stories;
+        delete payload.current_story;
+        const updated = await api.updateBook(book.id, payload);
+        setBook(updated);
+      } catch (e) {
+        setCoverError(e.message || 'Failed to upload cover');
+      } finally {
+        coverBusyRef.current = false;
+        setCoverBusy(false);
+      }
+    }
+    function onPaste(e) {
+      // Don't intercept pastes into text fields — notes, edit-rating
+      // comments, etc. should still receive their clipboard contents.
+      const tag = e.target.tagName;
+      const isTextField = (tag === 'INPUT' && e.target.type !== 'file') || tag === 'TEXTAREA' || tag === 'SELECT';
+      if (isTextField) return;
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          if (file) { e.preventDefault(); uploadCoverFromFile(file); return; }
+        }
+      }
+    }
+    document.addEventListener('paste', onPaste);
+    return () => document.removeEventListener('paste', onPaste);
+  }, [book]);
 
   useEffect(() => {
     if (!book?.id) return;
@@ -397,7 +459,10 @@ export default function BookDetail() {
 
       <div className="flex gap-8 sm:gap-10">
         <div className="flex-shrink-0 sticky top-[4.5rem] self-start">
-          <div className={`relative w-[230px] ${book.format === 'audiobook' ? 'h-[230px]' : 'h-[345px]'} bg-neutral-800 rounded overflow-hidden shadow-2xl ring-1 ring-white/5`}>
+          <div
+            className={`relative w-[230px] ${book.format === 'audiobook' ? 'h-[230px]' : 'h-[345px]'} bg-neutral-800 rounded overflow-hidden shadow-2xl ring-1 ring-white/5`}
+            title="Paste an image to set the cover"
+          >
             {book.cover_path ? (
               <img src={book.cover_path} alt="" className="w-full h-full object-cover" />
             ) : (
@@ -411,7 +476,13 @@ export default function BookDetail() {
             {/* Spine-hinge highlight: faint light catching the leftmost edge,
                 suggesting the cover curves slightly toward an unseen spine. */}
             <div className="pointer-events-none absolute inset-y-0 left-0 w-1.5 bg-gradient-to-r from-white/15 to-transparent" />
+            {coverBusy && (
+              <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white text-xs font-medium">
+                Uploading…
+              </div>
+            )}
           </div>
+          {coverError && <p role="alert" className="mt-1.5 text-[11px] text-warn">{coverError}</p>}
 
           <div className="mt-3 border border-neutral-800 rounded-lg overflow-hidden">
             <div className="flex justify-around items-start py-3 px-2">
