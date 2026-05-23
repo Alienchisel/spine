@@ -107,6 +107,7 @@ export default function ListPicker({ bookId, bookTitle, dropUp = false, iconClas
           return (
             <button
               key={list.id}
+              type="button"
               onClick={(e) => handleToggle(e, list.id)}
               disabled={busyIds.has(list.id)}
               role="menuitemcheckbox"
@@ -132,6 +133,7 @@ export default function ListPicker({ bookId, bookTitle, dropUp = false, iconClas
   return (
     <>
       <button
+        type="button"
         ref={buttonRef}
         onClick={handleOpen}
         title={triggerLabel}
