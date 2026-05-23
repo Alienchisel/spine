@@ -151,7 +151,24 @@ router.get('/:id', (req, res) => {
   // index's "1 book" count. The card grid still dims archived covers
   // so the user sees the state at a glance.
   const { books, total } = listBooks({ field: 'author', value: author.name, archived: 'any', sort, limit: 200, offset: 0 });
-  res.json({ ...author, aliases, books, total });
+  // Per-story attributions: every story bylined to this author plus the
+  // parent book it lives inside. Anthology contributors who aren't on the
+  // book's byline would otherwise render as a blank author page (see
+  // story_authors-only authors like Bruce McAllister, Joyce Carol Oates).
+  // Sorted by parent book title then position-within-book so multi-story
+  // contributors group naturally by anthology.
+  const stories = db.prepare(`
+    SELECT s.id   AS story_id,
+           s.title AS story_title,
+           b.id   AS book_id,
+           b.title AS book_title
+    FROM story_authors sa
+    JOIN stories s ON s.id = sa.story_id
+    JOIN books   b ON b.id = s.book_id
+    WHERE sa.author_id = ?
+    ORDER BY b.title COLLATE NOCASE, COALESCE(s.position, 9999), s.id
+  `).all(id);
+  res.json({ ...author, aliases, books, total, stories });
 });
 
 // PATCH author: gender + bio are editable. Empty string / null on

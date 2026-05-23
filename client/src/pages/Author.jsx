@@ -396,6 +396,12 @@ export default function Author() {
           {!loading && author && (
             <p className="text-sm text-neutral-500 mt-1 flex items-center gap-2 flex-wrap">
               <span>{plural(author.total, 'book')}</span>
+              {author.stories?.length > 0 && (
+                <>
+                  <span className="text-neutral-700">·</span>
+                  <span>{plural(author.stories.length, 'story', 'stories')}</span>
+                </>
+              )}
               <span className="text-neutral-700">·</span>
               <GenderPicker
                 value={author.gender}
@@ -518,50 +524,77 @@ export default function Author() {
           <p className="text-neutral-600">Failed to load author. Please try again.</p>
         </div>
       ) : errorKind === 'notfound' ? null
-      : !author?.books?.length ? (
+      : !author?.books?.length && !author?.stories?.length ? (
         <div className="text-neutral-600 text-sm">No books found.</div>
       ) : (() => {
-        const allBooks      = author.books;
+        const allBooks      = author.books || [];
+        const stories       = author.stories || [];
         const archivedCount = allBooks.filter(b => b.archived).length;
         const visibleBooks  = showArchived ? allBooks : allBooks.filter(b => !b.archived);
         return (
           <>
-            <div className="mb-4 flex items-center gap-4 flex-wrap">
-              <label className="inline-flex items-center gap-1.5 text-xs text-neutral-500">
-                <span>Sort:</span>
-                <select
-                  value={sort}
-                  onChange={(e) => setSort(e.target.value)}
-                  className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-xs text-neutral-300 hover:text-neutral-100 focus:outline-none focus:border-oak/50 cursor-pointer transition-colors"
-                  aria-label="Sort author's books"
-                >
-                  <option value="year_published">Chronological</option>
-                  <option value="year_published_desc">Reverse chronological</option>
-                  <option value="title">Title</option>
-                  <option value="rating">Rating</option>
-                  <option value="added">Recently added</option>
-                </select>
-              </label>
-              {archivedCount > 0 && (
-                <label className="inline-flex items-center gap-1.5 text-xs text-neutral-500 cursor-pointer hover:text-neutral-300 transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={showArchived}
-                    onChange={(e) => setShowArchived(e.target.checked)}
-                    className="accent-oak"
-                  />
-                  <span>Show archived ({archivedCount})</span>
-                </label>
-              )}
-            </div>
-            {visibleBooks.length === 0 ? (
-              <div className="text-neutral-600 text-sm">
-                No active books — {plural(archivedCount, 'book')} archived.
-              </div>
-            ) : (
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-3 gap-y-5 items-start">
-                {visibleBooks.map(book => <BookCard key={book.id} book={book} linkState={fromState} />)}
-              </div>
+            {allBooks.length > 0 && (
+              <>
+                <div className="mb-4 flex items-center gap-4 flex-wrap">
+                  <label className="inline-flex items-center gap-1.5 text-xs text-neutral-500">
+                    <span>Sort:</span>
+                    <select
+                      value={sort}
+                      onChange={(e) => setSort(e.target.value)}
+                      className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-xs text-neutral-300 hover:text-neutral-100 focus:outline-none focus:border-oak/50 cursor-pointer transition-colors"
+                      aria-label="Sort author's books"
+                    >
+                      <option value="year_published">Chronological</option>
+                      <option value="year_published_desc">Reverse chronological</option>
+                      <option value="title">Title</option>
+                      <option value="rating">Rating</option>
+                      <option value="added">Recently added</option>
+                    </select>
+                  </label>
+                  {archivedCount > 0 && (
+                    <label className="inline-flex items-center gap-1.5 text-xs text-neutral-500 cursor-pointer hover:text-neutral-300 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={showArchived}
+                        onChange={(e) => setShowArchived(e.target.checked)}
+                        className="accent-oak"
+                      />
+                      <span>Show archived ({archivedCount})</span>
+                    </label>
+                  )}
+                </div>
+                {visibleBooks.length === 0 ? (
+                  <div className="text-neutral-600 text-sm">
+                    No active books — {plural(archivedCount, 'book')} archived.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-3 gap-y-5 items-start">
+                    {visibleBooks.map(book => <BookCard key={book.id} book={book} linkState={fromState} />)}
+                  </div>
+                )}
+              </>
+            )}
+            {stories.length > 0 && (
+              <section className={allBooks.length > 0 ? 'mt-10' : ''} aria-labelledby="author-stories-heading">
+                <h2 id="author-stories-heading" className="text-[11px] font-medium text-neutral-500 uppercase tracking-wider mb-2">
+                  {plural(stories.length, 'story', 'stories')}
+                </h2>
+                <ul className="space-y-1.5">
+                  {stories.map(s => (
+                    <li key={s.story_id} className="text-sm text-neutral-300">
+                      <span className="text-neutral-200">&ldquo;{s.story_title}&rdquo;</span>
+                      <span className="text-neutral-500"> in </span>
+                      <Link
+                        to={`/books/${s.book_id}`}
+                        state={fromState}
+                        className="italic text-neutral-300 hover:text-parchment transition-colors"
+                      >
+                        {s.book_title}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
             )}
           </>
         );
