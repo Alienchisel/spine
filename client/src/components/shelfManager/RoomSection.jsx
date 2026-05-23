@@ -44,7 +44,7 @@ function RoomSection({ room, dragHandle, onEdit, onDelete, onAddUnit, onReorderU
       <div className="flex items-center justify-between py-1.5 pl-6 pr-2 group">
         <div className="flex items-center gap-1 min-w-0">
           <span className="opacity-30 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">{dragHandle}</span>
-          <button onClick={() => setOpen(o => !o)} className="flex items-center gap-1.5 text-left min-w-0">
+          <button type="button" onClick={() => setOpen(o => !o)} className="flex items-center gap-1.5 text-left min-w-0">
             <span className="text-neutral-600 text-xs w-3 flex-shrink-0">{open ? '▾' : '▸'}</span>
             <span className="text-xs text-neutral-200">{room.name}</span>
             <span className="text-xs text-neutral-600 ml-1">{plural(room.units.length, 'unit')}</span>
@@ -52,10 +52,10 @@ function RoomSection({ room, dragHandle, onEdit, onDelete, onAddUnit, onReorderU
         </div>
         <div className="flex items-center gap-2 opacity-30 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
           {open && !adding && (
-            <button onClick={() => setAdding(true)} className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors whitespace-nowrap">+ unit</button>
+            <button type="button" onClick={() => setAdding(true)} className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors whitespace-nowrap">+ unit</button>
           )}
-          <button onClick={() => setEditing(true)} title="Rename room" aria-label="Rename room" className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors">✎</button>
-          <button onClick={() => onDelete(room.id)} title="Delete room" aria-label="Delete room" className="text-xs text-neutral-600 hover:text-warn transition-colors">×</button>
+          <button type="button" onClick={() => setEditing(true)} title="Rename room" aria-label="Rename room" className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors">✎</button>
+          <button type="button" onClick={() => onDelete(room.id)} title="Delete room" aria-label="Delete room" className="text-xs text-neutral-600 hover:text-warn transition-colors">×</button>
         </div>
       </div>
       {open && (

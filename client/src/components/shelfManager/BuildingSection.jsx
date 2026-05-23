@@ -70,7 +70,7 @@ function BuildingSection({ building, dragHandle, onEdit, onDelete, onAddRoom, on
       <div className="flex items-center justify-between px-4 py-3 bg-neutral-900/50 group">
         <div className="flex items-center gap-1 min-w-0">
           <span className="opacity-30 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">{dragHandle}</span>
-          <button onClick={() => setOpen(o => !o)} className="flex items-center gap-2 text-left min-w-0">
+          <button type="button" onClick={() => setOpen(o => !o)} className="flex items-center gap-2 text-left min-w-0">
             <span className="text-neutral-500 text-xs w-3 flex-shrink-0">{open ? '▾' : '▸'}</span>
           <span className="text-sm font-medium text-parchment">{building.name}</span>
           <span className="text-xs text-neutral-600 bg-neutral-800 px-1.5 py-0.5 rounded">
@@ -81,10 +81,10 @@ function BuildingSection({ building, dragHandle, onEdit, onDelete, onAddRoom, on
         </div>
         <div className="flex items-center gap-2 opacity-30 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
           {open && !adding && (
-            <button onClick={() => setAdding(true)} className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors whitespace-nowrap">+ room</button>
+            <button type="button" onClick={() => setAdding(true)} className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors whitespace-nowrap">+ room</button>
           )}
-          <button onClick={startEditing} title="Rename building" aria-label="Rename building" className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors">✎</button>
-          <button onClick={() => onDelete(building.id)} title="Delete building" aria-label="Delete building" className="text-xs text-neutral-600 hover:text-warn transition-colors">×</button>
+          <button type="button" onClick={startEditing} title="Rename building" aria-label="Rename building" className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors">✎</button>
+          <button type="button" onClick={() => onDelete(building.id)} title="Delete building" aria-label="Delete building" className="text-xs text-neutral-600 hover:text-warn transition-colors">×</button>
         </div>
       </div>
       {open && (
