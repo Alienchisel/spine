@@ -701,6 +701,7 @@ export default function Library() {
               {TABS.map((t) => (
                 <button
                   key={t.key}
+                  type="button"
                   onClick={() => {
                     setTab(t.key);
                     setExpandedSeries(new Set());
@@ -761,6 +762,7 @@ export default function Library() {
             )}
             {tab === 'never_owned' && (
               <button
+                type="button"
                 onClick={toggleEditMode}
                 // Always clickable. A click that isn't already in
                 // editMode triggers the enteringEdit flow: switch to
@@ -816,6 +818,7 @@ export default function Library() {
               </div>
             </div>
             <button
+              type="button"
               onClick={() => setFiltersOpen(o => !o)}
               className={`flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg whitespace-nowrap transition-[transform,background-color,color] ease-out duration-150 motion-safe:active:scale-[0.98] ${
                 filtersOpen || activeCount > 0
@@ -833,6 +836,7 @@ export default function Library() {
             </button>
             {activeCount > 0 && (
               <button
+                type="button"
                 onClick={() => setFilters(EMPTY_FILTERS)}
                 className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors whitespace-nowrap"
               >
@@ -925,6 +929,7 @@ export default function Library() {
             <div className="mt-10 flex flex-col items-center gap-2">
               <div className="flex justify-center gap-3">
                 <button
+                  type="button"
                   onClick={handleLoadMore}
                   disabled={loadingMore || loadingAll}
                   className="text-sm text-neutral-500 hover:text-neutral-200 disabled:opacity-40 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
@@ -932,6 +937,7 @@ export default function Library() {
                   {loadingMore ? 'Loading…' : `Load more · ${total - loadedRef.current} remaining`}
                 </button>
                 <button
+                  type="button"
                   onClick={handleLoadAll}
                   disabled={loadingMore || loadingAll}
                   className="text-sm text-neutral-500 hover:text-neutral-200 disabled:opacity-40 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
