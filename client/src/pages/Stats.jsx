@@ -301,6 +301,7 @@ function GoalCard({ label, current, goal, onSave, onEditStart, color = 'bg-oak' 
               type="number" min="1" autoFocus
               value={input} onChange={e => setInput(e.target.value)}
               onBlur={(e) => { if (e.relatedTarget?.type === 'submit') return; setEditing(false); }}
+              aria-label={`Set ${label.toLowerCase()} goal`}
               className="w-16 bg-neutral-800 border border-neutral-600 text-parchment text-xs rounded px-2 py-0.5 focus:outline-none focus:border-oak/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
             <button type="submit" className="text-xs text-oak hover:text-leather transition-colors">set</button>
