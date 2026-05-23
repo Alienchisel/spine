@@ -366,11 +366,11 @@ export default function ShelfManager() {
               </select>
             </div>
             <div className="flex gap-3">
-              <button onClick={addBuilding} disabled={!newBuildingName.trim()}
+              <button type="button" onClick={addBuilding} disabled={!newBuildingName.trim()}
                 className="text-xs bg-oak hover:bg-leather disabled:opacity-40 text-neutral-950 font-semibold px-3 py-1.5 rounded transition-colors">
                 Add building
               </button>
-              <button onClick={() => setAddingBuilding(false)}
+              <button type="button" onClick={() => setAddingBuilding(false)}
                 className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors">
                 Cancel
               </button>
@@ -378,6 +378,7 @@ export default function ShelfManager() {
           </div>
         ) : (
           <button
+            type="button"
             onClick={() => setAddingBuilding(true)}
             className="text-sm text-neutral-600 hover:text-neutral-300 transition-colors"
           >
