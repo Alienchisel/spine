@@ -54,6 +54,7 @@ function SortableShelfCover({ book, linkState, focused }) {
           </div>
         </Link>
         <button
+          type="button"
           {...listeners}
           className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-sm rounded px-2 py-1 text-neutral-500 hover:text-neutral-200 transition-colors cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
           aria-label="Drag to reorder"
@@ -107,6 +108,7 @@ function pathResolves(tree, buildingId, roomId, unitId, shelfId) {
 function LevelCard({ primary, secondary, onClick }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       className="text-left w-full bg-neutral-900 border border-neutral-800 rounded-lg p-4 hover:border-neutral-600 hover:bg-neutral-800/50 transition-colors group"
     >
@@ -138,6 +140,7 @@ function ShelfRow({ shelf, books, onReorder, onLabelClick, linkState }) {
     <div className="mb-8 last:mb-0">
       <div className="flex items-baseline gap-3 mb-2 px-4 sm:px-6 lg:px-8">
         <button
+          type="button"
           onClick={onLabelClick}
           className="text-xs font-semibold text-neutral-500 uppercase tracking-widest hover:text-neutral-300 transition-colors"
         >
@@ -459,7 +462,7 @@ export default function ShelfView() {
             <span key={i} className="flex items-center gap-1.5">
               {i > 0 && <span className="text-neutral-800">/</span>}
               {c.action ? (
-                <button onClick={c.action} className="hover:text-neutral-200 transition-colors">
+                <button type="button" onClick={c.action} className="hover:text-neutral-200 transition-colors">
                   {c.label}
                 </button>
               ) : (
