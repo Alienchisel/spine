@@ -24,6 +24,7 @@ export default function RouteError() {
       </p>
       <div className="flex items-center gap-4 text-sm">
         <button
+          type="button"
           onClick={() => window.location.reload()}
           className="text-neutral-400 hover:text-neutral-200 transition-colors"
         >
