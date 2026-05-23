@@ -697,11 +697,13 @@ export default function Library() {
             the tab strip in 1.20.0. */}
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-1.5">
-            <div className="flex gap-1 bg-neutral-900 p-1 rounded-lg w-fit">
+            <div role="tablist" aria-label="Library view" className="flex gap-1 bg-neutral-900 p-1 rounded-lg w-fit">
               {TABS.map((t) => (
                 <button
                   key={t.key}
                   type="button"
+                  role="tab"
+                  aria-selected={tab === t.key}
                   onClick={() => {
                     setTab(t.key);
                     setExpandedSeries(new Set());
