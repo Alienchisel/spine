@@ -145,9 +145,9 @@ function ReadingCalendar({ days, selectedYear, totals, onDayClick }) {
       </div>
 
       <div className="flex items-center justify-between mb-3">
-        <button onClick={prevMonth} disabled={atStart} aria-label="Previous month" className="text-neutral-600 hover:text-neutral-300 transition-colors w-6 text-center disabled:opacity-20">‹</button>
+        <button type="button" onClick={prevMonth} disabled={atStart} aria-label="Previous month" className="text-neutral-600 hover:text-neutral-300 transition-colors w-6 text-center disabled:opacity-20">‹</button>
         <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">{monthLabel}</span>
-        <button onClick={nextMonth} disabled={atEnd}  aria-label="Next month"     className="text-neutral-600 hover:text-neutral-300 transition-colors w-6 text-center disabled:opacity-20">›</button>
+        <button type="button" onClick={nextMonth} disabled={atEnd}  aria-label="Next month"     className="text-neutral-600 hover:text-neutral-300 transition-colors w-6 text-center disabled:opacity-20">›</button>
       </div>
 
       <div className="grid grid-cols-7 mb-1">
@@ -405,6 +405,7 @@ function DiaryEntry({ entry, onDelete }) {
       </div>
       {progress && <span className="text-xs text-neutral-500 flex-shrink-0">{progress}</span>}
       <button
+        type="button"
         onClick={() => onDelete(entry.id)}
         className="text-neutral-700 hover:text-red-400 transition-colors text-lg leading-none flex-shrink-0 opacity-30 group-hover:opacity-100 group-focus-within:opacity-100"
         title="Remove entry"
@@ -561,7 +562,7 @@ export default function Diary() {
           {deleteError && (
             <div role="alert" className="flex items-center justify-between bg-red-950/40 border border-red-900/50 rounded-lg px-4 py-2 mb-4 text-xs text-red-400">
               {deleteError}
-              <button onClick={() => setDeleteError(null)} className="ml-4 text-red-600 hover:text-red-400">×</button>
+              <button type="button" onClick={() => setDeleteError(null)} className="ml-4 text-red-600 hover:text-red-400">×</button>
             </div>
           )}
           {/* Side-by-side layout: entries on the left, vertical
