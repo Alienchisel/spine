@@ -221,7 +221,7 @@ export default function Readlist() {
     <div>
       <div className="flex items-baseline justify-between mb-6">
         <h1 className="text-xl font-bold text-white">Readlist</h1>
-        <div className="flex items-center gap-1">
+        <div role="tablist" aria-label="Readlist view" className="flex items-center gap-1">
           {TABS.map(t => {
             const n = counts[t.key];
             const active = tab === t.key;
@@ -229,6 +229,8 @@ export default function Readlist() {
               <button
                 key={t.key}
                 type="button"
+                role="tab"
+                aria-selected={active}
                 onClick={() => setTab(t.key)}
                 className={`text-sm px-3 py-1 rounded transition-colors ${active ? 'text-parchment bg-neutral-800/70' : 'text-neutral-500 hover:text-neutral-300'}`}
               >
