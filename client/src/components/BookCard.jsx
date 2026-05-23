@@ -298,6 +298,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
             // these buttons would compete with it for the same anchor.
             <div className="absolute inset-x-3 bottom-3 flex justify-center items-center gap-4 px-3 py-1.5 bg-black/65 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
               <button
+                type="button"
                 onClick={toggleReadlist}
                 disabled={listGuard.busy}
                 className={`leading-none transition-colors disabled:opacity-50 ${book.on_readlist ? 'text-sky-400 hover:text-sky-300' : 'text-white hover:text-sky-300'}`}
@@ -310,6 +311,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
                 </svg>
               </button>
               <button
+                type="button"
                 onClick={toggleLoved}
                 disabled={loveGuard.busy}
                 className={`leading-none text-2xl transition-colors disabled:opacity-50 ${book.loved ? 'text-red-400 hover:text-red-300' : 'text-white hover:text-red-300'}`}
