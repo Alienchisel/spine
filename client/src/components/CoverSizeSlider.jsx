@@ -15,6 +15,7 @@ export default function CoverSizeSlider({ size, onChange, min = 1, max = 9 }) {
         className="w-24 accent-oak cursor-pointer"
         title={`Cover size ${size} of ${max}`}
         aria-label="Cover size"
+        aria-valuetext={size === min ? 'Largest' : size === max ? 'Smallest' : `Size ${size} of ${max}`}
       />
       {/* 3×3 grid glyph as the visual anchor — same shape as Plex's
           slider terminus. Doesn't track size; it's purely the dial's
