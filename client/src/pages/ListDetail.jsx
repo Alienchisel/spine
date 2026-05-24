@@ -281,17 +281,44 @@ export default function ListDetail() {
     setActionError(null);
     setLoadingMore(false);
     setLoadingAll(false);
+    // Restore the previously-loaded depth on same-key refreshTick
+    // refetches so alt-tabbing back doesn't shrink a Load-all'd view
+    // back to page 1. The 'added' sort is unpaginated (server returns
+    // the whole list), so depth restoration is a no-op there.
+    const prevDepth = isRealChange ? 0 : loadedRef.current;
     loadedRef.current = 0;
-    const params = sort === 'added' ? { sort } : { sort, limit: PAGE_SIZE, offset: 0 };
-    api.getList(id, params)
-      .then(data => {
-        if (!guard.isFresh(epoch)) return;
-        setList(data);
-        setTotal(data.total);
-        loadedRef.current = data.books.length;
-      })
-      .catch(() => { if (guard.isFresh(epoch)) setError('Failed to load list.'); })
-      .finally(() => { if (guard.isFresh(epoch)) setLoading(false); });
+    (async () => {
+      try {
+        if (sort === 'added') {
+          const data = await api.getList(id, { sort });
+          if (!guard.isFresh(epoch)) return;
+          setList(data);
+          setTotal(data.total);
+          loadedRef.current = data.books.length;
+          return;
+        }
+        let merged = null;
+        let serverTotal = 0;
+        const target = Math.max(PAGE_SIZE, prevDepth);
+        while (guard.isFresh(epoch)) {
+          const offset = merged ? merged.books.length : 0;
+          const data = await api.getList(id, { sort, limit: PAGE_SIZE, offset });
+          if (!guard.isFresh(epoch)) return;
+          serverTotal = data.total;
+          merged = merged ? { ...merged, ...data, books: [...merged.books, ...data.books] } : data;
+          if (data.books.length === 0) break;
+          if (merged.books.length >= Math.min(target, serverTotal)) break;
+        }
+        if (!guard.isFresh(epoch) || !merged) return;
+        setList(merged);
+        setTotal(serverTotal);
+        loadedRef.current = merged.books.length;
+      } catch {
+        if (guard.isFresh(epoch)) setError('Failed to load list.');
+      } finally {
+        if (guard.isFresh(epoch)) setLoading(false);
+      }
+    })();
   }, [id, sort, refreshTick]);
 
   const loadMore = useCallback(async () => {

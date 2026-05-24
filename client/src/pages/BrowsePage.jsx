@@ -115,16 +115,35 @@ export default function BrowsePage() {
     setLoadingMore(false);
     setLoadingAll(false);
     setActionError(null);
+    // Restore the previously-loaded depth on same-target refreshTick
+    // refetches so alt-tabbing back doesn't shrink a Load-all'd view
+    // back to page 1. On a real navigation the visible list was wiped
+    // above, prevDepth=0, and the loop fetches just the first page.
+    const prevDepth = isSameTarget ? loadedRef.current : 0;
     loadedRef.current = 0;
-    api.getBooks({ field, value: decoded, sort: browseSort(field), limit: PAGE_SIZE, offset: 0 })
-      .then(({ books: b, total: t }) => {
+    (async () => {
+      try {
+        const collected = [];
+        let serverTotal = 0;
+        const target = Math.max(PAGE_SIZE, prevDepth);
+        while (guard.isFresh(epoch)) {
+          const { books: b, total: t } = await api.getBooks({ field, value: decoded, sort: browseSort(field), limit: PAGE_SIZE, offset: collected.length });
+          if (!guard.isFresh(epoch)) return;
+          collected.push(...b);
+          serverTotal = t;
+          if (b.length === 0) break;
+          if (collected.length >= Math.min(target, serverTotal)) break;
+        }
         if (!guard.isFresh(epoch)) return;
-        setBooks(b);
-        setTotal(t);
-        loadedRef.current = b.length;
-      })
-      .catch(() => { if (guard.isFresh(epoch)) setFetchError(true); })
-      .finally(() => { if (guard.isFresh(epoch)) setLoading(false); });
+        setBooks(collected);
+        setTotal(serverTotal);
+        loadedRef.current = collected.length;
+      } catch {
+        if (guard.isFresh(epoch)) setFetchError(true);
+      } finally {
+        if (guard.isFresh(epoch)) setLoading(false);
+      }
+    })();
   }, [field, decoded, refreshTick]);
 
   function handleLoadMore() {
