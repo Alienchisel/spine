@@ -2,6 +2,19 @@ import { useId } from 'react';
 import ChipInput from './ChipInput.jsx';
 import { input, label, MARKDOWN_HINT, submitOnModEnter } from './styles.js';
 
+// year_edition's meaning shifts by format (see MetadataList.editionLabel):
+// physical = printing year, audiobook = recording year, ebook = text
+// version year (translation year when a translator is set). Label the
+// form input the same way so the field's purpose is unambiguous as the
+// user fills it in.
+function editionYearLabel(form, translatorInput) {
+  const hasTranslator = (form.translators?.length || 0) > 0 || (translatorInput?.trim().length || 0) > 0;
+  if (form.format === 'physical')  return 'Printing year';
+  if (form.format === 'audiobook') return 'Recording year';
+  if (form.format === 'ebook')     return hasTranslator ? 'Translation year' : 'Text year';
+  return 'Edition year';
+}
+
 export default function DetailsFields({ form, set, ic, pastLanguages, pastTranslators, pastPublishers, translatorInput, setTranslatorInput }) {
   const idPfx = useId();
   const idFor = (k) => `${idPfx}-${k}`;
@@ -69,7 +82,7 @@ export default function DetailsFields({ form, set, ic, pastLanguages, pastTransl
           )}
         </div>
         <div>
-          <label htmlFor={idFor('year_edition')} className={label}>Edition year</label>
+          <label htmlFor={idFor('year_edition')} className={label}>{editionYearLabel(form, translatorInput)}</label>
           <input id={idFor('year_edition')} type="number" min="-9999" max="9999" className={input}
             value={form.year_edition} onChange={(e) => set('year_edition', e.target.value)}
             placeholder="e.g. 1999" />
