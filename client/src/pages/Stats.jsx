@@ -67,6 +67,17 @@ function DonutChart({ title, data }) {
   );
 }
 
+// For the Oldest/Newest edition record cards. Books are ranked server-side
+// by COALESCE(year_edition, year_published), so display the same year and
+// label it according to which one was used — otherwise a 2020 reprint of a
+// 1600 work shows as "newest edition" but reads "Published 1600."
+function editionRecordValue(book) {
+  if (!book) return null;
+  const y = book.year_edition ?? book.year_published;
+  if (y == null) return null;
+  return `${book.year_edition ? 'Edition' : 'Published'} ${formatYear(y)}`;
+}
+
 function RecordCard({ label, book, value }) {
   if (!book) return null;
   return (
@@ -833,8 +844,13 @@ export default function Stats() {
                 <div>
                   <h3 className={subhead}>Edition</h3>
                   <div className={subgrid}>
-                    <RecordCard label="Oldest edition" book={records.oldestEdition} value={records.oldestEdition?.year_published != null ? `Published ${formatYear(records.oldestEdition.year_published)}` : null} />
-                    <RecordCard label="Newest edition" book={records.newestEdition} value={records.newestEdition?.year_published != null ? `Published ${formatYear(records.newestEdition.year_published)}` : null} />
+                    {/* Records are ranked by COALESCE(year_edition, year_published)
+                        per lib/stats/records — display the same year, with a
+                        label that reflects which one was actually used so a
+                        2020 reprint of a 17th-c. work doesn't show "1600"
+                        next to "Newest edition." */}
+                    <RecordCard label="Oldest edition" book={records.oldestEdition} value={editionRecordValue(records.oldestEdition)} />
+                    <RecordCard label="Newest edition" book={records.newestEdition} value={editionRecordValue(records.newestEdition)} />
                   </div>
                 </div>
               )}
