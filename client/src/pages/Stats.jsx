@@ -398,13 +398,14 @@ export default function Stats() {
   if (!stats && error) return <div role="alert" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-warn text-sm">{error}</div>;
   if (!stats) return null;
 
-  const { totals, formats, fiction, ownedStatus, ratings, acquisitionSources, pagesRead, minutesListened, byYear, acquiredByYear = [], byMonth = [], topAuthors, topNarrators, languages, authorsByGender = { male: 0, female: 0, other: 0, unassigned: 0 }, streaks, todayPages, thisYearBooks, thisYearPages, topTags, topSeries, avgPagesPerDay, avgDaysToFinish, inProgressPace = [], decadesPublished = [], records } = stats;
+  const { totals, formats, fiction, ownedStatus, ratings, acquisitionSources, pagesRead, minutesListened, byYear, acquiredByYear = [], byMonth = [], topAuthors, topLovedAuthors = [], topNarrators, languages, authorsByGender = { male: 0, female: 0, other: 0, unassigned: 0 }, streaks, todayPages, thisYearBooks, thisYearPages, topTags, topSeries, avgPagesPerDay, avgDaysToFinish, inProgressPace = [], decadesPublished = [], records } = stats;
 
   const maxRating = Math.max(...ratings.map(r => r.count), 1);
   const maxYear     = Math.max(...byYear.map(y => y.count), 1);
   const maxAcquired = Math.max(...acquiredByYear.map(y => y.count), 1);
   const maxMonth  = Math.max(...byMonth.map(m => m.days), 1);
   const maxAuthor   = Math.max(...topAuthors.map(a => a.count), 1);
+  const maxLovedAuthor = Math.max(...topLovedAuthors.map(a => a.count), 1);
   const maxNarrator = Math.max(...(topNarrators?.map(n => n.count) || []), 1);
 
   // Hero numbers up top: the four headline figures the user is most
@@ -912,6 +913,29 @@ export default function Stats() {
                   color="bg-binding"
                   href={a.author_id ? `/authors/${a.author_id}` : `/browse/author/${encodeURIComponent(a.author)}`}
                   caption={plural(a.count, 'book')}
+                />
+              ))}
+            </div>
+          </Section>
+        )}
+
+        {/* Most-loved authors: a derived "favorite authors" surface that
+            piggybacks on per-book loved flags rather than an explicit
+            author-level favorite, ranking by count of loved books per
+            author (alias-collapsed). Skipped entirely when nothing is
+            loved-flagged. */}
+        {topLovedAuthors.length > 0 && (
+          <Section title="Most-loved authors">
+            <div className="space-y-2.5">
+              {topLovedAuthors.map(a => (
+                <Bar
+                  key={a.author_id ?? a.author}
+                  label={a.aliases_count > 0 ? `${a.author} +${a.aliases_count}` : a.author}
+                  count={a.count}
+                  max={maxLovedAuthor}
+                  color="bg-rose-500/70"
+                  href={a.author_id ? `/authors/${a.author_id}` : `/browse/author/${encodeURIComponent(a.author)}`}
+                  caption={`${a.count} loved`}
                 />
               ))}
             </div>
