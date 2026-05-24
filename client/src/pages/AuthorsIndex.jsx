@@ -169,7 +169,7 @@ export default function AuthorsIndex() {
       {loading && <p role="status" className="text-sm text-neutral-500">Loading…</p>}
       {error && <p role="alert" className="text-sm text-warn">{error}</p>}
 
-      {!loading && !error && (
+      {!loading && !error && filtered.length > 0 && (
         <table className="w-full text-sm">
           <thead className="text-xs uppercase tracking-wider text-neutral-600 border-b border-neutral-800/60">
             <tr>
