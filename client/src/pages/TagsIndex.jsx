@@ -116,7 +116,7 @@ export default function TagsIndex() {
         </select>
       </div>
 
-      {loading && <p className="text-sm text-neutral-500">Loading…</p>}
+      {loading && <p role="status" className="text-sm text-neutral-500">Loading…</p>}
       {error && <p role="alert" className="text-sm text-warn">{error}</p>}
 
       {!loading && !error && (
