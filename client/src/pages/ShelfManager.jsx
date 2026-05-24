@@ -355,11 +355,13 @@ export default function ShelfManager() {
                 onChange={e => setNewBuildingName(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') addBuilding(); if (e.key === 'Escape') setAddingBuilding(false); }}
                 placeholder="e.g. Home, Office, Storage…"
+                aria-label="New building name"
                 className="flex-1 bg-neutral-800 border border-neutral-700 rounded px-3 py-1.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-oak/50"
               />
               <select
                 value={newBuildingProximity}
                 onChange={e => setNewBuildingProximity(e.target.value)}
+                aria-label="Proximity"
                 className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1.5 text-sm text-neutral-300 focus:outline-none"
               >
                 {PROXIMITY_OPTIONS.map(p => <option key={p} value={p}>{PROXIMITY_LABEL[p]}</option>)}
