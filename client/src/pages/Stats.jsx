@@ -505,7 +505,7 @@ export default function Stats() {
       <Section title="Streaks">
         <div className="grid grid-cols-3 gap-3">
           <div className="bg-card rounded-lg p-4 space-y-3">
-            <p className="text-xs text-neutral-500 uppercase tracking-wider font-semibold">Daily</p>
+            <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Daily</p>
             <div className="flex justify-between items-end">
               <div>
                 <div className="text-2xl font-semibold text-parchment">{streaks.days.current}</div>
@@ -526,7 +526,7 @@ export default function Stats() {
             </div>
           </div>
           <div className="bg-card rounded-lg p-4 space-y-3">
-            <p className="text-xs text-neutral-500 uppercase tracking-wider font-semibold">Weekly</p>
+            <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Weekly</p>
             <div className="flex justify-between items-end">
               <div>
                 <div className="text-2xl font-semibold text-parchment">{streaks.weeks.current}</div>
@@ -547,7 +547,7 @@ export default function Stats() {
             </div>
           </div>
           <div className="bg-card rounded-lg p-4 space-y-3">
-            <p className="text-xs text-neutral-500 uppercase tracking-wider font-semibold">Monthly</p>
+            <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Monthly</p>
             <div className="flex justify-between items-end">
               <div>
                 <div className="text-2xl font-semibold text-parchment">{streaks.months.current}</div>
