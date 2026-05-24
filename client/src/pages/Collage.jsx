@@ -359,14 +359,15 @@ export default function Collage() {
         // through tile content, and a label would just add chrome.
         <div ref={gridRef}>
           {(mode === 'top_books' || mode === 'top_authors') && (
-            // Explainer — the ranking comes from reading_log sessions
-            // (pages_read + minutes_read summed), so a finished book
-            // with no logged sessions doesn't appear. Format doesn't
-            // filter; only logged activity does.
+            // Explainer — the ranking comes from reading_log sessions,
+            // so a finished book with no logged sessions doesn't
+            // appear. Activity is measured in pages; audiobook minutes
+            // are converted to pages per-book via page_count /
+            // duration_minutes, matching the SQL in lib/stats/collage.
             <p className="text-[11px] text-neutral-600 mb-3">
               {mode === 'top_books'
-                ? 'Ranked by minutes of reading-log activity — pages converted to minutes at ~2 min/page so audiobooks and page-logged books rank in the same unit.'
-                : 'Ranked by minutes of reading-log activity across each author’s books — pages converted at ~2 min/page so all formats share one unit.'}
+                ? 'Ranked by reading-log activity in pages — audiobook minutes are converted to pages using each book’s own page-count and total duration, so all formats compare in the same unit.'
+                : 'Ranked by reading-log activity across each author’s books, counted in pages (audiobook minutes converted per book). A co-authored book contributes its full activity to every listed author, mirroring Last.fm’s artist-play semantics.'}
             </p>
           )}
           <div className="grid gap-2" style={gridStyle}>
