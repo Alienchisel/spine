@@ -1,6 +1,6 @@
 import { sortVolumes } from './grouping.js';
 
-export default function SeriesCard({ seriesName, books, expanded, onToggle, compact }) {
+export default function SeriesCard({ seriesName, books, seriesTotal, expanded, onToggle, compact }) {
   const sorted = sortVolumes(books);
   const statusCounts = books.reduce((acc, b) => {
     acc[b.status] = (acc[b.status] || 0) + 1;
@@ -11,6 +11,12 @@ export default function SeriesCard({ seriesName, books, expanded, onToggle, comp
     statusCounts.finished && `${statusCounts.finished} finished`,
     statusCounts.unread   && `${statusCounts.unread} unread`,
   ].filter(Boolean);
+  // Show "13/25" in the badge when the library has more books in this
+  // series than the current view has loaded — see Library.jsx's
+  // seriesTotals fetch. Falls back to the loaded count when total is
+  // unknown (fetch failed / hasn't returned) or fully loaded.
+  const isPartial = seriesTotal != null && seriesTotal > books.length;
+  const countLabel = isPartial ? `${books.length}/${seriesTotal}` : `${books.length}`;
 
   return (
     <button
@@ -19,6 +25,7 @@ export default function SeriesCard({ seriesName, books, expanded, onToggle, comp
       title={[
         seriesName,
         sorted[0]?.authors?.map(a => a.name).join(', '),
+        isPartial ? `${books.length} of ${seriesTotal} loaded` : null,
         statusParts.join(' · '),
       ].filter(Boolean).join(' — ')}
       aria-label={seriesName}
@@ -55,8 +62,8 @@ export default function SeriesCard({ seriesName, books, expanded, onToggle, comp
             </div>
           );
         })}
-        <div className="absolute top-1.5 right-1.5 bg-black/75 text-neutral-300 text-xs font-bold px-1.5 py-0.5 rounded backdrop-blur-sm leading-none">
-          {books.length}
+        <div className="absolute top-1.5 right-1.5 bg-black/75 text-neutral-300 text-xs font-bold px-1.5 py-0.5 rounded backdrop-blur-sm leading-none tabular-nums">
+          {countLabel}
         </div>
         <div className={`pointer-events-none absolute inset-0 ring-2 ring-inset ring-binding/25 group-hover:ring-[#ffffff99] transition-[box-shadow] duration-200 ${compact ? 'rounded-sm' : 'rounded'}`} />
       </div>

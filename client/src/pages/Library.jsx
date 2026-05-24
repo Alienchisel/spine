@@ -254,6 +254,17 @@ export default function Library() {
   const [counts,      setCounts]      = useState({});
   const [countsError, setCountsError] = useState(false);
   const [expandedSeries, setExpandedSeries] = useState(new Set());
+  // Library-wide series totals, keyed by series name → book_count. Fetched
+  // once on mount from /api/series so the SeriesCard badge can render
+  // "13/25" when the current view has only loaded part of a series instead
+  // of misleadingly showing just "13" as if that were the series' size.
+  // Failure is silent — the badge falls back to the loaded count.
+  const [seriesTotals, setSeriesTotals] = useState(new Map());
+  useEffect(() => {
+    api.getSeries().then(rows => {
+      setSeriesTotals(new Map(rows.map(r => [r.name, r.book_count])));
+    }).catch(() => {});
+  }, []);
   // Edit mode toggles drag handles on cards for the Custom-order rank on the
   // Never owned tab. Mirrors ListDetail.editMode. Only meaningful when
   // tab='never_owned' && sort='custom' — entering edit mode coerces both.
@@ -911,6 +922,7 @@ export default function Library() {
                     key={item.name}
                     seriesName={item.name}
                     books={item.books}
+                    seriesTotal={seriesTotals.get(item.name)}
                     expanded={expandedSeries.has(item.name)}
                     onToggle={() => toggleSeries(item.name)}
                     compact={compact}
