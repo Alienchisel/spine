@@ -862,7 +862,7 @@ export default function BookDetail() {
 
           {(book.status === 'finished' || book.read_count > 0) && book.review && (
             <div className="border-t border-neutral-800 pt-5">
-              <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">Review</p>
+              <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Review</p>
               <div className="text-neutral-300 text-sm leading-relaxed prose-sm prose-invert prose-neutral max-w-none
                 [&_strong]:text-neutral-200 [&_em]:text-neutral-400 [&_p]:mb-2 [&_p:last-child]:mb-0">
                 <ReactMarkdown>{book.review}</ReactMarkdown>
@@ -872,7 +872,7 @@ export default function BookDetail() {
 
           {book.notes && (
             <div className="border-t border-neutral-800 pt-5">
-              <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">Notes</p>
+              <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Notes</p>
               <div className="text-neutral-400 text-sm leading-relaxed prose-sm prose-invert prose-neutral max-w-none
                 [&_strong]:text-neutral-300 [&_em]:text-neutral-400 [&_p]:mb-2 [&_p:last-child]:mb-0">
                 <ReactMarkdown>{book.notes}</ReactMarkdown>
