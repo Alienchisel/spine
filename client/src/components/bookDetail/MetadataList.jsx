@@ -18,6 +18,20 @@ function locationCrumb(loc) {
   return loc.building;
 }
 
+// year_edition's meaning shifts by format: for a physical artifact it
+// names the printing year (what drives Antique/Vintage); for an ebook
+// it's the year of the text content (a Kindle "release date" is mostly
+// Amazon-noise — what matters is which translation/revision you're
+// reading); for an audiobook it's the recording year. The label
+// reflects that so "this edition" doesn't mistakenly read as "this
+// digital file" on ebooks.
+function editionLabel(book) {
+  if (book.format === 'physical')  return 'this printing';
+  if (book.format === 'audiobook') return 'this recording';
+  if (book.format === 'ebook')     return book.translators?.length > 0 ? 'this translation' : 'this text';
+  return 'this edition';
+}
+
 export default function MetadataList({ book, location, linkState }) {
   return (
     <dl className="space-y-2.5 text-sm mb-6">
@@ -52,7 +66,7 @@ export default function MetadataList({ book, location, linkState }) {
         <Row label="Published">
           {book.year_published_approximate ? 'ca. ' : ''}{formatYear(book.year_published)}
           {book.year_edition && book.year_edition !== book.year_published
-            ? ` (this edition ${book.year_approximate ? 'ca. ' : ''}${formatYear(book.year_edition)})`
+            ? ` (${editionLabel(book)} ${book.year_approximate ? 'ca. ' : ''}${formatYear(book.year_edition)})`
             : ''}
         </Row>
       )}
