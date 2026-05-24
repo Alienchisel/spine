@@ -23,7 +23,7 @@ import BookCard from '../components/BookCard.jsx';
 import FilterPanel from '../components/FilterPanel.jsx';
 import SearchHelp from '../components/SearchHelp.jsx';
 import SeriesCard from '../components/library/SeriesCard.jsx';
-import { EMPTY_FILTERS, countFilters, pruneFilters, buildApiParams } from '../components/library/filters.js';
+import { EMPTY_FILTERS, PAGE_SIZE, countFilters, pruneFilters, buildApiParams } from '../components/library/filters.js';
 import { paramsToFilters, writeFiltersToParams, filtersEqual } from '../components/library/urlState.js';
 import { buildDisplayItems } from '../components/library/grouping.js';
 import { useCoverSize } from '../hooks/useCoverSize.js';
@@ -477,13 +477,37 @@ export default function Library() {
     setLoadingAll(false);
     setActionError(null);
     pagingRef.current = false;
+    // Restore the previously-loaded depth on same-state refreshTick
+    // refetches so alt-tabbing back doesn't shrink a Load-all'd (or
+    // Load-more'd) view back to page 1. On a real state change the
+    // visible list was already wiped above, so prevDepth=0 and the
+    // loop fetches just the first page like the original behaviour.
+    const prevDepth = isSameState ? loadedRef.current : 0;
     loadedRef.current = 0;
-    api.getBooks(buildApiParams(tab, sort, filters, query, 0, randomSeed)).then(({ books: b, total: t }) => {
-      if (!guard.isFresh(epoch)) return;
-      setBooks(b);
-      setTotal(t);
-      loadedRef.current = b.length;
-    }).catch(() => { if (guard.isFresh(epoch)) setFetchError(true); }).finally(() => { if (guard.isFresh(epoch)) setLoading(false); });
+    (async () => {
+      try {
+        const collected = [];
+        let serverTotal = 0;
+        const target = Math.max(PAGE_SIZE, prevDepth);
+        while (guard.isFresh(epoch)) {
+          const params = buildApiParams(tab, sort, filters, query, collected.length, randomSeed);
+          const { books: b, total: t } = await api.getBooks(params);
+          if (!guard.isFresh(epoch)) return;
+          collected.push(...b);
+          serverTotal = t;
+          if (b.length === 0) break;
+          if (collected.length >= Math.min(target, serverTotal)) break;
+        }
+        if (!guard.isFresh(epoch)) return;
+        setBooks(collected);
+        setTotal(serverTotal);
+        loadedRef.current = collected.length;
+      } catch {
+        if (guard.isFresh(epoch)) setFetchError(true);
+      } finally {
+        if (guard.isFresh(epoch)) setLoading(false);
+      }
+    })();
   }, [tab, sort, filters, query, refreshTick, randomSeed]);
 
   function handleLoadMore() {
