@@ -71,10 +71,18 @@ export default function MetadataList({ book, location, linkState }) {
         <Row label="Edition">Abridged</Row>
       )}
       {book.language && book.language !== 'English' && (
-        <Row label="Language">{book.language}</Row>
+        <Row label="Language">
+          <Link to={`/browse/language/${encodeURIComponent(book.language)}`} state={linkState} className="hover:text-white transition-colors">
+            {book.language}
+          </Link>
+        </Row>
       )}
       {book.original_language && (
-        <Row label="Original">{book.original_language}</Row>
+        <Row label="Original">
+          <Link to={`/browse/original_language/${encodeURIComponent(book.original_language)}`} state={linkState} className="hover:text-white transition-colors">
+            {book.original_language}
+          </Link>
+        </Row>
       )}
       {book.translators?.length > 0 && (
         <Row label={pluralWord(book.translators.length, 'Translator')}>

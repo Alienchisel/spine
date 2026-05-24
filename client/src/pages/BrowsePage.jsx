@@ -12,6 +12,7 @@ import { useStaleGuard } from '../hooks/useStaleGuard.js';
 const FIELD_LABEL = {
   author: 'Author', translator: 'Translator', publisher: 'Publisher',
   series: 'Series', tag: 'Tag', fiction: '', format: '', language: 'Language',
+  original_language: 'Original language',
   narrator: 'Narrator', rating: 'Rating', year_finished: 'Finished', year_acquired: 'Acquired',
   author_gender: 'Author gender',
 };
