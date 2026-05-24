@@ -153,6 +153,7 @@ function QuickAdd({ listId, onAdded }) {
         onChange={e => setTitle(e.target.value)}
         onFocus={() => setExpanded(true)}
         placeholder="Quick-add a book by title…"
+        aria-label="Book title to add"
         className="bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2 text-sm text-parchment placeholder-neutral-500 focus:outline-none focus:border-oak/50 transition-colors flex-1"
       />
       {expanded && (
@@ -161,6 +162,7 @@ function QuickAdd({ listId, onAdded }) {
           value={author}
           onChange={e => setAuthor(e.target.value)}
           placeholder="Author (optional)"
+          aria-label="Book author (optional)"
           className="bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2 text-sm text-parchment placeholder-neutral-500 focus:outline-none focus:border-oak/50 transition-colors w-48"
         />
       )}
@@ -480,6 +482,7 @@ export default function ListDetail() {
               value={renameValue}
               onChange={e => setRenameValue(e.target.value)}
               onBlur={handleRename}
+              aria-label="List name"
               className="bg-neutral-800 border border-neutral-700 rounded px-3 py-1 text-lg font-bold text-white focus:outline-none focus:border-oak/50"
             />
             {renameError && <span role="alert" className="text-xs text-red-400">{renameError}</span>}

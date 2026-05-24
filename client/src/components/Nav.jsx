@@ -15,6 +15,7 @@ export default function Nav() {
     return (
       <Link
         to={to}
+        aria-current={active ? 'page' : undefined}
         className={`text-sm transition-colors ${active ? activeColor : 'text-neutral-500 hover:text-neutral-200'}`}
       >
         {label}
