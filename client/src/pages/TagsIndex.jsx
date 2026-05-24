@@ -103,6 +103,7 @@ export default function TagsIndex() {
           value={query}
           onChange={(e) => updateParam('q', e.target.value)}
           placeholder="Filter by name"
+          aria-label="Filter tags by name"
           className="bg-neutral-900 border border-neutral-800 rounded px-3 py-1.5 text-sm text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-oak/50 w-72"
         />
         <select
