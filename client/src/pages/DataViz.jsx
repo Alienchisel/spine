@@ -460,35 +460,39 @@ function LifespansWithLoupe(life) {
   }
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-1 text-xs text-neutral-400">
-        <span className="text-[11px] uppercase tracking-wide text-neutral-500 mr-2">Zoom</span>
-        <button
-          type="button"
-          onClick={() => setZoom(z => Math.max(LIFESPAN_ZOOM_MIN, z - 1))}
-          disabled={zoom <= LIFESPAN_ZOOM_MIN}
-          aria-label="Zoom out"
-          className="w-7 h-7 rounded border border-neutral-700 hover:border-neutral-500 hover:text-neutral-200 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-neutral-700 transition-colors"
-        >−</button>
-        <span className="tabular-nums px-2 w-12 text-center">{zoom}×</span>
-        <button
-          type="button"
-          onClick={() => setZoom(z => Math.min(LIFESPAN_ZOOM_MAX, z + 1))}
-          disabled={zoom >= LIFESPAN_ZOOM_MAX}
-          aria-label="Zoom in"
-          className="w-7 h-7 rounded border border-neutral-700 hover:border-neutral-500 hover:text-neutral-200 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-neutral-700 transition-colors"
-        >+</button>
-      </div>
-      <div className="cursor-grab select-none" onMouseDown={startDrag}>
-        {/* top-14 = below the h-14 Nav (z-50). z-40 keeps the axis
-            above the chart content but below the Nav, so it tucks
-            cleanly under the Nav when scrolled. */}
-        <div ref={axisRef} className="sticky top-14 z-40 bg-neutral-950 overflow-x-hidden">
+    <div className="cursor-grab select-none" onMouseDown={startDrag}>
+      {/* Sticky header band: zoom controls + axis bar in a single
+          sticky container so both stay visible together below the
+          h-14 Nav (z-50). z-40 keeps the band above chart content
+          but below the Nav, so the Nav tucks over it cleanly. The
+          inner zoom row sets cursor-default to opt out of the
+          parent's cursor-grab, and the buttons set cursor-pointer
+          so they still feel clickable. */}
+      <div className="sticky top-14 z-40 bg-neutral-950">
+        <div className="flex items-center gap-1 text-xs text-neutral-400 py-2 cursor-default">
+          <span className="text-[11px] uppercase tracking-wide text-neutral-500 mr-2">Zoom</span>
+          <button
+            type="button"
+            onClick={() => setZoom(z => Math.max(LIFESPAN_ZOOM_MIN, z - 1))}
+            disabled={zoom <= LIFESPAN_ZOOM_MIN}
+            aria-label="Zoom out"
+            className="w-7 h-7 rounded border border-neutral-700 cursor-pointer hover:border-neutral-500 hover:text-neutral-200 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-neutral-700 transition-colors"
+          >−</button>
+          <span className="tabular-nums px-2 w-12 text-center">{zoom}×</span>
+          <button
+            type="button"
+            onClick={() => setZoom(z => Math.min(LIFESPAN_ZOOM_MAX, z + 1))}
+            disabled={zoom >= LIFESPAN_ZOOM_MAX}
+            aria-label="Zoom in"
+            className="w-7 h-7 rounded border border-neutral-700 cursor-pointer hover:border-neutral-500 hover:text-neutral-200 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-neutral-700 transition-colors"
+          >+</button>
+        </div>
+        <div ref={axisRef} className="overflow-x-hidden">
           <LifespanAxis minY={life.minY} maxY={life.maxY} ticks={life.ticks} zoom={zoom} />
         </div>
-        <div ref={bodyRef} className="overflow-x-auto" onScroll={syncScroll}>
-          <LifespanChart {...life} zoom={zoom} />
-        </div>
+      </div>
+      <div ref={bodyRef} className="overflow-x-auto" onScroll={syncScroll}>
+        <LifespanChart {...life} zoom={zoom} />
       </div>
     </div>
   );
