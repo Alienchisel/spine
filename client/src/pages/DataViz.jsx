@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api.js';
 
 // Top N sources get their own panel; everything else collapses into
@@ -311,51 +311,46 @@ const LIFESPAN_W = 1000;
 const LIFESPAN_AXIS_H = 18;
 const LIFESPAN_ROW_H = 3.5;
 
-function LifespanChart({ rows, minY, maxY, ticks, maxBooks, onHoverIdx }) {
+function LifespanChart({ rows, minY, maxY, ticks, maxBooks, viewBox, showLabels = true, onCursor }) {
   const W = LIFESPAN_W, AXIS_H = LIFESPAN_AXIS_H, ROW_H = LIFESPAN_ROW_H;
   const yearSpan = maxY - minY;
   const x = y => ((y - minY) / yearSpan) * W;
   const r = books => Math.max(1.2, Math.sqrt(books) * 0.7);
-
-  // The top-N-by-books set: gets inline labels. Their dots sit on
-  // (rowIndex, midpointYear); the label hangs to the right of the dot.
-  const labelSet = new Set(
-    [...rows].sort((a, b) => b.books - a.books).slice(0, LIFESPAN_TOP_LABELS).map(r => r.id)
-  );
-
   const H = AXIS_H + rows.length * ROW_H;
 
-  // Convert a cursor event into the row index it sits over. Uses the
-  // SVG's actual rendered height + the fixed viewBox height to map
-  // mouse pixels into the chart's coordinate system. Returns null when
-  // the cursor is above the data area (over the axis strip).
+  // Top-N inline labels are only drawn on the main chart. In the
+  // magnifier (showLabels={false}) we drop them entirely — they'd
+  // render at 4× the viewBox-relative font size and dominate the lens.
+  const labelSet = showLabels
+    ? new Set([...rows].sort((a, b) => b.books - a.books).slice(0, LIFESPAN_TOP_LABELS).map(r => r.id))
+    : null;
+
+  // Convert a pointer event into the chart's data coordinate system
+  // and report it upstream so the magnifier can centre its viewBox on
+  // the cursor. Only the main chart (with onCursor) fires this; the
+  // lens is pointer-events-none.
   function handleMove(e) {
-    if (!onHoverIdx) return;
-    const svg = e.currentTarget;
-    const rect = svg.getBoundingClientRect();
-    const yViewBox = ((e.clientY - rect.top) / rect.height) * H;
-    const idx = Math.floor((yViewBox - AXIS_H) / ROW_H);
-    onHoverIdx(idx >= 0 && idx < rows.length ? idx : null);
+    if (!onCursor) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const dataX = ((e.clientX - rect.left) / rect.width)  * W;
+    const dataY = ((e.clientY - rect.top)  / rect.height) * H;
+    onCursor({ dataX, dataY, pageX: e.clientX, pageY: e.clientY });
   }
 
   return (
     <svg
-      viewBox={`0 0 ${W} ${H}`}
-      className="w-full h-auto"
-      onMouseMove={handleMove}
-      onMouseLeave={() => onHoverIdx?.(null)}
+      viewBox={viewBox || `0 0 ${W} ${H}`}
+      className="w-full h-auto block"
+      onMouseMove={onCursor ? handleMove : undefined}
+      onMouseLeave={onCursor ? () => onCursor(null) : undefined}
     >
-      {/* Faint century-aligned tick lines — quiet enough to recede behind
-          the bars but present so the eye can locate dates. */}
       {ticks.map(t => (
-        <line key={`g-${t}`} x1={x(t)} y1={AXIS_H} x2={x(t)} y2={H} stroke="#262626" strokeWidth={0.4} />
+        <line key={`g-${t}`} x1={x(t)} y1={AXIS_H} x2={x(t)} y2={H} stroke="#262626" strokeWidth={0.4} vectorEffect="non-scaling-stroke" />
       ))}
-      {/* Tick labels along the top — fmtYear adds the BCE/CE qualifier so
-          the axis stays self-describing without a separate legend. */}
       {ticks.map(t => (
         <text key={`l-${t}`} x={x(t)} y={AXIS_H - 6} fontSize="8" fill="#737373" textAnchor="middle">{fmtYear(t)}</text>
       ))}
-      <line x1={0} y1={AXIS_H - 2} x2={W} y2={AXIS_H - 2} stroke="#525252" strokeWidth={0.4} />
+      <line x1={0} y1={AXIS_H - 2} x2={W} y2={AXIS_H - 2} stroke="#525252" strokeWidth={0.4} vectorEffect="non-scaling-stroke" />
 
       {rows.map((row, i) => {
         const yMid = AXIS_H + i * ROW_H + ROW_H / 2;
@@ -365,10 +360,10 @@ function LifespanChart({ rows, minY, maxY, ticks, maxBooks, onHoverIdx }) {
         const xMid = x(mid);
         const rad = r(row.books);
         const tip = `${row.name} · ${fmtYear(row.birth)}–${fmtYear(row.death)} · ${row.books} book${row.books === 1 ? '' : 's'}`;
-        const labelled = labelSet.has(row.id);
+        const labelled = labelSet && labelSet.has(row.id);
         return (
           <g key={row.id}>
-            <line x1={x1} y1={yMid} x2={x2} y2={yMid} stroke="#8a5d37" strokeWidth={1.2}>
+            <line x1={x1} y1={yMid} x2={x2} y2={yMid} stroke="#8a5d37" strokeWidth={1.2} vectorEffect="non-scaling-stroke">
               <title>{tip}</title>
             </line>
             <circle cx={xMid} cy={yMid} r={rad} fill="#d4a574">
@@ -386,100 +381,70 @@ function LifespanChart({ rows, minY, maxY, ticks, maxBooks, onHoverIdx }) {
   );
 }
 
-// Loupe — focus+context lens for the lifespan timeline. Lives in a
-// fixed sidebar beside the chart (no overlap), sticks to the viewport
-// top so it stays visible as the user scrolls a tall chart. Renders
-// 12 rows centered on the cursor at HTML-level text sizes (text-sm so
-// names are actually readable) with an inline mini-bar per row.
-function LifespanLoupe({ rows, minY, maxY, hoverIdx }) {
-  const VISIBLE = 12;
-  const half = Math.floor(VISIBLE / 2);
-  const hovering = hoverIdx != null;
-  const start = hovering
-    ? Math.max(0, Math.min(hoverIdx - half, rows.length - VISIBLE))
-    : 0;
-  const slice = rows.slice(start, start + VISIBLE);
-  const yearSpan = maxY - minY;
-  const BAR_W = 88;
+// Magnifier — traditional zoom lens. A circular floating panel pinned
+// next to the cursor that re-renders the same LifespanChart at 4× zoom
+// over a small slice of the chart's data coordinate space, centered on
+// wherever the cursor currently is. SVG `viewBox` does the actual
+// zoom; non-scaling-stroke on the bars keeps line weights constant in
+// screen pixels so the lens looks like the main chart at higher
+// resolution rather than chunkier strokes.
+function Magnifier({ life, cursor }) {
+  if (!cursor) return null;
+
+  const ZOOM = 4;
+  const LENS = 200;            // lens diameter (px)
+  const VB   = LENS / ZOOM;    // viewBox edge length (chart units shown)
+  const OFFSET = 24;           // gap from cursor to lens edge
+
+  const vbX = cursor.dataX - VB / 2;
+  const vbY = cursor.dataY - VB / 2;
+
+  // Position the lens beside the cursor; flip to the other side if it
+  // would run past the viewport edge.
+  let left = cursor.pageX + OFFSET;
+  let top  = cursor.pageY + OFFSET;
+  if (typeof window !== 'undefined') {
+    if (left + LENS + 8 > window.innerWidth)  left = cursor.pageX - LENS - OFFSET;
+    if (top  + LENS + 8 > window.innerHeight) top  = cursor.pageY - LENS - OFFSET;
+  }
 
   return (
-    <div className="text-sm">
-      <div className="text-[11px] text-neutral-500 mb-2 tabular-nums">
-        {hovering
-          ? `Rows ${start + 1}–${start + slice.length} of ${rows.length}`
-          : 'Hover the chart to focus a range'}
-      </div>
-      <div className="space-y-0.5">
-        {slice.map((row, i) => {
-          const realIdx = start + i;
-          const isHovered = realIdx === hoverIdx;
-          const xBirth = ((row.birth - minY) / yearSpan) * BAR_W;
-          const xDeath = ((row.death - minY) / yearSpan) * BAR_W;
-          const xMid = (xBirth + xDeath) / 2;
-          const rad = Math.max(1.5, Math.sqrt(row.books) * 0.8);
-          return (
-            <div
-              key={row.id}
-              className={`flex items-center gap-2 px-1 py-0.5 rounded transition-colors duration-75 ${
-                isHovered ? 'bg-binding/25' : ''
-              }`}
-            >
-              <svg width={BAR_W} height={10} className="shrink-0" aria-hidden="true">
-                <line x1={xBirth} y1={5} x2={xDeath} y2={5} stroke="#8a5d37" strokeWidth={2} />
-                <circle cx={xMid} cy={5} r={rad} fill="#d4a574" />
-              </svg>
-              <span className="flex-1 text-neutral-200 truncate">{row.name}</span>
-              <span className="text-xs text-neutral-500 tabular-nums shrink-0">{row.books}</span>
-            </div>
-          );
-        })}
-      </div>
+    <div
+      className="fixed pointer-events-none z-20 bg-neutral-950 border border-neutral-700 shadow-xl overflow-hidden rounded-full"
+      style={{ left, top, width: LENS, height: LENS }}
+    >
+      <LifespanChart {...life} viewBox={`${vbX} ${vbY} ${VB} ${VB}`} showLabels={false} />
+      {/* Crosshair at the lens center marking exactly where the cursor
+          sits on the underlying chart. Drawn in the same parchment tone
+          as the data dots, with low opacity so it doesn't compete. */}
+      <svg
+        className="absolute inset-0"
+        viewBox={`0 0 ${LENS} ${LENS}`}
+        width={LENS}
+        height={LENS}
+      >
+        <circle cx={LENS / 2} cy={LENS / 2} r={5} fill="none" stroke="#d4a574" strokeOpacity={0.55} strokeWidth={1} />
+        <line x1={LENS / 2 - 8} y1={LENS / 2} x2={LENS / 2 - 6} y2={LENS / 2} stroke="#d4a574" strokeOpacity={0.55} />
+        <line x1={LENS / 2 + 6} y1={LENS / 2} x2={LENS / 2 + 8} y2={LENS / 2} stroke="#d4a574" strokeOpacity={0.55} />
+        <line x1={LENS / 2} y1={LENS / 2 - 8} x2={LENS / 2} y2={LENS / 2 - 6} stroke="#d4a574" strokeOpacity={0.55} />
+        <line x1={LENS / 2} y1={LENS / 2 + 6} x2={LENS / 2} y2={LENS / 2 + 8} stroke="#d4a574" strokeOpacity={0.55} />
+      </svg>
     </div>
   );
 }
 
-// Wraps the LifespanChart with hover-state management and a floating
-// loupe panel pinned to the bottom-left of the viewport. The chart
-// fills the full content width; the loupe overlays in a fixed card.
-// An IntersectionObserver only renders the loupe while the chart is
-// actually in view, so it doesn't float over the other experiments
-// further down the page.
+// Wraps the chart with cursor-state management and renders the
+// floating magnifier when the cursor is over the chart. The chart
+// itself fills the content width; the lens is fixed-position over
+// the viewport.
 function LifespansWithLoupe(life) {
-  const [hoverIdx, setHoverIdx] = useState(null);
-  const [chartInView, setChartInView] = useState(false);
-  const chartRef = useRef(null);
-
-  useEffect(() => {
-    if (!chartRef.current) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => setChartInView(entry.isIntersecting),
-      { threshold: 0 }
-    );
-    observer.observe(chartRef.current);
-    return () => observer.disconnect();
-  }, []);
-
+  const [cursor, setCursor] = useState(null);
   return (
     <>
-      <div ref={chartRef} className="overflow-x-auto">
-        <LifespanChart {...life} onHoverIdx={setHoverIdx} />
+      <div className="overflow-x-auto">
+        <LifespanChart {...life} onCursor={setCursor} />
       </div>
-      {chartInView && (
-        // Full-width fixed container with the same horizontal
-        // constraints as the page content (max-w-5xl + mx-auto + the
-        // matching px-*), so the inner loupe card's left edge lands on
-        // the same x-coordinate as the section's "Experiment #3"
-        // heading regardless of viewport size. pointer-events-none on
-        // the outer + pointer-events-auto on the inner lets clicks
-        // pass through to the chart below everywhere except the loupe.
-        <div className="fixed bottom-4 left-0 right-0 z-20 pointer-events-none">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="w-64 pointer-events-auto bg-neutral-900/95 border border-neutral-800 rounded-lg shadow-xl p-3 backdrop-blur-sm">
-              <LifespanLoupe rows={life.rows} minY={life.minY} maxY={life.maxY} hoverIdx={hoverIdx} />
-            </div>
-          </div>
-        </div>
-      )}
+      <Magnifier life={life} cursor={cursor} />
     </>
   );
 }
@@ -1283,7 +1248,7 @@ export default function DataViz() {
       {/* ── Experiment #3 — Authors-as-lifespan timeline ── */}
       <section className="space-y-4">
         <p className="text-sm text-neutral-500">
-          <span className="text-neutral-300 font-semibold">Experiment #3 — Authors as lifespans</span>, {fmtYear(life.minY)} – {fmtYear(life.maxY)}. {life.rows.length} authors with both birth and death dates; rows sorted oldest birth first. Each bar spans an author's life; the dot at the midpoint is sized by books-in-library (sqrt scale, max {life.maxBooks}). Top {LIFESPAN_TOP_LABELS} by count are labelled inline; hover anywhere on the chart for the loupe overlay, which magnifies the 15 rows around the cursor and names each.
+          <span className="text-neutral-300 font-semibold">Experiment #3 — Authors as lifespans</span>, {fmtYear(life.minY)} – {fmtYear(life.maxY)}. {life.rows.length} authors with both birth and death dates; rows sorted oldest birth first. Each bar spans an author's life; the dot at the midpoint is sized by books-in-library (sqrt scale, max {life.maxBooks}). Top {LIFESPAN_TOP_LABELS} by count are labelled inline; hover anywhere on the chart for a circular magnifier that zooms 4× on the region under the cursor.
         </p>
         <LifespansWithLoupe {...life} />
       </section>

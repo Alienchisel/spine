@@ -1,6 +1,6 @@
 {
   "name": "spine",
-  "version": "1.138.2",
+  "version": "1.139.0",
   "type": "module",
   "scripts": {
     "setup": "npm install && cd client && npm install && npm run build",
