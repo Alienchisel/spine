@@ -26,4 +26,24 @@ router.get('/', (_req, res) => {
   res.json(rows);
 });
 
+// Per-book volume data for /data-viz's completion sparklines. One row
+// per book with a series_number set; the client groups and renders.
+router.get('/completion', (_req, res) => {
+  const rows = db.prepare(`
+    SELECT
+      series          AS name,
+      series_number   AS position,
+      owned,
+      status,
+      id,
+      title
+    FROM books
+    WHERE series IS NOT NULL AND series != ''
+      AND series_number IS NOT NULL
+      AND COALESCE(archived, 0) = 0
+    ORDER BY series COLLATE NOCASE, series_number
+  `).all();
+  res.json(rows);
+});
+
 export default router;

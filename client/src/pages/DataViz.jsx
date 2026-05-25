@@ -411,11 +411,121 @@ function TrajectoryChart({ data }) {
   );
 }
 
+// ── Experiment #5 — Series completion as sparklines ──────────────────────
+//
+// One row per series with 3+ known volumes. Sparkline is a horizontal
+// strip of small cells, one per integer volume position from 1 to the
+// maximum known. Cell states:
+//   filled  → owned & in library
+//   hollow  → catalogued (entry exists) but not owned
+//   blank   → no entry — a gap in the user's catalog of the series
+// Cell width scales to fit the strip's fixed pixel width so a 50-volume
+// manga row and a 3-volume trilogy occupy the same visual budget; the
+// count column on the right gives the absolute scale.
+
+const COMPLETION_MIN_KNOWN = 3;
+const COMPLETION_STRIP_W = 360;
+
+function buildSeriesCompletion(rows) {
+  if (!rows?.length) return [];
+  const groups = new Map();
+  for (const r of rows) {
+    if (!groups.has(r.name)) groups.set(r.name, []);
+    groups.get(r.name).push(r);
+  }
+  const out = [];
+  for (const [name, books] of groups) {
+    // Half-volumes (1.5, 2.5) merge into their floor for the cell grid
+    // but still count toward owned/total totals. Most series are
+    // integer-numbered; collapsing keeps the sparkline tidy.
+    const byFloor = new Map();
+    for (const b of books) {
+      const k = Math.floor(b.position);
+      const prior = byFloor.get(k);
+      // If multiple books share a floor (e.g., 1 and 1.5), the cell is
+      // owned if any of them is owned; status follows the owned one.
+      if (!prior || (b.owned && !prior.owned)) byFloor.set(k, b);
+    }
+    const knownMax = Math.max(...books.map(b => Math.ceil(b.position)));
+    const cells = [];
+    for (let n = 1; n <= knownMax; n++) {
+      const b = byFloor.get(n);
+      cells.push({ n, book: b || null });
+    }
+    const ownedCount = books.filter(b => b.owned === 1 || b.owned === true).length;
+    if (knownMax < COMPLETION_MIN_KNOWN) continue;
+    out.push({ name, cells, knownMax, entryCount: books.length, ownedCount });
+  }
+  // Sort: near-complete sets first, then by length descending so longer
+  // sparklines (more visual data) anchor each completion band.
+  out.sort((a, b) =>
+    (b.ownedCount / b.knownMax) - (a.ownedCount / a.knownMax) ||
+    b.knownMax - a.knownMax ||
+    a.name.localeCompare(b.name)
+  );
+  return out;
+}
+
+function CompletionRow({ name, cells, knownMax, ownedCount }) {
+  const cellH = 14;
+  const gap = 1;
+  // Cell width derived from a shared strip width so rows of very
+  // different knownMax can still be visually compared (a 7-cell row
+  // and a 30-cell row occupy the same horizontal budget). Floor to
+  // an integer pixel for crisp edges, minimum 2 to stay tappable.
+  const cellW = Math.max(2, Math.floor((COMPLETION_STRIP_W - gap * (knownMax - 1)) / knownMax));
+  const usedW = cellW * knownMax + gap * (knownMax - 1);
+
+  return (
+    <div className="flex items-center gap-3 text-xs">
+      <div className="w-56 shrink-0 truncate text-neutral-300" title={name}>
+        {name}
+      </div>
+      <svg viewBox={`0 0 ${usedW} ${cellH}`} width={usedW} height={cellH} className="shrink-0">
+        {cells.map(c => {
+          const x = (c.n - 1) * (cellW + gap);
+          if (!c.book) {
+            // Gap — faint background so the position is still visible
+            // as part of the series's run.
+            return (
+              <rect key={c.n} x={x} y={0} width={cellW} height={cellH} fill="#1a1816" rx={1}>
+                <title>{`Vol. ${c.n} — no entry`}</title>
+              </rect>
+            );
+          }
+          const owned = c.book.owned === 1 || c.book.owned === true;
+          const fill = owned ? '#b8896a' : 'transparent';
+          const stroke = owned ? 'none' : '#525252';
+          return (
+            <rect
+              key={c.n}
+              x={x + 0.5}
+              y={0.5}
+              width={cellW - 1}
+              height={cellH - 1}
+              fill={fill}
+              stroke={stroke}
+              strokeWidth={owned ? 0 : 0.8}
+              rx={1}
+            >
+              <title>{`Vol. ${c.n} — ${c.book.title}${owned ? '' : ' (not owned)'}`}</title>
+            </rect>
+          );
+        })}
+      </svg>
+      <div className="ml-auto shrink-0 text-neutral-500 tabular-nums w-20 text-right">
+        {ownedCount}/{knownMax} <span className="text-neutral-700">·</span> {Math.round((ownedCount / knownMax) * 100)}%
+      </div>
+    </div>
+  );
+}
+
 export default function DataViz() {
   const [stats, setStats] = useState(null);
   const [calendar, setCalendar] = useState(null);
   const [authors, setAuthors] = useState(null);
   const [trajectory, setTrajectory] = useState(null);
+  const [completion, setCompletion] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -424,8 +534,11 @@ export default function DataViz() {
       api.getReadingCalendar(),
       api.getAuthors(),
       api.getLibraryTrajectory(),
+      api.getSeriesCompletion(),
     ])
-      .then(([s, c, a, t]) => { setStats(s); setCalendar(c); setAuthors(a); setTrajectory(t); })
+      .then(([s, c, a, t, sc]) => {
+        setStats(s); setCalendar(c); setAuthors(a); setTrajectory(t); setCompletion(sc);
+      })
       .catch(() => setError('Failed to load data.'));
   }, []);
 
@@ -435,9 +548,10 @@ export default function DataViz() {
   );
   const cal = useMemo(() => buildCalendar(calendar), [calendar]);
   const life = useMemo(() => buildLifespans(authors), [authors]);
+  const comp = useMemo(() => buildSeriesCompletion(completion), [completion]);
 
   if (error) return <div role="alert" className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-warn text-sm">{error}</div>;
-  if (!stats || !calendar || !authors || !trajectory) return <div role="status" className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-neutral-700 text-sm">Loading…</div>;
+  if (!stats || !calendar || !authors || !trajectory || !completion) return <div role="status" className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-neutral-700 text-sm">Loading…</div>;
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
@@ -484,6 +598,16 @@ export default function DataViz() {
           <span className="text-neutral-300 font-semibold">Experiment #4 — Cumulative acquired vs finished</span>, {trajectory[0].month} – {trajectory[trajectory.length - 1].month}. Two monthly running totals overlaid; the shaded area between them is the to-read mountain. Only date-stamped finishes count toward the lower line, so the gap reflects both unread inventory and books finished without a recorded date. (Audit's "Owned books have finish date" gap shows the books missing a date.)
         </p>
         <TrajectoryChart data={trajectory} />
+      </section>
+
+      {/* ── Experiment #5 — Series completion as sparklines ── */}
+      <section className="space-y-4">
+        <p className="text-sm text-neutral-500">
+          <span className="text-neutral-300 font-semibold">Experiment #5 — Series completion sparklines</span>. {comp.length} series with {COMPLETION_MIN_KNOWN}+ known volumes, sorted by completion percentage. Each cell is one volume — filled if owned, hollow outline if catalogued-but-not-owned, faint background if no entry. Strip width is shared across all rows so a 30-volume manga and a 3-volume trilogy occupy the same horizontal budget; the count column on the right gives the absolute scale.
+        </p>
+        <div className="space-y-1.5">
+          {comp.map(s => <CompletionRow key={s.name} {...s} />)}
+        </div>
       </section>
     </div>
   );
