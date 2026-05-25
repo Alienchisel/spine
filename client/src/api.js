@@ -128,6 +128,7 @@ export const api = {
   getShelfLocation: (bookId) => request(`/shelf/location/${bookId}`),
   getStats: () => request('/stats'),
   getReadingCalendar: () => request('/stats/reading-calendar'),
+  getLibraryTrajectory: () => request('/stats/library-trajectory'),
   getSettings: () => request('/settings'),
   setSetting: (key, value) => request(`/settings/${key}`, { method: 'PUT', body: JSON.stringify({ value }) }),
 };

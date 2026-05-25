@@ -341,15 +341,91 @@ function LifespanChart({ rows, minY, maxY, ticks, maxBooks }) {
   );
 }
 
+// ── Experiment #4 — Cumulative acquired vs finished ──────────────────────
+//
+// Two-line overlay. Upper line: cumulative books acquired. Lower line:
+// cumulative books finished. The shaded area between them is the
+// "to-read mountain" — books in the library that haven't been formally
+// finished yet. Year-boundary verticals as the only x grid; endpoint
+// labels carry the totals so no separate legend is needed.
+
+function TrajectoryChart({ data }) {
+  if (!data?.length) return null;
+  const W = 1000, H = 200;
+  const n = data.length;
+  const yMax = Math.max(...data.map(r => r.acquired));
+  // Range-framed y: 0 to data extent (rounded up to nearest 100 for a
+  // calmer ceiling).
+  const yTop = Math.ceil(yMax / 100) * 100;
+
+  const xAt = i => (i / (n - 1)) * W;
+  const yAt = v => H - (v / yTop) * H;
+
+  // Year-boundary indices for vertical ticks. The data is monthly, so
+  // a new year fires whenever month === '01'. Label below the plot.
+  const yearMarks = data
+    .map((d, i) => ({ year: Number(d.month.slice(0, 4)), month: d.month.slice(5), i }))
+    .filter(d => d.month === '01');
+
+  // Path for the upper (acquired) and lower (finished) lines.
+  const acqPath = data.map((r, i) => `${i === 0 ? 'M' : 'L'}${xAt(i)} ${yAt(r.acquired)}`).join(' ');
+  const finPath = data.map((r, i) => `${i === 0 ? 'M' : 'L'}${xAt(i)} ${yAt(r.finished)}`).join(' ');
+  // Fill polygon for the gap area: upper line forward, lower line back.
+  const gapPath =
+    data.map((r, i) => `${i === 0 ? 'M' : 'L'}${xAt(i)} ${yAt(r.acquired)}`).join(' ') + ' ' +
+    [...data].reverse().map((r, i) => `L${xAt(n - 1 - i)} ${yAt(r.finished)}`).join(' ') + ' Z';
+
+  const last = data[data.length - 1];
+  const TOP = 12, BOT = 20; // top padding for label clearance; bottom for year tick text
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H + TOP + BOT}`} className="w-full h-auto">
+      <g transform={`translate(0, ${TOP})`}>
+        {/* Year-boundary verticals — faint, recede behind data. */}
+        {yearMarks.map(m => (
+          <line key={`y-${m.year}`} x1={xAt(m.i)} y1={0} x2={xAt(m.i)} y2={H} stroke="#262626" strokeWidth={0.4} />
+        ))}
+        {/* Year labels under the plot — alternate every 2 years to avoid
+            crowding if the span is dense. */}
+        {yearMarks.filter((_, idx) => idx % 2 === 0).map(m => (
+          <text key={`yl-${m.year}`} x={xAt(m.i)} y={H + 12} fontSize="8" fill="#737373" textAnchor="middle">{m.year}</text>
+        ))}
+        {/* Range-framed baseline. */}
+        <line x1={0} y1={H} x2={W} y2={H} stroke="#525252" strokeWidth={0.4} />
+        {/* The "to-read mountain" — area between acquired (top) and finished (bottom). */}
+        <path d={gapPath} fill="#8a5d37" opacity={0.18} />
+        {/* Finished line below — soft parchment. */}
+        <path d={finPath} fill="none" stroke="#d4a574" strokeWidth={1.4} />
+        {/* Acquired line above — saturated binding. */}
+        <path d={acqPath} fill="none" stroke="#b8896a" strokeWidth={1.6} />
+        {/* Endpoint labels — direct attribution at the line ends, no
+            external legend. */}
+        <text x={xAt(n - 1) - 4} y={yAt(last.acquired) - 4} fontSize="9" fill="#b8896a" textAnchor="end" fontWeight="600">
+          {last.acquired} acquired
+        </text>
+        <text x={xAt(n - 1) - 4} y={yAt(last.finished) - 4} fontSize="9" fill="#d4a574" textAnchor="end">
+          {last.finished} finished · {last.acquired - last.finished}-book gap
+        </text>
+      </g>
+    </svg>
+  );
+}
+
 export default function DataViz() {
   const [stats, setStats] = useState(null);
   const [calendar, setCalendar] = useState(null);
   const [authors, setAuthors] = useState(null);
+  const [trajectory, setTrajectory] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    Promise.all([api.getStats(), api.getReadingCalendar(), api.getAuthors()])
-      .then(([s, c, a]) => { setStats(s); setCalendar(c); setAuthors(a); })
+    Promise.all([
+      api.getStats(),
+      api.getReadingCalendar(),
+      api.getAuthors(),
+      api.getLibraryTrajectory(),
+    ])
+      .then(([s, c, a, t]) => { setStats(s); setCalendar(c); setAuthors(a); setTrajectory(t); })
       .catch(() => setError('Failed to load data.'));
   }, []);
 
@@ -361,7 +437,7 @@ export default function DataViz() {
   const life = useMemo(() => buildLifespans(authors), [authors]);
 
   if (error) return <div role="alert" className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-warn text-sm">{error}</div>;
-  if (!stats || !calendar || !authors) return <div role="status" className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-neutral-700 text-sm">Loading…</div>;
+  if (!stats || !calendar || !authors || !trajectory) return <div role="status" className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-neutral-700 text-sm">Loading…</div>;
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
@@ -400,6 +476,14 @@ export default function DataViz() {
         <div className="overflow-x-auto">
           <LifespanChart {...life} />
         </div>
+      </section>
+
+      {/* ── Experiment #4 — Cumulative acquired vs finished ── */}
+      <section className="space-y-4">
+        <p className="text-sm text-neutral-500">
+          <span className="text-neutral-300 font-semibold">Experiment #4 — Cumulative acquired vs finished</span>, {trajectory[0].month} – {trajectory[trajectory.length - 1].month}. Two monthly running totals overlaid; the shaded area between them is the to-read mountain. Only date-stamped finishes count toward the lower line, so the gap reflects both unread inventory and books finished without a recorded date. (Audit's "Owned books have finish date" gap shows the books missing a date.)
+        </p>
+        <TrajectoryChart data={trajectory} />
       </section>
     </div>
   );
