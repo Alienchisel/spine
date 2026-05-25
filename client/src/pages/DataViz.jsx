@@ -520,6 +520,127 @@ function CompletionRow({ name, cells, knownMax, ownedCount }) {
   );
 }
 
+// ── Experiment #7 — Tags × decade heatmap ────────────────────────────────
+//
+// Matrix of subject tag (rows, sorted by total) against publication
+// decade (columns, full BCE→present span). Cell shade encodes the
+// per-cell book count, thresholded into 6 bands so the BCE wisps stay
+// visible alongside the dense 20th-century pile. Light cells recede,
+// dense ones dominate — pure Tufte layering in matrix form, no grid
+// lines (the cells imply the grid).
+
+const TAG_MIN_TOTAL = 5;
+// Asymmetric thresholds: more resolution at the low end where ancient
+// decades cluster, fewer bands up top where the 2010s pile dominates.
+const HEAT_BUCKETS = [
+  { max: 0,  color: '#1a1816' }, // 0
+  { max: 1,  color: '#3a2c1f' }, // 1
+  { max: 4,  color: '#5a4029' }, // 2-4
+  { max: 14, color: '#8a5d37' }, // 5-14
+  { max: 39, color: '#b8896a' }, // 15-39
+  { max: Infinity, color: '#d4a574' }, // 40+
+];
+
+function heatColor(count) {
+  for (const b of HEAT_BUCKETS) if (count <= b.max) return b.color;
+  return HEAT_BUCKETS[HEAT_BUCKETS.length - 1].color;
+}
+
+function buildTagDecade(rows) {
+  if (!rows?.length) return { tags: [], decades: [], grid: new Map(), minDecade: 0, maxDecade: 0 };
+  const byTag = new Map();
+  let minDecade = Infinity, maxDecade = -Infinity;
+  for (const r of rows) {
+    if (!byTag.has(r.tag)) byTag.set(r.tag, { total: 0, byDecade: new Map() });
+    const entry = byTag.get(r.tag);
+    entry.total += r.count;
+    entry.byDecade.set(r.decade, r.count);
+    if (r.decade < minDecade) minDecade = r.decade;
+    if (r.decade > maxDecade) maxDecade = r.decade;
+  }
+  const tags = Array.from(byTag.entries())
+    .filter(([, e]) => e.total >= TAG_MIN_TOTAL)
+    .sort((a, b) => b[1].total - a[1].total || a[0].localeCompare(b[0]))
+    .map(([name, e]) => ({ name, total: e.total, byDecade: e.byDecade }));
+  const decades = [];
+  for (let d = minDecade; d <= maxDecade; d += 10) decades.push(d);
+  return { tags, decades, minDecade, maxDecade };
+}
+
+function TagDecadeMatrix({ tags, decades, minDecade, maxDecade }) {
+  const cellW = 3, cellH = 11, gap = 0.5;
+  const gridW = decades.length * (cellW + gap) - gap;
+  const labelW = 130;
+  const totalW = 36;
+  const W = labelW + gridW + totalW + 14; // 14 = 6 + 8 gutters
+  const H = tags.length * (cellH + gap) - gap + 22; // 22 = bottom decade-label strip
+
+  // Tick lines at 250-year intervals so the eye can anchor decades.
+  const ticks = [];
+  const start = Math.ceil(minDecade / 250) * 250;
+  for (let t = start; t <= maxDecade; t += 250) ticks.push(t);
+
+  const xOfDecade = d => labelW + 6 + ((d - minDecade) / 10) * (cellW + gap);
+  const gridH = tags.length * (cellH + gap) - gap;
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto">
+      {/* Quiet vertical references through the grid at the labelled ticks. */}
+      {ticks.map(t => (
+        <line key={`g-${t}`} x1={xOfDecade(t)} y1={0} x2={xOfDecade(t)} y2={gridH} stroke="#262626" strokeWidth={0.4} />
+      ))}
+      {tags.map((tag, ri) => {
+        const y = ri * (cellH + gap);
+        return (
+          <g key={tag.name}>
+            <text x={labelW} y={y + cellH - 2} fontSize="8" fill="#d4d4d8" textAnchor="end">{tag.name}</text>
+            {decades.map((d, ci) => {
+              const c = tag.byDecade.get(d) || 0;
+              return (
+                <rect
+                  key={d}
+                  x={labelW + 6 + ci * (cellW + gap)}
+                  y={y}
+                  width={cellW}
+                  height={cellH}
+                  fill={heatColor(c)}
+                >
+                  {c > 0 && <title>{`${tag.name} — ${fmtYear(d)}s — ${c} book${c === 1 ? '' : 's'}`}</title>}
+                </rect>
+              );
+            })}
+            <text x={labelW + 6 + gridW + 4} y={y + cellH - 2} fontSize="8" fill="#737373" textAnchor="start">{tag.total}</text>
+          </g>
+        );
+      })}
+      {/* Decade-axis labels at the tick positions, below the grid. */}
+      {ticks.map(t => (
+        <text key={`l-${t}`} x={xOfDecade(t)} y={gridH + 12} fontSize="8" fill="#737373" textAnchor="middle">{fmtYear(t)}</text>
+      ))}
+    </svg>
+  );
+}
+
+function HeatLegend() {
+  const size = 12, gap = 2;
+  const W = HEAT_BUCKETS.length * (size + gap) - gap;
+  const labels = ['0', '1', '2-4', '5-14', '15-39', '40+'];
+  return (
+    <div className="flex items-center gap-2 text-[10px] text-neutral-500">
+      <span>Fewer</span>
+      <svg viewBox={`0 0 ${W} ${size + 10}`} width={W} height={size + 10}>
+        {HEAT_BUCKETS.map((b, i) => (
+          <g key={i}>
+            <rect x={i * (size + gap)} y={0} width={size} height={size} fill={b.color} rx={1} />
+            <text x={i * (size + gap) + size / 2} y={size + 8} fontSize="6" fill="#737373" textAnchor="middle">{labels[i]}</text>
+          </g>
+        ))}
+      </svg>
+      <span>More books per (tag, decade)</span>
+    </div>
+  );
+}
+
 // ── Experiment #6 — Year-published spectrum ──────────────────────────────
 //
 // Histogram of original year_published bucketed into decades, layered:
@@ -619,6 +740,7 @@ export default function DataViz() {
   const [authors, setAuthors] = useState(null);
   const [trajectory, setTrajectory] = useState(null);
   const [completion, setCompletion] = useState(null);
+  const [tagDecade, setTagDecade] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -628,9 +750,10 @@ export default function DataViz() {
       api.getAuthors(),
       api.getLibraryTrajectory(),
       api.getSeriesCompletion(),
+      api.getTagDecadeMatrix(),
     ])
-      .then(([s, c, a, t, sc]) => {
-        setStats(s); setCalendar(c); setAuthors(a); setTrajectory(t); setCompletion(sc);
+      .then(([s, c, a, t, sc, td]) => {
+        setStats(s); setCalendar(c); setAuthors(a); setTrajectory(t); setCompletion(sc); setTagDecade(td);
       })
       .catch(() => setError('Failed to load data.'));
   }, []);
@@ -643,9 +766,10 @@ export default function DataViz() {
   const life = useMemo(() => buildLifespans(authors), [authors]);
   const comp = useMemo(() => buildSeriesCompletion(completion), [completion]);
   const spec = useMemo(() => buildSpectrum(stats?.decadesPublished), [stats]);
+  const tdm  = useMemo(() => buildTagDecade(tagDecade), [tagDecade]);
 
   if (error) return <div role="alert" className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-warn text-sm">{error}</div>;
-  if (!stats || !calendar || !authors || !trajectory || !completion) return <div role="status" className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-neutral-700 text-sm">Loading…</div>;
+  if (!stats || !calendar || !authors || !trajectory || !completion || !tagDecade) return <div role="status" className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-neutral-700 text-sm">Loading…</div>;
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
@@ -710,6 +834,17 @@ export default function DataViz() {
           <span className="text-neutral-300 font-semibold">Experiment #6 — Year-published spectrum</span>, {fmtYear(spec.minDecade)} – {fmtYear(spec.maxDecade)}. Decade-binned histogram of every book's original publication year, layered: muted neutral for all books in the library, warm parchment for the read subset. Empty decades stay visible — the sparse BCE/medieval span is itself the data shape, not a layout problem to fix. Tallest decade: {fmtYear(spec.bins.reduce((m, b) => b.count > m.count ? b : m, { decade: 0, count: 0 }).decade)}s with {spec.yMax} books.
         </p>
         <SpectrumChart {...spec} />
+      </section>
+
+      {/* ── Experiment #7 — Tags × decade heatmap ── */}
+      <section className="space-y-4">
+        <p className="text-sm text-neutral-500">
+          <span className="text-neutral-300 font-semibold">Experiment #7 — Tags × decade heatmap</span>, {fmtYear(tdm.minDecade)} – {fmtYear(tdm.maxDecade)}. {tdm.tags.length} subject tags with {TAG_MIN_TOTAL}+ books, sorted by total. Cell shade encodes books-with-this-tag-from-this-decade; thresholds are asymmetric (more resolution at the low end so the BCE/medieval wisps stay visible alongside the 20th-century pile). Hover any cell for the exact count.
+        </p>
+        <HeatLegend />
+        <div className="overflow-x-auto">
+          <TagDecadeMatrix {...tdm} />
+        </div>
       </section>
     </div>
   );
