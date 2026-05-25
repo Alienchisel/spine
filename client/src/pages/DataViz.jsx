@@ -411,6 +411,8 @@ function LifespansWithLoupe(life) {
   // the document.
   const axisRef = useRef(null);
   const bodyRef = useRef(null);
+  const dragRef = useRef(null);
+
   const syncScroll = () => {
     if (axisRef.current && bodyRef.current) {
       axisRef.current.scrollLeft = bodyRef.current.scrollLeft;
@@ -419,6 +421,43 @@ function LifespansWithLoupe(life) {
   // Re-sync after zoom changes (the SVG widths just changed; the
   // browser will preserve scrollLeft but the axis needs to follow).
   useEffect(syncScroll, [zoom]);
+
+  // Click-and-drag pan. mousedown anywhere on the chart sets the drag
+  // baseline; global mousemove updates the body's scrollLeft while
+  // dragging; mouseup releases. Bound to the document so a drag that
+  // overshoots the chart edges still releases cleanly. We skip the
+  // drag entirely on interactive elements (buttons) so the +/− zoom
+  // controls still work.
+  useEffect(() => {
+    function onMove(e) {
+      if (!dragRef.current || !bodyRef.current) return;
+      const dx = e.clientX - dragRef.current.startX;
+      bodyRef.current.scrollLeft = dragRef.current.startScrollLeft - dx;
+    }
+    function onUp() {
+      if (!dragRef.current) return;
+      dragRef.current = null;
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup',   onUp);
+    return () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup',   onUp);
+    };
+  }, []);
+
+  function startDrag(e) {
+    if (!bodyRef.current) return;
+    if (e.target.closest('button, a, input')) return;
+    dragRef.current = {
+      startX:           e.clientX,
+      startScrollLeft:  bodyRef.current.scrollLeft,
+    };
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor     = 'grabbing';
+  }
 
   return (
     <div className="space-y-2">
@@ -440,11 +479,16 @@ function LifespansWithLoupe(life) {
           className="w-7 h-7 rounded border border-neutral-700 hover:border-neutral-500 hover:text-neutral-200 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-neutral-700 transition-colors"
         >+</button>
       </div>
-      <div ref={axisRef} className="sticky top-0 z-10 bg-neutral-950 overflow-x-hidden">
-        <LifespanAxis minY={life.minY} maxY={life.maxY} ticks={life.ticks} zoom={zoom} />
-      </div>
-      <div ref={bodyRef} className="overflow-x-auto" onScroll={syncScroll}>
-        <LifespanChart {...life} zoom={zoom} />
+      <div className="cursor-grab select-none" onMouseDown={startDrag}>
+        {/* top-14 = below the h-14 Nav (z-50). z-40 keeps the axis
+            above the chart content but below the Nav, so it tucks
+            cleanly under the Nav when scrolled. */}
+        <div ref={axisRef} className="sticky top-14 z-40 bg-neutral-950 overflow-x-hidden">
+          <LifespanAxis minY={life.minY} maxY={life.maxY} ticks={life.ticks} zoom={zoom} />
+        </div>
+        <div ref={bodyRef} className="overflow-x-auto" onScroll={syncScroll}>
+          <LifespanChart {...life} zoom={zoom} />
+        </div>
       </div>
     </div>
   );
