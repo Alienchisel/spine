@@ -47,15 +47,10 @@ function buildAcquisitionPanels(rows) {
         otherCells.set(y, (otherCells.get(y) || 0) + c);
       }
     }
-    // Surface the rolled-up source names so the Other panel can carry a
-    // hover-revealed list — the (N) count alone is opaque. Sorted by
-    // total descending so the most-frequent rolled-up source reads first.
-    const otherSources = rest.map(([s, t]) => `${s} (${t})`);
     panels.push({
       source: `Other (${rest.length})`,
       total: otherTotal,
       values: years.map(y => otherCells.get(y) || 0),
-      sources: otherSources,
     });
   }
 
@@ -69,52 +64,22 @@ function buildAcquisitionPanels(rows) {
 }
 
 // Single panel — minimal SVG bar chart. Range-framed x-axis (the line
-// spans only the active data extent, not a padded margin); y-scale
+// spans only the active data extent, not a padded margin) and only the
+// first/last year are labelled in text; the gap is left to be inferred
+// from the bar positions, which is enough at this resolution. y-scale
 // label is suppressed (it's the same on every panel — shared scale is
 // the whole point of a small-multiples display, and printing the same
-// number on every panel would fail the eraser test). The peak bar
-// carries an inline year·count label so the eye gets a numeric anchor
-// without hovering; intermediate year ticks at 5-year boundaries help
-// locate when each panel's spike happened. For the "Other" panel, the
-// header span carries a native `title` listing the rolled-up sources.
-function AcquisitionPanel({ source, total, values, years, yMax, sources }) {
+// number on every panel would fail the eraser test).
+function AcquisitionPanel({ source, total, values, years, yMax }) {
   const W = 200, H = 60, FOOT = 12;
   const n = values.length;
   const gap = 1;
   const barW = (W - gap * (n - 1)) / n;
-  const xCenterOf = i => i * (barW + gap) + barW / 2;
-
-  // Peak detection — first occurrence of the max wins ties so the label
-  // doesn't jump around if two years share a maximum.
-  let peakIdx = 0;
-  for (let i = 1; i < values.length; i++) if (values[i] > values[peakIdx]) peakIdx = i;
-  const peakValue = values[peakIdx];
-
-  // Intermediate year ticks at multiples of 5 falling strictly between
-  // first and last year — the edges already carry their own labels and
-  // a redundant 2010 next to 2010 would fail the eraser test.
-  const intermediateTicks = years
-    .map((y, i) => ({ year: Number(y), i }))
-    .filter(t => t.year % 5 === 0 && t.i !== 0 && t.i !== years.length - 1);
-
-  // Peak label horizontal anchoring — center the label by default, but
-  // align to start/end if the peak sits near the panel's edges so the
-  // text doesn't run off the chart.
-  const peakAnchor = peakIdx < 3 ? 'start' : peakIdx > years.length - 4 ? 'end' : 'middle';
-  const peakX = xCenterOf(peakIdx);
-  const peakLabelX = peakAnchor === 'start' ? peakX - barW / 2
-                   : peakAnchor === 'end'   ? peakX + barW / 2
-                                            : peakX;
 
   return (
     <div className="space-y-1">
       <div className="flex items-baseline justify-between text-xs">
-        <span
-          className="font-semibold text-parchment"
-          title={sources ? sources.join('\n') : undefined}
-        >
-          {source}
-        </span>
+        <span className="font-semibold text-parchment">{source}</span>
         <span className="text-neutral-500 tabular-nums">{total}</span>
       </div>
       <svg viewBox={`0 0 ${W} ${H + FOOT}`} className="w-full h-auto" preserveAspectRatio="none">
@@ -128,33 +93,8 @@ function AcquisitionPanel({ source, total, values, years, yMax, sources }) {
             </rect>
           );
         })}
-        {/* Peak annotation — small lighter-toned label just above the
-            tallest bar, identifying the year and count in one mark. */}
-        {peakValue > 0 && (
-          <text
-            x={peakLabelX}
-            y={H - (peakValue / yMax) * H - 1.5}
-            fontSize="6"
-            fill="#d4a574"
-            textAnchor={peakAnchor}
-          >
-            {`${years[peakIdx]}·${peakValue}`}
-          </text>
-        )}
         <line x1={0} y1={H} x2={W} y2={H} stroke="#525252" strokeWidth={0.4} />
         <text x={0} y={H + FOOT - 2} fontSize="6" fill="#737373">{years[0]}</text>
-        {intermediateTicks.map(t => (
-          <text
-            key={`yt-${t.year}`}
-            x={xCenterOf(t.i)}
-            y={H + FOOT - 2}
-            fontSize="6"
-            fill="#737373"
-            textAnchor="middle"
-          >
-            {t.year}
-          </text>
-        ))}
         <text x={W} y={H + FOOT - 2} fontSize="6" fill="#737373" textAnchor="end">{years[years.length - 1]}</text>
       </svg>
     </div>
