@@ -59,6 +59,7 @@ const NAV_ENTRIES = [
   { id: 'nav.diary',                label: 'Diary',                                                 path: '/diary' },
   { id: 'nav.stats',                label: 'Stats',                                                 path: '/stats' },
   { id: 'nav.audit',                label: 'Library audit',        hint: 'Curation gaps',            path: '/audit' },
+  { id: 'nav.data-viz',             label: 'Data visualization',   hint: 'Experiments',              path: '/data-viz' },
   { id: 'nav.authors',              label: 'Authors',              hint: 'Author index',             path: '/authors' },
   { id: 'nav.tags',                 label: 'Tags',                 hint: 'Tag index',                path: '/tags' },
   { id: 'nav.series',               label: 'Series',               hint: 'Series index',             path: '/series' },

@@ -18,6 +18,7 @@ import Diary from './pages/Diary.jsx';
 import Stats from './pages/Stats.jsx';
 import Collage from './pages/Collage.jsx';
 import Audit from './pages/Audit.jsx';
+import DataViz from './pages/DataViz.jsx';
 import ShelfManager from './pages/ShelfManager.jsx';
 import ShelfView from './pages/ShelfView.jsx';
 import RouteError from './components/RouteError.jsx';
@@ -59,6 +60,7 @@ const router = createBrowserRouter(
         <Route path="stats"                 element={<Stats />} />
         <Route path="collage"               element={<Collage />} />
         <Route path="audit"                 element={<Audit />} />
+        <Route path="data-viz"              element={<DataViz />} />
         <Route path="shelf"                 element={<ShelfManager />} />
         <Route path="shelf-view"            element={<ShelfView />} />
         <Route path="*"                     element={<NotFound />} />
