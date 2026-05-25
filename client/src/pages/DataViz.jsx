@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api.js';
 
 // Top N sources get their own panel; everything else collapses into
@@ -438,23 +438,38 @@ function LifespanLoupe({ rows, minY, maxY, hoverIdx }) {
   );
 }
 
-// Wraps the LifespanChart with hover-state management and a side-by-side
-// loupe sidebar. The chart fills the main column (overflow-x-auto so
-// it can scroll horizontally if needed); the loupe lives in a fixed-
-// width column on the right, sticky to the viewport so it follows the
-// reader's scroll position down a tall chart. On narrow screens the
-// loupe stacks below the chart.
+// Wraps the LifespanChart with hover-state management and a floating
+// loupe panel pinned to the bottom-left of the viewport. The chart
+// fills the full content width; the loupe overlays in a fixed card.
+// An IntersectionObserver only renders the loupe while the chart is
+// actually in view, so it doesn't float over the other experiments
+// further down the page.
 function LifespansWithLoupe(life) {
   const [hoverIdx, setHoverIdx] = useState(null);
+  const [chartInView, setChartInView] = useState(false);
+  const chartRef = useRef(null);
+
+  useEffect(() => {
+    if (!chartRef.current) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setChartInView(entry.isIntersecting),
+      { threshold: 0 }
+    );
+    observer.observe(chartRef.current);
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <div className="flex flex-col lg:flex-row gap-6">
-      <div className="flex-1 overflow-x-auto min-w-0">
+    <>
+      <div ref={chartRef} className="overflow-x-auto">
         <LifespanChart {...life} onHoverIdx={setHoverIdx} />
       </div>
-      <aside className="lg:w-64 lg:shrink-0 lg:sticky lg:top-4 self-start">
-        <LifespanLoupe rows={life.rows} minY={life.minY} maxY={life.maxY} hoverIdx={hoverIdx} />
-      </aside>
-    </div>
+      {chartInView && (
+        <div className="fixed bottom-4 left-4 z-20 w-64 bg-neutral-900/95 border border-neutral-800 rounded-lg shadow-xl p-3 backdrop-blur-sm">
+          <LifespanLoupe rows={life.rows} minY={life.minY} maxY={life.maxY} hoverIdx={hoverIdx} />
+        </div>
+      )}
+    </>
   );
 }
 
