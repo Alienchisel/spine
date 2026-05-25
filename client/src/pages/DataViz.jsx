@@ -231,14 +231,125 @@ function CalendarLegend() {
   );
 }
 
+// ── Experiment #3 — Authors-as-lifespan timeline ─────────────────────────
+//
+// Marey-style horizontal bars: one row per author (sorted oldest birth at
+// top), bar spans birth → death year, dot at lifespan midpoint sized by
+// books-in-library. Range-framed x-axis tells the chronological extent
+// without padding. Top-N by book count get inline labels so the densest
+// rows in your collection are named directly.
+
+const LIFESPAN_TOP_LABELS = 12;
+
+// Parse a Spine date field. Accepts: "1856", "1856-04-22", "-100", "-100-03-15".
+// Returns the signed year, or null. We only need year-level precision; a
+// month/day adds nothing at this resolution.
+function parseSignedYear(s) {
+  if (!s) return null;
+  const m = String(s).match(/^(-?\d+)/);
+  return m ? Number(m[1]) : null;
+}
+
+function fmtYear(y) {
+  if (y < 0) return `${-y} BCE`;
+  return `${y} CE`;
+}
+
+function buildLifespans(authors) {
+  if (!authors?.length) return { rows: [], minY: 0, maxY: 0, ticks: [], maxBooks: 0 };
+  const rows = [];
+  for (const a of authors) {
+    const b = parseSignedYear(a.birth_date);
+    const d = parseSignedYear(a.death_date);
+    if (b == null || d == null || d < b) continue;
+    rows.push({
+      id: a.id,
+      name: a.name,
+      birth: b,
+      death: d,
+      books: a.book_count || 0,
+    });
+  }
+  rows.sort((a, b) => a.birth - b.birth || a.death - b.death);
+
+  const minY = rows.length ? Math.min(...rows.map(r => r.birth)) : 0;
+  const maxY = rows.length ? Math.max(...rows.map(r => r.death)) : 0;
+  // Round outwards to clean century-aligned ticks for the axis.
+  const tickStart = Math.floor(minY / 500) * 500;
+  const tickEnd   = Math.ceil(maxY / 500) * 500;
+  const ticks = [];
+  for (let t = tickStart; t <= tickEnd; t += 500) ticks.push(t);
+
+  const maxBooks = rows.reduce((m, r) => Math.max(m, r.books), 0);
+  return { rows, minY, maxY, ticks, maxBooks };
+}
+
+function LifespanChart({ rows, minY, maxY, ticks, maxBooks }) {
+  const W = 1000, AXIS_H = 18, ROW_H = 3.5;
+  const yearSpan = maxY - minY;
+  const x = y => ((y - minY) / yearSpan) * W;
+  const r = books => Math.max(1.2, Math.sqrt(books) * 0.7);
+
+  // The top-N-by-books set: gets inline labels. Their dots sit on
+  // (rowIndex, midpointYear); the label hangs to the right of the dot.
+  const labelSet = new Set(
+    [...rows].sort((a, b) => b.books - a.books).slice(0, LIFESPAN_TOP_LABELS).map(r => r.id)
+  );
+
+  const H = AXIS_H + rows.length * ROW_H;
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto">
+      {/* Faint century-aligned tick lines — quiet enough to recede behind
+          the bars but present so the eye can locate dates. */}
+      {ticks.map(t => (
+        <line key={`g-${t}`} x1={x(t)} y1={AXIS_H} x2={x(t)} y2={H} stroke="#262626" strokeWidth={0.4} />
+      ))}
+      {/* Tick labels along the top — fmtYear adds the BCE/CE qualifier so
+          the axis stays self-describing without a separate legend. */}
+      {ticks.map(t => (
+        <text key={`l-${t}`} x={x(t)} y={AXIS_H - 6} fontSize="8" fill="#737373" textAnchor="middle">{fmtYear(t)}</text>
+      ))}
+      <line x1={0} y1={AXIS_H - 2} x2={W} y2={AXIS_H - 2} stroke="#525252" strokeWidth={0.4} />
+
+      {rows.map((row, i) => {
+        const yMid = AXIS_H + i * ROW_H + ROW_H / 2;
+        const x1 = x(row.birth);
+        const x2 = x(row.death);
+        const mid = (row.birth + row.death) / 2;
+        const xMid = x(mid);
+        const rad = r(row.books);
+        const tip = `${row.name} · ${fmtYear(row.birth)}–${fmtYear(row.death)} · ${row.books} book${row.books === 1 ? '' : 's'}`;
+        const labelled = labelSet.has(row.id);
+        return (
+          <g key={row.id}>
+            <line x1={x1} y1={yMid} x2={x2} y2={yMid} stroke="#8a5d37" strokeWidth={1.2}>
+              <title>{tip}</title>
+            </line>
+            <circle cx={xMid} cy={yMid} r={rad} fill="#d4a574">
+              <title>{tip}</title>
+            </circle>
+            {labelled && (
+              <text x={xMid + rad + 2} y={yMid + 2.2} fontSize="6" fill="#d4d4d8">
+                {row.name} ({row.books})
+              </text>
+            )}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
 export default function DataViz() {
   const [stats, setStats] = useState(null);
   const [calendar, setCalendar] = useState(null);
+  const [authors, setAuthors] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    Promise.all([api.getStats(), api.getReadingCalendar()])
-      .then(([s, c]) => { setStats(s); setCalendar(c); })
+    Promise.all([api.getStats(), api.getReadingCalendar(), api.getAuthors()])
+      .then(([s, c, a]) => { setStats(s); setCalendar(c); setAuthors(a); })
       .catch(() => setError('Failed to load data.'));
   }, []);
 
@@ -247,9 +358,10 @@ export default function DataViz() {
     [stats],
   );
   const cal = useMemo(() => buildCalendar(calendar), [calendar]);
+  const life = useMemo(() => buildLifespans(authors), [authors]);
 
   if (error) return <div role="alert" className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-warn text-sm">{error}</div>;
-  if (!stats || !calendar) return <div role="status" className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-neutral-700 text-sm">Loading…</div>;
+  if (!stats || !calendar || !authors) return <div role="status" className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-neutral-700 text-sm">Loading…</div>;
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
@@ -277,6 +389,16 @@ export default function DataViz() {
           {cal.years.map(y => (
             <CalendarYearRow key={y} year={y} byDate={cal.byDate} />
           ))}
+        </div>
+      </section>
+
+      {/* ── Experiment #3 — Authors-as-lifespan timeline ── */}
+      <section className="space-y-4">
+        <p className="text-sm text-neutral-500">
+          <span className="text-neutral-300 font-semibold">Experiment #3 — Authors as lifespans</span>, {fmtYear(life.minY)} – {fmtYear(life.maxY)}. {life.rows.length} authors with both birth and death dates; rows sorted oldest birth first. Each bar spans an author's life; the dot at the midpoint is sized by books-in-library (sqrt scale, max {life.maxBooks}). Top {LIFESPAN_TOP_LABELS} by count are labelled inline. Hover any bar or dot for full attribution.
+        </p>
+        <div className="overflow-x-auto">
+          <LifespanChart {...life} />
         </div>
       </section>
     </div>
