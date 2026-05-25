@@ -898,100 +898,6 @@ function BookMareyChart({ rows, minMs, maxMs, years }) {
   );
 }
 
-// ── Experiment #8 — Reading-lag distribution ─────────────────────────────
-//
-// Histogram of per-book days between acquisition and finish, bucketed
-// on a roughly log scale so the fast-and-slow tails both get readable
-// resolution. Tufte data-table form: bin label, embedded sparkline
-// bar, count — words, numbers, and image in a single integrated row
-// (analytical-design principle 4).
-
-const LAG_BINS = [
-  { label: 'Same day / next',    min: 0,    max: 1     },
-  { label: 'This week',          min: 2,    max: 7     },
-  { label: 'This month',         min: 8,    max: 30    },
-  { label: 'This quarter',       min: 31,   max: 90    },
-  { label: 'This year',          min: 91,   max: 365   },
-  { label: '1–3 years',          min: 366,  max: 1095  },
-  { label: '3+ years',           min: 1096, max: Infinity },
-];
-
-function buildReadingLag(rows) {
-  if (!rows?.length) return { bins: [], total: 0, median: 0, mean: 0, fastest: null, slowest: null };
-  const bins = LAG_BINS.map(b => ({ ...b, count: 0, books: [] }));
-  for (const r of rows) {
-    if (r.lag_days < 0) continue;
-    const bin = bins.find(b => r.lag_days >= b.min && r.lag_days <= b.max);
-    if (bin) {
-      bin.count++;
-      bin.books.push(r);
-    }
-  }
-  const lags = rows.map(r => r.lag_days).filter(v => v >= 0).sort((a, b) => a - b);
-  const n = lags.length;
-  const median = n === 0 ? 0 : (n % 2 ? lags[(n - 1) / 2] : (lags[n / 2 - 1] + lags[n / 2]) / 2);
-  const mean = n === 0 ? 0 : lags.reduce((a, b) => a + b, 0) / n;
-  const fastest = rows[0];
-  const slowest = rows[rows.length - 1];
-  return { bins, total: n, median, mean, fastest, slowest };
-}
-
-function fmtDays(d) {
-  if (d < 1)    return '<1 day';
-  if (d < 30)   return `${Math.round(d)} days`;
-  if (d < 365)  return `${Math.round(d / 30)} months`;
-  return `${(d / 365).toFixed(1)} years`;
-}
-
-function LagHistogram({ bins, total, median, mean }) {
-  const maxCount = Math.max(...bins.map(b => b.count));
-  const W = 600, ROW_H = 18, gap = 4;
-  const labelW = 140, barW = 380, countW = 50;
-  const innerH = ROW_H - gap;
-
-  // Identify which bin contains the median — we annotate it with a
-  // pointer so the central tendency is read directly off the
-  // distribution shape, not just from the caption above.
-  const medianBinIdx = bins.findIndex(b => median >= b.min && median <= b.max);
-
-  return (
-    <div className="space-y-3">
-      <div className="text-[11px] text-neutral-500 tabular-nums">
-        <span className="text-neutral-300">{total} dated finishes</span> · median <span className="text-neutral-300">{fmtDays(median)}</span> · mean <span className="text-neutral-300">{fmtDays(mean)}</span>
-      </div>
-      <svg viewBox={`0 0 ${W} ${bins.length * ROW_H}`} className="w-full h-auto" preserveAspectRatio="none">
-        {bins.map((b, i) => {
-          const y = i * ROW_H;
-          const barFill = b.count > 0 ? (b.count / maxCount) * barW : 0;
-          const tip = b.books
-            .slice(0, 5)
-            .map(bk => `${bk.title} (${Math.round(bk.lag_days)}d)`)
-            .join('\n');
-          return (
-            <g key={b.label}>
-              {/* Bin label, right-aligned for tidy parallelism with the bar starts. */}
-              <text x={labelW} y={y + innerH - 3} fontSize="9" fill="#d4d4d8" textAnchor="end">{b.label}</text>
-              {/* Bar — single rectangle, parchment fill. No grid, no axis;
-                  the embedded count to the right is the scale. */}
-              <rect x={labelW + 6} y={y + 2} width={barFill} height={innerH - 4} fill="#b8896a">
-                <title>{`${b.label} (${b.min}–${b.max === Infinity ? '∞' : b.max} days) — ${b.count} books${tip ? '\n\n' + tip : ''}`}</title>
-              </rect>
-              {/* Count column. */}
-              <text x={labelW + 6 + barW + 6} y={y + innerH - 3} fontSize="9" fill="#737373" textAnchor="start">{b.count}</text>
-              {/* Median pointer — small ◂ at the right edge of the
-                  containing bin's bar, so the typical-lag bin is
-                  visually flagged inside the histogram. */}
-              {i === medianBinIdx && (
-                <text x={labelW + 6 + barFill + 2} y={y + innerH - 3} fontSize="8" fill="#d4a574">◂ median</text>
-              )}
-            </g>
-          );
-        })}
-      </svg>
-    </div>
-  );
-}
-
 // ── Experiment #6 — Year-published spectrum ──────────────────────────────
 //
 // Two-panel histogram of original year_published bucketed into decades,
@@ -1121,7 +1027,6 @@ export default function DataViz() {
     return { inProgress, complete };
   }, [comp]);
   const spec = useMemo(() => buildSpectrum(stats?.decadesPublished), [stats]);
-  const lagh = useMemo(() => buildReadingLag(lag), [lag]);
   const dd   = useMemo(() => buildDotDash(scatter), [scatter]);
   const mar  = useMemo(() => buildBookMarey(lag), [lag]);
 
@@ -1219,14 +1124,6 @@ export default function DataViz() {
           <div className="text-[11px] uppercase tracking-wide text-neutral-500">Modern · 1500s – {fmtYear(spec.maxDecade)}s</div>
           <SpectrumPanel bins={spec.allBins} panelMin={1500} panelMax={spec.maxDecade} tickStep={100} showLegend={false} />
         </div>
-      </section>
-
-      {/* ── Experiment #8 — Reading-lag distribution ── */}
-      <section className="space-y-4">
-        <p className="text-sm text-neutral-500">
-          <span className="text-neutral-300 font-semibold">Experiment #8 — Reading lag distribution</span>. Days between acquiring a book and finishing it, bucketed on a log-ish scale. Companion to #4: that one is the macro view of the to-read mountain; this is the micro view of "how fast did each book actually move through the queue?" Median bin is flagged inline. Hover any bar to see up to 5 example books in that bucket.
-        </p>
-        <LagHistogram {...lagh} />
       </section>
 
       {/* ── Experiment #9 — Dot-dash plot: page count × rating ── */}
