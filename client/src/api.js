@@ -131,6 +131,7 @@ export const api = {
   getLibraryTrajectory: () => request('/stats/library-trajectory'),
   getTagDecadeMatrix: () => request('/stats/tag-decade-matrix'),
   getReadingLag: () => request('/stats/reading-lag'),
+  getPageRatingScatter: () => request('/stats/page-rating-scatter'),
   getSeriesCompletion: () => request('/series/completion'),
   getSettings: () => request('/settings'),
   setSetting: (key, value) => request(`/settings/${key}`, { method: 'PUT', body: JSON.stringify({ value }) }),
