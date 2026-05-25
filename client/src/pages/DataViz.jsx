@@ -312,24 +312,33 @@ const LIFESPAN_AXIS_H = 18;
 const LIFESPAN_ROW_H = 3.5;
 
 function LifespanChart({ rows, minY, maxY, ticks, maxBooks, zoom = 1 }) {
-  const W = LIFESPAN_W, AXIS_H = LIFESPAN_AXIS_H;
-  const ROW_H = LIFESPAN_ROW_H * zoom;
+  const W = LIFESPAN_W, AXIS_H = LIFESPAN_AXIS_H, ROW_H = LIFESPAN_ROW_H;
   const yearSpan = maxY - minY;
   const x = y => ((y - minY) / yearSpan) * W;
   const r = books => Math.max(1.2, Math.sqrt(books) * 0.7);
   const H = AXIS_H + rows.length * ROW_H;
 
-  // Top-N inline labels by book count. At higher zoom levels each row
-  // has more vertical room, so progressively more authors get named:
-  // at 1× only the top 12 fit, at 4× we name closer to the top 96. The
-  // sort is stable, so adding labels never reshuffles existing ones.
+  // Top-N inline labels by book count. At higher zoom levels each
+  // datapoint occupies more screen space, so progressively more
+  // authors get named: at 1× only the top 12 fit, at 8× we name closer
+  // to the top 96. The sort is stable, so adding labels never
+  // reshuffles existing ones.
   const labelCount = LIFESPAN_TOP_LABELS * zoom;
   const labelSet = new Set(
     [...rows].sort((a, b) => b.books - a.books).slice(0, labelCount).map(r => r.id)
   );
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto block">
+    // Zoom scales the SVG's CSS width (not the viewBox), so every
+    // element — rows, time axis, labels, dots — grows uniformly. At
+    // zoom > 1 the SVG overflows the parent and the wrapper's
+    // overflow-x-auto produces a horizontal scrollbar instead of
+    // compacting the content.
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      className="block h-auto"
+      style={{ width: `${zoom * 100}%` }}
+    >
       {ticks.map(t => (
         <line key={`g-${t}`} x1={x(t)} y1={AXIS_H} x2={x(t)} y2={H} stroke="#262626" strokeWidth={0.4} />
       ))}
@@ -367,12 +376,12 @@ function LifespanChart({ rows, minY, maxY, ticks, maxBooks, zoom = 1 }) {
   );
 }
 
-// Discrete zoom levels (vertical only — row height scales, time axis
-// stays at full content width). 1× is the dense "everything fits on
-// one screen" view; 4× gives row height enough breathing room that
-// the top ~96 authors get labelled inline.
+// Discrete zoom levels. 1× is the dense "everything fits on one
+// screen" view; higher zoom proportionally scales the SVG's display
+// dimensions (both axes) so the chart overflows its container and a
+// horizontal scrollbar appears, rather than compacting the time axis.
 const LIFESPAN_ZOOM_MIN = 1;
-const LIFESPAN_ZOOM_MAX = 4;
+const LIFESPAN_ZOOM_MAX = 8;
 
 function LifespansWithLoupe(life) {
   const [zoom, setZoom] = useState(1);
@@ -1202,7 +1211,7 @@ export default function DataViz() {
       {/* ── Experiment #3 — Authors-as-lifespan timeline ── */}
       <section className="space-y-4">
         <p className="text-sm text-neutral-500">
-          <span className="text-neutral-300 font-semibold">Experiment #3 — Authors as lifespans</span>, {fmtYear(life.minY)} – {fmtYear(life.maxY)}. {life.rows.length} authors with both birth and death dates; rows sorted oldest birth first. Each bar spans an author's life; the dot at the midpoint is sized by books-in-library (sqrt scale, max {life.maxBooks}). Top authors by count are labelled inline (more labels surface at higher zoom). Use the − / + buttons to enlarge row height when individual lifespans are too tight to scan.
+          <span className="text-neutral-300 font-semibold">Experiment #3 — Authors as lifespans</span>, {fmtYear(life.minY)} – {fmtYear(life.maxY)}. {life.rows.length} authors with both birth and death dates; rows sorted oldest birth first. Each bar spans an author's life; the dot at the midpoint is sized by books-in-library (sqrt scale, max {life.maxBooks}). Top authors by count are labelled inline; more labels surface at higher zoom. Use the − / + buttons to scale the chart uniformly — at zoom &gt; 1× a horizontal scrollbar appears so the time axis stretches out rather than compacting against the container.
         </p>
         <LifespansWithLoupe {...life} />
       </section>
