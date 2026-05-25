@@ -465,8 +465,19 @@ function LifespansWithLoupe(life) {
         <LifespanChart {...life} onHoverIdx={setHoverIdx} />
       </div>
       {chartInView && (
-        <div className="fixed bottom-4 left-4 z-20 w-64 bg-neutral-900/95 border border-neutral-800 rounded-lg shadow-xl p-3 backdrop-blur-sm">
-          <LifespanLoupe rows={life.rows} minY={life.minY} maxY={life.maxY} hoverIdx={hoverIdx} />
+        // Full-width fixed container with the same horizontal
+        // constraints as the page content (max-w-5xl + mx-auto + the
+        // matching px-*), so the inner loupe card's left edge lands on
+        // the same x-coordinate as the section's "Experiment #3"
+        // heading regardless of viewport size. pointer-events-none on
+        // the outer + pointer-events-auto on the inner lets clicks
+        // pass through to the chart below everywhere except the loupe.
+        <div className="fixed bottom-4 left-0 right-0 z-20 pointer-events-none">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="w-64 pointer-events-auto bg-neutral-900/95 border border-neutral-800 rounded-lg shadow-xl p-3 backdrop-blur-sm">
+              <LifespanLoupe rows={life.rows} minY={life.minY} maxY={life.maxY} hoverIdx={hoverIdx} />
+            </div>
+          </div>
         </div>
       )}
     </>
