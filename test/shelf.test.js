@@ -1091,32 +1091,38 @@ describe('shelf', () => {
       }
     });
 
-    it('GET /api/shelf/buildings/:id/books orders shelf < unit < room < building', async () => {
-      // The COALESCE(...order_index, 999999) trick puts books at higher
-      // location tiers last. shelfedBookId reaches unit via shelf, unitBookId
-      // is on the unit directly, roomBookId and buildingBookId fall back to
-      // 999999. Pinning the hierarchy is more durable than asserting an
-      // exact full order, since the last two tie and depend on title.
+    it('GET /api/shelf/buildings/:id/books surfaces building-level unfiled first, then shelf < unit < room within rooms', async () => {
+      // The outer COALESCE(...room order_index, -1) puts the building-level
+      // unfiled bucket first (no effective room). Within each named room
+      // the inner unit/shelf COALESCEs keep the 999999 fallback, so the
+      // historical within-room order (shelf < unit < room-pinned) is
+      // preserved.
       const { body } = await req('GET', `/api/shelf/buildings/${buildingId}/books`);
       const ids = body.map(b => b.id);
       const idx = (id) => ids.indexOf(id);
       assert.ok(idx(shelfedBookId) >= 0, 'shelfed book should appear');
+      assert.ok(idx(buildingBookId) < idx(shelfedBookId),
+        `building-level unfiled should come first; got ${ids.join(',')}`);
+      assert.ok(idx(buildingBookId) < idx(unitBookId),
+        `building-level unfiled should come before unit-level; got ${ids.join(',')}`);
+      assert.ok(idx(buildingBookId) < idx(roomBookId),
+        `building-level unfiled should come before room-level; got ${ids.join(',')}`);
       assert.ok(idx(shelfedBookId) < idx(unitBookId),
-        `shelfed should come before unit-level; got ${ids.join(',')}`);
+        `within a room, shelfed should come before unit-level; got ${ids.join(',')}`);
       assert.ok(idx(unitBookId) < idx(roomBookId),
-        `unit-level should come before room-level; got ${ids.join(',')}`);
-      assert.ok(idx(unitBookId) < idx(buildingBookId),
-        `unit-level should come before building-level; got ${ids.join(',')}`);
+        `within a room, unit-level should come before room-pinned; got ${ids.join(',')}`);
     });
 
-    it('GET /api/shelf/rooms/:id/books orders shelf < unit < room', async () => {
+    it('GET /api/shelf/rooms/:id/books surfaces room-level unfiled first, then shelf < unit within units', async () => {
       const { body } = await req('GET', `/api/shelf/rooms/${roomId}/books`);
       const ids = body.map(b => b.id);
       const idx = (id) => ids.indexOf(id);
+      assert.ok(idx(roomBookId) < idx(shelfedBookId),
+        `room-level unfiled should come first; got ${ids.join(',')}`);
+      assert.ok(idx(roomBookId) < idx(unitBookId),
+        `room-level unfiled should come before unit-level; got ${ids.join(',')}`);
       assert.ok(idx(shelfedBookId) < idx(unitBookId),
-        `shelfed should come before unit-level; got ${ids.join(',')}`);
-      assert.ok(idx(unitBookId) < idx(roomBookId),
-        `unit-level should come before room-level; got ${ids.join(',')}`);
+        `within a unit, shelfed should come before unit-level; got ${ids.join(',')}`);
     });
 
     it('GET /api/shelf/units/:id/books orders books by shelf order_index', async () => {

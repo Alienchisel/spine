@@ -367,7 +367,11 @@ router.get('/buildings/:id/books', (req, res) => {
         OR r_via_s.building_id  = ?
       )
     ORDER BY
-      COALESCE(r_direct.order_index, r_via_u.order_index, r_via_s.order_index, 999999),
+      -- Building-level unfiled (no effective room) sorts first via -1.
+      -- Inner unit/shelf COALESCEs keep the 999999 fallback because
+      -- they only affect within-group ordering, which isn't surfaced
+      -- as a labelled bucket at the building view.
+      COALESCE(r_direct.order_index, r_via_u.order_index, r_via_s.order_index, -1),
       COALESCE(r_direct.name,        r_via_u.name,        r_via_s.name),
       COALESCE(u_direct.order_index, u_via_sh.order_index, 999999),
       COALESCE(u_direct.name,        u_via_sh.name),
@@ -403,7 +407,10 @@ router.get('/rooms/:id/books', (req, res) => {
         OR u_via_s.room_id  = ?
       )
     ORDER BY
-      COALESCE(u_direct.order_index, u_via_s.order_index, 999999),
+      -- Room-level unfiled (no effective unit) sorts first via -1.
+      -- Inner shelf COALESCE keeps 999999 since it only affects within-group
+      -- ordering, not the labelled bucket header position.
+      COALESCE(u_direct.order_index, u_via_s.order_index, -1),
       COALESCE(u_direct.name,        u_via_s.name),
       COALESCE(s_direct.order_index, 999999),
       CASE WHEN b.shelf_position IS NULL THEN 1 ELSE 0 END,

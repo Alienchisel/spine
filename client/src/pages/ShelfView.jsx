@@ -643,6 +643,25 @@ export default function ShelfView() {
         {booksLoading ? (
           <div role="status" className="text-neutral-700 text-sm">Loading…</div>
         ) : (<>
+          {(() => {
+            // Unit-level unfiled books surface above the shelves loop so
+            // the "appear first at every level" rule holds at the unit
+            // view as it does at the room/building views (where SQL
+            // ordering puts the unfiled bucket first). border-b + mb-6
+            // separates this group from the heavier ShelfRow stack below.
+            const unitOnly = books.filter(b => !b.shelf_id);
+            if (unitOnly.length === 0) return null;
+            return (
+              <div className={shelves.length > 0 ? 'mb-6 pb-6 border-b border-neutral-800/50' : ''}>
+                {shelves.length > 0 && (
+                  <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-4">Not on a shelf</h2>
+                )}
+                <div className={gridClassName} style={gridStyle}>
+                  {unitOnly.map(book => <BookCard key={book.id} book={book} compact={compact} linkState={fromState} />)}
+                </div>
+              </div>
+            );
+          })()}
           {shelves.length > 0 && (
             <div className="-mx-4 sm:-mx-6 lg:-mx-8">
               {shelves.map(s => (
@@ -680,20 +699,6 @@ export default function ShelfView() {
               ))}
             </div>
           )}
-          {(() => {
-            const unitOnly = books.filter(b => !b.shelf_id);
-            if (unitOnly.length === 0) return null;
-            return (
-              <div className={shelves.length > 0 ? 'mt-6 pt-6 border-t border-neutral-800/50' : ''}>
-                {shelves.length > 0 && (
-                  <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-4">Not on a shelf</h2>
-                )}
-                <div className={gridClassName} style={gridStyle}>
-                  {unitOnly.map(book => <BookCard key={book.id} book={book} compact={compact} linkState={fromState} />)}
-                </div>
-              </div>
-            );
-          })()}
           {shelves.length === 0 && books.length === 0 && (
             <p className="text-neutral-600 text-sm">No books in this unit yet.</p>
           )}
