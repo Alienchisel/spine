@@ -4,7 +4,7 @@ import { api } from '../api.js';
 // Top N sources get their own panel; everything else collapses into
 // "Other" so the long tail of single-source bookstores doesn't drown
 // out the comparison. 3 isolates the dominant Kindle / Audible / Amazon
-// trio against an Other bucket; the 4-panel result fits a single row.
+// trio against an Other bucket; the four panels lay out as a 2x2 grid.
 const TOP_N_SOURCES = 3;
 
 // Pivot the flat (year, source, count) rows the server returns into
@@ -1103,7 +1103,7 @@ export default function DataViz() {
         <p className="text-sm text-neutral-500">
           <span className="text-neutral-300 font-semibold">Experiment #1 — Acquisitions by source</span>, {acq.years[0]}–{acq.years[acq.years.length - 1]}. Small multiples with a shared y-scale ({acq.yMax}/yr ceiling), so the eye can compare each source's tempo against the others. Top {TOP_N_SOURCES} sources by total; everything else collapses into the Other panel.
         </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6">
           {acq.panels.map(p => (
             <AcquisitionPanel key={p.source} {...p} years={acq.years} yMax={acq.yMax} />
           ))}
