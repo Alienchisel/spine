@@ -172,7 +172,7 @@ function buildCalendar(rows) {
   return { years, byDate };
 }
 
-function CalendarYearRow({ year, byDate, cellSize = 8, gap = 1 }) {
+function CalendarYearRow({ year, byDate, cellSize = 12, gap = 2 }) {
   // Build positions for every day of the year. col = weeks since the
   // year's first display column (Sunday on or before Jan 1); row = day
   // of week (Sun=0). 53 cols covers leap years and Sunday-aligned starts.
