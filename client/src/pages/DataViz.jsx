@@ -1115,92 +1115,79 @@ function HeatLegend() {
 
 // ── Experiment #6 — Year-published spectrum ──────────────────────────────
 //
-// Histogram of original year_published bucketed into decades, layered:
-// the full library in muted neutral, books-actually-read in warm
-// parchment on top. The visible gap between the two bars in any decade
-// is what's in the library but unread for that era.
-//
-// Linear time axis on purpose — the sparse BCE/medieval span IS the
-// data shape, and shrink-fitting it would hide that. Centuries get
-// faint vertical references; CE/BCE labels at common landmarks.
+// Two-panel histogram of original year_published bucketed into decades,
+// split at 1500 (the conventional early-modern boundary). Each panel
+// uses its own y-scale so the BCE/medieval long tail isn't crushed by
+// the modern-era pile — Tufte small multiples instead of a global
+// linear scale that would make the pre-modern bars invisible. Bars are
+// layered: muted neutral for the full library, warm parchment for the
+// read subset on top.
+const SPECTRUM_SPLIT = 1500;
 
 function buildSpectrum(decadesPublished) {
-  if (!decadesPublished?.length) return { bins: [], minDecade: 0, maxDecade: 0, yMax: 0 };
+  if (!decadesPublished?.length) return { allBins: [], minDecade: 0, maxDecade: 0 };
   const minDecade = Math.min(...decadesPublished.map(d => d.decade));
   const maxDecade = Math.max(...decadesPublished.map(d => d.decade));
   // Build a dense array with one slot per decade so empty centuries
   // still occupy visual space — the missing-data shape is itself data.
   const byDecade = new Map(decadesPublished.map(d => [d.decade, d]));
-  const bins = [];
+  const allBins = [];
   for (let d = minDecade; d <= maxDecade; d += 10) {
     const e = byDecade.get(d);
-    bins.push({ decade: d, count: e?.count || 0, read: e?.read || 0 });
+    allBins.push({ decade: d, count: e?.count || 0, read: e?.read || 0 });
   }
-  const yMax = Math.max(...bins.map(b => b.count));
-  return { bins, minDecade, maxDecade, yMax };
+  return { allBins, minDecade, maxDecade };
 }
 
-function SpectrumChart({ bins, minDecade, maxDecade, yMax }) {
+function SpectrumPanel({ bins, panelMin, panelMax, tickStep, showLegend }) {
   const W = 1000, H = 200, TOP = 14, BOT = 22;
-  const span = maxDecade - minDecade + 10;
-  const x = decade => ((decade - minDecade) / span) * W;
-  const barW = (W / span) * 10 - 0.6; // 10 years wide, small inset for gap
+  const span = panelMax - panelMin + 10;
+  const x = decade => ((decade - panelMin) / span) * W;
+  const barW = (W / span) * 10 - 0.6;
+  const visible = bins.filter(b => b.decade >= panelMin && b.decade <= panelMax);
+  const dataMax = Math.max(1, ...visible.map(b => b.count));
+  const yMax = Math.ceil(dataMax / 10) * 10;
   const y = v => H - (v / yMax) * H;
 
-  // Century tick lines + labels at 250-year intervals. fmtYear gives the
-  // BCE/CE qualifier; the axis label is the only place the era is named.
   const ticks = [];
-  const start = Math.ceil(minDecade / 250) * 250;
-  for (let t = start; t <= maxDecade; t += 250) ticks.push(t);
+  const start = Math.ceil(panelMin / tickStep) * tickStep;
+  for (let t = start; t <= panelMax; t += tickStep) ticks.push(t);
 
   return (
     <svg viewBox={`0 0 ${W} ${H + TOP + BOT}`} className="w-full h-auto">
       <g transform={`translate(0, ${TOP})`}>
-        {/* Century reference verticals — quiet, behind the bars. */}
         {ticks.map(t => (
           <line key={`g-${t}`} x1={x(t)} y1={0} x2={x(t)} y2={H} stroke="#262626" strokeWidth={0.4} />
         ))}
-        {/* Bars: total in neutral first, then read on top in parchment.
-            Drawn-in-this-order matters; the read bar layers OVER the
-            total so its top edge is what the eye reads as "owned but
-            not yet read" boundary. */}
-        {bins.map(b => {
+        {visible.map(b => {
           if (b.count === 0) return null;
           return (
             <g key={b.decade}>
-              <rect
-                x={x(b.decade)}
-                y={y(b.count)}
-                width={barW}
-                height={H - y(b.count)}
-                fill="#525252"
-              >
+              <rect x={x(b.decade)} y={y(b.count)} width={barW} height={H - y(b.count)} fill="#525252">
                 <title>{`${fmtYear(b.decade)}s — ${b.count} in library, ${b.read} read`}</title>
               </rect>
               {b.read > 0 && (
-                <rect
-                  x={x(b.decade)}
-                  y={y(b.read)}
-                  width={barW}
-                  height={H - y(b.read)}
-                  fill="#d4a574"
-                >
+                <rect x={x(b.decade)} y={y(b.read)} width={barW} height={H - y(b.read)} fill="#d4a574">
                   <title>{`${fmtYear(b.decade)}s — ${b.count} in library, ${b.read} read`}</title>
                 </rect>
               )}
             </g>
           );
         })}
-        {/* Range-framed baseline. */}
         <line x1={0} y1={H} x2={W} y2={H} stroke="#525252" strokeWidth={0.4} />
-        {/* Tick labels under the plot. */}
         {ticks.map(t => (
           <text key={`l-${t}`} x={x(t)} y={H + 12} fontSize="8" fill="#737373" textAnchor="middle">{fmtYear(t)}</text>
         ))}
-        {/* Endpoint hint at the right — what the warm overlay means.
-            Direct attribution where the data lives, no separate legend. */}
-        <text x={W - 2} y={-4} fontSize="9" fill="#d4a574" textAnchor="end">read</text>
-        <text x={W - 2} y={6} fontSize="9" fill="#a3a3a3" textAnchor="end">in library</text>
+        {/* Per-panel y-scale ceiling, top-left — names this panel's
+            scale so the reader knows the panels aren't comparable
+            vertically. */}
+        <text x={0} y={-4} fontSize="9" fill="#737373">0–{yMax} books/decade</text>
+        {showLegend && (
+          <>
+            <text x={W - 2} y={-4} fontSize="9" fill="#d4a574" textAnchor="end">read</text>
+            <text x={W - 2} y={6} fontSize="9" fill="#a3a3a3" textAnchor="end">in library</text>
+          </>
+        )}
       </g>
     </svg>
   );
@@ -1346,9 +1333,16 @@ export default function DataViz() {
       {/* ── Experiment #6 — Year-published spectrum ── */}
       <section className="space-y-4">
         <p className="text-sm text-neutral-500">
-          <span className="text-neutral-300 font-semibold">Experiment #6 — Year-published spectrum</span>, {fmtYear(spec.minDecade)} – {fmtYear(spec.maxDecade)}. Decade-binned histogram of every book's original publication year, layered: muted neutral for all books in the library, warm parchment for the read subset. Empty decades stay visible — the sparse BCE/medieval span is itself the data shape, not a layout problem to fix. Tallest decade: {fmtYear(spec.bins.reduce((m, b) => b.count > m.count ? b : m, { decade: 0, count: 0 }).decade)}s with {spec.yMax} books.
+          <span className="text-neutral-300 font-semibold">Experiment #6 — Year-published spectrum</span>, {fmtYear(spec.minDecade)} – {fmtYear(spec.maxDecade)}. Decade-binned histogram of every book's original publication year, split into two panels at {fmtYear(SPECTRUM_SPLIT)} — the conventional early-modern divide and your library's natural regime shift (pre-1500 mostly 1–10 books/decade, post-1500 mostly 20+). Each panel uses its own y-scale so the long tail doesn't get crushed by the modern pile; bars are layered with muted neutral for all books in the library and warm parchment for the read subset on top.
         </p>
-        <SpectrumChart {...spec} />
+        <div className="space-y-1">
+          <div className="text-[11px] uppercase tracking-wide text-neutral-500">Pre-modern · {fmtYear(spec.minDecade)} – 1490s</div>
+          <SpectrumPanel bins={spec.allBins} panelMin={spec.minDecade} panelMax={1490} tickStep={250} showLegend={true} />
+        </div>
+        <div className="space-y-1">
+          <div className="text-[11px] uppercase tracking-wide text-neutral-500">Modern · 1500s – {fmtYear(spec.maxDecade)}s</div>
+          <SpectrumPanel bins={spec.allBins} panelMin={1500} panelMax={spec.maxDecade} tickStep={100} showLegend={false} />
+        </div>
       </section>
 
       {/* ── Experiment #7 — Tags × decade heatmap ── */}
