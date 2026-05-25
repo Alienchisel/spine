@@ -449,6 +449,10 @@ function LifespansWithLoupe(life) {
   }, []);
 
   function startDrag(e) {
+    // Left button only — right-click triggers the context menu (and
+    // can leave us in a stuck drag state if its mouseup doesn't reach
+    // the document listener), middle-click can spawn a new tab.
+    if (e.button !== 0) return;
     if (!bodyRef.current) return;
     if (e.target.closest('button, a, input')) return;
     dragRef.current = {
