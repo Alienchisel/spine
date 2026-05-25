@@ -1,6 +1,6 @@
 import express from 'express';
 import { computeAllStats } from '../lib/stats/index.js';
-import { getReadingCalendar, getLibraryTrajectory, getTagDecadeMatrix } from '../lib/stats/activity.js';
+import { getReadingCalendar, getLibraryTrajectory, getTagDecadeMatrix, getReadingLag } from '../lib/stats/activity.js';
 
 const router = express.Router();
 
@@ -25,6 +25,12 @@ router.get('/library-trajectory', (_req, res) => {
 // rows; client pivots into the grid.
 router.get('/tag-decade-matrix', (_req, res) => {
   res.json(getTagDecadeMatrix());
+});
+
+// Per-book lag in days between acquisition and finish for /data-viz's
+// reading-lag distribution.
+router.get('/reading-lag', (_req, res) => {
+  res.json(getReadingLag());
 });
 
 export default router;
