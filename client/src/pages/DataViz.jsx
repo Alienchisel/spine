@@ -848,12 +848,14 @@ export default function DataViz() {
       </section>
 
       {/* ── Experiment #4 — Cumulative acquired vs finished ── */}
-      <section className="space-y-4">
-        <p className="text-sm text-neutral-500">
-          <span className="text-neutral-300 font-semibold">Experiment #4 — Cumulative acquired vs finished</span>, {trajectory[0].month} – {trajectory[trajectory.length - 1].month}. Two monthly running totals overlaid; the shaded area between them is the to-read mountain. Only date-stamped finishes count toward the lower line, so the gap reflects both unread inventory and books finished without a recorded date. (Audit's "Owned books have finish date" gap shows the books missing a date.)
-        </p>
-        <TrajectoryChart data={trajectory} />
-      </section>
+      {trajectory.length > 0 && (
+        <section className="space-y-4">
+          <p className="text-sm text-neutral-500">
+            <span className="text-neutral-300 font-semibold">Experiment #4 — Cumulative acquired vs finished</span>, {trajectory[0].month} – {trajectory[trajectory.length - 1].month}. Two monthly running totals overlaid; the shaded area between them is the to-read mountain. Only date-stamped finishes count toward the lower line, so the gap reflects both unread inventory and books finished without a recorded date. (Audit's "Owned books have finish date" gap shows the books missing a date.)
+          </p>
+          <TrajectoryChart data={trajectory} />
+        </section>
+      )}
 
       {/* ── Experiment #5 — Series completion as sparklines ── */}
       <section className="space-y-4">
@@ -889,19 +891,27 @@ export default function DataViz() {
       </section>
 
       {/* ── Experiment #6 — Year-published spectrum ── */}
-      <section className="space-y-4">
-        <p className="text-sm text-neutral-500">
-          <span className="text-neutral-300 font-semibold">Experiment #6 — Year-published spectrum</span>, {fmtYear(spec.minDecade)} – {fmtYear(spec.maxDecade)}. Decade-binned histogram of every book's original publication year, split into two panels at {fmtYear(SPECTRUM_SPLIT)} — the conventional early-modern divide and your library's natural regime shift (pre-1500 mostly 1–10 books/decade, post-1500 mostly 20+). Each panel uses its own y-scale so the long tail doesn't get crushed by the modern pile; bars are layered with muted neutral for all books in the library and warm parchment for the read subset on top.
-        </p>
-        <div className="space-y-1">
-          <div className="text-[11px] uppercase tracking-wide text-neutral-500">Pre-modern · {fmtYear(spec.minDecade)} – 1490s</div>
-          <SpectrumPanel bins={spec.allBins} panelMin={spec.minDecade} panelMax={1490} tickStep={250} showLegend={true} />
-        </div>
-        <div className="space-y-1">
-          <div className="text-[11px] uppercase tracking-wide text-neutral-500">Modern · 1500s – {fmtYear(spec.maxDecade)}s</div>
-          <SpectrumPanel bins={spec.allBins} panelMin={1500} panelMax={spec.maxDecade} tickStep={100} showLegend={false} />
-        </div>
-      </section>
+      {spec.allBins.length > 0 && (
+        <section className="space-y-4">
+          <p className="text-sm text-neutral-500">
+            <span className="text-neutral-300 font-semibold">Experiment #6 — Year-published spectrum</span>, {fmtYear(spec.minDecade)} – {fmtYear(spec.maxDecade)}. Decade-binned histogram of every book's original publication year, split into two panels at {fmtYear(SPECTRUM_SPLIT)} — the conventional early-modern divide and your library's natural regime shift (pre-1500 mostly 1–10 books/decade, post-1500 mostly 20+). Each panel uses its own y-scale so the long tail doesn't get crushed by the modern pile; bars are layered with muted neutral for all books in the library and warm parchment for the read subset on top.
+          </p>
+          {/* Each panel only renders if its date range actually contains
+              data — otherwise panelMin > panelMax inverts the SVG. */}
+          {spec.minDecade <= 1490 && (
+            <div className="space-y-1">
+              <div className="text-[11px] uppercase tracking-wide text-neutral-500">Pre-modern · {fmtYear(spec.minDecade)} – 1490s</div>
+              <SpectrumPanel bins={spec.allBins} panelMin={spec.minDecade} panelMax={1490} tickStep={250} showLegend={true} />
+            </div>
+          )}
+          {spec.maxDecade >= 1500 && (
+            <div className="space-y-1">
+              <div className="text-[11px] uppercase tracking-wide text-neutral-500">Modern · 1500s – {fmtYear(spec.maxDecade)}s</div>
+              <SpectrumPanel bins={spec.allBins} panelMin={1500} panelMax={spec.maxDecade} tickStep={100} showLegend={false} />
+            </div>
+          )}
+        </section>
+      )}
 
     </div>
   );
