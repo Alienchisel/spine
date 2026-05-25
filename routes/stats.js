@@ -1,6 +1,6 @@
 import express from 'express';
 import { computeAllStats } from '../lib/stats/index.js';
-import { getReadingCalendar, getLibraryTrajectory, getReadingLag, getPageRatingScatter } from '../lib/stats/activity.js';
+import { getReadingCalendar, getLibraryTrajectory, getReadingLag } from '../lib/stats/activity.js';
 
 const router = express.Router();
 
@@ -25,11 +25,6 @@ router.get('/library-trajectory', (_req, res) => {
 // reading-lag distribution.
 router.get('/reading-lag', (_req, res) => {
   res.json(getReadingLag());
-});
-
-// Page-count × rating scatter (with format) for /data-viz's dot-dash plot.
-router.get('/page-rating-scatter', (_req, res) => {
-  res.json(getPageRatingScatter());
 });
 
 export default router;

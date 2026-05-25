@@ -677,127 +677,6 @@ function CompletionRow({ name, cells, knownMax, ownedCount }) {
   );
 }
 
-// ── Experiment #9 — Dot-dash plot: page count × rating ───────────────────
-//
-// Canonical Tufte dot-dash plot from Visual Display: the scatter shows
-// each rated book at (page_count, rating); the axes are replaced by
-// marginal rug plots so the same ink that serves as the frame also
-// shows the 1D distribution of each variable. Dots are coloured by
-// format — physical / ebook / audiobook — as a third variable layered
-// onto the same display.
-
-const FORMAT_COLOR = {
-  physical:  '#d4a574',
-  ebook:     '#8aa6b8',
-  audiobook: '#c47853',
-};
-
-function buildDotDash(rows) {
-  if (!rows?.length) return { rows: [], xMax: 0, ratings: [] };
-  const xMax = Math.max(...rows.map(r => r.page_count));
-  const ratings = [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
-  return { rows, xMax, ratings };
-}
-
-function DotDashPlot({ rows, xMax, ratings }) {
-  // Round the x-axis ceiling to a clean tick. The actual data may go to
-  // 4958; rounding up to the next 1000 gives a labelable extent.
-  const xCeiling = Math.ceil(xMax / 1000) * 1000;
-  const W = 620, H = 380;
-  const M = { top: 20, right: 16, bottom: 36, left: 50 };
-  const plotW = W - M.left - M.right;
-  const plotH = H - M.top - M.bottom;
-
-  const x = pages => M.left + (pages / xCeiling) * plotW;
-  const y = rating => M.top + plotH - ((rating - 0.5) / (5 - 0.5)) * plotH;
-
-  // x-axis tick positions (every 1000) for axis labels.
-  const xTicks = [];
-  for (let t = 0; t <= xCeiling; t += 1000) xTicks.push(t);
-
-  // Median lines — light reference dashes so the eye finds the centre
-  // of mass without needing to compute it. Pure analytic-design layer.
-  const sortedX = [...rows].map(r => r.page_count).sort((a, b) => a - b);
-  const sortedY = [...rows].map(r => r.rating).sort((a, b) => a - b);
-  const medianX = sortedX[Math.floor(sortedX.length / 2)];
-  const medianY = sortedY[Math.floor(sortedY.length / 2)];
-
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto">
-      {/* Median guide lines — very faint dashed, recede behind data. */}
-      <line x1={x(medianX)} y1={M.top} x2={x(medianX)} y2={M.top + plotH} stroke="#404040" strokeWidth={0.4} strokeDasharray="2 2" />
-      <line x1={M.left} y1={y(medianY)} x2={M.left + plotW} y2={y(medianY)} stroke="#404040" strokeWidth={0.4} strokeDasharray="2 2" />
-
-      {/* Bottom rug — each book's page_count as a small vertical tick on
-          the bottom margin. This IS the x-axis: same ink shows both the
-          axis baseline (collectively) and the 1D distribution. */}
-      {rows.map(r => (
-        <line
-          key={`rb-${r.id}`}
-          x1={x(r.page_count)} x2={x(r.page_count)}
-          y1={M.top + plotH + 1}
-          y2={M.top + plotH + 6}
-          stroke="#737373" strokeWidth={0.5}
-        />
-      ))}
-      {/* Left rug — each book's rating as a small horizontal tick on the
-          left margin. Same role: axis + marginal distribution in one. */}
-      {rows.map(r => (
-        <line
-          key={`rl-${r.id}`}
-          y1={y(r.rating)} y2={y(r.rating)}
-          x1={M.left - 6}
-          x2={M.left - 1}
-          stroke="#737373" strokeWidth={0.5}
-        />
-      ))}
-
-      {/* x-axis tick labels — small, neutral. */}
-      {xTicks.map(t => (
-        <text key={`xt-${t}`} x={x(t)} y={M.top + plotH + 18} fontSize="8" fill="#737373" textAnchor="middle">
-          {t === 0 ? '0' : `${t / 1000}k`}
-        </text>
-      ))}
-      {/* y-axis labels — at integer ratings only, sparser to avoid clutter. */}
-      {[1, 2, 3, 4, 5].map(r => (
-        <text key={`yt-${r}`} x={M.left - 10} y={y(r) + 3} fontSize="8" fill="#737373" textAnchor="end">{r}</text>
-      ))}
-      {/* Axis names — small, oriented for readability. */}
-      <text x={M.left + plotW / 2} y={H - 4} fontSize="9" fill="#a3a3a3" textAnchor="middle">Page count</text>
-      <text x={12} y={M.top + plotH / 2} fontSize="9" fill="#a3a3a3" textAnchor="middle" transform={`rotate(-90 12 ${M.top + plotH / 2})`}>Rating</text>
-
-      {/* Data points — small circles, semi-transparent so cluster density
-          becomes its own encoding via overlap. */}
-      {rows.map(r => (
-        <circle
-          key={r.id}
-          cx={x(r.page_count)}
-          cy={y(r.rating)}
-          r={3.5}
-          fill={FORMAT_COLOR[r.format] || '#a3a3a3'}
-          fillOpacity={0.75}
-        >
-          <title>{`${r.title} · ${r.page_count} p · ${r.rating}★ · ${r.format}`}</title>
-        </circle>
-      ))}
-    </svg>
-  );
-}
-
-function FormatLegend() {
-  return (
-    <div className="flex items-center gap-4 text-[11px] text-neutral-500">
-      {Object.entries(FORMAT_COLOR).map(([fmt, color]) => (
-        <div key={fmt} className="flex items-center gap-1.5">
-          <svg width="10" height="10"><circle cx="5" cy="5" r="3.5" fill={color} fillOpacity={0.75} /></svg>
-          <span className="text-neutral-400">{fmt}</span>
-        </div>
-      ))}
-      <span className="ml-2 text-neutral-700">· dashed lines mark medians</span>
-    </div>
-  );
-}
-
 // ── Experiment #10 — Acquisition→finish Marey, per book ──────────────────
 //
 // One row per dated-finish book, horizontal bar spans acquisition_date
@@ -985,7 +864,6 @@ export default function DataViz() {
   const [trajectory, setTrajectory] = useState(null);
   const [completion, setCompletion] = useState(null);
   const [lag, setLag] = useState(null);
-  const [scatter, setScatter] = useState(null);
   const [error, setError] = useState(null);
   // Experiment #5 tab: 'in_progress' (partial-completion sparklines) or
   // 'complete' (series the user owns 100% of, where the sparkline shape
@@ -1000,10 +878,9 @@ export default function DataViz() {
       api.getLibraryTrajectory(),
       api.getSeriesCompletion(),
       api.getReadingLag(),
-      api.getPageRatingScatter(),
     ])
-      .then(([s, c, a, t, sc, lg, ps]) => {
-        setStats(s); setCalendar(c); setAuthors(a); setTrajectory(t); setCompletion(sc); setLag(lg); setScatter(ps);
+      .then(([s, c, a, t, sc, lg]) => {
+        setStats(s); setCalendar(c); setAuthors(a); setTrajectory(t); setCompletion(sc); setLag(lg);
       })
       .catch(() => setError('Failed to load data.'));
   }, []);
@@ -1027,11 +904,10 @@ export default function DataViz() {
     return { inProgress, complete };
   }, [comp]);
   const spec = useMemo(() => buildSpectrum(stats?.decadesPublished), [stats]);
-  const dd   = useMemo(() => buildDotDash(scatter), [scatter]);
   const mar  = useMemo(() => buildBookMarey(lag), [lag]);
 
   if (error) return <div role="alert" className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-warn text-sm">{error}</div>;
-  if (!stats || !calendar || !authors || !trajectory || !completion || !lag || !scatter) return <div role="status" className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-neutral-700 text-sm">Loading…</div>;
+  if (!stats || !calendar || !authors || !trajectory || !completion || !lag) return <div role="status" className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-neutral-700 text-sm">Loading…</div>;
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
@@ -1124,15 +1000,6 @@ export default function DataViz() {
           <div className="text-[11px] uppercase tracking-wide text-neutral-500">Modern · 1500s – {fmtYear(spec.maxDecade)}s</div>
           <SpectrumPanel bins={spec.allBins} panelMin={1500} panelMax={spec.maxDecade} tickStep={100} showLegend={false} />
         </div>
-      </section>
-
-      {/* ── Experiment #9 — Dot-dash plot: page count × rating ── */}
-      <section className="space-y-4">
-        <p className="text-sm text-neutral-500">
-          <span className="text-neutral-300 font-semibold">Experiment #9 — Page count × rating, dot-dash</span>. {dd.rows.length} rated books with a known page count. Each dot is one book; the axes are replaced by marginal rug plots (every book's value contributes a tiny tick), so the same ink is doing three jobs at once — drawing the scatter, framing the chart, and showing each variable's 1D distribution. Dots are coloured by format; dashed lines mark the medians of each axis.
-        </p>
-        <FormatLegend />
-        <DotDashPlot {...dd} />
       </section>
 
       {/* ── Experiment #10 — Per-book acquisition→finish Marey ── */}
