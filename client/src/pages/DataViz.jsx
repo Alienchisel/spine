@@ -992,34 +992,19 @@ function LagHistogram({ bins, total, median, mean }) {
   );
 }
 
-// ── Experiment #7 — Tags × decade heatmap ────────────────────────────────
+// ── Experiment #7 — Tags × decade, per-tag sparklines ────────────────────
 //
-// Matrix of subject tag (rows, sorted by total) against publication
-// decade (columns, full BCE→present span). Cell shade encodes the
-// per-cell book count, thresholded into 6 bands so the BCE wisps stay
-// visible alongside the dense 20th-century pile. Light cells recede,
-// dense ones dominate — pure Tufte layering in matrix form, no grid
-// lines (the cells imply the grid).
+// One sparkline per subject tag, normalised to the tag's own peak so
+// every tag — from 5-book Comedy to 300-book Classics — shows clear
+// shape. Across-tag comparison is sacrificed for within-tag
+// readability (the absolute scale lives in the right-hand count
+// column). All sparklines share the same horizontal time axis so the
+// reader can scan vertically to compare temporal centres of mass.
 
 const TAG_MIN_TOTAL = 5;
-// Asymmetric thresholds: more resolution at the low end where ancient
-// decades cluster, fewer bands up top where the 2010s pile dominates.
-const HEAT_BUCKETS = [
-  { max: 0,  color: '#1a1816' }, // 0
-  { max: 1,  color: '#3a2c1f' }, // 1
-  { max: 4,  color: '#5a4029' }, // 2-4
-  { max: 14, color: '#8a5d37' }, // 5-14
-  { max: 39, color: '#b8896a' }, // 15-39
-  { max: Infinity, color: '#d4a574' }, // 40+
-];
-
-function heatColor(count) {
-  for (const b of HEAT_BUCKETS) if (count <= b.max) return b.color;
-  return HEAT_BUCKETS[HEAT_BUCKETS.length - 1].color;
-}
 
 function buildTagDecade(rows) {
-  if (!rows?.length) return { tags: [], decades: [], grid: new Map(), minDecade: 0, maxDecade: 0 };
+  if (!rows?.length) return { tags: [], decades: [], minDecade: 0, maxDecade: 0 };
   const byTag = new Map();
   let minDecade = Infinity, maxDecade = -Infinity;
   for (const r of rows) {
@@ -1039,76 +1024,69 @@ function buildTagDecade(rows) {
   return { tags, decades, minDecade, maxDecade };
 }
 
-function TagDecadeMatrix({ tags, decades, minDecade, maxDecade }) {
-  const cellW = 3, cellH = 11, gap = 0.5;
-  const gridW = decades.length * (cellW + gap) - gap;
-  const labelW = 130;
-  const totalW = 36;
-  const W = labelW + gridW + totalW + 14; // 14 = 6 + 8 gutters
-  const H = tags.length * (cellH + gap) - gap + 22; // 22 = bottom decade-label strip
+// Shared viewBox width for all sparklines + the header time-axis row,
+// so columns line up perfectly. Height per sparkline kept tight (1em)
+// since each row has its own normalised vertical scale.
+const TAG_SPARK_VB_W = 1000;
+const TAG_SPARK_VB_H = 14;
 
-  // Tick lines at 250-year intervals so the eye can anchor decades.
-  const ticks = [];
-  const start = Math.ceil(minDecade / 250) * 250;
-  for (let t = start; t <= maxDecade; t += 250) ticks.push(t);
-
-  const xOfDecade = d => labelW + 6 + ((d - minDecade) / 10) * (cellW + gap);
-  const gridH = tags.length * (cellH + gap) - gap;
+function TagSparklineList({ tags, decades, minDecade, maxDecade }) {
+  const span = maxDecade - minDecade + 10;
+  const xOf = decade => ((decade - minDecade) / span) * TAG_SPARK_VB_W;
+  const barW = TAG_SPARK_VB_W / decades.length;
+  // Year ticks for the shared header — every 500 years across the span.
+  const tickYears = [];
+  for (let y = Math.ceil(minDecade / 500) * 500; y <= maxDecade; y += 500) tickYears.push(y);
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto">
-      {/* Quiet vertical references through the grid at the labelled ticks. */}
-      {ticks.map(t => (
-        <line key={`g-${t}`} x1={xOfDecade(t)} y1={0} x2={xOfDecade(t)} y2={gridH} stroke="#262626" strokeWidth={0.4} />
-      ))}
-      {tags.map((tag, ri) => {
-        const y = ri * (cellH + gap);
-        return (
-          <g key={tag.name}>
-            <text x={labelW} y={y + cellH - 2} fontSize="8" fill="#d4d4d8" textAnchor="end">{tag.name}</text>
-            {decades.map((d, ci) => {
-              const c = tag.byDecade.get(d) || 0;
-              return (
-                <rect
-                  key={d}
-                  x={labelW + 6 + ci * (cellW + gap)}
-                  y={y}
-                  width={cellW}
-                  height={cellH}
-                  fill={heatColor(c)}
-                >
-                  {c > 0 && <title>{`${tag.name} — ${fmtYear(d)}s — ${c} book${c === 1 ? '' : 's'}`}</title>}
-                </rect>
-              );
-            })}
-            <text x={labelW + 6 + gridW + 4} y={y + cellH - 2} fontSize="8" fill="#737373" textAnchor="start">{tag.total}</text>
-          </g>
-        );
-      })}
-      {/* Decade-axis labels at the tick positions, below the grid. */}
-      {ticks.map(t => (
-        <text key={`l-${t}`} x={xOfDecade(t)} y={gridH + 12} fontSize="8" fill="#737373" textAnchor="middle">{fmtYear(t)}</text>
-      ))}
-    </svg>
-  );
-}
+    <div className="text-xs">
+      {/* Shared time-axis header — labels at 500-year intervals across
+          the same horizontal space the sparklines occupy. */}
+      <div className="flex items-center gap-3 mb-2">
+        <span className="shrink-0 w-44" />
+        <svg viewBox={`0 0 ${TAG_SPARK_VB_W} 10`} preserveAspectRatio="none" className="flex-1 h-3">
+          {tickYears.map(t => (
+            <text key={t} x={xOf(t)} y={8} fontSize="6" fill="#737373" textAnchor="middle">{fmtYear(t)}</text>
+          ))}
+        </svg>
+        <span className="shrink-0 w-12" />
+      </div>
 
-function HeatLegend() {
-  const size = 12, gap = 2;
-  const W = HEAT_BUCKETS.length * (size + gap) - gap;
-  const labels = ['0', '1', '2-4', '5-14', '15-39', '40+'];
-  return (
-    <div className="flex items-center gap-2 text-[10px] text-neutral-500">
-      <span>Fewer</span>
-      <svg viewBox={`0 0 ${W} ${size + 10}`} width={W} height={size + 10}>
-        {HEAT_BUCKETS.map((b, i) => (
-          <g key={i}>
-            <rect x={i * (size + gap)} y={0} width={size} height={size} fill={b.color} rx={1} />
-            <text x={i * (size + gap) + size / 2} y={size + 8} fontSize="6" fill="#737373" textAnchor="middle">{labels[i]}</text>
-          </g>
-        ))}
-      </svg>
-      <span>More books per (tag, decade)</span>
+      {/* One row per tag — name | normalised sparkline | absolute total. */}
+      <div className="space-y-0.5">
+        {tags.map(tag => {
+          const rowMax = Math.max(1, ...Array.from(tag.byDecade.values()));
+          return (
+            <div key={tag.name} className="flex items-center gap-3">
+              <span className="shrink-0 w-44 text-neutral-200 truncate" title={tag.name}>{tag.name}</span>
+              <svg
+                viewBox={`0 0 ${TAG_SPARK_VB_W} ${TAG_SPARK_VB_H}`}
+                preserveAspectRatio="none"
+                className="flex-1 h-4"
+              >
+                {decades.map((d, i) => {
+                  const v = tag.byDecade.get(d) || 0;
+                  if (v === 0) return null;
+                  const h = (v / rowMax) * TAG_SPARK_VB_H;
+                  return (
+                    <rect
+                      key={d}
+                      x={i * barW}
+                      y={TAG_SPARK_VB_H - h}
+                      width={barW * 0.85}
+                      height={h}
+                      fill="#b8896a"
+                    >
+                      <title>{`${tag.name} — ${fmtYear(d)}s — ${v} book${v === 1 ? '' : 's'}`}</title>
+                    </rect>
+                  );
+                })}
+              </svg>
+              <span className="shrink-0 w-12 text-right text-neutral-500 tabular-nums">{tag.total}</span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -1345,15 +1323,12 @@ export default function DataViz() {
         </div>
       </section>
 
-      {/* ── Experiment #7 — Tags × decade heatmap ── */}
+      {/* ── Experiment #7 — Per-tag temporal sparklines ── */}
       <section className="space-y-4">
         <p className="text-sm text-neutral-500">
-          <span className="text-neutral-300 font-semibold">Experiment #7 — Tags × decade heatmap</span>, {fmtYear(tdm.minDecade)} – {fmtYear(tdm.maxDecade)}. {tdm.tags.length} subject tags with {TAG_MIN_TOTAL}+ books, sorted by total. Cell shade encodes books-with-this-tag-from-this-decade; thresholds are asymmetric (more resolution at the low end so the BCE/medieval wisps stay visible alongside the 20th-century pile). Hover any cell for the exact count.
+          <span className="text-neutral-300 font-semibold">Experiment #7 — Per-tag temporal sparklines</span>, {fmtYear(tdm.minDecade)} – {fmtYear(tdm.maxDecade)}. {tdm.tags.length} subject tags with {TAG_MIN_TOTAL}+ books, sorted by total. Each row is a sparkline of that tag's distribution across publication decades, normalised to its own peak — so a 5-book tag and a 300-book tag both show legible shape. Vertical comparison across rows is gone (each is on its own scale); the absolute total lives in the right-hand column. Hover any bar for the exact (tag, decade) count.
         </p>
-        <HeatLegend />
-        <div className="overflow-x-auto">
-          <TagDecadeMatrix {...tdm} />
-        </div>
+        <TagSparklineList {...tdm} />
       </section>
 
       {/* ── Experiment #8 — Reading-lag distribution ── */}
