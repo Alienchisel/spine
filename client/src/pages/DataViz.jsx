@@ -677,106 +677,6 @@ function CompletionRow({ name, cells, knownMax, ownedCount }) {
   );
 }
 
-// ── Experiment #10 — Acquisition→finish Marey, per book ──────────────────
-//
-// One row per dated-finish book, horizontal bar spans acquisition_date
-// to date_finished. Sorted by acquisition date (oldest at top) so the
-// visual flow shows how reading tempo tracks acquisition tempo. The
-// bar length encodes the lag for that specific book; year-boundary
-// verticals carry the time axis. Companion to #3's author-level
-// lifespan timeline, scaled down to book-level events.
-
-// Pad partial acquisition dates to a julian-day-friendly form (mirrors
-// the same fallback the reading-lag SQL uses), then return a Date.
-function parseAcquisitionDate(s) {
-  if (!s) return null;
-  if (s.length >= 10) return new Date(s);
-  if (s.length === 7) return new Date(s + '-15');
-  if (s.length === 4) return new Date(s + '-07-01');
-  return null;
-}
-
-function buildBookMarey(rows) {
-  if (!rows?.length) return { rows: [], minMs: 0, maxMs: 0, years: [] };
-  const enriched = rows
-    .map(r => ({
-      ...r,
-      acqMs: parseAcquisitionDate(r.acquisition_date)?.getTime(),
-      finMs: new Date(r.date_finished).getTime(),
-    }))
-    .filter(r => r.acqMs && r.finMs);
-  enriched.sort((a, b) => a.acqMs - b.acqMs || a.finMs - b.finMs);
-  const minMs = Math.min(...enriched.map(r => r.acqMs));
-  const maxMs = Math.max(...enriched.map(r => r.finMs));
-  const startYear = new Date(minMs).getFullYear();
-  const endYear = new Date(maxMs).getFullYear();
-  const years = [];
-  for (let y = startYear; y <= endYear; y++) years.push(y);
-  return { rows: enriched, minMs, maxMs, years };
-}
-
-function BookMareyChart({ rows, minMs, maxMs, years }) {
-  const W = 1000, ROW_H = 3.5, TOP = 18, BOT = 18;
-  const H = rows.length * ROW_H;
-  const xOfMs = ms => ((ms - minMs) / (maxMs - minMs)) * W;
-  const xOfYear = y => xOfMs(new Date(`${y}-01-01`).getTime());
-
-  // Pick 5 longest-lag books for inline labels — these are the
-  // visually-dominant horizontal sweeps, and labelling them ties the
-  // shape to specific volumes (analytical-design: integrate words +
-  // data, don't relegate identification to a separate legend).
-  const labelSet = new Set(
-    [...rows].sort((a, b) => b.lag_days - a.lag_days).slice(0, 5).map(r => r.id)
-  );
-
-  return (
-    <svg viewBox={`0 0 ${W} ${H + TOP + BOT}`} className="w-full h-auto">
-      <g transform={`translate(0, ${TOP})`}>
-        {/* Year-boundary verticals through the whole frame. Faint enough
-            that the bars dominate; present enough to give every event
-            a temporal anchor. */}
-        {years.map(y => (
-          <line key={`y-${y}`} x1={xOfYear(y)} y1={0} x2={xOfYear(y)} y2={H} stroke="#262626" strokeWidth={0.4} />
-        ))}
-        {/* Year labels at the top (alternating to avoid crowding when
-            the span is dense). */}
-        {years.filter((_, i) => i % 2 === 0).map(y => (
-          <text key={`yl-${y}`} x={xOfYear(y)} y={-6} fontSize="8" fill="#737373" textAnchor="middle">{y}</text>
-        ))}
-        {/* Per-book bars — bar length is the lag, position is when the
-            event happened in the library's lifetime. */}
-        {rows.map((r, i) => {
-          const y = i * ROW_H + ROW_H / 2;
-          const x1 = xOfMs(r.acqMs);
-          const x2 = xOfMs(r.finMs);
-          const isLabel = labelSet.has(r.id);
-          return (
-            <g key={r.id}>
-              <line x1={x1} y1={y} x2={x2} y2={y} stroke="#8a5d37" strokeWidth={1.4}>
-                <title>{`${r.title}\nacquired ${r.acquisition_date} → finished ${r.date_finished}\n${Math.round(r.lag_days)} days`}</title>
-              </line>
-              {/* End-cap dot at finish, to read the right edge as the
-                  completion event (not just a bar termination). */}
-              <circle cx={x2} cy={y} r={1.2} fill="#d4a574" />
-              {isLabel && (
-                <text x={x2 + 3} y={y + 1.5} fontSize="6" fill="#d4d4d8">
-                  {r.title} ({Math.round(r.lag_days)}d)
-                </text>
-              )}
-            </g>
-          );
-        })}
-        {/* Range-framed baseline + footer ticks for the every-2-years
-            labels. */}
-        <line x1={0} y1={H} x2={W} y2={H} stroke="#525252" strokeWidth={0.4} />
-        {years.filter((_, i) => i % 2 === 0).map(y => (
-          <text key={`yf-${y}`} x={xOfYear(y)} y={H + 11} fontSize="8" fill="#737373" textAnchor="middle">{y}</text>
-        ))}
-      </g>
-    </svg>
-  );
-}
-
 // ── Experiment #6 — Year-published spectrum ──────────────────────────────
 //
 // Two-panel histogram of original year_published bucketed into decades,
@@ -863,7 +763,6 @@ export default function DataViz() {
   const [authors, setAuthors] = useState(null);
   const [trajectory, setTrajectory] = useState(null);
   const [completion, setCompletion] = useState(null);
-  const [lag, setLag] = useState(null);
   const [error, setError] = useState(null);
   // Experiment #5 tab: 'in_progress' (partial-completion sparklines) or
   // 'complete' (series the user owns 100% of, where the sparkline shape
@@ -877,10 +776,9 @@ export default function DataViz() {
       api.getAuthors(),
       api.getLibraryTrajectory(),
       api.getSeriesCompletion(),
-      api.getReadingLag(),
     ])
-      .then(([s, c, a, t, sc, lg]) => {
-        setStats(s); setCalendar(c); setAuthors(a); setTrajectory(t); setCompletion(sc); setLag(lg);
+      .then(([s, c, a, t, sc]) => {
+        setStats(s); setCalendar(c); setAuthors(a); setTrajectory(t); setCompletion(sc);
       })
       .catch(() => setError('Failed to load data.'));
   }, []);
@@ -904,10 +802,9 @@ export default function DataViz() {
     return { inProgress, complete };
   }, [comp]);
   const spec = useMemo(() => buildSpectrum(stats?.decadesPublished), [stats]);
-  const mar  = useMemo(() => buildBookMarey(lag), [lag]);
 
   if (error) return <div role="alert" className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-warn text-sm">{error}</div>;
-  if (!stats || !calendar || !authors || !trajectory || !completion || !lag) return <div role="status" className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-neutral-700 text-sm">Loading…</div>;
+  if (!stats || !calendar || !authors || !trajectory || !completion) return <div role="status" className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-neutral-700 text-sm">Loading…</div>;
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
@@ -1002,13 +899,6 @@ export default function DataViz() {
         </div>
       </section>
 
-      {/* ── Experiment #10 — Per-book acquisition→finish Marey ── */}
-      <section className="space-y-4">
-        <p className="text-sm text-neutral-500">
-          <span className="text-neutral-300 font-semibold">Experiment #10 — Acquisition → finish, per book</span>. {mar.rows.length} dated finishes; rows sorted by acquisition date (oldest at top). Each bar spans acquisition_date → date_finished, so its length is that book's lag and its horizontal position is when the event happened in the library's lifetime. Tufte "narrative graphics of space and time" at book scale. The five longest-lag books are labelled inline.
-        </p>
-        <BookMareyChart {...mar} />
-      </section>
     </div>
   );
 }
