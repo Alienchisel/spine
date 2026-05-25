@@ -1079,6 +1079,10 @@ export default function DataViz() {
   const [lag, setLag] = useState(null);
   const [scatter, setScatter] = useState(null);
   const [error, setError] = useState(null);
+  // Experiment #5 tab: 'in_progress' (partial-completion sparklines) or
+  // 'complete' (series the user owns 100% of, where the sparkline shape
+  // collapses to all-filled and the row carries no comparative info).
+  const [completionTab, setCompletionTab] = useState('in_progress');
 
   useEffect(() => {
     Promise.all([
@@ -1104,6 +1108,17 @@ export default function DataViz() {
   const cal = useMemo(() => buildCalendar(calendar), [calendar]);
   const life = useMemo(() => buildLifespans(authors), [authors]);
   const comp = useMemo(() => buildSeriesCompletion(completion), [completion]);
+  // Partition series into "fully owned" (every known volume in the
+  // library) vs "in progress" (at least one gap or unowned entry).
+  // Sorted order is preserved within each bucket.
+  const compSplit = useMemo(() => {
+    const inProgress = [], complete = [];
+    for (const s of comp) {
+      if (s.ownedCount >= s.knownMax) complete.push(s);
+      else inProgress.push(s);
+    }
+    return { inProgress, complete };
+  }, [comp]);
   const spec = useMemo(() => buildSpectrum(stats?.decadesPublished), [stats]);
   const tdm  = useMemo(() => buildTagDecade(tagDecade), [tagDecade]);
   const lagh = useMemo(() => buildReadingLag(lag), [lag]);
@@ -1163,10 +1178,33 @@ export default function DataViz() {
       {/* ── Experiment #5 — Series completion as sparklines ── */}
       <section className="space-y-4">
         <p className="text-sm text-neutral-500">
-          <span className="text-neutral-300 font-semibold">Experiment #5 — Series completion sparklines</span>. {comp.length} series with {COMPLETION_MIN_KNOWN}+ known volumes, sorted by completion percentage. Each cell is one volume — filled if owned, hollow outline if catalogued-but-not-owned, faint background if no entry. Strip width is shared across all rows so a 30-volume manga and a 3-volume trilogy occupy the same horizontal budget; the count column on the right gives the absolute scale.
+          <span className="text-neutral-300 font-semibold">Experiment #5 — Series completion sparklines</span>. {comp.length} series with {COMPLETION_MIN_KNOWN}+ known volumes. Each cell is one volume — filled if owned, hollow outline if catalogued-but-not-owned, faint background if no entry. Strip width is shared across all rows so a 30-volume manga and a 3-volume trilogy occupy the same horizontal budget; the count column on the right gives the absolute scale. Two tabs: in-progress sets (where the sparkline still carries shape information) and fully-owned sets (which read as a solid strip).
         </p>
+        <div role="tablist" aria-label="Series completion view" className="flex gap-1 bg-neutral-900 p-1 rounded-lg w-fit">
+          {[
+            { key: 'in_progress', label: 'In progress', count: compSplit.inProgress.length },
+            { key: 'complete',    label: 'Complete',    count: compSplit.complete.length    },
+          ].map(t => (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={completionTab === t.key}
+              onClick={() => setCompletionTab(t.key)}
+              className={`px-4 py-1.5 text-xs rounded-md whitespace-nowrap transition-[transform,background-color,color] ease-out duration-150 motion-safe:active:scale-[0.98] ${
+                completionTab === t.key
+                  ? 'bg-binding/25 text-parchment font-semibold'
+                  : 'font-medium text-neutral-400 hover:text-neutral-200'
+              }`}
+            >
+              {t.label}<span className="ml-1.5 opacity-50 tabular-nums">{t.count}</span>
+            </button>
+          ))}
+        </div>
         <div className="space-y-1.5">
-          {comp.map(s => <CompletionRow key={s.name} {...s} />)}
+          {(completionTab === 'complete' ? compSplit.complete : compSplit.inProgress).map(s => (
+            <CompletionRow key={s.name} {...s} />
+          ))}
         </div>
       </section>
 
