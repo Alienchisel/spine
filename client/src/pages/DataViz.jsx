@@ -64,14 +64,14 @@ function buildAcquisitionPanels(rows) {
 }
 
 // Single panel — minimal SVG bar chart. Range-framed x-axis (the line
-// spans only the active data extent, not a padded margin) and only the
-// first/last year are labelled in text; the gap is left to be inferred
-// from the bar positions, which is enough at this resolution. y-scale
-// label is suppressed (it's the same on every panel — shared scale is
-// the whole point of a small-multiples display, and printing the same
+// spans only the active data extent, not a padded margin); each year
+// is labelled below its own bar via a 90° rotation, which puts every
+// label in its own vertical lane so they can't collide. y-scale label
+// is suppressed (it's the same on every panel — shared scale is the
+// whole point of a small-multiples display, and printing the same
 // number on every panel would fail the eraser test).
 function AcquisitionPanel({ source, total, values, years, yMax }) {
-  const W = 200, H = 60, FOOT = 12;
+  const W = 200, H = 60, FOOT = 20;
   const n = values.length;
   const gap = 1;
   const barW = (W - gap * (n - 1)) / n;
@@ -94,8 +94,27 @@ function AcquisitionPanel({ source, total, values, years, yMax }) {
           );
         })}
         <line x1={0} y1={H} x2={W} y2={H} stroke="#525252" strokeWidth={0.4} />
-        <text x={0} y={H + FOOT - 2} fontSize="6" fill="#737373">{years[0]}</text>
-        <text x={W} y={H + FOOT - 2} fontSize="6" fill="#737373" textAnchor="end">{years[years.length - 1]}</text>
+        {/* Per-year vertical labels: rotated 90° clockwise so each year
+            reads top-to-bottom below its own bar. The rotation anchor
+            is the bar's vertical centerline just below the baseline,
+            and textAnchor="start" puts the first character right under
+            the bar; subsequent characters extend further down. */}
+        {years.map((y, i) => {
+          const cx = i * (barW + gap) + barW / 2;
+          return (
+            <text
+              key={`yt-${y}`}
+              x={cx}
+              y={H + 3}
+              fontSize="5"
+              fill="#737373"
+              textAnchor="start"
+              transform={`rotate(90 ${cx} ${H + 3})`}
+            >
+              {y}
+            </text>
+          );
+        })}
       </svg>
     </div>
   );
