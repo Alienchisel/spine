@@ -386,75 +386,74 @@ function LifespanChart({ rows, minY, maxY, ticks, maxBooks, onHoverIdx }) {
   );
 }
 
-// Loupe — focus+context lens for the lifespan timeline. When the user
-// hovers anywhere over the dense 341-row chart, the lens shows the 15
-// rows centered on the cursor at ~5× row height, with author names
-// inline. The bar/dot encoding mirrors the main chart so the lens
-// reads as the same display, magnified. Position is sticky-top so the
-// lens follows the viewport as the user scrolls down the chart.
+// Loupe — focus+context lens for the lifespan timeline. Lives in a
+// fixed sidebar beside the chart (no overlap), sticks to the viewport
+// top so it stays visible as the user scrolls a tall chart. Renders
+// 12 rows centered on the cursor at HTML-level text sizes (text-sm so
+// names are actually readable) with an inline mini-bar per row.
 function LifespanLoupe({ rows, minY, maxY, hoverIdx }) {
-  const VISIBLE = 15;
+  const VISIBLE = 12;
   const half = Math.floor(VISIBLE / 2);
-  const start = Math.max(0, Math.min(hoverIdx - half, rows.length - VISIBLE));
+  const hovering = hoverIdx != null;
+  const start = hovering
+    ? Math.max(0, Math.min(hoverIdx - half, rows.length - VISIBLE))
+    : 0;
   const slice = rows.slice(start, start + VISIBLE);
-
-  const W = 220, ROW_H = 14, BAR_W = 90;
-  const H = slice.length * ROW_H + 16;
   const yearSpan = maxY - minY;
-  const x = y => ((y - minY) / yearSpan) * BAR_W;
-  const r = books => Math.max(1.5, Math.sqrt(books) * 0.9);
+  const BAR_W = 88;
 
   return (
-    <div className="w-56 bg-neutral-900/95 border border-neutral-700 rounded shadow-lg backdrop-blur-sm">
-      <div className="px-2 pt-1.5 pb-1 text-[10px] text-neutral-500 border-b border-neutral-800">
-        Rows {start + 1}–{start + slice.length} of {rows.length}
+    <div className="text-sm">
+      <div className="text-[11px] text-neutral-500 mb-2 tabular-nums">
+        {hovering
+          ? `Rows ${start + 1}–${start + slice.length} of ${rows.length}`
+          : 'Hover the chart to focus a range'}
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto block">
+      <div className="space-y-0.5">
         {slice.map((row, i) => {
           const realIdx = start + i;
-          const yMid = i * ROW_H + ROW_H / 2 + 6;
-          const x1 = x(row.birth);
-          const x2 = x(row.death);
-          const xMid = (x1 + x2) / 2;
-          const rad = r(row.books);
           const isHovered = realIdx === hoverIdx;
+          const xBirth = ((row.birth - minY) / yearSpan) * BAR_W;
+          const xDeath = ((row.death - minY) / yearSpan) * BAR_W;
+          const xMid = (xBirth + xDeath) / 2;
+          const rad = Math.max(1.5, Math.sqrt(row.books) * 0.8);
           return (
-            <g key={row.id}>
-              {isHovered && (
-                <rect x={0} y={yMid - ROW_H / 2} width={W} height={ROW_H} fill="#8a5d37" fillOpacity={0.18} />
-              )}
-              <line x1={x1} y1={yMid} x2={x2} y2={yMid} stroke="#8a5d37" strokeWidth={1.8} />
-              <circle cx={xMid} cy={yMid} r={rad} fill="#d4a574" />
-              <text x={BAR_W + 6} y={yMid + 2.5} fontSize={7} fill="#d4d4d8" className="font-medium">
-                {row.name}
-              </text>
-              <text x={W - 2} y={yMid + 2.5} fontSize={6} fill="#737373" textAnchor="end">
-                {row.books}
-              </text>
-            </g>
+            <div
+              key={row.id}
+              className={`flex items-center gap-2 px-1 py-0.5 rounded transition-colors duration-75 ${
+                isHovered ? 'bg-binding/25' : ''
+              }`}
+            >
+              <svg width={BAR_W} height={10} className="shrink-0" aria-hidden="true">
+                <line x1={xBirth} y1={5} x2={xDeath} y2={5} stroke="#8a5d37" strokeWidth={2} />
+                <circle cx={xMid} cy={5} r={rad} fill="#d4a574" />
+              </svg>
+              <span className="flex-1 text-neutral-200 truncate">{row.name}</span>
+              <span className="text-xs text-neutral-500 tabular-nums shrink-0">{row.books}</span>
+            </div>
           );
         })}
-      </svg>
+      </div>
     </div>
   );
 }
 
-// Wraps the LifespanChart with hover-state management + the loupe
-// overlay. Renders the loupe inside a relative container so it sits at
-// the top-right of the chart area without interfering with the chart's
-// own SVG event handling.
+// Wraps the LifespanChart with hover-state management and a side-by-side
+// loupe sidebar. The chart fills the main column (overflow-x-auto so
+// it can scroll horizontally if needed); the loupe lives in a fixed-
+// width column on the right, sticky to the viewport so it follows the
+// reader's scroll position down a tall chart. On narrow screens the
+// loupe stacks below the chart.
 function LifespansWithLoupe(life) {
   const [hoverIdx, setHoverIdx] = useState(null);
   return (
-    <div className="relative">
-      <div className="overflow-x-auto">
+    <div className="flex flex-col lg:flex-row gap-6">
+      <div className="flex-1 overflow-x-auto min-w-0">
         <LifespanChart {...life} onHoverIdx={setHoverIdx} />
       </div>
-      {hoverIdx != null && (
-        <div className="absolute top-2 right-2 z-10 pointer-events-none">
-          <LifespanLoupe rows={life.rows} minY={life.minY} maxY={life.maxY} hoverIdx={hoverIdx} />
-        </div>
-      )}
+      <aside className="lg:w-64 lg:shrink-0 lg:sticky lg:top-4 self-start">
+        <LifespanLoupe rows={life.rows} minY={life.minY} maxY={life.maxY} hoverIdx={hoverIdx} />
+      </aside>
     </div>
   );
 }
