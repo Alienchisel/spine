@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api.js';
 
 // Top N sources get their own panel; everything else collapses into
@@ -311,18 +311,40 @@ const LIFESPAN_W = 1000;
 const LIFESPAN_AXIS_H = 18;
 const LIFESPAN_ROW_H = 3.5;
 
+// Axis strip — rendered as its own SVG so it can live in a separate
+// sticky-positioned container above the body. Same horizontal scale
+// + same CSS width as the body, so a JS-synced scrollLeft keeps the
+// two horizontally aligned.
+function LifespanAxis({ minY, maxY, ticks, zoom }) {
+  const W = LIFESPAN_W, AXIS_H = LIFESPAN_AXIS_H;
+  const yearSpan = maxY - minY;
+  const x = y => ((y - minY) / yearSpan) * W;
+  return (
+    <svg
+      viewBox={`0 0 ${W} ${AXIS_H}`}
+      className="block h-auto"
+      style={{ width: `${zoom * 100}%` }}
+    >
+      {ticks.map(t => (
+        <text key={`l-${t}`} x={x(t)} y={AXIS_H - 6} fontSize="8" fill="#737373" textAnchor="middle">{fmtYear(t)}</text>
+      ))}
+      <line x1={0} y1={AXIS_H - 2} x2={W} y2={AXIS_H - 2} stroke="#525252" strokeWidth={0.4} />
+    </svg>
+  );
+}
+
 function LifespanChart({ rows, minY, maxY, ticks, maxBooks, zoom = 1 }) {
-  const W = LIFESPAN_W, AXIS_H = LIFESPAN_AXIS_H, ROW_H = LIFESPAN_ROW_H;
+  const W = LIFESPAN_W, ROW_H = LIFESPAN_ROW_H;
   const yearSpan = maxY - minY;
   const x = y => ((y - minY) / yearSpan) * W;
   const r = books => Math.max(1.2, Math.sqrt(books) * 0.7);
-  const H = AXIS_H + rows.length * ROW_H;
+  const H = rows.length * ROW_H;
 
   // Top-N inline labels by book count. At higher zoom levels each
   // datapoint occupies more screen space, so progressively more
-  // authors get named: at 1× only the top 12 fit, at 8× we name closer
-  // to the top 96. The sort is stable, so adding labels never
-  // reshuffles existing ones.
+  // authors get named: at 1× only the top 12 fit, at 5× the top 60.
+  // The sort is stable, so adding labels never reshuffles existing
+  // ones.
   const labelCount = LIFESPAN_TOP_LABELS * zoom;
   const labelSet = new Set(
     [...rows].sort((a, b) => b.books - a.books).slice(0, labelCount).map(r => r.id)
@@ -330,8 +352,8 @@ function LifespanChart({ rows, minY, maxY, ticks, maxBooks, zoom = 1 }) {
 
   return (
     // Zoom scales the SVG's CSS width (not the viewBox), so every
-    // element — rows, time axis, labels, dots — grows uniformly. At
-    // zoom > 1 the SVG overflows the parent and the wrapper's
+    // element — rows, time-axis ticks, labels, dots — grows uniformly.
+    // At zoom > 1 the SVG overflows the parent and the wrapper's
     // overflow-x-auto produces a horizontal scrollbar instead of
     // compacting the content.
     <svg
@@ -340,15 +362,11 @@ function LifespanChart({ rows, minY, maxY, ticks, maxBooks, zoom = 1 }) {
       style={{ width: `${zoom * 100}%` }}
     >
       {ticks.map(t => (
-        <line key={`g-${t}`} x1={x(t)} y1={AXIS_H} x2={x(t)} y2={H} stroke="#262626" strokeWidth={0.4} />
+        <line key={`g-${t}`} x1={x(t)} y1={0} x2={x(t)} y2={H} stroke="#262626" strokeWidth={0.4} />
       ))}
-      {ticks.map(t => (
-        <text key={`l-${t}`} x={x(t)} y={AXIS_H - 6} fontSize="8" fill="#737373" textAnchor="middle">{fmtYear(t)}</text>
-      ))}
-      <line x1={0} y1={AXIS_H - 2} x2={W} y2={AXIS_H - 2} stroke="#525252" strokeWidth={0.4} />
 
       {rows.map((row, i) => {
-        const yMid = AXIS_H + i * ROW_H + ROW_H / 2;
+        const yMid = i * ROW_H + ROW_H / 2;
         const x1 = x(row.birth);
         const x2 = x(row.death);
         const mid = (row.birth + row.death) / 2;
@@ -381,10 +399,27 @@ function LifespanChart({ rows, minY, maxY, ticks, maxBooks, zoom = 1 }) {
 // dimensions (both axes) so the chart overflows its container and a
 // horizontal scrollbar appears, rather than compacting the time axis.
 const LIFESPAN_ZOOM_MIN = 1;
-const LIFESPAN_ZOOM_MAX = 8;
+const LIFESPAN_ZOOM_MAX = 5;
 
 function LifespansWithLoupe(life) {
   const [zoom, setZoom] = useState(1);
+  // Two independent overflow-x containers: the axis bar is
+  // overflow-hidden (user can't grab it; we set its scrollLeft via JS
+  // to mirror the body), the body is the real scroller. This is the
+  // only way to get a viewport-sticky axis: a single overflow-x: auto
+  // ancestor would confine sticky-top to that container instead of
+  // the document.
+  const axisRef = useRef(null);
+  const bodyRef = useRef(null);
+  const syncScroll = () => {
+    if (axisRef.current && bodyRef.current) {
+      axisRef.current.scrollLeft = bodyRef.current.scrollLeft;
+    }
+  };
+  // Re-sync after zoom changes (the SVG widths just changed; the
+  // browser will preserve scrollLeft but the axis needs to follow).
+  useEffect(syncScroll, [zoom]);
+
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-1 text-xs text-neutral-400">
@@ -405,7 +440,10 @@ function LifespansWithLoupe(life) {
           className="w-7 h-7 rounded border border-neutral-700 hover:border-neutral-500 hover:text-neutral-200 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-neutral-700 transition-colors"
         >+</button>
       </div>
-      <div className="overflow-x-auto">
+      <div ref={axisRef} className="sticky top-0 z-10 bg-neutral-950 overflow-x-hidden">
+        <LifespanAxis minY={life.minY} maxY={life.maxY} ticks={life.ticks} zoom={zoom} />
+      </div>
+      <div ref={bodyRef} className="overflow-x-auto" onScroll={syncScroll}>
         <LifespanChart {...life} zoom={zoom} />
       </div>
     </div>
