@@ -1,6 +1,6 @@
 import express from 'express';
 import { computeAllStats } from '../lib/stats/index.js';
-import { getReadingCalendar, getLibraryTrajectory, getTagDecadeMatrix, getReadingLag, getPageRatingScatter } from '../lib/stats/activity.js';
+import { getReadingCalendar, getLibraryTrajectory, getReadingLag, getPageRatingScatter } from '../lib/stats/activity.js';
 
 const router = express.Router();
 
@@ -19,12 +19,6 @@ router.get('/reading-calendar', (_req, res) => {
 // trajectory feed for /data-viz.
 router.get('/library-trajectory', (_req, res) => {
   res.json(getLibraryTrajectory());
-});
-
-// Tag × decade matrix for /data-viz's heatmap. Flat (tag, decade, count)
-// rows; client pivots into the grid.
-router.get('/tag-decade-matrix', (_req, res) => {
-  res.json(getTagDecadeMatrix());
 });
 
 // Per-book lag in days between acquisition and finish for /data-viz's

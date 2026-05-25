@@ -129,7 +129,6 @@ export const api = {
   getStats: () => request('/stats'),
   getReadingCalendar: () => request('/stats/reading-calendar'),
   getLibraryTrajectory: () => request('/stats/library-trajectory'),
-  getTagDecadeMatrix: () => request('/stats/tag-decade-matrix'),
   getReadingLag: () => request('/stats/reading-lag'),
   getPageRatingScatter: () => request('/stats/page-rating-scatter'),
   getSeriesCompletion: () => request('/series/completion'),

@@ -992,105 +992,6 @@ function LagHistogram({ bins, total, median, mean }) {
   );
 }
 
-// ── Experiment #7 — Tags × decade, per-tag sparklines ────────────────────
-//
-// One sparkline per subject tag, normalised to the tag's own peak so
-// every tag — from 5-book Comedy to 300-book Classics — shows clear
-// shape. Across-tag comparison is sacrificed for within-tag
-// readability (the absolute scale lives in the right-hand count
-// column). All sparklines share the same horizontal time axis so the
-// reader can scan vertically to compare temporal centres of mass.
-
-const TAG_MIN_TOTAL = 5;
-
-function buildTagDecade(rows) {
-  if (!rows?.length) return { tags: [], decades: [], minDecade: 0, maxDecade: 0 };
-  const byTag = new Map();
-  let minDecade = Infinity, maxDecade = -Infinity;
-  for (const r of rows) {
-    if (!byTag.has(r.tag)) byTag.set(r.tag, { total: 0, byDecade: new Map() });
-    const entry = byTag.get(r.tag);
-    entry.total += r.count;
-    entry.byDecade.set(r.decade, r.count);
-    if (r.decade < minDecade) minDecade = r.decade;
-    if (r.decade > maxDecade) maxDecade = r.decade;
-  }
-  const tags = Array.from(byTag.entries())
-    .filter(([, e]) => e.total >= TAG_MIN_TOTAL)
-    .sort((a, b) => b[1].total - a[1].total || a[0].localeCompare(b[0]))
-    .map(([name, e]) => ({ name, total: e.total, byDecade: e.byDecade }));
-  const decades = [];
-  for (let d = minDecade; d <= maxDecade; d += 10) decades.push(d);
-  return { tags, decades, minDecade, maxDecade };
-}
-
-// Shared viewBox width for all sparklines + the header time-axis row,
-// so columns line up perfectly. Height per sparkline kept tight (1em)
-// since each row has its own normalised vertical scale.
-const TAG_SPARK_VB_W = 1000;
-const TAG_SPARK_VB_H = 14;
-
-function TagSparklineList({ tags, decades, minDecade, maxDecade }) {
-  const span = maxDecade - minDecade + 10;
-  const xOf = decade => ((decade - minDecade) / span) * TAG_SPARK_VB_W;
-  const barW = TAG_SPARK_VB_W / decades.length;
-  // Year ticks for the shared header — every 500 years across the span.
-  const tickYears = [];
-  for (let y = Math.ceil(minDecade / 500) * 500; y <= maxDecade; y += 500) tickYears.push(y);
-
-  return (
-    <div className="text-xs">
-      {/* Shared time-axis header — labels at 500-year intervals across
-          the same horizontal space the sparklines occupy. */}
-      <div className="flex items-center gap-3 mb-2">
-        <span className="shrink-0 w-44" />
-        <svg viewBox={`0 0 ${TAG_SPARK_VB_W} 10`} preserveAspectRatio="none" className="flex-1 h-3">
-          {tickYears.map(t => (
-            <text key={t} x={xOf(t)} y={8} fontSize="6" fill="#737373" textAnchor="middle">{fmtYear(t)}</text>
-          ))}
-        </svg>
-        <span className="shrink-0 w-12" />
-      </div>
-
-      {/* One row per tag — name | normalised sparkline | absolute total. */}
-      <div className="space-y-0.5">
-        {tags.map(tag => {
-          const rowMax = Math.max(1, ...Array.from(tag.byDecade.values()));
-          return (
-            <div key={tag.name} className="flex items-center gap-3">
-              <span className="shrink-0 w-44 text-neutral-200 truncate" title={tag.name}>{tag.name}</span>
-              <svg
-                viewBox={`0 0 ${TAG_SPARK_VB_W} ${TAG_SPARK_VB_H}`}
-                preserveAspectRatio="none"
-                className="flex-1 h-4"
-              >
-                {decades.map((d, i) => {
-                  const v = tag.byDecade.get(d) || 0;
-                  if (v === 0) return null;
-                  const h = (v / rowMax) * TAG_SPARK_VB_H;
-                  return (
-                    <rect
-                      key={d}
-                      x={i * barW}
-                      y={TAG_SPARK_VB_H - h}
-                      width={barW * 0.85}
-                      height={h}
-                      fill="#b8896a"
-                    >
-                      <title>{`${tag.name} — ${fmtYear(d)}s — ${v} book${v === 1 ? '' : 's'}`}</title>
-                    </rect>
-                  );
-                })}
-              </svg>
-              <span className="shrink-0 w-12 text-right text-neutral-500 tabular-nums">{tag.total}</span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 // ── Experiment #6 — Year-published spectrum ──────────────────────────────
 //
 // Two-panel histogram of original year_published bucketed into decades,
@@ -1177,7 +1078,6 @@ export default function DataViz() {
   const [authors, setAuthors] = useState(null);
   const [trajectory, setTrajectory] = useState(null);
   const [completion, setCompletion] = useState(null);
-  const [tagDecade, setTagDecade] = useState(null);
   const [lag, setLag] = useState(null);
   const [scatter, setScatter] = useState(null);
   const [error, setError] = useState(null);
@@ -1193,12 +1093,11 @@ export default function DataViz() {
       api.getAuthors(),
       api.getLibraryTrajectory(),
       api.getSeriesCompletion(),
-      api.getTagDecadeMatrix(),
       api.getReadingLag(),
       api.getPageRatingScatter(),
     ])
-      .then(([s, c, a, t, sc, td, lg, ps]) => {
-        setStats(s); setCalendar(c); setAuthors(a); setTrajectory(t); setCompletion(sc); setTagDecade(td); setLag(lg); setScatter(ps);
+      .then(([s, c, a, t, sc, lg, ps]) => {
+        setStats(s); setCalendar(c); setAuthors(a); setTrajectory(t); setCompletion(sc); setLag(lg); setScatter(ps);
       })
       .catch(() => setError('Failed to load data.'));
   }, []);
@@ -1222,13 +1121,12 @@ export default function DataViz() {
     return { inProgress, complete };
   }, [comp]);
   const spec = useMemo(() => buildSpectrum(stats?.decadesPublished), [stats]);
-  const tdm  = useMemo(() => buildTagDecade(tagDecade), [tagDecade]);
   const lagh = useMemo(() => buildReadingLag(lag), [lag]);
   const dd   = useMemo(() => buildDotDash(scatter), [scatter]);
   const mar  = useMemo(() => buildBookMarey(lag), [lag]);
 
   if (error) return <div role="alert" className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-warn text-sm">{error}</div>;
-  if (!stats || !calendar || !authors || !trajectory || !completion || !tagDecade || !lag || !scatter) return <div role="status" className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-neutral-700 text-sm">Loading…</div>;
+  if (!stats || !calendar || !authors || !trajectory || !completion || !lag || !scatter) return <div role="status" className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-neutral-700 text-sm">Loading…</div>;
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
@@ -1321,14 +1219,6 @@ export default function DataViz() {
           <div className="text-[11px] uppercase tracking-wide text-neutral-500">Modern · 1500s – {fmtYear(spec.maxDecade)}s</div>
           <SpectrumPanel bins={spec.allBins} panelMin={1500} panelMax={spec.maxDecade} tickStep={100} showLegend={false} />
         </div>
-      </section>
-
-      {/* ── Experiment #7 — Per-tag temporal sparklines ── */}
-      <section className="space-y-4">
-        <p className="text-sm text-neutral-500">
-          <span className="text-neutral-300 font-semibold">Experiment #7 — Per-tag temporal sparklines</span>, {fmtYear(tdm.minDecade)} – {fmtYear(tdm.maxDecade)}. {tdm.tags.length} subject tags with {TAG_MIN_TOTAL}+ books, sorted by total. Each row is a sparkline of that tag's distribution across publication decades, normalised to its own peak — so a 5-book tag and a 300-book tag both show legible shape. Vertical comparison across rows is gone (each is on its own scale); the absolute total lives in the right-hand column. Hover any bar for the exact (tag, decade) count.
-        </p>
-        <TagSparklineList {...tdm} />
       </section>
 
       {/* ── Experiment #8 — Reading-lag distribution ── */}
