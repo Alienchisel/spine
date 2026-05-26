@@ -38,10 +38,11 @@ function browseSort(field) {
 
 // Empty-state copy keyed on the browse field. The page's filter is the
 // URL, not interactive, so the message is fixed once the route is set —
-// we just say what isn't matched. fiction and format need special
-// phrasing because the humanised heading ("Fiction", "Physical") doesn't
-// slot cleanly into the generic templates.
-function emptyMessageFor(field, heading) {
+// we just say what isn't matched. fiction and format branch on the raw
+// `decoded` URL value so the unset-status link from Stats's donut chart
+// (and any direct-typed unset URL) gets specific phrasing instead of a
+// generic fallback.
+function emptyMessageFor(field, decoded, heading) {
   switch (field) {
     case 'author':            return `No books by ${heading}.`;
     case 'translator':        return `No books translated by ${heading}.`;
@@ -56,13 +57,15 @@ function emptyMessageFor(field, heading) {
     case 'year_acquired':     return `No books acquired in ${heading}.`;
     case 'author_gender':     return `No books by ${heading} authors.`;
     case 'fiction':
-      if (heading === 'Fiction')     return 'No fiction in your library.';
-      if (heading === 'Non-fiction') return 'No non-fiction in your library.';
+      if (decoded === 'fiction')    return 'No fiction in your library.';
+      if (decoded === 'nonfiction') return 'No non-fiction in your library.';
+      if (decoded === 'unset')      return 'No books with unset fiction status.';
       return 'No books match this browse.';
     case 'format':
-      if (heading === 'Physical')  return 'No physical books in your library.';
-      if (heading === 'Digital')   return 'No ebooks in your library.';
-      if (heading === 'Audiobook') return 'No audiobooks in your library.';
+      if (decoded === 'physical')   return 'No physical books in your library.';
+      if (decoded === 'ebook')      return 'No ebooks in your library.';
+      if (decoded === 'audiobook')  return 'No audiobooks in your library.';
+      if (decoded === 'unset')      return 'No books with unset format.';
       return 'No books match this browse.';
     default:                  return 'No books found.';
   }
@@ -275,7 +278,7 @@ export default function BrowsePage() {
         </div>
       ) : books.length === 0 ? (
         <div className="text-center py-32">
-          <p className="text-neutral-600">{emptyMessageFor(field, heading)}</p>
+          <p className="text-neutral-600">{emptyMessageFor(field, decoded, heading)}</p>
         </div>
       ) : (() => {
         // Mid-pagination, hide trailing partial-row books; reveal on next load.
