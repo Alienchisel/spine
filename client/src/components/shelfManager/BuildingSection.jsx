@@ -71,7 +71,7 @@ function BuildingSection({ building, dragHandle, onEdit, onDelete, onAddRoom, on
       <div className="flex items-center justify-between px-4 py-3 bg-neutral-900/50 group">
         <div className="flex items-center gap-1 min-w-0">
           <span className="opacity-30 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">{dragHandle}</span>
-          <button type="button" onClick={() => setOpen(o => !o)} className="flex items-center gap-2 text-left min-w-0">
+          <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open} className="flex items-center gap-2 text-left min-w-0">
             <span className="text-neutral-500 text-xs w-3 flex-shrink-0">{open ? '▾' : '▸'}</span>
           <span className="text-sm font-medium text-parchment">{building.name}</span>
           <span className="text-xs text-neutral-600 bg-neutral-800 px-1.5 py-0.5 rounded">

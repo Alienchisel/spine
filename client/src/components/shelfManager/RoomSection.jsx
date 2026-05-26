@@ -44,7 +44,7 @@ function RoomSection({ room, dragHandle, onEdit, onDelete, onAddUnit, onReorderU
       <div className="flex items-center justify-between py-1.5 pl-6 pr-2 group">
         <div className="flex items-center gap-1 min-w-0">
           <span className="opacity-30 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">{dragHandle}</span>
-          <button type="button" onClick={() => setOpen(o => !o)} className="flex items-center gap-1.5 text-left min-w-0">
+          <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open} className="flex items-center gap-1.5 text-left min-w-0">
             <span className="text-neutral-600 text-xs w-3 flex-shrink-0">{open ? '▾' : '▸'}</span>
             <span className="text-xs text-neutral-200">{room.name}</span>
             <span className="text-xs text-neutral-600 ml-1">{plural(room.units.length, 'unit')}</span>
