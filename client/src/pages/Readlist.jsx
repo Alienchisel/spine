@@ -135,7 +135,26 @@ export default function Readlist() {
   // that it's stale — without this, A's rollback to its pre-A snapshot
   // would clobber B's newer optimistic order.
   const reorderSeqRef = useRef(0);
+  const tabRefs = useRef([]);
   const refreshTick = useRefreshTick();
+
+  function handleTabKey(e, idx) {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      e.preventDefault();
+      const dir = e.key === 'ArrowRight' ? 1 : -1;
+      const next = (idx + dir + TABS.length) % TABS.length;
+      setTab(TABS[next].key);
+      tabRefs.current[next]?.focus();
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      setTab(TABS[0].key);
+      tabRefs.current[0]?.focus();
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      setTab(TABS[TABS.length - 1].key);
+      tabRefs.current[TABS.length - 1]?.focus();
+    }
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -223,16 +242,19 @@ export default function Readlist() {
       <div className="flex items-baseline justify-between mb-6">
         <h1 className="text-xl font-bold text-white">Readlist</h1>
         <div role="tablist" aria-label="Readlist view" className="flex items-center gap-1">
-          {TABS.map(t => {
+          {TABS.map((t, i) => {
             const n = counts[t.key];
             const active = tab === t.key;
             return (
               <button
                 key={t.key}
+                ref={el => { tabRefs.current[i] = el; }}
                 type="button"
                 role="tab"
                 aria-selected={active}
+                tabIndex={active ? 0 : -1}
                 onClick={() => setTab(t.key)}
+                onKeyDown={e => handleTabKey(e, i)}
                 className={`text-sm px-3 py-1 rounded transition-colors ${active ? 'text-parchment bg-neutral-800/70' : 'text-neutral-500 hover:text-neutral-300'}`}
               >
                 {t.label} <span className="text-xs text-neutral-600 tabular-nums">{n}</span>
