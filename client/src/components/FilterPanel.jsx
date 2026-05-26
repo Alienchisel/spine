@@ -214,17 +214,20 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
             return (
               <div className="w-full flex items-center gap-1.5 mb-2 text-xs">
                 <span className="text-neutral-500">match</span>
-                {['all', 'any'].map(mode => (
-                  <button key={mode} type="button"
-                    onClick={() => onChange({ ...filters, tagsMode: mode })}
-                    className={`px-2 py-0.5 rounded-full transition-colors ${
-                      (filters.tagsMode || 'all') === mode
-                        ? 'bg-binding/30 text-parchment'
-                        : 'bg-neutral-800 text-neutral-500 hover:text-neutral-300'
-                    }`}>
-                    {mode}
-                  </button>
-                ))}
+                <div role="radiogroup" aria-label="Tag match mode" className="flex items-center gap-1.5">
+                  {['all', 'any'].map(mode => (
+                    <button key={mode} type="button" role="radio"
+                      aria-checked={(filters.tagsMode || 'all') === mode}
+                      onClick={() => onChange({ ...filters, tagsMode: mode })}
+                      className={`px-2 py-0.5 rounded-full transition-colors ${
+                        (filters.tagsMode || 'all') === mode
+                          ? 'bg-binding/30 text-parchment'
+                          : 'bg-neutral-800 text-neutral-500 hover:text-neutral-300'
+                      }`}>
+                      {mode}
+                    </button>
+                  ))}
+                </div>
                 <span className="text-neutral-600 ml-1">
                   {(filters.tagsMode || 'all') === 'all' ? '— books with every selected tag' : '— books with any selected tag'}
                 </span>
