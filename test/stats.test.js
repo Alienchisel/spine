@@ -248,6 +248,9 @@ describe('stats', () => {
       const { body } = await req('GET', '/api/stats');
       const modern = body.decadesPublished.find(d => d.decade === 1990);
       assert.ok(modern && modern.count >= 1, 'expected 1990s bucket with at least 1');
+      // 'read' is the per-decade count of books with read_count > 0,
+      // used by /data-viz's spectrum overlay.
+      assert.ok('read' in modern, 'decadesPublished rows should carry a read field');
       const ancient = body.decadesPublished.find(d => d.decade === -800);
       assert.ok(ancient && ancient.count >= 1, 'expected -800 bucket with at least 1');
     });
@@ -264,6 +267,55 @@ describe('stats', () => {
       assert.ok(entry, 'expected reading book in inProgressPace');
       assert.equal(entry.pct, 25);
       assert.ok('projected_days_left' in entry);
+    });
+  });
+
+  describe('GET /api/stats/reading-calendar', () => {
+    it('returns one row per distinct reading-log date with summed pages and minutes', async () => {
+      // Two PATCHes on the same book the same calendar day fold into
+      // one reading_log row via the ON CONFLICT upsert; the calendar
+      // endpoint reports the summed totals.
+      const { body: b } = await req('POST', '/api/books', { title: 'Calendar Smoke ' + Math.random().toString(36).slice(2, 6) });
+      await req('PATCH', `/api/books/${b.id}`, { current_page:    50 });
+      await req('PATCH', `/api/books/${b.id}`, { current_minutes: 30 });
+
+      const { status, body } = await req('GET', '/api/stats/reading-calendar');
+      assert.equal(status, 200);
+      assert.ok(Array.isArray(body), 'expected an array');
+      // The contract: every row has date / pages / minutes; today's
+      // row exists and carries at least the page/minute totals we just
+      // logged (other tests' logs may have piled in). Server inserts
+      // via SQLite date('now', 'localtime'), so we match using LOCAL
+      // date components — UTC-formatted ISO would skew at timezone
+      // boundaries.
+      const d = new Date();
+      const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const todayRow = body.find(r => r.date === today);
+      assert.ok(todayRow, `expected a row for ${today}`);
+      assert.ok(todayRow.pages   >= 50, `pages should include the logged 50`);
+      assert.ok(todayRow.minutes >= 30, `minutes should include the logged 30`);
+    });
+  });
+
+  describe('GET /api/stats/library-trajectory', () => {
+    it('returns monthly cumulative acquired and finished totals', async () => {
+      await req('POST', '/api/books', { title: 'Trajectory Acquired ' + Math.random().toString(36).slice(2, 6), acquisition_date: '2020-03-10', owned: true });
+      await req('POST', '/api/books', { title: 'Trajectory Finished ' + Math.random().toString(36).slice(2, 6), date_finished:    '2020-04-10' });
+
+      const { status, body } = await req('GET', '/api/stats/library-trajectory');
+      assert.equal(status, 200);
+      assert.ok(Array.isArray(body), 'expected an array');
+      assert.ok(body.length > 0, 'expected non-empty trajectory');
+      // Cumulative columns must be monotonically non-decreasing.
+      for (let i = 1; i < body.length; i++) {
+        assert.ok(body[i].acquired >= body[i - 1].acquired, `acquired regressed at month ${body[i].month}`);
+        assert.ok(body[i].finished >= body[i - 1].finished, `finished regressed at month ${body[i].month}`);
+      }
+      // The fixtures above must be reflected in the matching months.
+      const acqMonth = body.find(r => r.month === '2020-03');
+      const finMonth = body.find(r => r.month === '2020-04');
+      assert.ok(acqMonth && acqMonth.acquired >= 1, 'expected 2020-03 cumulative acquired >= 1');
+      assert.ok(finMonth && finMonth.finished >= 1, 'expected 2020-04 cumulative finished >= 1');
     });
   });
 });

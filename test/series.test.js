@@ -63,4 +63,28 @@ describe('series — index', () => {
     // The no-series book contributes to no row in the index.
     assert.ok(!names.some(n => n.endsWith('loose')));
   });
+
+  it('GET /api/series/completion returns one row per book with a series_number', async () => {
+    const stem = 'complete' + Math.random().toString(36).slice(2, 6);
+    const seriesName = `Completion-${stem}`;
+    await req('POST', '/api/books', { title: `${stem}-1`, series: seriesName, series_number: 1, owned: true });
+    await req('POST', '/api/books', { title: `${stem}-2`, series: seriesName, series_number: 2, owned: false });
+    // A book in the same series but without a series_number — must
+    // not appear in the completion feed (the sparkline needs positions).
+    await req('POST', '/api/books', { title: `${stem}-unranked`, series: seriesName });
+
+    const { status, body } = await req('GET', '/api/series/completion');
+    assert.equal(status, 200);
+    assert.ok(Array.isArray(body));
+
+    const ours = body.filter(r => r.name === seriesName);
+    assert.equal(ours.length, 2, 'unranked book should be excluded; only the numbered two appear');
+    const positions = ours.map(r => r.position).sort((a, b) => a - b);
+    assert.deepEqual(positions, [1, 2]);
+    // owned is surfaced as 0/1 so the client can render filled vs hollow cells.
+    const vol1 = ours.find(r => r.position === 1);
+    const vol2 = ours.find(r => r.position === 2);
+    assert.equal(vol1.owned, 1);
+    assert.equal(vol2.owned, 0);
+  });
 });
