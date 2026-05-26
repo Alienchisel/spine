@@ -98,7 +98,7 @@ export default function ShelfPicker({ shelfId, buildingId, roomId, unitId, onCha
       <div>
         <label className="block text-xs font-semibold text-neutral-500 mb-1.5 uppercase tracking-wider">Building</label>
         <select aria-label="Building" className={select} value={sel.buildingId ?? ''} onChange={e => setBuilding(e.target.value)}>
-          <option value="">—</option>
+          <option value="">No building</option>
           {tree.map(b => (
             <option key={b.id} value={b.id}>{b.name} ({PROXIMITY_LABEL[b.proximity]})</option>
           ))}
@@ -109,7 +109,7 @@ export default function ShelfPicker({ shelfId, buildingId, roomId, unitId, onCha
         <div>
           <label className="block text-xs font-semibold text-neutral-500 mb-1.5 uppercase tracking-wider">Room</label>
           <select aria-label="Room" className={select} value={sel.roomId ?? ''} onChange={e => setRoom(e.target.value)}>
-            <option value="">—</option>
+            <option value="">No room</option>
             {rooms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
         </div>
@@ -119,7 +119,7 @@ export default function ShelfPicker({ shelfId, buildingId, roomId, unitId, onCha
         <div>
           <label className="block text-xs font-semibold text-neutral-500 mb-1.5 uppercase tracking-wider">Unit</label>
           <select aria-label="Unit" className={select} value={sel.unitId ?? ''} onChange={e => setUnit(e.target.value)}>
-            <option value="">—</option>
+            <option value="">No unit</option>
             {units.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
           </select>
         </div>
@@ -129,7 +129,7 @@ export default function ShelfPicker({ shelfId, buildingId, roomId, unitId, onCha
         <div>
           <label className="block text-xs font-semibold text-neutral-500 mb-1.5 uppercase tracking-wider">Shelf</label>
           <select aria-label="Shelf" className={select} value={sel.shelfId ?? ''} onChange={e => setShelf(e.target.value)}>
-            <option value="">—</option>
+            <option value="">No shelf</option>
             {shelves.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
           </select>
         </div>
