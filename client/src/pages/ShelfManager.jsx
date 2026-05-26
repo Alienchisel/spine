@@ -361,7 +361,7 @@ export default function ShelfManager() {
               <select
                 value={newBuildingProximity}
                 onChange={e => setNewBuildingProximity(e.target.value)}
-                aria-label="Proximity"
+                aria-label="New building proximity"
                 className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1.5 text-sm text-neutral-300 focus:outline-none"
               >
                 {PROXIMITY_OPTIONS.map(p => <option key={p} value={p}>{PROXIMITY_LABEL[p]}</option>)}

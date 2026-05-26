@@ -58,7 +58,7 @@ function BuildingSection({ building, dragHandle, onEdit, onDelete, onAddRoom, on
         <select
           value={editingProximity}
           onChange={e => setEditingProximity(e.target.value)}
-          aria-label="Proximity"
+          aria-label={`Proximity for ${building.name}`}
           className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-300 focus:outline-none"
         >
           {PROXIMITY_OPTIONS.map(p => <option key={p} value={p}>{PROXIMITY_LABEL[p]}</option>)}
