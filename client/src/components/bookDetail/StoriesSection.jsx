@@ -366,6 +366,7 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
         <button
           type="button"
           onClick={() => setExpanded(e => !e)}
+          aria-expanded={expanded}
           className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors mb-3"
         >
           {expanded ? 'Show less' : `Show all (${stories.length})`}

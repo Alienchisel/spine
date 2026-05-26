@@ -54,6 +54,7 @@ export default function ReadingLog({ log, isAudiobook, status, pageCount }) {
         <button
           type="button"
           onClick={() => setExpanded(e => !e)}
+          aria-expanded={expanded}
           className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors mt-3"
         >
           {expanded ? 'Show less' : `Show all (${log.length})`}

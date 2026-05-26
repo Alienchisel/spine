@@ -760,6 +760,7 @@ export default function BookDetail() {
                   <button
                     type="button"
                     onClick={() => setDescExpanded(e => !e)}
+                    aria-expanded={descExpanded}
                     className="mt-1 text-xs text-neutral-600 hover:text-neutral-400 transition-colors"
                   >
                     {descExpanded ? 'Show less' : 'Read more'}
