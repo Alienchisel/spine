@@ -127,10 +127,12 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
         <FilterSection key="format" label="Format" active={filters.formats.length > 0}>
           {hasEmptyFormat && (
             <button type="button" onClick={() => toggle('formats', 'empty')}
+              aria-pressed={filters.formats.includes('empty')}
               className={pill(filters.formats.includes('empty'))}>—</button>
           )}
           {formats.map(f => (
             <button key={f} type="button" onClick={() => toggle('formats', f)}
+              aria-pressed={filters.formats.includes(f)}
               className={pill(filters.formats.includes(f))}>
               {FORMAT_LABEL[f]}
             </button>
@@ -142,6 +144,7 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
         <FilterSection key="status" label="Status" active={(filters.statuses?.length || 0) > 0}>
           {STATUSES.map(s => (
             <button key={s.key} type="button" onClick={() => toggle('statuses', s.key)}
+              aria-pressed={(filters.statuses || []).includes(s.key)}
               className={pill(filters.statuses?.includes(s.key))}>
               {s.label}
             </button>
@@ -153,10 +156,12 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
         <FilterSection key="rating" label="Rating" active={filters.ratings.length > 0}>
           {hasEmptyRating && (
             <button type="button" onClick={() => toggle('ratings', 'empty')}
+              aria-pressed={filters.ratings.includes('empty')}
               className={pill(filters.ratings.includes('empty'))}>—</button>
           )}
           {ratings.map(r => (
             <button key={r} type="button" onClick={() => toggle('ratings', r)}
+              aria-pressed={filters.ratings.includes(r)}
               className={pill(filters.ratings.includes(r))}>
               {'★'.repeat(Math.floor(r))}{r % 1 !== 0 ? '½' : ''}
             </button>
@@ -166,24 +171,31 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
 
       <FilterSection key="owned" label="Owned" active={filters.owned !== null || filters.previouslyOwned !== null}>
         <button type="button" onClick={() => toggleOwned(true)}
+          aria-pressed={filters.owned === true}
           className={pill(filters.owned === true)}>Owned</button>
         <button type="button" onClick={() => toggleOwned(false)}
+          aria-pressed={filters.owned === false}
           className={pill(filters.owned === false)}>Not owned</button>
         <button type="button" onClick={() => togglePreviouslyOwned(true)}
+          aria-pressed={filters.previouslyOwned === true}
           className={pill(filters.previouslyOwned === true)}>Previously owned</button>
       </FilterSection>
 
       <FilterSection key="type" label="Type" active={filters.custom !== null}>
         <button type="button" onClick={() => toggleCustom(true)}
+          aria-pressed={filters.custom === true}
           className={pill(filters.custom === true)}>✦ Custom</button>
         <button type="button" onClick={() => toggleCustom(false)}
+          aria-pressed={filters.custom === false}
           className={pill(filters.custom === false)}>Standard</button>
       </FilterSection>
 
       <FilterSection key="loved" label="Loved" active={filters.loved !== null}>
         <button type="button" onClick={() => toggleLoved(true)}
+          aria-pressed={filters.loved === true}
           className={pill(filters.loved === true)}>♥ Loved</button>
         <button type="button" onClick={() => toggleLoved(false)}
+          aria-pressed={filters.loved === false}
           className={pill(filters.loved === false)}>Not loved</button>
       </FilterSection>
 
@@ -221,6 +233,7 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
           })()}
           {tags.map(t => (
             <button key={t} type="button" onClick={() => toggle('tags', t)}
+              aria-pressed={filters.tags.includes(t)}
               className={pill(filters.tags.includes(t))}>
               {t}
             </button>
@@ -232,10 +245,12 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
         <FilterSection key="publisher" label="Publisher" defaultOpen={false} active={filters.publishers.length > 0}>
           {hasEmptyPublisher && (
             <button type="button" onClick={() => toggle('publishers', 'empty')}
+              aria-pressed={filters.publishers.includes('empty')}
               className={pill(filters.publishers.includes('empty'))}>—</button>
           )}
           {publishers.map(p => (
             <button key={p} type="button" onClick={() => toggle('publishers', p)}
+              aria-pressed={filters.publishers.includes(p)}
               className={pill(filters.publishers.includes(p))}>
               {p}
             </button>
@@ -247,10 +262,12 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
         <FilterSection key="source" label="Source" defaultOpen={false} active={(filters.sources || []).length > 0}>
           {facets.hasEmptySource && (
             <button type="button" onClick={() => toggle('sources', 'empty')}
+              aria-pressed={(filters.sources || []).includes('empty')}
               className={pill((filters.sources || []).includes('empty'))}>—</button>
           )}
           {facets.sources.map(s => (
             <button key={s} type="button" onClick={() => toggle('sources', s)}
+              aria-pressed={(filters.sources || []).includes(s)}
               className={pill((filters.sources || []).includes(s))}>
               {s}
             </button>
@@ -262,10 +279,12 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
         <FilterSection key="series" label="Series" defaultOpen={false} active={filters.series.length > 0}>
           {hasEmptySeries && (
             <button type="button" onClick={() => toggle('series', 'empty')}
+              aria-pressed={filters.series.includes('empty')}
               className={pill(filters.series.includes('empty'))}>—</button>
           )}
           {seriesVals.map(s => (
             <button key={s} type="button" onClick={() => toggle('series', s)}
+              aria-pressed={filters.series.includes(s)}
               className={pill(filters.series.includes(s))}>
               {s}
             </button>
@@ -279,6 +298,7 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
         {MISSING_FIELDS.map(f => (
           <button key={f.key} type="button"
             onClick={() => toggle('missing', f.key)}
+            aria-pressed={filters.missing.includes(f.key)}
             className={pill(filters.missing.includes(f.key), 'missing')}>
             {f.label}
           </button>
