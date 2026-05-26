@@ -532,7 +532,7 @@ export default function Author() {
         </div>
       ) : errorKind === 'notfound' ? null
       : !author?.books?.length && !author?.stories?.length ? (
-        <div className="text-neutral-600 text-sm">No books found.</div>
+        <div className="text-neutral-600 text-sm">No books or story contributions by this author.</div>
       ) : (() => {
         const allBooks      = author.books || [];
         const stories       = author.stories || [];
