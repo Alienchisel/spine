@@ -35,7 +35,7 @@ function RoomSection({ room, dragHandle, onEdit, onDelete, onAddUnit, onReorderU
 
   if (editing) return (
     <div className="py-1.5 pl-6">
-      <InlineEdit value={room.name} onSave={v => { onEdit(room.id, v); setEditing(false); }} onCancel={() => setEditing(false)} />
+      <InlineEdit value={room.name} ariaLabel={`Rename room ${room.name}`} onSave={v => { onEdit(room.id, v); setEditing(false); }} onCancel={() => setEditing(false)} />
     </div>
   );
 

@@ -27,7 +27,7 @@ export function InlineInput({ placeholder, onSave, onCancel }) {
   );
 }
 
-export function InlineEdit({ value, onSave, onCancel }) {
+export function InlineEdit({ value, onSave, onCancel, ariaLabel = 'Rename' }) {
   const [val, setVal] = useState(value);
   const ref = useRef(null);
   useEffect(() => { ref.current?.focus(); ref.current?.select(); }, []);
@@ -44,7 +44,7 @@ export function InlineEdit({ value, onSave, onCancel }) {
         value={val}
         onChange={e => setVal(e.target.value)}
         onKeyDown={handleKey}
-        aria-label="Rename"
+        aria-label={ariaLabel}
         className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-oak/50 w-36"
       />
       <button type="submit" disabled={!val.trim()} className="text-xs text-oak hover:text-leather disabled:opacity-40 transition-colors">save</button>

@@ -6,7 +6,7 @@ export default function ShelfRow({ shelf, dragHandle, onEdit, onDelete }) {
   const [editing, setEditing] = useState(false);
   if (editing) return (
     <div className="flex items-center gap-2 py-1.5 pl-16">
-      <InlineEdit value={shelf.label} onSave={v => { onEdit(shelf.id, v); setEditing(false); }} onCancel={() => setEditing(false)} />
+      <InlineEdit value={shelf.label} ariaLabel={`Rename shelf ${shelf.label}`} onSave={v => { onEdit(shelf.id, v); setEditing(false); }} onCancel={() => setEditing(false)} />
     </div>
   );
   return (

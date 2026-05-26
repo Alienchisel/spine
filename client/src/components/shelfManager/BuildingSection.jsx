@@ -52,6 +52,7 @@ function BuildingSection({ building, dragHandle, onEdit, onDelete, onAddRoom, on
     <div className="py-2 pl-2">
       <div className="flex items-center gap-2">
         <InlineEdit value={building.name}
+          ariaLabel={`Rename building ${building.name}`}
           onSave={v => { onEdit(building.id, v, editingProximity); setEditing(false); }}
           onCancel={() => setEditing(false)} />
         <select

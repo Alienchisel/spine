@@ -45,7 +45,7 @@ function UnitSection({ unit, dragHandle, onEdit, onDelete, onAddShelf, onEditShe
 
   if (editing) return (
     <div className="py-1.5 pl-10">
-      <InlineEdit value={unit.name} onSave={v => { onEdit(unit.id, v); setEditing(false); }} onCancel={() => setEditing(false)} />
+      <InlineEdit value={unit.name} ariaLabel={`Rename unit ${unit.name}`} onSave={v => { onEdit(unit.id, v); setEditing(false); }} onCancel={() => setEditing(false)} />
     </div>
   );
 
