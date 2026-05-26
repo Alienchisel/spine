@@ -5,13 +5,15 @@ import { useEscapeKey } from '../hooks/useEscapeKey.js';
 export default function SearchHelp() {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef(null);
+  const buttonRef = useRef(null);
 
   useClickOutside(wrapperRef, () => setOpen(false), open);
-  useEscapeKey(() => setOpen(false), open);
+  useEscapeKey(() => { setOpen(false); buttonRef.current?.focus(); }, open);
 
   return (
     <div ref={wrapperRef} className="relative">
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => setOpen(o => !o)}
         aria-label="Search syntax help"
