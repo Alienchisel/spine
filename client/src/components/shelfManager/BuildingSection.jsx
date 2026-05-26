@@ -84,8 +84,8 @@ function BuildingSection({ building, dragHandle, onEdit, onDelete, onAddRoom, on
           {open && !adding && (
             <button type="button" onClick={() => setAdding(true)} className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors whitespace-nowrap">+ room</button>
           )}
-          <button type="button" onClick={startEditing} title="Rename building" aria-label="Rename building" className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors">✎</button>
-          <button type="button" onClick={() => onDelete(building.id)} title="Delete building" aria-label="Delete building" className="text-xs text-neutral-600 hover:text-warn transition-colors">×</button>
+          <button type="button" onClick={startEditing} title="Rename building" aria-label={`Rename building ${building.name}`} className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors">✎</button>
+          <button type="button" onClick={() => onDelete(building.id)} title="Delete building" aria-label={`Delete building ${building.name}`} className="text-xs text-neutral-600 hover:text-warn transition-colors">×</button>
         </div>
       </div>
       {open && (

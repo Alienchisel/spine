@@ -64,8 +64,8 @@ function UnitSection({ unit, dragHandle, onEdit, onDelete, onAddShelf, onEditShe
           {open && !adding && (
             <button type="button" onClick={() => setAdding(true)} className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors whitespace-nowrap">+ shelf</button>
           )}
-          <button type="button" onClick={() => setEditing(true)} title="Rename unit" aria-label="Rename unit" className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors">✎</button>
-          <button type="button" onClick={() => onDelete(unit.id)} title="Delete unit" aria-label="Delete unit" className="text-xs text-neutral-600 hover:text-warn transition-colors">×</button>
+          <button type="button" onClick={() => setEditing(true)} title="Rename unit" aria-label={`Rename unit ${unit.name}`} className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors">✎</button>
+          <button type="button" onClick={() => onDelete(unit.id)} title="Delete unit" aria-label={`Delete unit ${unit.name}`} className="text-xs text-neutral-600 hover:text-warn transition-colors">×</button>
         </div>
       </div>
       {open && (
