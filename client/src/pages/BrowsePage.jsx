@@ -36,6 +36,38 @@ function browseSort(field) {
   return 'title';
 }
 
+// Empty-state copy keyed on the browse field. The page's filter is the
+// URL, not interactive, so the message is fixed once the route is set —
+// we just say what isn't matched. fiction and format need special
+// phrasing because the humanised heading ("Fiction", "Physical") doesn't
+// slot cleanly into the generic templates.
+function emptyMessageFor(field, heading) {
+  switch (field) {
+    case 'author':            return `No books by ${heading}.`;
+    case 'translator':        return `No books translated by ${heading}.`;
+    case 'narrator':          return `No books narrated by ${heading}.`;
+    case 'publisher':         return `No books from ${heading}.`;
+    case 'series':            return `No books in the ${heading} series.`;
+    case 'tag':               return `No books tagged ${heading}.`;
+    case 'language':          return `No books in ${heading}.`;
+    case 'original_language': return `No books originally in ${heading}.`;
+    case 'rating':            return `No books rated ${heading}.`;
+    case 'year_finished':     return `No books finished in ${heading}.`;
+    case 'year_acquired':     return `No books acquired in ${heading}.`;
+    case 'author_gender':     return `No books by ${heading} authors.`;
+    case 'fiction':
+      if (heading === 'Fiction')     return 'No fiction in your library.';
+      if (heading === 'Non-fiction') return 'No non-fiction in your library.';
+      return 'No books match this browse.';
+    case 'format':
+      if (heading === 'Physical')  return 'No physical books in your library.';
+      if (heading === 'Digital')   return 'No ebooks in your library.';
+      if (heading === 'Audiobook') return 'No audiobooks in your library.';
+      return 'No books match this browse.';
+    default:                  return 'No books found.';
+  }
+}
+
 const PAGE_SIZE = 48;
 
 export default function BrowsePage() {
@@ -242,7 +274,9 @@ export default function BrowsePage() {
           <p className="text-neutral-600">Failed to load books. Please try again.</p>
         </div>
       ) : books.length === 0 ? (
-        <div className="text-neutral-600 text-sm">No books found.</div>
+        <div className="text-center py-32">
+          <p className="text-neutral-600">{emptyMessageFor(field, heading)}</p>
+        </div>
       ) : (() => {
         // Mid-pagination, hide trailing partial-row books; reveal on next load.
         // Guard: keep at least one full row so a small load doesn't render empty.
