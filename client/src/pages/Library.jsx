@@ -293,6 +293,34 @@ export default function Library() {
   // double-bumped (next page request lands at the wrong offset). Shared
   // between handlers so cross-handler races are caught too.
   const pagingRef = useRef(false);
+  const tabRefs = useRef([]);
+
+  function switchTab(key) {
+    setTab(key);
+    setExpandedSeries(new Set());
+    // Edit mode is scoped to the Never owned tab — clear it on tab
+    // switch so drag handles don't bleed onto tabs where reordering
+    // isn't a thing.
+    if (key !== 'never_owned') setEditMode(false);
+  }
+
+  function handleTabKey(e, idx) {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      e.preventDefault();
+      const dir = e.key === 'ArrowRight' ? 1 : -1;
+      const next = (idx + dir + TABS.length) % TABS.length;
+      switchTab(TABS[next].key);
+      tabRefs.current[next]?.focus();
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      switchTab(TABS[0].key);
+      tabRefs.current[0]?.focus();
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      switchTab(TABS[TABS.length - 1].key);
+      tabRefs.current[TABS.length - 1]?.focus();
+    }
+  }
   // Snapshot of the books-fetch deps (excluding refreshTick) so we can
   // distinguish a real state change (tab/sort/filters/query/randomSeed
   // moved) from a refresh-tick refetch at the same state. On a same-
@@ -733,23 +761,16 @@ export default function Library() {
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-1.5">
             <div role="tablist" aria-label="Library view" className="flex gap-1 bg-neutral-900 p-1 rounded-lg w-fit">
-              {TABS.map((t) => (
+              {TABS.map((t, i) => (
                 <button
                   key={t.key}
+                  ref={el => { tabRefs.current[i] = el; }}
                   type="button"
                   role="tab"
                   aria-selected={tab === t.key}
-                  onClick={() => {
-                    setTab(t.key);
-                    setExpandedSeries(new Set());
-                    // Edit mode is scoped to the Never owned tab — clear it
-                    // on tab switch so the drag handles don't bleed onto
-                    // tabs where reordering isn't a thing. Per-tab sort
-                    // memory means we no longer need to coerce a 'custom'
-                    // sort here: each tab carries its own sort, so 'custom'
-                    // only ever lives in the never_owned slot.
-                    if (t.key !== 'never_owned') setEditMode(false);
-                  }}
+                  tabIndex={tab === t.key ? 0 : -1}
+                  onClick={() => switchTab(t.key)}
+                  onKeyDown={e => handleTabKey(e, i)}
                   className={`px-5 py-2 text-sm rounded-md whitespace-nowrap transition-[transform,background-color,color] ease-out duration-150 motion-safe:active:scale-[0.98] ${
                     tab === t.key
                       ? 'bg-binding/25 text-parchment font-semibold'
