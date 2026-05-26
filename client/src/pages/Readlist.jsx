@@ -101,6 +101,7 @@ function SortableRow({ book, onRemove, index }) {
           onClick={() => onRemove(book.id)}
           className="text-neutral-700 hover:text-warn transition-colors text-lg leading-none"
           title="Remove from readlist"
+          aria-label={`Remove ${book.title} from readlist`}
         >
           ×
         </button>

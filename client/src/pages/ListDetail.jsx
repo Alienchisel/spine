@@ -75,6 +75,7 @@ function SortableBookCard({ book, onRemove, draggable, linkState }) {
           onClick={(e) => { e.preventDefault(); onRemove(book.id); }}
           className="pointer-events-auto absolute top-1 right-1 bg-neutral-900/90 hover:bg-red-900 border border-neutral-700 rounded-full w-6 h-6 flex items-center justify-center text-neutral-400 hover:text-white transition-colors text-base leading-none shadow-lg"
           title="Remove from list"
+          aria-label={`Remove ${book.title} from list`}
         >
           ×
         </button>
