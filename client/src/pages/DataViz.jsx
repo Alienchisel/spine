@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api.js';
 
+// ── Experiment #1 — Acquisitions by source ───────────────────────────────
+
 // Top N sources get their own panel; everything else collapses into
 // "Other" so the long tail of single-source bookstores doesn't drown
 // out the comparison. 3 isolates the dominant Kindle / Audible / Amazon
