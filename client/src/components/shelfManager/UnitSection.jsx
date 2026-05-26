@@ -80,6 +80,7 @@ function UnitSection({ unit, dragHandle, onEdit, onDelete, onAddShelf, onEditShe
           {adding && (
             <div className="pl-16 py-1.5">
               <InlineInput placeholder="e.g. 1, Top, A…"
+                ariaLabel={`New shelf label for ${unit.name}`}
                 onSave={v => { onAddShelf(unit.id, v); setAdding(false); }}
                 onCancel={() => setAdding(false)} />
             </div>

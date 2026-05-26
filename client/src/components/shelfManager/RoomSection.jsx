@@ -73,6 +73,7 @@ function RoomSection({ room, dragHandle, onEdit, onDelete, onAddUnit, onReorderU
           {adding && (
             <div className="pl-10 py-1.5">
               <InlineInput placeholder="e.g. Bookcase A, Desk…"
+                ariaLabel={`New unit name for ${room.name}`}
                 onSave={v => { onAddUnit(room.id, v); setAdding(false); }}
                 onCancel={() => setAdding(false)} />
             </div>

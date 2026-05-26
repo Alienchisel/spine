@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 
-export function InlineInput({ placeholder, onSave, onCancel }) {
+export function InlineInput({ placeholder, onSave, onCancel, ariaLabel }) {
   const [val, setVal] = useState('');
   const ref = useRef(null);
   useEffect(() => ref.current?.focus(), []);
@@ -17,7 +17,7 @@ export function InlineInput({ placeholder, onSave, onCancel }) {
         value={val}
         onChange={e => setVal(e.target.value)}
         onKeyDown={handleKey}
-        aria-label={placeholder}
+        aria-label={ariaLabel ?? placeholder}
         placeholder={placeholder}
         className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-oak/50 w-36"
       />
