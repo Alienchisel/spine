@@ -5,6 +5,16 @@ import PartialDateInput from '../PartialDateInput.jsx';
 import { useConfirm } from '../ConfirmModal.jsx';
 import { formatPartialDate } from '../../utils.js';
 
+function readLabel(r) {
+  const start = r.date_started ? formatPartialDate(r.date_started) : null;
+  const finish = r.date_finished ? formatPartialDate(r.date_finished) : null;
+  const base = start && finish ? `read from ${start} to ${finish}`
+             : finish          ? `read finished ${finish}`
+             : start           ? `read started ${start}`
+             :                   'undated read';
+  return r.did_not_finish ? `DNF ${base}` : base;
+}
+
 export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBookUpdate }) {
   const [adding, setAdding] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -146,8 +156,8 @@ export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBo
                 {r.date_finished ? <> <span className="text-neutral-600">→</span> {formatPartialDate(r.date_finished)}</> : ''}
                 {r.did_not_finish ? <span className="ml-2 text-[10px] uppercase tracking-wider text-warn/80 border border-warn/30 rounded px-1 py-px">DNF</span> : ''}
               </span>
-              <button type="button" onClick={() => startEdit(r)} className="text-xs text-neutral-700 hover:text-neutral-400 opacity-30 group-hover:opacity-100 group-focus-within:opacity-100 transition-all">Edit</button>
-              <button type="button" onClick={() => handleDelete(r.id)} title="Delete read" aria-label="Delete read" className="text-xs text-neutral-700 hover:text-warn opacity-30 group-hover:opacity-100 group-focus-within:opacity-100 transition-all ml-1">×</button>
+              <button type="button" onClick={() => startEdit(r)} aria-label={`Edit ${readLabel(r)}`} className="text-xs text-neutral-700 hover:text-neutral-400 opacity-30 group-hover:opacity-100 group-focus-within:opacity-100 transition-all">Edit</button>
+              <button type="button" onClick={() => handleDelete(r.id)} title="Delete read" aria-label={`Delete ${readLabel(r)}`} className="text-xs text-neutral-700 hover:text-warn opacity-30 group-hover:opacity-100 group-focus-within:opacity-100 transition-all ml-1">×</button>
             </div>
           ))}
         </div>
