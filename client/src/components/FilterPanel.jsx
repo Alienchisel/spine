@@ -128,6 +128,7 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
           {hasEmptyFormat && (
             <button type="button" onClick={() => toggle('formats', 'empty')}
               aria-pressed={filters.formats.includes('empty')}
+              aria-label="Missing format"
               className={pill(filters.formats.includes('empty'))}>—</button>
           )}
           {formats.map(f => (
@@ -157,6 +158,7 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
           {hasEmptyRating && (
             <button type="button" onClick={() => toggle('ratings', 'empty')}
               aria-pressed={filters.ratings.includes('empty')}
+              aria-label="Unrated"
               className={pill(filters.ratings.includes('empty'))}>—</button>
           )}
           {ratings.map(r => (
@@ -249,6 +251,7 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
           {hasEmptyPublisher && (
             <button type="button" onClick={() => toggle('publishers', 'empty')}
               aria-pressed={filters.publishers.includes('empty')}
+              aria-label="Missing publisher"
               className={pill(filters.publishers.includes('empty'))}>—</button>
           )}
           {publishers.map(p => (
@@ -266,6 +269,7 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
           {facets.hasEmptySource && (
             <button type="button" onClick={() => toggle('sources', 'empty')}
               aria-pressed={(filters.sources || []).includes('empty')}
+              aria-label="Missing source"
               className={pill((filters.sources || []).includes('empty'))}>—</button>
           )}
           {facets.sources.map(s => (
@@ -283,6 +287,7 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
           {hasEmptySeries && (
             <button type="button" onClick={() => toggle('series', 'empty')}
               aria-pressed={filters.series.includes('empty')}
+              aria-label="Missing series"
               className={pill(filters.series.includes('empty'))}>—</button>
           )}
           {seriesVals.map(s => (
