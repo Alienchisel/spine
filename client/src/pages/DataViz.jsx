@@ -9,6 +9,11 @@ import { api } from '../api.js';
 // trio against an Other bucket; the four panels lay out as a 2x2 grid.
 const TOP_N_SOURCES = 3;
 
+const COMPLETION_TABS = [
+  { key: 'in_progress', label: 'In progress' },
+  { key: 'complete',    label: 'Complete'    },
+];
+
 // Pivot the flat (year, source, count) rows the server returns into
 // per-source year arrays, aligned to a shared year axis. Sources are
 // ranked by total; the long tail collapses into "Other".
@@ -774,6 +779,25 @@ export default function DataViz() {
   // 'complete' (series the user owns 100% of, where the sparkline shape
   // collapses to all-filled and the row carries no comparative info).
   const [completionTab, setCompletionTab] = useState('in_progress');
+  const completionTabRefs = useRef([]);
+
+  function handleCompletionTabKey(e, idx) {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      e.preventDefault();
+      const dir = e.key === 'ArrowRight' ? 1 : -1;
+      const next = (idx + dir + COMPLETION_TABS.length) % COMPLETION_TABS.length;
+      setCompletionTab(COMPLETION_TABS[next].key);
+      completionTabRefs.current[next]?.focus();
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      setCompletionTab(COMPLETION_TABS[0].key);
+      completionTabRefs.current[0]?.focus();
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      setCompletionTab(COMPLETION_TABS[COMPLETION_TABS.length - 1].key);
+      completionTabRefs.current[COMPLETION_TABS.length - 1]?.focus();
+    }
+  }
 
   useEffect(() => {
     Promise.all([
@@ -865,25 +889,29 @@ export default function DataViz() {
           <span className="text-neutral-300 font-semibold">Experiment #5 — Series completion sparklines</span>. {comp.length} series with {COMPLETION_MIN_KNOWN}+ known volumes. Each cell is one volume — filled if owned, hollow outline if catalogued-but-not-owned, faint background if no entry. Strip width is shared across all rows so a 30-volume manga and a 3-volume trilogy occupy the same horizontal budget; the count column on the right gives the absolute scale. Two tabs: in-progress sets (where the sparkline still carries shape information) and fully-owned sets (which read as a solid strip).
         </p>
         <div role="tablist" aria-label="Series completion view" className="flex gap-1 bg-neutral-900 p-1 rounded-lg w-fit">
-          {[
-            { key: 'in_progress', label: 'In progress', count: compSplit.inProgress.length },
-            { key: 'complete',    label: 'Complete',    count: compSplit.complete.length    },
-          ].map(t => (
-            <button
-              key={t.key}
-              type="button"
-              role="tab"
-              aria-selected={completionTab === t.key}
-              onClick={() => setCompletionTab(t.key)}
-              className={`px-4 py-1.5 text-xs rounded-md whitespace-nowrap transition-[transform,background-color,color] ease-out duration-150 motion-safe:active:scale-[0.98] ${
-                completionTab === t.key
-                  ? 'bg-binding/25 text-parchment font-semibold'
-                  : 'font-medium text-neutral-400 hover:text-neutral-200'
-              }`}
-            >
-              {t.label}<span className="ml-1.5 opacity-50 tabular-nums">{t.count}</span>
-            </button>
-          ))}
+          {COMPLETION_TABS.map((t, i) => {
+            const count = t.key === 'in_progress' ? compSplit.inProgress.length : compSplit.complete.length;
+            const active = completionTab === t.key;
+            return (
+              <button
+                key={t.key}
+                ref={el => { completionTabRefs.current[i] = el; }}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                tabIndex={active ? 0 : -1}
+                onClick={() => setCompletionTab(t.key)}
+                onKeyDown={e => handleCompletionTabKey(e, i)}
+                className={`px-4 py-1.5 text-xs rounded-md whitespace-nowrap transition-[transform,background-color,color] ease-out duration-150 motion-safe:active:scale-[0.98] ${
+                  active
+                    ? 'bg-binding/25 text-parchment font-semibold'
+                    : 'font-medium text-neutral-400 hover:text-neutral-200'
+                }`}
+              >
+                {t.label}<span className="ml-1.5 opacity-50 tabular-nums">{count}</span>
+              </button>
+            );
+          })}
         </div>
         <div className="space-y-1.5">
           {(completionTab === 'complete' ? compSplit.complete : compSplit.inProgress).map(s => (
