@@ -55,6 +55,7 @@ function FilterSection({ label, children, defaultOpen = true, active = false }) 
         type="button"
         onClick={() => setOpen(o => !o)}
         aria-expanded={open}
+        aria-label={`${label}${active ? ' (filters active)' : ''}`}
         className="w-20 flex-shrink-0 pt-1.5 flex items-center gap-1 group text-left"
       >
         <span className={`text-xs font-semibold uppercase tracking-wider transition-colors ${
