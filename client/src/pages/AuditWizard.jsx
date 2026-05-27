@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
-import { formatAuthors, initialsFor } from '../utils.js';
+import { formatAuthors, initialsFor, MOD_KEY } from '../utils.js';
+import { submitOnModEnter } from '../components/bookForm/styles.js';
 import { useActionGuard } from '../hooks/useActionGuard.js';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 
@@ -45,6 +46,9 @@ import ErrorBanner from '../components/ErrorBanner.jsx';
 //   options     — enum-mode only. Left-to-right buttons. The first
 //                 option's count historically dominates, so order matters.
 //   placeholder — text-mode only. Input placeholder.
+//   multiline   — text-mode only. true → textarea (descriptions / bios),
+//                 false/absent → single-line input. Multiline saves on
+//                 Cmd/Ctrl+Enter so plain Enter still inserts newlines.
 //   clearValue  — value sent back via PATCH to undo a fill. For
 //                 nullable booleans this must be `null`; for text enums
 //                 like binding it can be `''` (server coerces to null).
@@ -174,6 +178,20 @@ const WIZARDS = {
     placeholder: 'Publisher name',
     fetch: () => api.getBooks({ missing: 'publisher', limit: 200, sort: 'random' }).then(r => r.books ?? []),
     patch: (id, value) => api.patchBook(id, { publisher: value }),
+    getName: r => r.title,
+    getLink: r => `/books/${r.id}`,
+    clearValue: '',
+  },
+  description: {
+    title: 'Set description',
+    audit: 'Books have description',
+    field: 'description',
+    kind:  'book',
+    mode:  'text',
+    multiline: true,
+    placeholder: 'Book description — paste from a listing or write a short blurb',
+    fetch: () => api.getBooks({ missing: 'description', limit: 200, sort: 'random' }).then(r => r.books ?? []),
+    patch: (id, value) => api.patchBook(id, { description: value }),
     getName: r => r.title,
     getLink: r => `/books/${r.id}`,
     clearValue: '',
@@ -487,17 +505,35 @@ export default function AuditWizard() {
               onSubmit={e => { e.preventDefault(); if (text.trim()) pick(text.trim()); }}
               className="space-y-2"
             >
-              <input
-                ref={inputRef}
-                type="text"
-                value={text}
-                onChange={e => setText(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Escape') { e.preventDefault(); skip(); } }}
-                placeholder={cfg.placeholder ?? ''}
-                aria-label={`Set ${cfg.field} for ${cfg.getName(current)}`}
-                disabled={saveGuard.busy}
-                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50 disabled:opacity-40"
-              />
+              {cfg.multiline ? (
+                <textarea
+                  ref={inputRef}
+                  value={text}
+                  onChange={e => setText(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Escape') { e.preventDefault(); skip(); return; }
+                    // Cmd/Ctrl+Enter saves; plain Enter inserts a newline.
+                    submitOnModEnter(e);
+                  }}
+                  placeholder={cfg.placeholder ?? ''}
+                  aria-label={`Set ${cfg.field} for ${cfg.getName(current)}`}
+                  disabled={saveGuard.busy}
+                  rows={6}
+                  className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50 disabled:opacity-40 resize-y"
+                />
+              ) : (
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={text}
+                  onChange={e => setText(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Escape') { e.preventDefault(); skip(); } }}
+                  placeholder={cfg.placeholder ?? ''}
+                  aria-label={`Set ${cfg.field} for ${cfg.getName(current)}`}
+                  disabled={saveGuard.busy}
+                  className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50 disabled:opacity-40"
+                />
+              )}
               <div className="grid grid-cols-3 gap-2">
                 <button
                   type="submit"
@@ -505,7 +541,7 @@ export default function AuditWizard() {
                   className="px-4 py-3 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
                 >
                   <span>Save</span>
-                  <span className="text-[10px] text-neutral-500">↵</span>
+                  <span className="text-[10px] text-neutral-500">{cfg.multiline ? `${MOD_KEY}+↵` : '↵'}</span>
                 </button>
                 <button
                   type="button"
@@ -549,7 +585,7 @@ export default function AuditWizard() {
 
           <p className="text-[10px] text-neutral-600 text-center">
             Keyboard: {cfg.mode === 'text'
-              ? 'Enter to save, Esc to skip, U to undo'
+              ? `${cfg.multiline ? `${MOD_KEY}+Enter` : 'Enter'} to save, Esc to skip, U to undo`
               : `${cfg.options.map((_, i) => i === 9 && cfg.options.length === 10 ? '0' : i + 1).join(' / ')} to choose, S to skip, U to undo`}
           </p>
         </>
