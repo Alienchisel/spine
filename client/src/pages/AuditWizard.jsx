@@ -700,8 +700,11 @@ export default function AuditWizard() {
       setFilled(n => n + 1);
       setLastAction({ index: actionIdx, type: 'fill' });
       advance();
-    } catch {
-      setError('Failed to set image. Try another candidate or skip.');
+    } catch (err) {
+      // Prefer the server's actual error (e.g. "Image too large") over a
+      // generic fallback so the user knows whether to refine the query,
+      // pick a different candidate, or skip outright.
+      setError(err?.message || 'Failed to set image. Try another candidate or skip.');
     } finally {
       saveGuard.end();
     }
@@ -722,8 +725,13 @@ export default function AuditWizard() {
       setFilled(n => n + 1);
       setLastAction({ index: actionIdx, type: 'fill' });
       advance();
-    } catch {
-      setError('Failed to save — try again or skip.');
+    } catch (err) {
+      // Surface the API's actual error (e.g. "Invalid ISBN-13",
+      // "Series number must be a multiple of 0.5", "Invalid birth_date")
+      // so users can correct the input instead of guessing at why a
+      // generic "Failed to save" appeared. The isbn wizard's own
+      // client-side reject for non-10/13 length also flows through here.
+      setError(err?.message || 'Failed to save — try again or skip.');
     } finally {
       saveGuard.end();
     }
@@ -741,7 +749,10 @@ export default function AuditWizard() {
   // are local-only so we just decrement the counter. Either way, idx
   // rewinds to the previous card so the user can re-decide.
   async function undo() {
-    if (!lastAction || saveGuard.busy) return;
+    // Pool is null during initial load and between Refresh-pool click
+    // and the fetch resolving; lastAction can still be set from the
+    // previous pool. Bail rather than crashing on pool[index].
+    if (!lastAction || saveGuard.busy || !pool) return;
     const { index, type } = lastAction;
     if (type === 'fill') {
       if (!saveGuard.begin()) return;
@@ -763,8 +774,8 @@ export default function AuditWizard() {
           await cfg.patch(target.id, clearPayload);
         }
         setFilled(n => n - 1);
-      } catch {
-        setError('Failed to undo — try again.');
+      } catch (err) {
+        setError(err?.message || 'Failed to undo — try again.');
         saveGuard.end();
         return;
       }
@@ -880,7 +891,16 @@ export default function AuditWizard() {
           <div className="flex items-center justify-center gap-4 mt-6">
             <button
               type="button"
-              onClick={() => { setPool(null); setError(null); setRefreshTick(t => t + 1); }}
+              onClick={() => {
+                // Clearing lastAction is defense in depth: undo's own
+                // guard bails when pool is null, but resetting here also
+                // hides the Undo button immediately so the UI can't lie
+                // about being able to revert against a stale pool.
+                setPool(null);
+                setError(null);
+                setLastAction(null);
+                setRefreshTick(t => t + 1);
+              }}
               className="text-sm text-neutral-400 hover:text-parchment transition-colors"
             >
               Refresh pool
