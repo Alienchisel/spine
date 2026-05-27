@@ -1060,62 +1060,56 @@ export default function DataViz() {
             <span className="text-neutral-300 font-semibold">Experiment #7 — Clouds</span>. Font area (size²) scales linearly with book_count via sqrt-space interpolation, so a doubled count gives double visual area — lie factor ≈ 1. Words spiral-pack from the center outward, heaviest first, with a deterministic minority rotated 90° for cloud texture. Size is imprecise for comparing non-adjacent words (the inherent cloud trade-off) — hover for the exact count, click to browse. For analytical reading the Tags and Authors index pages give the precise sorted tables.
           </p>
           {cloud.length > 0 && (
-            <div className="space-y-1">
-              <div className="text-xs text-neutral-500 italic">Tags</div>
-              <svg viewBox={`0 0 ${CLOUD_W} ${CLOUD_H}`} className="w-full h-auto" preserveAspectRatio="xMidYMid meet">
-                {cloud.map(t => (
-                  <Link
-                    key={t.id}
-                    to={`/browse/tag/${encodeURIComponent(t.name)}`}
-                    state={FROM_DV}
+            <svg viewBox={`0 0 ${CLOUD_W} ${CLOUD_H}`} className="w-full h-auto" preserveAspectRatio="xMidYMid meet">
+              {cloud.map(t => (
+                <Link
+                  key={t.id}
+                  to={`/browse/tag/${encodeURIComponent(t.name)}`}
+                  state={FROM_DV}
+                >
+                  <text
+                    x={t.x}
+                    y={t.y}
+                    fontSize={t.fontSize}
+                    fill={t.color}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    transform={t.rotate ? `rotate(${t.rotate} ${t.x} ${t.y})` : undefined}
+                    className="cursor-pointer transition-opacity hover:opacity-70"
+                    fontWeight="500"
                   >
-                    <text
-                      x={t.x}
-                      y={t.y}
-                      fontSize={t.fontSize}
-                      fill={t.color}
-                      textAnchor="middle"
-                      dominantBaseline="middle"
-                      transform={t.rotate ? `rotate(${t.rotate} ${t.x} ${t.y})` : undefined}
-                      className="cursor-pointer transition-opacity hover:opacity-70"
-                      fontWeight="500"
-                    >
-                      <title>{`${t.name} · ${t.book_count} ${t.book_count === 1 ? 'book' : 'books'}`}</title>
-                      {t.name}
-                    </text>
-                  </Link>
-                ))}
-              </svg>
-            </div>
+                    <title>{`${t.name} · ${t.book_count} ${t.book_count === 1 ? 'book' : 'books'}`}</title>
+                    {t.name}
+                  </text>
+                </Link>
+              ))}
+            </svg>
           )}
           {authorCloud.length > 0 && (
-            <div className="space-y-1">
-              <div className="text-xs text-neutral-500 italic">Authors</div>
-              <svg viewBox={`0 0 ${CLOUD_W} ${CLOUD_H}`} className="w-full h-auto" preserveAspectRatio="xMidYMid meet">
-                {authorCloud.map(a => (
-                  <Link
-                    key={a.id}
-                    to={`/authors/${a.id}`}
-                    state={FROM_DV}
+            <svg viewBox={`0 0 ${CLOUD_W} ${CLOUD_H}`} className="w-full h-auto" preserveAspectRatio="xMidYMid meet">
+              {authorCloud.map(a => (
+                <Link
+                  key={a.id}
+                  to={`/authors/${a.id}`}
+                  state={FROM_DV}
+                >
+                  <text
+                    x={a.x}
+                    y={a.y}
+                    fontSize={a.fontSize}
+                    fill={a.color}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    transform={a.rotate ? `rotate(${a.rotate} ${a.x} ${a.y})` : undefined}
+                    className="cursor-pointer transition-opacity hover:opacity-70"
+                    fontWeight="500"
                   >
-                    <text
-                      x={a.x}
-                      y={a.y}
-                      fontSize={a.fontSize}
-                      fill={a.color}
-                      textAnchor="middle"
-                      dominantBaseline="middle"
-                      transform={a.rotate ? `rotate(${a.rotate} ${a.x} ${a.y})` : undefined}
-                      className="cursor-pointer transition-opacity hover:opacity-70"
-                      fontWeight="500"
-                    >
-                      <title>{`${a.name} · ${a.book_count} ${a.book_count === 1 ? 'book' : 'books'}`}</title>
-                      {a.name}
-                    </text>
-                  </Link>
-                ))}
-              </svg>
-            </div>
+                    <title>{`${a.name} · ${a.book_count} ${a.book_count === 1 ? 'book' : 'books'}`}</title>
+                    {a.name}
+                  </text>
+                </Link>
+              ))}
+            </svg>
           )}
         </section>
       )}
