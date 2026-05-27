@@ -456,6 +456,17 @@ router.patch('/:id', (req, res) => {
       req.body[col] = stripped;
     }
   }
+  // Partial-date fields share the YYYY / YYYY-MM / YYYY-MM-DD shape
+  // (server's isValidPartialDate). Empty / null clears.
+  for (const col of ['acquisition_date', 'date_started', 'date_finished']) {
+    if (req.body[col] !== undefined && req.body[col] !== null && req.body[col] !== '') {
+      const trimmed = String(req.body[col]).trim();
+      if (!isValidPartialDate(trimmed)) {
+        return res.status(400).json({ error: `Invalid ${col} — must be YYYY, YYYY-MM, or YYYY-MM-DD` });
+      }
+      req.body[col] = trimmed;
+    }
+  }
   const book = patchBook(id, req.body);
   if (!book) return res.status(404).json({ error: 'Not found' });
   res.json(book);
