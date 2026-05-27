@@ -41,9 +41,11 @@ import ErrorBanner from '../components/ErrorBanner.jsx';
 //   getLink     — (record) => string, detail-page URL for the record.
 //   kind        — 'book' | 'author' — drives card layout (cover vs
 //                 portrait, dates vs publisher line, etc.).
-//   mode        — 'enum' (default) | 'text'. Enum mode renders a row of
-//                 option buttons; text mode renders a focused input and
-//                 a Save button. Keyboard binds adapt per mode.
+//   mode        — 'enum' (default) | 'text' | 'cover'. Enum renders a
+//                 row of option buttons; text renders focused
+//                 input(s) and a Save button; cover renders a grid of
+//                 candidate cover thumbnails fetched per-card from
+//                 /api/search. Keyboard binds adapt per mode.
 //   options     — enum-mode only. Left-to-right buttons. The first
 //                 option's count historically dominates, so order matters.
 //   fields      — text-mode only. Array of input descriptors, each:
@@ -318,6 +320,22 @@ const WIZARDS = {
     getName: r => r.title,
     getLink: r => `/books/${r.id}`,
   },
+  cover: {
+    title: 'Set cover',
+    audit: 'Owned books have a cover',
+    field: 'cover_path',
+    kind:  'book',
+    mode:  'cover',
+    fetch: () => api.getBooks({ tab: 'owned', missing: 'cover', limit: 200, sort: 'random' }).then(r => r.books ?? []),
+    // The wizard's cover-mode click handler does the two-step dance:
+    // fetch the candidate URL into /uploads/ via /upload/fetch, then
+    // PATCH cover_path to the resulting local path. The patch fn here
+    // just handles the PATCH leg (and the undo path that clears).
+    patch: (id, value) => api.patchBook(id, { cover_path: value }),
+    getName: r => r.title,
+    getLink: r => `/books/${r.id}`,
+    clearValue: null,
+  },
   authors: {
     title: 'Set authors',
     audit: 'Books have authors',
@@ -516,6 +534,16 @@ export default function AuditWizard() {
   // wizard mounts (a wizard's people fields don't change mid-session).
   // Shape matches /api/books/facets: { authors, narrators, translators }.
   const [suggestions, setSuggestions] = useState(null);
+  // Cover-mode state. Candidates are refetched per card via OL search;
+  // loading/error track the current fetch. Held outside `values` since
+  // they're per-card derived data, not user input.
+  const [candidates, setCandidates] = useState([]);
+  const [candidatesLoading, setCandidatesLoading] = useState(false);
+  const [candidatesError, setCandidatesError] = useState(null);
+  // Refine query — the search string used to fetch candidates. Reset
+  // to "{title} {first-author surname}" on every card; user can edit
+  // and re-search if the auto-query missed.
+  const [coverQuery, setCoverQuery] = useState('');
   const inputRef = useRef(null);
   const saveGuard = useActionGuard();
 
@@ -555,6 +583,66 @@ export default function AuditWizard() {
     setChipInputs(Object.fromEntries(cfg.fields.filter(f => f.type === 'people').map(f => [f.name, ''])));
     inputRef.current?.focus();
   }, [cfg, current?.id]);
+
+  // Cover-mode: auto-search OL per card. Query is "{title} {first-author
+  // surname}" — surname disambiguates without over-restricting on
+  // long full names. User can edit the query and re-run if needed.
+  useEffect(() => {
+    if (cfg?.mode !== 'cover' || !current) return;
+    const authorName = current.authors?.[0]?.name ?? '';
+    const surname = authorName.split(/\s+/).filter(Boolean).pop() ?? '';
+    const initialQuery = [current.title, surname].filter(Boolean).join(' ');
+    setCoverQuery(initialQuery);
+    setCandidates([]);
+    setCandidatesError(null);
+    if (!initialQuery.trim()) return;
+    setCandidatesLoading(true);
+    let cancelled = false;
+    api.searchBooks(initialQuery)
+      .then(results => {
+        if (cancelled) return;
+        setCandidates((results || []).filter(r => r.cover_url));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setCandidatesError('Search failed. Try refining the query.');
+      })
+      .finally(() => { if (!cancelled) setCandidatesLoading(false); });
+    return () => { cancelled = true; };
+  }, [cfg, current?.id]);
+
+  async function rerunCoverSearch() {
+    if (!coverQuery.trim()) return;
+    setCandidatesLoading(true);
+    setCandidatesError(null);
+    setCandidates([]);
+    try {
+      const results = await api.searchBooks(coverQuery);
+      setCandidates((results || []).filter(r => r.cover_url));
+    } catch {
+      setCandidatesError('Search failed. Try refining the query.');
+    } finally {
+      setCandidatesLoading(false);
+    }
+  }
+
+  async function pickCover(candidate) {
+    if (!current) return;
+    if (!saveGuard.begin()) return;
+    setError(null);
+    const actionIdx = idx;
+    try {
+      const { path } = await api.fetchCover(candidate.cover_url);
+      await cfg.patch(current.id, path);
+      setFilled(n => n + 1);
+      setLastAction({ index: actionIdx, type: 'fill' });
+      advance();
+    } catch {
+      setError('Failed to fetch/set cover. Try another candidate or skip.');
+    } finally {
+      saveGuard.end();
+    }
+  }
 
   function advance() {
     setIdx(i => i + 1);
@@ -632,7 +720,7 @@ export default function AuditWizard() {
       // Number-row shortcuts only apply to enum-mode wizards. Text-mode
       // wizards have no options array; the Save / Skip flow uses Enter
       // (form submit, handled natively) and Esc (input onKeyDown).
-      if (cfg.mode !== 'text' && cfg.options) {
+      if (cfg.mode === 'enum' || cfg.mode === undefined) {
         const raw = parseInt(e.key, 10);
         const n = (raw === 0 && cfg.options.length === 10) ? 10 : raw;
         if (!Number.isNaN(n) && n >= 1 && n <= cfg.options.length && current) {
@@ -640,7 +728,11 @@ export default function AuditWizard() {
           pick(cfg.options[n - 1].value);
           return;
         }
-        if (e.key.toLowerCase() === 's' && current) { e.preventDefault(); skip(); return; }
+      }
+      // Skip via S works in any non-text mode (text uses Esc on the
+      // focused input). Cover mode wants S too; enum mode wants S too.
+      if (cfg.mode !== 'text' && e.key.toLowerCase() === 's' && current) {
+        e.preventDefault(); skip(); return;
       }
       if (e.key.toLowerCase() === 'u' && lastAction) { e.preventDefault(); undo(); }
     }
@@ -900,7 +992,70 @@ export default function AuditWizard() {
                 </div>
               </form>
             );
-          })() : (
+          })() : cfg.mode === 'cover' ? (
+            <div className="space-y-3">
+              {/* Refine query — pre-populated from {title} {surname} but
+                  user can rewrite if the auto-search missed (common
+                  with subtitled titles or single-name authors). */}
+              <form
+                onSubmit={e => { e.preventDefault(); rerunCoverSearch(); }}
+                className="flex gap-2"
+              >
+                <input
+                  type="text"
+                  value={coverQuery}
+                  onChange={e => setCoverQuery(e.target.value)}
+                  placeholder="Search query"
+                  aria-label="Cover search query"
+                  className="flex-1 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50"
+                />
+                <button
+                  type="submit"
+                  disabled={candidatesLoading || !coverQuery.trim()}
+                  className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-40 text-parchment text-sm rounded transition-colors"
+                >
+                  Search
+                </button>
+              </form>
+
+              {candidatesLoading && <p role="status" className="text-xs text-neutral-500">Searching…</p>}
+              {candidatesError && <p role="alert" className="text-xs text-warn">{candidatesError}</p>}
+              {!candidatesLoading && !candidatesError && candidates.length === 0 && (
+                <p className="text-xs text-neutral-500">No cover candidates. Try refining the query or skip.</p>
+              )}
+
+              {candidates.length > 0 && (
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                  {candidates.map((c, i) => (
+                    <button
+                      key={`${c.key ?? c.cover_url}-${i}`}
+                      type="button"
+                      onClick={() => pickCover(c)}
+                      disabled={saveGuard.busy}
+                      aria-label={`Use cover from ${c.title}${c.authors?.length ? ` by ${c.authors[0]}` : ''}`}
+                      title={`${c.title}${c.authors?.length ? ` · ${c.authors[0]}` : ''}${c.publisher ? ` · ${c.publisher}` : ''}`}
+                      className="aspect-[2/3] bg-neutral-800 rounded overflow-hidden ring-1 ring-transparent hover:ring-oak transition-all disabled:opacity-40 disabled:cursor-wait"
+                    >
+                      <img src={c.cover_url} alt="" className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Skip — equal-weight with the candidate clicks, same
+                  framing as the enum-mode wizard. */}
+              <button
+                type="button"
+                onClick={skip}
+                disabled={saveGuard.busy}
+                aria-label={`Skip ${cfg.getName(current)}`}
+                className="w-full px-4 py-3 bg-neutral-900 border border-neutral-700 hover:border-neutral-500 disabled:opacity-40 text-neutral-400 hover:text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
+              >
+                <span>Skip</span>
+                <span className="text-[10px] text-neutral-600">S</span>
+              </button>
+            </div>
+          ) : (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {cfg.options.map((opt, i) => (
                 <button
@@ -931,7 +1086,9 @@ export default function AuditWizard() {
           <p className="text-[10px] text-neutral-600 text-center">
             Keyboard: {cfg.mode === 'text'
               ? `${cfg.fields.some(f => f.multiline) ? `${MOD_KEY}+Enter` : 'Enter'} to save, Esc to skip, U to undo`
-              : `${cfg.options.map((_, i) => i === 9 && cfg.options.length === 10 ? '0' : i + 1).join(' / ')} to choose, S to skip, U to undo`}
+              : cfg.mode === 'cover'
+                ? 'Click a thumbnail to set, S to skip, U to undo'
+                : `${cfg.options.map((_, i) => i === 9 && cfg.options.length === 10 ? '0' : i + 1).join(' / ')} to choose, S to skip, U to undo`}
           </p>
         </>
       )}
