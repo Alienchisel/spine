@@ -31,6 +31,22 @@ function loadAuthor(id) {
   return db.prepare(`SELECT ${AUTHOR_COLUMNS} FROM authors WHERE id = ?`).get(id);
 }
 
+// Gap conditions used by the audit-wizard pools (bio/portrait/dates/
+// gender/death_date). These mirror the gapSql rows in lib/stats/audit.js
+// so the wizard pool matches what the audit page counts. Each clause is
+// referenced as a SQL fragment on the `authors` table (alias `a` not
+// required — these run after the table is aliased in the WHERE).
+const MISSING_AUTHOR_FILTERS = {
+  bio:        "(a.bio IS NULL OR a.bio = '')",
+  portrait:   "(a.photo_path IS NULL OR a.photo_path = '')",
+  dates:      'a.birth_date IS NULL AND a.death_date IS NULL',
+  gender:     'a.gender IS NULL',
+  death_date:
+    "a.birth_date IS NOT NULL AND a.death_date IS NULL "
+    + "AND CAST(SUBSTR(a.birth_date, 1, INSTR(a.birth_date || '-', '-') - 1) AS INTEGER) "
+    + "< CAST(strftime('%Y','now') AS INTEGER) - 110",
+};
+
 // Index of every author with their book count + flags for which curation
 // fields are populated. Backs /authors (the index page). Bio/photo/ol_key
 // are returned as booleans (0/1) rather than the full strings so the
@@ -75,6 +91,45 @@ router.get('/', (req, res) => {
     `).all(like);
     return res.json(rows);
   }
+  // Wizard pool path. `?missing=<key>` filters to rows the audit row
+  // for that key would count. `limit` + `sort=random` mirror the book
+  // wizards (server-side cap so we don't ship 10k rows of metadata to
+  // the client for it to throw 99% away). Returns the same row shape
+  // as the unfiltered listing minus has_stale_tense (the wizards don't
+  // use it, and computing it would lock in the bio-tense audit's
+  // structure here).
+  const missing = typeof req.query.missing === 'string' ? req.query.missing : '';
+  if (missing) {
+    const gap = MISSING_AUTHOR_FILTERS[missing];
+    if (!gap) return res.status(400).json({ error: `Unknown missing filter: ${missing}` });
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 200, 1), 500);
+    const orderBy = req.query.sort === 'random'
+      ? 'ORDER BY RANDOM()'
+      : 'ORDER BY a.name COLLATE NOCASE';
+    const rows = db.prepare(`
+      SELECT
+        a.id,
+        a.name,
+        a.gender,
+        a.birth_date,
+        a.death_date,
+        (a.bio IS NOT NULL)         AS has_bio,
+        (a.photo_path IS NOT NULL)  AS has_photo,
+        (a.ol_key IS NOT NULL)      AS has_ol_key,
+        COUNT(DISTINCT ba.book_id)  AS book_count,
+        COUNT(DISTINCT sa.story_id) AS story_count
+      FROM authors a
+      LEFT JOIN book_authors  ba ON ba.author_id  = a.id
+      LEFT JOIN story_authors sa ON sa.author_id = a.id
+      WHERE ${gap}
+      GROUP BY a.id
+      HAVING book_count > 0
+      ${orderBy}
+      LIMIT ?
+    `).all(limit);
+    return res.json(rows);
+  }
+
   // story_count picks up per-story contributors (anthology authors who
   // aren't bylined on the containing book). Counted as DISTINCT story_id
   // so a story with multiple author rows doesn't double; book_count gets

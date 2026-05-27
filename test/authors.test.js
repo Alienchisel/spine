@@ -584,4 +584,87 @@ describe('authors — index', () => {
     assert.ok(aIdx >= 0 && zIdx >= 0);
     assert.ok(aIdx < zIdx, 'lowercase z should sort after capital A');
   });
+
+  it('GET /api/authors?missing=bio returns only bylined authors without a bio', async () => {
+    // One author with no bio (bylined), one with a bio (bylined), one
+    // with no bio but no books (dangling). Only the first should appear.
+    const stem = 'misbio' + Math.random().toString(36).slice(2, 6);
+    const { body: bookA } = await req('POST', '/api/books', {
+      title: `${stem}-A`, authors: [`Nobio ${stem}`],
+    });
+    const { body: bookB } = await req('POST', '/api/books', {
+      title: `${stem}-B`, authors: [`Withbio ${stem}`],
+    });
+    const withBioId = bookB.authors[0].id;
+    await req('PATCH', `/api/authors/${withBioId}`, { bio: 'has a bio' });
+    // Dangling author created via PATCH on a non-existent id is not
+    // possible — instead create an author by POSTing a book then delete
+    // the book. That leaves the author row but no book_authors row.
+    const { body: bookC } = await req('POST', '/api/books', {
+      title: `${stem}-C`, authors: [`Dangling ${stem}`],
+    });
+    await req('DELETE', `/api/books/${bookC.id}`);
+
+    const { status, body } = await req('GET', '/api/authors?missing=bio&limit=200');
+    assert.equal(status, 200);
+    const names = body.map(a => a.name);
+    assert.ok(names.includes(`Nobio ${stem}`),
+      'bylined author without a bio should appear');
+    assert.ok(!names.includes(`Withbio ${stem}`),
+      'author with a bio should be excluded');
+    assert.ok(!names.includes(`Dangling ${stem}`),
+      'dangling author (no books) should be excluded by HAVING book_count > 0');
+  });
+
+  it('GET /api/authors?missing=gender / dates / portrait gate correctly', async () => {
+    const stem = 'misgate' + Math.random().toString(36).slice(2, 6);
+    await req('POST', '/api/books', { title: `${stem}-A`, authors: [`Gendered ${stem}`] });
+    await req('POST', '/api/books', { title: `${stem}-B`, authors: [`Ungendered ${stem}`] });
+    const { body: idx } = await req('GET', '/api/authors');
+    const gendered = idx.find(a => a.name === `Gendered ${stem}`);
+    await req('PATCH', `/api/authors/${gendered.id}`, { gender: 'female' });
+
+    const { body: missingGender } = await req('GET', '/api/authors?missing=gender');
+    const mgNames = missingGender.map(a => a.name);
+    assert.ok(mgNames.includes(`Ungendered ${stem}`));
+    assert.ok(!mgNames.includes(`Gendered ${stem}`));
+
+    const { body: missingDates } = await req('GET', '/api/authors?missing=dates');
+    const mdNames = missingDates.map(a => a.name);
+    assert.ok(mdNames.includes(`Ungendered ${stem}`),
+      'author with neither birth nor death should appear in missing=dates');
+
+    const { body: missingPortrait } = await req('GET', '/api/authors?missing=portrait');
+    const mpNames = missingPortrait.map(a => a.name);
+    assert.ok(mpNames.includes(`Ungendered ${stem}`),
+      'author with no photo_path should appear in missing=portrait');
+  });
+
+  it('GET /api/authors?missing=death_date requires birth set + >110y ago + no death', async () => {
+    const stem = 'misdeath' + Math.random().toString(36).slice(2, 6);
+    const now = new Date().getFullYear();
+    const oldYear = now - 200; // safely > 110 years ago
+    const youngYear = now - 50; // safely < 110 years ago
+    // Old-birth, no death → SHOULD appear.
+    const { body: a } = await req('POST', '/api/books', { title: `${stem}-A`, authors: [`OldNoDeath ${stem}`] });
+    await req('PATCH', `/api/authors/${a.authors[0].id}`, { birth_date: String(oldYear) });
+    // Young-birth, no death → should NOT appear (not implausibly alive).
+    const { body: b } = await req('POST', '/api/books', { title: `${stem}-B`, authors: [`YoungNoDeath ${stem}`] });
+    await req('PATCH', `/api/authors/${b.authors[0].id}`, { birth_date: String(youngYear) });
+    // Old-birth + death already set → should NOT appear.
+    const { body: c } = await req('POST', '/api/books', { title: `${stem}-C`, authors: [`OldWithDeath ${stem}`] });
+    await req('PATCH', `/api/authors/${c.authors[0].id}`, { birth_date: String(oldYear), death_date: String(oldYear + 70) });
+
+    const { body } = await req('GET', '/api/authors?missing=death_date');
+    const names = body.map(x => x.name);
+    assert.ok(names.includes(`OldNoDeath ${stem}`), 'old-birth no-death author should appear');
+    assert.ok(!names.includes(`YoungNoDeath ${stem}`), 'young-birth no-death must NOT appear');
+    assert.ok(!names.includes(`OldWithDeath ${stem}`), 'old-birth with death must NOT appear');
+  });
+
+  it('GET /api/authors?missing=bogus returns 400', async () => {
+    const { status, body } = await req('GET', '/api/authors?missing=bogus');
+    assert.equal(status, 400);
+    assert.match(body.error, /Unknown missing filter/);
+  });
 });

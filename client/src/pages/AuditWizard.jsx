@@ -361,10 +361,7 @@ const WIZARDS = {
     field: 'photo_path',
     kind:  'author',
     mode:  'cover',
-    fetch: async () => {
-      const arr = await api.getAuthors();
-      return arr.filter(a => !a.has_photo && (a.book_count || 0) > 0).slice(0, 200);
-    },
+    fetch: () => api.getAuthors({ missing: 'portrait', limit: 200, sort: 'random' }),
     initialQuery: r => r.name,
     searchCandidates: async (query) => {
       const results = await api.searchAuthorsOL(query);
@@ -458,23 +455,11 @@ const WIZARDS = {
     kind:  'author',
     mode:  'text',
     fields: [{ name: 'death_date', placeholder: 'YYYY, YYYY-MM, or YYYY-MM-DD' }],
-    // Audit's gate: birth_date set, death_date null, leading year of
-    // birth more than 110 years ago, with at least one book. We mirror
-    // it client-side from the flat /authors response. The regex pulls
-    // the leading optional-negative year out of "1850" / "1850-06-27"
-    // / "-300" forms, matching the server's SUBSTR-based extraction.
-    fetch: async () => {
-      const arr = await api.getAuthors();
-      const now = new Date().getFullYear();
-      return arr.filter(a => {
-        if (a.death_date) return false;
-        if (!a.birth_date) return false;
-        if ((a.book_count || 0) === 0) return false;
-        const m = String(a.birth_date).match(/^(-?\d+)/);
-        if (!m) return false;
-        return parseInt(m[1], 10) < now - 110;
-      }).slice(0, 200);
-    },
+    // Pool delegated to /api/authors?missing=death_date — same gate as
+    // the audit row (birth set, death null, birth-year > 110 ago, at
+    // least one book), evaluated in SQL instead of round-tripping the
+    // full /authors table.
+    fetch: () => api.getAuthors({ missing: 'death_date', limit: 200, sort: 'random' }),
     patch: (id, values) => api.updateAuthor(id, values),
     getName: r => r.name,
     getLink: r => `/authors/${r.id}`,
@@ -486,10 +471,7 @@ const WIZARDS = {
     kind:  'author',
     mode:  'text',
     fields: [{ name: 'bio', placeholder: 'Library-catalog bio — 60-150 words, structured 4-part shape per the bio convention (see memory feedback_author_bio_standard).', multiline: true }],
-    fetch: async () => {
-      const arr = await api.getAuthors();
-      return arr.filter(a => !a.has_bio && (a.book_count || 0) > 0).slice(0, 200);
-    },
+    fetch: () => api.getAuthors({ missing: 'bio', limit: 200, sort: 'random' }),
     patch: (id, values) => api.updateAuthor(id, values),
     getName: r => r.name,
     getLink: r => `/authors/${r.id}`,
@@ -508,11 +490,8 @@ const WIZARDS = {
       { name: 'death_date', label: 'Died', placeholder: 'YYYY or YYYY-MM-DD' },
     ],
     // Pool: authors with NEITHER date set AND at least one book.
-    // Matches the audit's gate.
-    fetch: async () => {
-      const arr = await api.getAuthors();
-      return arr.filter(a => !a.birth_date && !a.death_date && (a.book_count || 0) > 0).slice(0, 200);
-    },
+    // Matches the audit's gate; filtered server-side via ?missing=dates.
+    fetch: () => api.getAuthors({ missing: 'dates', limit: 200, sort: 'random' }),
     patch: (id, values) => api.updateAuthor(id, values),
     getName: r => r.name,
     getLink: r => `/authors/${r.id}`,
@@ -522,14 +501,10 @@ const WIZARDS = {
     audit: 'Authors have gender',
     field: 'gender',
     kind:  'author',
-    // /api/authors returns a flat array with book_count/story_count;
-    // the audit gates the gap on "has at least one book", so we
-    // filter client-side to match. Then slice to keep the pool size
-    // consistent with the book wizards' limit-200 pattern.
-    fetch: async () => {
-      const arr = await api.getAuthors();
-      return arr.filter(a => !a.gender && (a.book_count || 0) > 0).slice(0, 200);
-    },
+    // Pool: authors with no gender set AND at least one book. Matches
+    // the audit row; filtered server-side via ?missing=gender so we
+    // don't round-trip the full /authors table just to filter it.
+    fetch: () => api.getAuthors({ missing: 'gender', limit: 200, sort: 'random' }),
     patch: (id, value) => api.updateAuthor(id, { gender: value }),
     getName: r => r.name,
     getLink: r => `/authors/${r.id}`,
