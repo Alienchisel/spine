@@ -26,8 +26,19 @@ import ErrorBanner from '../components/ErrorBanner.jsx';
 //   title       — page heading
 //   audit       — audit row label (shown in the caption so users see which
 //                 audit they're clearing)
-//   field       — book field that PATCH targets
-//   fetch       — () => Promise<{ books: [...] }>, the pool source
+//   field       — target field name (used in aria-labels)
+//   fetch       — () => Promise<Array<record>>, the pool of candidate
+//                 records. Each wizard owns the response shape: book-
+//                 backed wizards unwrap { books: [...] }, author-backed
+//                 wizards filter the flat /authors array client-side.
+//   patch       — (id, value) => Promise<record>, encapsulates the
+//                 right endpoint + payload key. Lets the wizard work
+//                 against any table without branching internally.
+//   getName     — (record) => string, used in aria-labels and the title
+//                 link's text content. Books use .title; authors .name.
+//   getLink     — (record) => string, detail-page URL for the record.
+//   kind        — 'book' | 'author' — drives card layout (cover vs
+//                 portrait, dates vs publisher line, etc.).
 //   options     — left-to-right buttons. The first option's count
 //                 historically dominates, so order matters.
 //   clearValue  — value sent back via PATCH to undo a fill. For
@@ -38,7 +49,11 @@ const WIZARDS = {
     title: 'Set binding',
     audit: 'Physical books have binding',
     field: 'binding',
-    fetch: () => api.getBooks({ formats: 'physical', missing: 'binding', limit: 200, sort: 'random' }),
+    kind:  'book',
+    fetch: () => api.getBooks({ formats: 'physical', missing: 'binding', limit: 200, sort: 'random' }).then(r => r.books ?? []),
+    patch: (id, value) => api.patchBook(id, { binding: value }),
+    getName: r => r.title,
+    getLink: r => `/books/${r.id}`,
     options: [
       { value: 'paperback', label: 'Paperback' },
       { value: 'hardcover', label: 'Hardcover' },
@@ -50,7 +65,11 @@ const WIZARDS = {
     title: 'Set fiction flag',
     audit: 'Owned books have fiction flag',
     field: 'fiction',
-    fetch: () => api.getBooks({ tab: 'owned', missing: 'fiction', limit: 200, sort: 'random' }),
+    kind:  'book',
+    fetch: () => api.getBooks({ tab: 'owned', missing: 'fiction', limit: 200, sort: 'random' }).then(r => r.books ?? []),
+    patch: (id, value) => api.patchBook(id, { fiction: value }),
+    getName: r => r.title,
+    getLink: r => `/books/${r.id}`,
     // Two-button decision. The PATCH layer accepts native booleans:
     // true → fiction = 1, false → 0, null → clears.
     options: [
@@ -63,9 +82,11 @@ const WIZARDS = {
     title: 'Set format',
     audit: 'Owned books have format',
     field: 'format',
-    fetch: () => api.getBooks({ tab: 'owned', missing: 'format', limit: 200, sort: 'random' }),
-    // Label "Digital" mirrors the rest of Spine's UI for `ebook` (see
-    // FilterPanel.FORMAT_LABEL); the wire value stays as the enum key.
+    kind:  'book',
+    fetch: () => api.getBooks({ tab: 'owned', missing: 'format', limit: 200, sort: 'random' }).then(r => r.books ?? []),
+    patch: (id, value) => api.patchBook(id, { format: value }),
+    getName: r => r.title,
+    getLink: r => `/books/${r.id}`,
     options: [
       { value: 'physical',  label: 'Physical'  },
       { value: 'ebook',     label: 'Digital'   },
@@ -77,10 +98,11 @@ const WIZARDS = {
     title: 'Set condition',
     audit: 'Owned physical books have condition',
     field: 'condition',
-    fetch: () => api.getBooks({ tab: 'owned', formats: 'physical', missing: 'condition', limit: 200, sort: 'random' }),
-    // Six-step scale, best → worst. Expect a higher Skip ratio than
-    // the other wizards — condition is the one field users often
-    // can't recall without the book in hand.
+    kind:  'book',
+    fetch: () => api.getBooks({ tab: 'owned', formats: 'physical', missing: 'condition', limit: 200, sort: 'random' }).then(r => r.books ?? []),
+    patch: (id, value) => api.patchBook(id, { condition: value }),
+    getName: r => r.title,
+    getLink: r => `/books/${r.id}`,
     options: [
       { value: 'new',       label: 'New'       },
       { value: 'fine',      label: 'Fine'      },
@@ -90,6 +112,29 @@ const WIZARDS = {
       { value: 'poor',      label: 'Poor'      },
     ],
     clearValue: '',
+  },
+  author_gender: {
+    title: 'Set author gender',
+    audit: 'Authors have gender',
+    field: 'gender',
+    kind:  'author',
+    // /api/authors returns a flat array with book_count/story_count;
+    // the audit gates the gap on "has at least one book", so we
+    // filter client-side to match. Then slice to keep the pool size
+    // consistent with the book wizards' limit-200 pattern.
+    fetch: async () => {
+      const arr = await api.getAuthors();
+      return arr.filter(a => !a.gender && (a.book_count || 0) > 0).slice(0, 200);
+    },
+    patch: (id, value) => api.updateAuthor(id, { gender: value }),
+    getName: r => r.name,
+    getLink: r => `/authors/${r.id}`,
+    options: [
+      { value: 'male',   label: 'Male' },
+      { value: 'female', label: 'Female' },
+      { value: 'other',  label: 'Other' },
+    ],
+    clearValue: null,
   },
 };
 
@@ -125,16 +170,16 @@ export default function AuditWizard() {
   useEffect(() => {
     if (!cfg) return;
     let cancelled = false;
-    cfg.fetch().then(r => {
+    cfg.fetch().then(arr => {
       if (cancelled) return;
-      setPool(shuffle(r.books ?? []));
+      setPool(shuffle(arr));
       setIdx(0);
       setFilled(0);
       setSkipped(0);
       setLastAction(null);
     }).catch(() => {
       if (cancelled) return;
-      setError('Failed to load books for the wizard.');
+      setError('Failed to load records for the wizard.');
     });
     return () => { cancelled = true; };
   }, [cfg, wizardKey]);
@@ -152,7 +197,7 @@ export default function AuditWizard() {
     setError(null);
     const actionIdx = idx;
     try {
-      await api.patchBook(current.id, { [cfg.field]: value });
+      await cfg.patch(current.id, value);
       setFilled(n => n + 1);
       setLastAction({ index: actionIdx, type: 'fill' });
       advance();
@@ -181,8 +226,8 @@ export default function AuditWizard() {
       if (!saveGuard.begin()) return;
       setError(null);
       try {
-        const targetBook = pool[index];
-        await api.patchBook(targetBook.id, { [cfg.field]: cfg.clearValue });
+        const target = pool[index];
+        await cfg.patch(target.id, cfg.clearValue);
         setFilled(n => n - 1);
       } catch {
         setError('Failed to undo — try again.');
@@ -289,29 +334,58 @@ export default function AuditWizard() {
         </div>
       ) : (
         <>
-          {/* Card — cover + identifying metadata. Tight enough that the
-              eye can take it in without scanning. Title links through
-              to BookDetail in case the wizard isn't enough context. */}
+          {/* Card — cover/portrait + identifying metadata. Layout
+              branches on cfg.kind: books get a 2:3 cover and a
+              publisher/year/pages line; authors get a square portrait,
+              dates, and a book-count + bio snippet. Both link through
+              to the record's detail page in case the wizard's snapshot
+              isn't enough context. */}
           <div className="flex gap-5 items-start py-2">
-            <div className="w-24 h-36 flex-shrink-0 rounded overflow-hidden bg-neutral-800">
-              {current.cover_path
-                ? <img src={current.cover_path} alt="" className="w-full h-full object-cover" />
-                : <div className="w-full h-full bg-gradient-to-br from-neutral-700 to-neutral-900 flex items-center justify-center text-xs text-neutral-500 font-medium tracking-wide">{initialsFor(current.title)}</div>}
-            </div>
+            {cfg.kind === 'author' ? (
+              <div className="w-24 h-24 flex-shrink-0 rounded-full overflow-hidden bg-neutral-800">
+                {current.photo_path
+                  ? <img src={current.photo_path} alt="" className="w-full h-full object-cover" />
+                  : <div className="w-full h-full bg-gradient-to-br from-neutral-700 to-neutral-900 flex items-center justify-center text-xs text-neutral-500 font-medium tracking-wide">{initialsFor(current.name)}</div>}
+              </div>
+            ) : (
+              <div className="w-24 h-36 flex-shrink-0 rounded overflow-hidden bg-neutral-800">
+                {current.cover_path
+                  ? <img src={current.cover_path} alt="" className="w-full h-full object-cover" />
+                  : <div className="w-full h-full bg-gradient-to-br from-neutral-700 to-neutral-900 flex items-center justify-center text-xs text-neutral-500 font-medium tracking-wide">{initialsFor(current.title)}</div>}
+              </div>
+            )}
             <div className="flex-1 min-w-0 space-y-1">
-              <Link to={`/books/${current.id}`} className="text-base font-medium text-parchment hover:text-oak transition-colors block">
-                {current.title}
+              <Link to={cfg.getLink(current)} className="text-base font-medium text-parchment hover:text-oak transition-colors block">
+                {cfg.getName(current)}
               </Link>
-              {current.authors?.length > 0 && (
-                <p className="text-sm text-neutral-400">{formatAuthors(current.authors.map(a => a.name))}</p>
+              {cfg.kind === 'author' ? (
+                <>
+                  {(current.birth_date || current.death_date) && (
+                    <p className="text-sm text-neutral-400">
+                      {current.birth_date || '?'} – {current.death_date || ''}
+                    </p>
+                  )}
+                  <p className="text-xs text-neutral-600">
+                    {[
+                      current.book_count ? `${current.book_count} book${current.book_count === 1 ? '' : 's'}` : null,
+                      current.story_count ? `${current.story_count} stor${current.story_count === 1 ? 'y' : 'ies'}` : null,
+                    ].filter(Boolean).join(' · ') || '—'}
+                  </p>
+                </>
+              ) : (
+                <>
+                  {current.authors?.length > 0 && (
+                    <p className="text-sm text-neutral-400">{formatAuthors(current.authors.map(a => a.name))}</p>
+                  )}
+                  <p className="text-xs text-neutral-600">
+                    {[
+                      current.publisher,
+                      current.year_edition,
+                      current.page_count ? `${current.page_count} pp` : null,
+                    ].filter(Boolean).join(' · ') || '—'}
+                  </p>
+                </>
               )}
-              <p className="text-xs text-neutral-600">
-                {[
-                  current.publisher,
-                  current.year_edition,
-                  current.page_count ? `${current.page_count} pp` : null,
-                ].filter(Boolean).join(' · ') || '—'}
-              </p>
             </div>
           </div>
 
@@ -325,7 +399,7 @@ export default function AuditWizard() {
                 type="button"
                 onClick={() => pick(opt.value)}
                 disabled={saveGuard.busy}
-                aria-label={`Set ${cfg.field} for ${current.title} to ${opt.label}`}
+                aria-label={`Set ${cfg.field} for ${cfg.getName(current)} to ${opt.label}`}
                 className="px-4 py-3 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-wait text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
               >
                 <span>{opt.label}</span>
@@ -336,7 +410,7 @@ export default function AuditWizard() {
               type="button"
               onClick={skip}
               disabled={saveGuard.busy}
-              aria-label={`Skip ${current.title}`}
+              aria-label={`Skip ${cfg.getName(current)}`}
               className="px-4 py-3 bg-neutral-900 border border-neutral-700 hover:border-neutral-500 disabled:opacity-40 text-neutral-400 hover:text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
             >
               <span>Skip</span>
