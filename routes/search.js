@@ -2,10 +2,19 @@ import express from 'express';
 
 const router = express.Router();
 
+// Open Library returns 403 to the default node-fetch User-Agent (their
+// bot protection started enforcing this in 2026); identifying ourselves
+// is required for the request to succeed at all. Mirrors the UA set in
+// lib/authors/openLibrary.js.
+const OL_USER_AGENT = 'Spine/1.0 (personal library tracker; charlesss@gmail.com)';
+
 function fetchWithTimeout(url, ms = 5000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), ms);
-  return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
+  return fetch(url, {
+    signal: controller.signal,
+    headers: { 'User-Agent': OL_USER_AGENT },
+  }).finally(() => clearTimeout(timer));
 }
 
 router.get('/description', async (req, res) => {
