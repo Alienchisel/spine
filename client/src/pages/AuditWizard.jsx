@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { formatAuthors, initialsFor, MOD_KEY } from '../utils.js';
 import { submitOnModEnter } from '../components/bookForm/styles.js';
@@ -556,7 +556,6 @@ function shuffle(arr) {
 
 export default function AuditWizard() {
   const { wizardKey } = useParams();
-  const navigate = useNavigate();
   const cfg = WIZARDS[wizardKey];
 
   const [pool, setPool] = useState(null);     // null = loading
@@ -564,6 +563,10 @@ export default function AuditWizard() {
   const [filled, setFilled]   = useState(0);
   const [skipped, setSkipped] = useState(0);
   const [error, setError]     = useState(null);
+  // Bumped by Refresh pool to re-run the fetch effect without a full
+  // route reload (navigate(0) would re-mount everything and re-fetch
+  // any other route data). Toggling this is enough to draw a new batch.
+  const [refreshTick, setRefreshTick] = useState(0);
   // Single-step undo: the position + action of the most recent
   // fill/skip. Cleared after use; we don't keep a stack because the
   // card-deck flow is forward-driven and a multi-step undo would
@@ -624,7 +627,7 @@ export default function AuditWizard() {
       setError('Failed to load records for the wizard.');
     });
     return () => { cancelled = true; };
-  }, [cfg, wizardKey]);
+  }, [cfg, wizardKey, refreshTick]);
 
   const current = pool && idx < pool.length ? pool[idx] : null;
 
@@ -867,7 +870,11 @@ export default function AuditWizard() {
             {total >= 200 && ' (200-card pool. Refresh to draw another batch.)'}
           </p>
           <div className="flex items-center justify-center gap-4 mt-6">
-            <button type="button" onClick={() => navigate(0)} className="text-sm text-neutral-400 hover:text-parchment transition-colors">
+            <button
+              type="button"
+              onClick={() => { setPool(null); setError(null); setRefreshTick(t => t + 1); }}
+              className="text-sm text-neutral-400 hover:text-parchment transition-colors"
+            >
               Refresh pool
             </button>
             <Link to="/audit" className="text-sm text-neutral-400 hover:text-parchment transition-colors">
