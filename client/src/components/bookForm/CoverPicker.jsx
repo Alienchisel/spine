@@ -9,6 +9,7 @@ export default function CoverPicker({
   fetchingCover,
   onFileSelected,
   onFetchFromIsbn,
+  onRemove,
 }) {
   // BookForm's coverActionRef serializes all cover ops, so triggering a
   // file selection while a fetch is in flight (or vice versa) gets
@@ -67,6 +68,20 @@ export default function CoverPicker({
           {coverBusy
             ? (uploading ? 'Uploading…' : 'Fetching…')
             : 'Fetch from ISBN'}
+        </button>
+      )}
+      {/* Remove takes effect on form save (cover_path gets nulled in
+          the payload; server clears the column and deletes the file
+          per the same path documented at lib/books/repository.js's
+          shouldDeleteOldFile branch). Hidden when there's nothing to
+          clear, or while a cover op is in flight. */}
+      {coverPreview && !coverBusy && onRemove && (
+        <button
+          type="button"
+          onClick={onRemove}
+          className="mt-2 w-full text-center text-xs text-neutral-700 hover:text-warn transition-colors"
+        >
+          Remove cover
         </button>
       )}
     </div>

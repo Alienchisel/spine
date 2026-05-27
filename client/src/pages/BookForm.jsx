@@ -519,6 +519,14 @@ export default function BookForm() {
           fetchingCover={fetchingCover}
           onFileSelected={uploadFile}
           onFetchFromIsbn={fetchCoverFromIsbn}
+          onRemove={() => {
+            // Clear locally; the actual file deletion happens server-side
+            // on Save (PUT with cover_path=null hits the explicit-clear
+            // branch in repository.js, which deletes the old file).
+            setCoverPreview(null);
+            setCoverError(null);
+            set('cover_path', null);
+          }}
         />
 
         <div className="flex-1 min-w-0">
