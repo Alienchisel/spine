@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { formatAuthors, initialsFor } from '../utils.js';
@@ -39,8 +39,12 @@ import ErrorBanner from '../components/ErrorBanner.jsx';
 //   getLink     — (record) => string, detail-page URL for the record.
 //   kind        — 'book' | 'author' — drives card layout (cover vs
 //                 portrait, dates vs publisher line, etc.).
-//   options     — left-to-right buttons. The first option's count
-//                 historically dominates, so order matters.
+//   mode        — 'enum' (default) | 'text'. Enum mode renders a row of
+//                 option buttons; text mode renders a focused input and
+//                 a Save button. Keyboard binds adapt per mode.
+//   options     — enum-mode only. Left-to-right buttons. The first
+//                 option's count historically dominates, so order matters.
+//   placeholder — text-mode only. Input placeholder.
 //   clearValue  — value sent back via PATCH to undo a fill. For
 //                 nullable booleans this must be `null`; for text enums
 //                 like binding it can be `''` (server coerces to null).
@@ -161,6 +165,19 @@ const WIZARDS = {
     ],
     clearValue: '',
   },
+  publisher: {
+    title: 'Set publisher',
+    audit: 'Books have publisher',
+    field: 'publisher',
+    kind:  'book',
+    mode:  'text',
+    placeholder: 'Publisher name',
+    fetch: () => api.getBooks({ missing: 'publisher', limit: 200, sort: 'random' }).then(r => r.books ?? []),
+    patch: (id, value) => api.patchBook(id, { publisher: value }),
+    getName: r => r.title,
+    getLink: r => `/books/${r.id}`,
+    clearValue: '',
+  },
   author_gender: {
     title: 'Set author gender',
     audit: 'Authors have gender',
@@ -213,6 +230,11 @@ export default function AuditWizard() {
   // card-deck flow is forward-driven and a multi-step undo would
   // mostly invite cascading regret-clicks.
   const [lastAction, setLastAction] = useState(null);
+  // Text-mode wizards keep an in-flight input value here. Reset on
+  // every card change so a leftover string from the previous card
+  // doesn't bleed in. Enum-mode wizards ignore this state.
+  const [text, setText] = useState('');
+  const inputRef = useRef(null);
   const saveGuard = useActionGuard();
 
   useEffect(() => {
@@ -233,6 +255,16 @@ export default function AuditWizard() {
   }, [cfg, wizardKey]);
 
   const current = pool && idx < pool.length ? pool[idx] : null;
+
+  // Text-mode: reset the input and re-focus on every card change so
+  // typing never lands in a stale value, and the cursor is always
+  // where the user expects (in the input, ready). cfg can be undefined
+  // on the "Unknown wizard" branch — guard for that.
+  useEffect(() => {
+    if (cfg?.mode !== 'text') return;
+    setText('');
+    inputRef.current?.focus();
+  }, [cfg, current?.id]);
 
   function advance() {
     setIdx(i => i + 1);
@@ -300,14 +332,19 @@ export default function AuditWizard() {
     if (!cfg) return undefined;
     function onKey(e) {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-      const raw = parseInt(e.key, 10);
-      const n = (raw === 0 && cfg.options.length === 10) ? 10 : raw;
-      if (!Number.isNaN(n) && n >= 1 && n <= cfg.options.length && current) {
-        e.preventDefault();
-        pick(cfg.options[n - 1].value);
-        return;
+      // Number-row shortcuts only apply to enum-mode wizards. Text-mode
+      // wizards have no options array; the Save / Skip flow uses Enter
+      // (form submit, handled natively) and Esc (input onKeyDown).
+      if (cfg.mode !== 'text' && cfg.options) {
+        const raw = parseInt(e.key, 10);
+        const n = (raw === 0 && cfg.options.length === 10) ? 10 : raw;
+        if (!Number.isNaN(n) && n >= 1 && n <= cfg.options.length && current) {
+          e.preventDefault();
+          pick(cfg.options[n - 1].value);
+          return;
+        }
+        if (e.key.toLowerCase() === 's' && current) { e.preventDefault(); skip(); return; }
       }
-      if (e.key.toLowerCase() === 's' && current) { e.preventDefault(); skip(); return; }
       if (e.key.toLowerCase() === 'u' && lastAction) { e.preventDefault(); undo(); }
     }
     window.addEventListener('keydown', onKey);
@@ -441,36 +478,79 @@ export default function AuditWizard() {
           </div>
 
           {/* Choice row. Skip carries the same visual weight as the
-              option buttons — the data-quality cost of a guessing
-              bias outweighs the dopamine of clearing the count. */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {cfg.options.map((opt, i) => (
-              <button
-                key={String(opt.value)}
-                type="button"
-                onClick={() => pick(opt.value)}
-                disabled={saveGuard.busy}
-                aria-label={`Set ${cfg.field} for ${cfg.getName(current)} to ${opt.label}`}
-                className="px-4 py-3 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-wait text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
-              >
-                <span>{opt.label}</span>
-                <span className="text-[10px] text-neutral-500">{i === 9 && cfg.options.length === 10 ? '0' : i + 1}</span>
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={skip}
-              disabled={saveGuard.busy}
-              aria-label={`Skip ${cfg.getName(current)}`}
-              className="px-4 py-3 bg-neutral-900 border border-neutral-700 hover:border-neutral-500 disabled:opacity-40 text-neutral-400 hover:text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
+              option buttons / Save — the data-quality cost of a
+              guessing bias outweighs the dopamine of clearing the
+              count. Mode branches: enum mode is a button grid; text
+              mode is a focused input + Save / Skip / Undo. */}
+          {cfg.mode === 'text' ? (
+            <form
+              onSubmit={e => { e.preventDefault(); if (text.trim()) pick(text.trim()); }}
+              className="space-y-2"
             >
-              <span>Skip</span>
-              <span className="text-[10px] text-neutral-600">S</span>
-            </button>
-          </div>
+              <input
+                ref={inputRef}
+                type="text"
+                value={text}
+                onChange={e => setText(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Escape') { e.preventDefault(); skip(); } }}
+                placeholder={cfg.placeholder ?? ''}
+                aria-label={`Set ${cfg.field} for ${cfg.getName(current)}`}
+                disabled={saveGuard.busy}
+                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50 disabled:opacity-40"
+              />
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="submit"
+                  disabled={saveGuard.busy || !text.trim()}
+                  className="px-4 py-3 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
+                >
+                  <span>Save</span>
+                  <span className="text-[10px] text-neutral-500">↵</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={skip}
+                  disabled={saveGuard.busy}
+                  aria-label={`Skip ${cfg.getName(current)}`}
+                  className="px-4 py-3 bg-neutral-900 border border-neutral-700 hover:border-neutral-500 disabled:opacity-40 text-neutral-400 hover:text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
+                >
+                  <span>Skip</span>
+                  <span className="text-[10px] text-neutral-600">Esc</span>
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {cfg.options.map((opt, i) => (
+                <button
+                  key={String(opt.value)}
+                  type="button"
+                  onClick={() => pick(opt.value)}
+                  disabled={saveGuard.busy}
+                  aria-label={`Set ${cfg.field} for ${cfg.getName(current)} to ${opt.label}`}
+                  className="px-4 py-3 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-wait text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
+                >
+                  <span>{opt.label}</span>
+                  <span className="text-[10px] text-neutral-500">{i === 9 && cfg.options.length === 10 ? '0' : i + 1}</span>
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={skip}
+                disabled={saveGuard.busy}
+                aria-label={`Skip ${cfg.getName(current)}`}
+                className="px-4 py-3 bg-neutral-900 border border-neutral-700 hover:border-neutral-500 disabled:opacity-40 text-neutral-400 hover:text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
+              >
+                <span>Skip</span>
+                <span className="text-[10px] text-neutral-600">S</span>
+              </button>
+            </div>
+          )}
 
           <p className="text-[10px] text-neutral-600 text-center">
-            Keyboard: {cfg.options.map((_, i) => i === 9 && cfg.options.length === 10 ? '0' : i + 1).join(' / ')} to choose, S to skip, U to undo
+            Keyboard: {cfg.mode === 'text'
+              ? 'Enter to save, Esc to skip, U to undo'
+              : `${cfg.options.map((_, i) => i === 9 && cfg.options.length === 10 ? '0' : i + 1).join(' / ')} to choose, S to skip, U to undo`}
           </p>
         </>
       )}
