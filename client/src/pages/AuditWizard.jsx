@@ -222,6 +222,35 @@ const WIZARDS = {
     getLink: r => `/books/${r.id}`,
     clearValue: '',
   },
+  old_birth_death: {
+    title: 'Set death date',
+    audit: 'Old-birth authors have death date',
+    field: 'death_date',
+    kind:  'author',
+    mode:  'text',
+    placeholder: 'YYYY, YYYY-MM, or YYYY-MM-DD',
+    // Audit's gate: birth_date set, death_date null, leading year of
+    // birth more than 110 years ago, with at least one book. We mirror
+    // it client-side from the flat /authors response. The regex pulls
+    // the leading optional-negative year out of "1850" / "1850-06-27"
+    // / "-300" forms, matching the server's SUBSTR-based extraction.
+    fetch: async () => {
+      const arr = await api.getAuthors();
+      const now = new Date().getFullYear();
+      return arr.filter(a => {
+        if (a.death_date) return false;
+        if (!a.birth_date) return false;
+        if ((a.book_count || 0) === 0) return false;
+        const m = String(a.birth_date).match(/^(-?\d+)/);
+        if (!m) return false;
+        return parseInt(m[1], 10) < now - 110;
+      }).slice(0, 200);
+    },
+    patch: (id, value) => api.updateAuthor(id, { death_date: value }),
+    getName: r => r.name,
+    getLink: r => `/authors/${r.id}`,
+    clearValue: '',
+  },
   author_bio: {
     title: 'Set author bio',
     audit: 'Authors have bio',
