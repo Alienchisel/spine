@@ -73,6 +73,24 @@ const WIZARDS = {
     ],
     clearValue: null,
   },
+  condition: {
+    title: 'Set condition',
+    audit: 'Owned physical books have condition',
+    field: 'condition',
+    fetch: () => api.getBooks({ tab: 'owned', formats: 'physical', missing: 'condition', limit: 200, sort: 'random' }),
+    // Six-step scale, best → worst. Expect a higher Skip ratio than
+    // the other wizards — condition is the one field users often
+    // can't recall without the book in hand.
+    options: [
+      { value: 'new',       label: 'New'       },
+      { value: 'fine',      label: 'Fine'      },
+      { value: 'very good', label: 'Very good' },
+      { value: 'good',      label: 'Good'      },
+      { value: 'fair',      label: 'Fair'      },
+      { value: 'poor',      label: 'Poor'      },
+    ],
+    clearValue: '',
+  },
 };
 
 function shuffle(arr) {

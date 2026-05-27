@@ -427,6 +427,11 @@ router.patch('/:id', (req, res) => {
       return res.status(400).json({ error: 'Invalid format' });
     }
   }
+  if (req.body.condition !== undefined && req.body.condition !== null && req.body.condition !== '') {
+    if (!ENUM_VALUES.condition.includes(req.body.condition)) {
+      return res.status(400).json({ error: 'Invalid condition' });
+    }
+  }
   const book = patchBook(id, req.body);
   if (!book) return res.status(404).json({ error: 'Not found' });
   res.json(book);
