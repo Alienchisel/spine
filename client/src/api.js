@@ -76,6 +76,10 @@ export const api = {
   deleteStory: (bookId, storyId) => request(`/books/${bookId}/stories/${storyId}`, { method: 'DELETE' }),
   deleteBook: (id) => request(`/books/${id}`, { method: 'DELETE' }),
   fetchBookCover: (id) => request(`/books/${id}/fetch-cover`, { method: 'POST' }),
+  // Combined fetch-URL + set-cover_path. Used by the cover wizard so a
+  // transient failure between download and patch doesn't orphan an
+  // uploaded file on disk (the server cleans up on patch failure).
+  setBookCoverFromUrl: (id, url) => request(`/books/${id}/cover/url`, { method: 'POST', body: JSON.stringify({ url }) }),
   linkEdition: (id, otherId) => request(`/books/${id}/work-link`, { method: 'POST', body: JSON.stringify({ other_id: otherId }) }),
   unlinkEdition: (id) => request(`/books/${id}/work-link`, { method: 'DELETE' }),
   uploadCover: (file) => {

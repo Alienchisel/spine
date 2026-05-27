@@ -3,7 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
-import { saveCoverFromBuffer } from '../lib/books/covers.js';
+import { saveCoverFromBuffer, downloadCoverByUrl, CoverFetchError } from '../lib/books/covers.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadsDir = path.join(__dirname, '../uploads');
@@ -38,24 +38,11 @@ router.post('/', upload.single('cover'), async (req, res) => {
 });
 
 router.post('/fetch', async (req, res) => {
-  const { url } = req.body;
-  let parsed;
-  try { parsed = new URL(url); } catch { return res.status(400).json({ error: 'Invalid URL' }); }
-  if (parsed.protocol !== 'https:') return res.status(400).json({ error: 'Only HTTPS URLs are allowed' });
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000);
-    const response = await fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
-    if (!response.ok) return res.status(502).json({ error: 'Failed to fetch cover' });
-    const contentType = response.headers.get('content-type') || '';
-    if (!contentType.startsWith('image/')) return res.status(400).json({ error: 'URL does not point to an image' });
-    const contentLength = parseInt(response.headers.get('content-length') || '0');
-    if (contentLength > 10 * 1024 * 1024) return res.status(400).json({ error: 'Image too large' });
-    const buffer = Buffer.from(await response.arrayBuffer());
-    if (buffer.length > 10 * 1024 * 1024) return res.status(400).json({ error: 'Image too large' });
-    const filename = await saveCoverFromBuffer(buffer);
+    const filename = await downloadCoverByUrl(req.body?.url);
     res.json({ path: `/uploads/${filename}` });
-  } catch {
+  } catch (err) {
+    if (err instanceof CoverFetchError) return res.status(err.status).json({ error: err.message });
     res.status(500).json({ error: 'Failed to process cover' });
   }
 });

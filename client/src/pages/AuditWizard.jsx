@@ -344,12 +344,12 @@ const WIZARDS = {
           source_url:    r.cover_url,
         }));
     },
-    // Two-step: fetch the candidate URL into /uploads/ via /upload/fetch,
-    // then PATCH cover_path to the resulting local path.
-    commitCandidate: async (book, candidate) => {
-      const { path } = await api.fetchCover(candidate.source_url);
-      return api.patchBook(book.id, { cover_path: path });
-    },
+    // Server-side combined: fetches the URL, saves under /uploads/, and
+    // updates cover_path in one call. The two-step client flow used to
+    // leave orphan files on disk when the PATCH failed after the fetch
+    // succeeded (transient network blip, browser nav); the new endpoint
+    // closes that gap and cleans up the file if the DB update fails.
+    commitCandidate: (book, candidate) => api.setBookCoverFromUrl(book.id, candidate.source_url),
     // Undo: clear cover_path; server deletes the just-uploaded file.
     clearCandidate: (book) => api.patchBook(book.id, { cover_path: null }),
     getName: r => r.title,

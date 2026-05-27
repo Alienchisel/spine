@@ -5,6 +5,7 @@ import { getBook, getBookCounts, getBookFacets, listBooks, createBook, updateBoo
 import { syncStoryAuthors, pruneOrphanPeople } from '../lib/books/people.js';
 import { buildFilterConditions } from '../lib/books/filters.js';
 import { ENUM_VALUES } from '../shared/bookFields.js';
+import { downloadCoverByUrl, CoverFetchError, deleteLocalCover } from '../lib/books/covers.js';
 
 const router = express.Router();
 
@@ -565,6 +566,40 @@ router.delete('/:id/work-link', (req, res) => {
   const book = unlinkEdition(id);
   if (!book) return res.status(404).json({ error: 'Not found' });
   res.json(book);
+});
+
+// Combined fetch-URL + set-cover_path. The two-step client flow
+// (POST /api/upload/fetch → PATCH /api/books/:id) leaves an orphan file
+// on /uploads/ if the PATCH fails after the fetch succeeded (transient
+// network hiccup, browser navigation). Doing both server-side closes
+// that gap: the only remaining failure window is between saving the
+// file and running the UPDATE, which we backstop with deleteLocalCover
+// on the just-saved file. Used by the cover wizard's commitCandidate.
+router.post('/:id/cover/url', async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
+  const url = typeof req.body?.url === 'string' ? req.body.url.trim() : '';
+  if (!url) return res.status(400).json({ error: 'url is required' });
+  let filename;
+  try {
+    filename = await downloadCoverByUrl(url);
+  } catch (err) {
+    if (err instanceof CoverFetchError) return res.status(err.status).json({ error: err.message });
+    return res.status(500).json({ error: 'Failed to fetch cover' });
+  }
+  try {
+    const book = patchBook(id, { cover_path: `/uploads/${filename}` });
+    if (!book) {
+      // Book vanished between the fetch and the patch (extremely rare,
+      // but the file is now an orphan if we don't clean up).
+      deleteLocalCover(filename);
+      return res.status(404).json({ error: 'Not found' });
+    }
+    res.json(book);
+  } catch (err) {
+    deleteLocalCover(filename);
+    res.status(500).json({ error: err?.message || 'Failed to set cover' });
+  }
 });
 
 router.post('/:id/fetch-cover', async (req, res) => {

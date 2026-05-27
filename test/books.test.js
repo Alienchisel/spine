@@ -3261,6 +3261,89 @@ describe('books', () => {
       }
     });
 
+    it('POST /api/books/:id/cover/url saves the fetched image and updates cover_path', async () => {
+      // Combined endpoint used by the cover wizard. Replaces the two-step
+      // (POST /upload/fetch then PATCH cover_path) client flow so a
+      // transient failure between fetch and patch can't orphan files.
+      // Author is Z-prefixed so the no-author bucket of sort=author tests
+      // doesn't shift on the fixture this test leaves behind.
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'cover-url-happy ' + Math.random().toString(36).slice(2, 6),
+        authors: ['Zzz cover_url_test'],
+      });
+      const jpeg = new Uint8Array(3000);
+      jpeg[0] = 0xFF; jpeg[1] = 0xD8; jpeg[2] = 0xFF; jpeg[3] = 0xE0;
+      const arrBuf = jpeg.buffer.slice(0);
+      const writeMock = mock.method(fs.promises, 'writeFile', async () => {});
+      const originalFetch = globalThis.fetch;
+      const fetchMock = mock.method(globalThis, 'fetch', async (target, init) => {
+        const targetStr = typeof target === 'string' ? target : String(target);
+        if (targetStr.startsWith(url)) return originalFetch(target, init);
+        if (targetStr.startsWith('https://example.test/')) {
+          return {
+            ok: true,
+            headers: new Map([['content-type', 'image/jpeg'], ['content-length', '3000']]),
+            arrayBuffer: async () => arrBuf,
+          };
+        }
+        return { ok: false };
+      });
+      try {
+        const { status, body } = await req('POST', `/api/books/${created.id}/cover/url`, {
+          url: 'https://example.test/cover.jpg',
+        });
+        assert.equal(status, 200);
+        assert.match(body.cover_path, /^\/uploads\/\d+-[a-z0-9]+\.jpg$/i);
+        assert.equal(writeMock.mock.callCount(), 1, 'image should be written exactly once');
+      } finally {
+        writeMock.mock.restore();
+        fetchMock.mock.restore();
+      }
+    });
+
+    it('POST /api/books/:id/cover/url cleans up the saved file if the book is gone', async () => {
+      // The core gap the new endpoint closes: download succeeds, then the
+      // DB update can't find the row (or fails for any reason). The file
+      // we just wrote must be unlinked so it doesn't orphan on disk.
+      const jpeg = new Uint8Array(3000);
+      jpeg[0] = 0xFF; jpeg[1] = 0xD8; jpeg[2] = 0xFF; jpeg[3] = 0xE0;
+      const arrBuf = jpeg.buffer.slice(0);
+      const writeMock = mock.method(fs.promises, 'writeFile', async () => {});
+      const unlinkMock = mock.method(fs, 'unlink', (_p, cb) => cb(null));
+      const originalFetch = globalThis.fetch;
+      const fetchMock = mock.method(globalThis, 'fetch', async (target, init) => {
+        const targetStr = typeof target === 'string' ? target : String(target);
+        if (targetStr.startsWith(url)) return originalFetch(target, init);
+        return {
+          ok: true,
+          headers: new Map([['content-type', 'image/jpeg'], ['content-length', '3000']]),
+          arrayBuffer: async () => arrBuf,
+        };
+      });
+      try {
+        const { status } = await req('POST', '/api/books/999999/cover/url', {
+          url: 'https://example.test/cover.jpg',
+        });
+        assert.equal(status, 404);
+        assert.equal(writeMock.mock.callCount(), 1, 'file should have been written before the patch failed');
+        assert.equal(unlinkMock.mock.callCount(), 1, 'orphan file should be unlinked');
+      } finally {
+        writeMock.mock.restore();
+        unlinkMock.mock.restore();
+        fetchMock.mock.restore();
+      }
+    });
+
+    it('POST /api/books/:id/cover/url rejects non-HTTPS URLs', async () => {
+      // URL validation runs before any DB lookup, so a phantom id is
+      // fine here and avoids creating a fixture row.
+      const { status, body } = await req('POST', '/api/books/999999/cover/url', {
+        url: 'http://example.test/cover.jpg',
+      });
+      assert.equal(status, 400);
+      assert.equal(body.error, 'Only HTTPS URLs are allowed');
+    });
+
     it('POST /api/books/:id/fetch-cover returns 404 when no remote cover is found', async () => {
       // Book has an ISBN so the no-ISBN guard doesn't fire; both Google Books
       // and Open Library are mocked to return no usable cover, so
