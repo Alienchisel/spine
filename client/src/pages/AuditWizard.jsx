@@ -3,6 +3,7 @@ import { Link, useParams, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { formatAuthors, initialsFor, MOD_KEY } from '../utils.js';
 import { submitOnModEnter } from '../components/bookForm/styles.js';
+import ChipInput from '../components/bookForm/ChipInput.jsx';
 import { useActionGuard } from '../hooks/useActionGuard.js';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 
@@ -55,6 +56,9 @@ import ErrorBanner from '../components/ErrorBanner.jsx';
 //                 still inserts newlines. type='number' renders an
 //                 HTML5 number input with the given min/max/step;
 //                 step='0.5' supports series_number's half-steps.
+//                 type='people' renders a ChipInput with autocomplete
+//                 sourced from /api/books/facets[name]; the field's
+//                 payload becomes [{name}, {name}, ...] on save.
 //   clearValue  — enum-mode only. Value sent back via PATCH to undo a
 //                 fill. For nullable booleans this must be `null`; for
 //                 text enums like binding it can be `''`. Text-mode
@@ -314,6 +318,57 @@ const WIZARDS = {
     getName: r => r.title,
     getLink: r => `/books/${r.id}`,
   },
+  authors: {
+    title: 'Set authors',
+    audit: 'Books have authors',
+    field: 'authors',
+    kind:  'book',
+    mode:  'text',
+    fields: [{
+      name: 'authors',
+      type: 'people',
+      label: 'Authors',
+      placeholder: 'Type a name, Enter or comma to add',
+    }],
+    fetch: () => api.getBooks({ missing: 'author', limit: 200, sort: 'random' }).then(r => r.books ?? []),
+    patch: (id, values) => api.patchBook(id, values),
+    getName: r => r.title,
+    getLink: r => `/books/${r.id}`,
+  },
+  narrators: {
+    title: 'Set narrators',
+    audit: 'Audiobooks have narrator',
+    field: 'narrators',
+    kind:  'book',
+    mode:  'text',
+    fields: [{
+      name: 'narrators',
+      type: 'people',
+      label: 'Narrators',
+      placeholder: 'Type a name, Enter or comma to add',
+    }],
+    fetch: () => api.getBooks({ formats: 'audiobook', missing: 'narrator', limit: 200, sort: 'random' }).then(r => r.books ?? []),
+    patch: (id, values) => api.patchBook(id, values),
+    getName: r => r.title,
+    getLink: r => `/books/${r.id}`,
+  },
+  translators: {
+    title: 'Set translators',
+    audit: 'Translated works have translator',
+    field: 'translators',
+    kind:  'book',
+    mode:  'text',
+    fields: [{
+      name: 'translators',
+      type: 'people',
+      label: 'Translators',
+      placeholder: 'Type a name, Enter or comma to add',
+    }],
+    fetch: () => api.getBooks({ missing: 'translator', limit: 200, sort: 'random' }).then(r => r.books ?? []),
+    patch: (id, values) => api.patchBook(id, values),
+    getName: r => r.title,
+    getLink: r => `/books/${r.id}`,
+  },
   series_number: {
     title: 'Set series number',
     audit: 'Series-tagged books have series number',
@@ -450,19 +505,31 @@ export default function AuditWizard() {
   // mostly invite cascading regret-clicks.
   const [lastAction, setLastAction] = useState(null);
   // Text-mode wizards keep an in-flight values object here (keyed by
-  // each field's `name`). Reset on every card change so leftover input
-  // from the previous card doesn't bleed in. Enum-mode wizards ignore
-  // this state.
+  // each field's `name`). For people-type fields, values[name] is an
+  // Array<string> of committed chips; chipInputs[name] holds the
+  // in-progress text for THAT field's ChipInput. Reset on every card
+  // change so leftover input from the previous card doesn't bleed in.
+  // Enum-mode wizards ignore this state.
   const [values, setValues] = useState({});
+  const [chipInputs, setChipInputs] = useState({});
+  // Autocomplete suggestions for people fields. Fetched once when the
+  // wizard mounts (a wizard's people fields don't change mid-session).
+  // Shape matches /api/books/facets: { authors, narrators, translators }.
+  const [suggestions, setSuggestions] = useState(null);
   const inputRef = useRef(null);
   const saveGuard = useActionGuard();
 
   useEffect(() => {
     if (!cfg) return;
     let cancelled = false;
-    cfg.fetch().then(arr => {
+    const needsSuggestions = cfg.fields?.some(f => f.type === 'people');
+    Promise.all([
+      cfg.fetch(),
+      needsSuggestions ? api.getBookFacets() : Promise.resolve(null),
+    ]).then(([arr, facets]) => {
       if (cancelled) return;
       setPool(shuffle(arr));
+      setSuggestions(facets);
       setIdx(0);
       setFilled(0);
       setSkipped(0);
@@ -478,11 +545,14 @@ export default function AuditWizard() {
 
   // Text-mode: reset all field values and re-focus the first input on
   // every card change so typing never lands in a stale value, and the
-  // cursor is always where the user expects. cfg can be undefined on
-  // the "Unknown wizard" branch — guard for that.
+  // cursor is always where the user expects. People fields default to
+  // an empty array (committed chips) plus an empty chipInputs buffer
+  // (in-progress text). cfg can be undefined on the "Unknown wizard"
+  // branch — guard for that.
   useEffect(() => {
     if (cfg?.mode !== 'text') return;
-    setValues(Object.fromEntries(cfg.fields.map(f => [f.name, ''])));
+    setValues(Object.fromEntries(cfg.fields.map(f => [f.name, f.type === 'people' ? [] : ''])));
+    setChipInputs(Object.fromEntries(cfg.fields.filter(f => f.type === 'people').map(f => [f.name, ''])));
     inputRef.current?.focus();
   }, [cfg, current?.id]);
 
@@ -527,11 +597,12 @@ export default function AuditWizard() {
       setError(null);
       try {
         const target = pool[index];
-        // Text-mode auto-derives a clear payload from the fields list
-        // (all-empty values object) so configs don't repeat the field
-        // names; enum-mode uses the explicit clearValue.
+        // Text-mode auto-derives a clear payload from the fields list:
+        // people fields get an empty array (clears the join table);
+        // text/number fields get an empty string (server coerces to
+        // null). Enum-mode uses the explicit clearValue.
         const clearPayload = cfg.mode === 'text'
-          ? Object.fromEntries(cfg.fields.map(f => [f.name, '']))
+          ? Object.fromEntries(cfg.fields.map(f => [f.name, f.type === 'people' ? [] : '']))
           : cfg.clearValue;
         await cfg.patch(target.id, clearPayload);
         setFilled(n => n - 1);
@@ -710,7 +781,16 @@ export default function AuditWizard() {
               mode is a focused input + Save / Skip / Undo. */}
           {cfg.mode === 'text' ? (() => {
             const anyMultiline = cfg.fields.some(f => f.multiline);
-            const anyFilled = Object.values(values).some(v => (v ?? '').trim());
+            const anyPeople    = cfg.fields.some(f => f.type === 'people');
+            // Save is enabled when any field has content. For people
+            // fields, both committed chips and uncommitted input text
+            // count — submit auto-commits the latter before sending.
+            const anyFilled = cfg.fields.some(f => {
+              if (f.type === 'people') {
+                return (values[f.name]?.length > 0) || (chipInputs[f.name]?.trim());
+              }
+              return (values[f.name] ?? '').trim();
+            });
             return (
               <form
                 onSubmit={e => {
@@ -721,8 +801,25 @@ export default function AuditWizard() {
                   // exactly the field they edited).
                   const payload = {};
                   for (const f of cfg.fields) {
-                    const v = (values[f.name] ?? '').trim();
-                    if (v) payload[f.name] = v;
+                    if (f.type === 'people') {
+                      // Merge any uncommitted input text (split on
+                      // commas, deduped) into the committed chip list
+                      // before sending — users frequently type a name
+                      // and click Save without hitting Enter.
+                      const existing = values[f.name] ?? [];
+                      const pending = (chipInputs[f.name] ?? '')
+                        .split(',').map(s => s.trim()).filter(Boolean);
+                      const merged = [...existing];
+                      for (const p of pending) {
+                        if (!merged.includes(p)) merged.push(p);
+                      }
+                      if (merged.length > 0) {
+                        payload[f.name] = merged.map(name => ({ name }));
+                      }
+                    } else {
+                      const v = (values[f.name] ?? '').trim();
+                      if (v) payload[f.name] = v;
+                    }
                   }
                   if (Object.keys(payload).length === 0) return;
                   pick(payload);
@@ -730,6 +827,22 @@ export default function AuditWizard() {
                 className="space-y-2"
               >
                 {cfg.fields.map((f, i) => {
+                  if (f.type === 'people') {
+                    return (
+                      <ChipInput
+                        key={f.name}
+                        label={f.label ?? f.name}
+                        items={values[f.name] ?? []}
+                        onItemsChange={items => setValues(v => ({ ...v, [f.name]: items }))}
+                        inputValue={chipInputs[f.name] ?? ''}
+                        onInputChange={s => setChipInputs(c => ({ ...c, [f.name]: s }))}
+                        datalistId={`wizard-${f.name}-list`}
+                        datalistOptions={suggestions?.[f.name] ?? []}
+                        placeholder={f.placeholder ?? 'Type a name, Enter or comma to add'}
+                        inputClassName="flex-1 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50 disabled:opacity-40"
+                      />
+                    );
+                  }
                   const common = {
                     ref: i === 0 ? inputRef : null,
                     value: values[f.name] ?? '',

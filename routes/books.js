@@ -496,6 +496,14 @@ router.patch('/:id', (req, res) => {
     if (Number.isNaN(n)) return res.status(400).json({ error: 'Invalid series_number' });
     req.body.series_number = n;
   }
+  // Join-table arrays. Caller passes a list of strings or {name}
+  // objects; the syncPeople helper handles both shapes. Empty array
+  // clears all rows. Anything else is a client bug.
+  for (const col of ['authors', 'narrators', 'translators']) {
+    if (req.body[col] !== undefined && !Array.isArray(req.body[col])) {
+      return res.status(400).json({ error: `${col} must be an array` });
+    }
+  }
   const book = patchBook(id, req.body);
   if (!book) return res.status(404).json({ error: 'Not found' });
   res.json(book);
