@@ -496,28 +496,29 @@ export default function Diary() {
     }
   }
 
-  // Aggregate top-10 books of the year by activity (pages + minutes/2
-  // as a mixed-format score, matching the heatmap intensity bucketing).
-  // Drives the right column; uses the already-loaded days data so no
-  // extra fetch. 10 matches the canonical "top 10" convention and gives
-  // the column visual weight comparable to the heatmap.
-  const topBooks = useMemo(() => {
-    const byBook = new Map();
+  // Recently finished — diary-coded panel for the right column. Walks
+  // the already-loaded days (already DESC by date) and picks up entries
+  // flagged finished, deduped by book_id so a book finished today doesn't
+  // outrank an older finish just because today had multiple log sessions.
+  // Capped at 10 to balance heatmap weight. A finish requires a same-day
+  // reading_log entry to appear here, mirroring the diary's own scope.
+  const recentlyFinished = useMemo(() => {
+    const seen = new Set();
+    const out = [];
     for (const day of days) {
       for (const e of day.entries) {
-        let b = byBook.get(e.book_id);
-        if (!b) {
-          b = { id: e.book_id, title: e.title, cover_path: e.cover_path, pages: 0, minutes: 0 };
-          byBook.set(e.book_id, b);
-        }
-        b.pages   += e.pages_read   || 0;
-        b.minutes += e.minutes_read || 0;
+        if (!e.finished || seen.has(e.book_id)) continue;
+        seen.add(e.book_id);
+        out.push({
+          id: e.book_id,
+          title: e.title,
+          cover_path: e.cover_path,
+          date_finished: day.date,
+        });
+        if (out.length >= 10) return out;
       }
     }
-    return Array.from(byBook.values())
-      .map(b => ({ ...b, activity: b.pages + b.minutes / 2 }))
-      .sort((a, b) => b.activity - a.activity)
-      .slice(0, 10);
+    return out;
   }, [days]);
 
   // Tooltip-friendly minutes formatter (same shape used in the heatmap).
@@ -651,16 +652,16 @@ export default function Diary() {
               />
             </div>
 
-            {/* Right column: top 10 books by activity in the selected
-                year. Sticky like the heatmap; takes whatever space
-                remains after the two fixed columns. Hidden if the year
-                has no activity. */}
-            {topBooks.length > 0 && (
+            {/* Right column: most recent finishes in the selected year
+                (deduped by book, capped at 10). Sticky like the heatmap;
+                takes whatever space remains after the two fixed columns.
+                Hidden if the year has no finishes. */}
+            {recentlyFinished.length > 0 && (
               <div className="flex-1 min-w-0 sticky top-20">
                 <div className="bg-neutral-800 rounded-xl p-4">
-                  <p className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-3 pb-2 border-b border-neutral-700/60">Top this year</p>
+                  <p className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-3 pb-2 border-b border-neutral-700/60">Recently finished</p>
                   <ul className="space-y-2.5">
-                    {topBooks.map(b => (
+                    {recentlyFinished.map(b => (
                       <li key={b.id}>
                         <Link
                           to={`/books/${b.id}`}
@@ -676,12 +677,7 @@ export default function Diary() {
                           )}
                           <div className="min-w-0 flex-1 pt-0.5">
                             <p className="text-xs text-neutral-300 leading-tight line-clamp-2">{b.title}</p>
-                            <p className="text-[10px] text-neutral-600 mt-1 tabular-nums">
-                              {[
-                                b.pages   > 0 && `${b.pages.toLocaleString()} ${pluralWord(b.pages, 'page')}`,
-                                b.minutes > 0 && fmtMin(b.minutes),
-                              ].filter(Boolean).join(' · ')}
-                            </p>
+                            <p className="text-[10px] text-neutral-600 mt-1 tabular-nums">{fmtShortDate(b.date_finished)}</p>
                           </div>
                         </Link>
                       </li>
