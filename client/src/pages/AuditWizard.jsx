@@ -819,7 +819,15 @@ export default function AuditWizard() {
   }
 
   if (pool === null) {
-    return <div role="status" className="text-neutral-700 text-sm">Loading wizard…</div>;
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        className="text-neutral-500 text-sm animate-pulse"
+      >
+        Loading wizard…
+      </div>
+    );
   }
 
   const done = idx >= pool.length;
