@@ -327,14 +327,61 @@ const WIZARDS = {
     kind:  'book',
     mode:  'cover',
     fetch: () => api.getBooks({ tab: 'owned', missing: 'cover', limit: 200, sort: 'random' }).then(r => r.books ?? []),
-    // The wizard's cover-mode click handler does the two-step dance:
-    // fetch the candidate URL into /uploads/ via /upload/fetch, then
-    // PATCH cover_path to the resulting local path. The patch fn here
-    // just handles the PATCH leg (and the undo path that clears).
-    patch: (id, value) => api.patchBook(id, { cover_path: value }),
+    // initialQuery builds the per-card OL search string. surname keeps
+    // results disambiguated without over-restricting on long names.
+    initialQuery: r => {
+      const author = r.authors?.[0]?.name ?? '';
+      const surname = author.split(/\s+/).filter(Boolean).pop() ?? '';
+      return [r.title, surname].filter(Boolean).join(' ');
+    },
+    searchCandidates: async (query) => {
+      const results = await api.searchBooks(query);
+      return (results || [])
+        .filter(r => r.cover_url)
+        .map(r => ({
+          thumbnail_url: r.cover_url,
+          label:         [r.title, r.authors?.[0], r.publisher].filter(Boolean).join(' · '),
+          source_url:    r.cover_url,
+        }));
+    },
+    // Two-step: fetch the candidate URL into /uploads/ via /upload/fetch,
+    // then PATCH cover_path to the resulting local path.
+    commitCandidate: async (book, candidate) => {
+      const { path } = await api.fetchCover(candidate.source_url);
+      return api.patchBook(book.id, { cover_path: path });
+    },
+    // Undo: clear cover_path; server deletes the just-uploaded file.
+    clearCandidate: (book) => api.patchBook(book.id, { cover_path: null }),
     getName: r => r.title,
     getLink: r => `/books/${r.id}`,
-    clearValue: null,
+  },
+  portrait: {
+    title: 'Set portrait',
+    audit: 'Authors have portrait',
+    field: 'photo_path',
+    kind:  'author',
+    mode:  'cover',
+    fetch: async () => {
+      const arr = await api.getAuthors();
+      return arr.filter(a => !a.has_photo && (a.book_count || 0) > 0).slice(0, 200);
+    },
+    initialQuery: r => r.name,
+    searchCandidates: async (query) => {
+      const results = await api.searchAuthorsOL(query);
+      return (results || [])
+        .filter(r => r.photo_url)
+        .map(r => ({
+          thumbnail_url: r.photo_url,
+          label:         [r.name, r.birth_date && `b. ${r.birth_date}`, r.top_work].filter(Boolean).join(' · '),
+          source_url:    r.photo_url,
+        }));
+    },
+    // Server-side combined: fetches the URL, validates size, saves
+    // under uploads/authors/, updates photo_path in one call.
+    commitCandidate: (author, candidate) => api.setAuthorPhotoFromUrl(author.id, candidate.source_url),
+    clearCandidate: (author) => api.deleteAuthorPhoto(author.id),
+    getName: r => r.name,
+    getLink: r => `/authors/${r.id}`,
   },
   authors: {
     title: 'Set authors',
@@ -584,24 +631,25 @@ export default function AuditWizard() {
     inputRef.current?.focus();
   }, [cfg, current?.id]);
 
-  // Cover-mode: auto-search OL per card. Query is "{title} {first-author
-  // surname}" — surname disambiguates without over-restricting on
-  // long full names. User can edit the query and re-run if needed.
+  // Cover-mode: auto-search per card using the wizard's source-
+  // specific search function (api.searchBooks for book covers,
+  // api.searchAuthorsOL for author portraits). Initial query comes
+  // from cfg.initialQuery(record). Each candidate is normalised to
+  // { thumbnail_url, label, source_url } so the render block is
+  // source-agnostic.
   useEffect(() => {
     if (cfg?.mode !== 'cover' || !current) return;
-    const authorName = current.authors?.[0]?.name ?? '';
-    const surname = authorName.split(/\s+/).filter(Boolean).pop() ?? '';
-    const initialQuery = [current.title, surname].filter(Boolean).join(' ');
-    setCoverQuery(initialQuery);
+    const initial = cfg.initialQuery(current);
+    setCoverQuery(initial);
     setCandidates([]);
     setCandidatesError(null);
-    if (!initialQuery.trim()) return;
+    if (!initial.trim()) return;
     setCandidatesLoading(true);
     let cancelled = false;
-    api.searchBooks(initialQuery)
+    cfg.searchCandidates(initial)
       .then(results => {
         if (cancelled) return;
-        setCandidates((results || []).filter(r => r.cover_url));
+        setCandidates(results || []);
       })
       .catch(() => {
         if (cancelled) return;
@@ -617,8 +665,8 @@ export default function AuditWizard() {
     setCandidatesError(null);
     setCandidates([]);
     try {
-      const results = await api.searchBooks(coverQuery);
-      setCandidates((results || []).filter(r => r.cover_url));
+      const results = await cfg.searchCandidates(coverQuery);
+      setCandidates(results || []);
     } catch {
       setCandidatesError('Search failed. Try refining the query.');
     } finally {
@@ -632,13 +680,12 @@ export default function AuditWizard() {
     setError(null);
     const actionIdx = idx;
     try {
-      const { path } = await api.fetchCover(candidate.cover_url);
-      await cfg.patch(current.id, path);
+      await cfg.commitCandidate(current, candidate);
       setFilled(n => n + 1);
       setLastAction({ index: actionIdx, type: 'fill' });
       advance();
     } catch {
-      setError('Failed to fetch/set cover. Try another candidate or skip.');
+      setError('Failed to set image. Try another candidate or skip.');
     } finally {
       saveGuard.end();
     }
@@ -685,14 +732,20 @@ export default function AuditWizard() {
       setError(null);
       try {
         const target = pool[index];
-        // Text-mode auto-derives a clear payload from the fields list:
-        // people fields get an empty array (clears the join table);
-        // text/number fields get an empty string (server coerces to
-        // null). Enum-mode uses the explicit clearValue.
-        const clearPayload = cfg.mode === 'text'
-          ? Object.fromEntries(cfg.fields.map(f => [f.name, f.type === 'people' ? [] : '']))
-          : cfg.clearValue;
-        await cfg.patch(target.id, clearPayload);
+        if (cfg.mode === 'cover') {
+          // Cover-mode owns its own clear path (server endpoint, file
+          // deletion). It doesn't go through cfg.patch.
+          await cfg.clearCandidate(target);
+        } else {
+          // Text-mode auto-derives a clear payload from the fields list:
+          // people fields get an empty array (clears the join table);
+          // text/number fields get an empty string (server coerces to
+          // null). Enum-mode uses the explicit clearValue.
+          const clearPayload = cfg.mode === 'text'
+            ? Object.fromEntries(cfg.fields.map(f => [f.name, f.type === 'people' ? [] : '']))
+            : cfg.clearValue;
+          await cfg.patch(target.id, clearPayload);
+        }
         setFilled(n => n - 1);
       } catch {
         setError('Failed to undo — try again.');
@@ -1028,15 +1081,15 @@ export default function AuditWizard() {
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                   {candidates.map((c, i) => (
                     <button
-                      key={`${c.key ?? c.cover_url}-${i}`}
+                      key={`${c.source_url}-${i}`}
                       type="button"
                       onClick={() => pickCover(c)}
                       disabled={saveGuard.busy}
-                      aria-label={`Use cover from ${c.title}${c.authors?.length ? ` by ${c.authors[0]}` : ''}`}
-                      title={`${c.title}${c.authors?.length ? ` · ${c.authors[0]}` : ''}${c.publisher ? ` · ${c.publisher}` : ''}`}
-                      className="aspect-[2/3] bg-neutral-800 rounded overflow-hidden ring-1 ring-transparent hover:ring-oak transition-all disabled:opacity-40 disabled:cursor-wait"
+                      aria-label={`Use image: ${c.label || 'unlabeled candidate'}`}
+                      title={c.label || ''}
+                      className={`bg-neutral-800 rounded overflow-hidden ring-1 ring-transparent hover:ring-oak transition-all disabled:opacity-40 disabled:cursor-wait ${cfg.kind === 'author' ? 'aspect-square' : 'aspect-[2/3]'}`}
                     >
-                      <img src={c.cover_url} alt="" className="w-full h-full object-cover" />
+                      <img src={c.thumbnail_url} alt="" className="w-full h-full object-cover" />
                     </button>
                   ))}
                 </div>

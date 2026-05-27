@@ -3,7 +3,7 @@ import multer from 'multer';
 import db, { nrm } from '../db.js';
 import { linkAuthorAliases, unlinkAuthorAlias } from '../lib/books/people.js';
 import { listBooks } from '../lib/books/repository.js';
-import { lookupAuthor } from '../lib/authors/openLibrary.js';
+import { lookupAuthor, searchAuthorsMulti, downloadAuthorPhotoByUrl } from '../lib/authors/openLibrary.js';
 import { saveAuthorPhotoFromBuffer, deleteAuthorPhoto } from '../lib/authors/photos.js';
 
 const router = express.Router();
@@ -111,6 +111,25 @@ router.get('/', (req, res) => {
     ORDER BY a.name COLLATE NOCASE
   `).all();
   res.json(rows);
+});
+
+// Multi-candidate OL author search. Powers the portrait wizard's
+// candidate grid — returns up to N hits with ol_key, name, dates,
+// top_work, and a photo_url derived from the ol_key. The wizard
+// renders the photo_urls as thumbnails; OL's 1x1 placeholder for
+// authors without photos comes through visually so the user can
+// skip those. Throws to 502 on OL outage / 403, matching the books
+// /search endpoint's behavior. Sits above /:id so "search-ol" isn't
+// read as a numeric id.
+router.get('/search-ol', async (req, res) => {
+  const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+  if (!q) return res.json([]);
+  try {
+    const candidates = await searchAuthorsMulti(q);
+    res.json(candidates);
+  } catch {
+    res.status(502).json({ error: 'Failed to reach Open Library' });
+  }
 });
 
 // Random author — backs the `R` shortcut on author pages. Sits above
@@ -314,6 +333,31 @@ router.delete('/:id/photo', async (req, res) => {
   if (author.photo_path) await deleteAuthorPhoto(author.photo_path);
   db.prepare('UPDATE authors SET photo_path = NULL WHERE id = ?').run(id);
   res.json(loadAuthor(id));
+});
+
+// Set an author's portrait from a URL. The URL is normally one of the
+// thumbnails returned by /search-ol, but anything OL-hosted is fair.
+// Mirrors the upload-by-file route: validates buffer size > 1 KB so
+// OL's placeholder PNG can't slip through, swaps out any prior photo
+// file, updates photo_path. Used by the portrait wizard.
+router.post('/:id/photo/url', async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid author id' });
+  const url = typeof req.body?.url === 'string' ? req.body.url.trim() : '';
+  if (!url) return res.status(400).json({ error: 'url is required' });
+  const author = loadAuthor(id);
+  if (!author) return res.status(404).json({ error: 'Author not found' });
+  try {
+    const photo_path = await downloadAuthorPhotoByUrl(id, url);
+    if (!photo_path) return res.status(404).json({ error: 'Image not available (placeholder)' });
+    if (author.photo_path && author.photo_path !== photo_path) {
+      await deleteAuthorPhoto(author.photo_path);
+    }
+    db.prepare('UPDATE authors SET photo_path = ? WHERE id = ?').run(photo_path, id);
+    res.json(loadAuthor(id));
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch photo', detail: String(err.message || err) });
+  }
 });
 
 // Fetch bio + portrait from Open Library and save locally. Fires only
