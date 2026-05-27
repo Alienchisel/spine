@@ -196,6 +196,23 @@ const WIZARDS = {
     getLink: r => `/books/${r.id}`,
     clearValue: '',
   },
+  author_bio: {
+    title: 'Set author bio',
+    audit: 'Authors have bio',
+    field: 'bio',
+    kind:  'author',
+    mode:  'text',
+    multiline: true,
+    placeholder: 'Library-catalog bio — 60-150 words, structured 4-part shape per the bio convention (see memory feedback_author_bio_standard).',
+    fetch: async () => {
+      const arr = await api.getAuthors();
+      return arr.filter(a => !a.has_bio && (a.book_count || 0) > 0).slice(0, 200);
+    },
+    patch: (id, value) => api.updateAuthor(id, { bio: value }),
+    getName: r => r.name,
+    getLink: r => `/authors/${r.id}`,
+    clearValue: '',
+  },
   author_gender: {
     title: 'Set author gender',
     audit: 'Authors have gender',
