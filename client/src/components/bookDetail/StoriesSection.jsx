@@ -326,6 +326,7 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
                     : 'bg-neutral-800 text-neutral-500 hover:bg-neutral-700'
                 }`}
                 title={`Click to cycle status (currently ${STATUS_LABEL[s.status]})`}
+                aria-label={`Cycle ${noun} status for ${s.title}; currently ${STATUS_LABEL[s.status]}`}
               >
                 {STATUS_LABEL[s.status]}
               </button>
