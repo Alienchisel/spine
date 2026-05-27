@@ -30,6 +30,15 @@ export default forwardRef(function ChipInput({
   }
 
   function handleKey(e) {
+    // Cmd/Ctrl+Enter submits the parent form (matches the textarea
+    // shortcut from submitOnModEnter in styles.js). Without this, a
+    // people-only wizard card has no keyboard path to Save — plain
+    // Enter just commits another chip.
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      e.target.form?.requestSubmit();
+      return;
+    }
     if (e.key !== 'Enter' && e.key !== ',') return;
     e.preventDefault();
     commit();

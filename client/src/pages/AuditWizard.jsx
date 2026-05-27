@@ -981,7 +981,13 @@ export default function AuditWizard() {
               count. Mode branches: enum mode is a button grid; text
               mode is a focused input + Save / Skip / Undo. */}
           {cfg.mode === 'text' ? (() => {
-            const anyMultiline = cfg.fields.some(f => f.multiline);
+            // Save shortcut hint: plain Enter only works when every field
+            // is a non-multiline, non-people <input>; textareas swallow
+            // plain Enter as a newline, ChipInputs swallow it to commit
+            // chips. In either of those cases, Cmd+Enter is the shortcut
+            // — wired by submitOnModEnter on textareas and by ChipInput's
+            // own Cmd+Enter handler.
+            const needsModEnter = cfg.fields.some(f => f.multiline || f.type === 'people');
             // Save is enabled when any field has content. For people
             // fields, both committed chips and uncommitted input text
             // count — submit auto-commits the latter before sending.
@@ -1086,7 +1092,7 @@ export default function AuditWizard() {
                     className="px-4 py-3 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
                   >
                     <span>Save</span>
-                    <span className="text-[10px] text-neutral-500">{anyMultiline ? `${MOD_KEY}+↵` : '↵'}</span>
+                    <span className="text-[10px] text-neutral-500">{needsModEnter ? `${MOD_KEY}+↵` : '↵'}</span>
                   </button>
                   <button
                     type="button"
@@ -1117,11 +1123,12 @@ export default function AuditWizard() {
                   onChange={e => setCoverQuery(e.target.value)}
                   placeholder="Search query"
                   aria-label="Cover search query"
-                  className="flex-1 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50"
+                  disabled={saveGuard.busy}
+                  className="flex-1 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50 disabled:opacity-40"
                 />
                 <button
                   type="submit"
-                  disabled={candidatesLoading || !coverQuery.trim()}
+                  disabled={candidatesLoading || saveGuard.busy || !coverQuery.trim()}
                   className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-40 text-parchment text-sm rounded transition-colors"
                 >
                   Search
@@ -1212,7 +1219,7 @@ export default function AuditWizard() {
 
           <p className="text-[10px] text-neutral-600 text-center">
             Keyboard: {cfg.mode === 'text'
-              ? `${cfg.fields.some(f => f.multiline) ? `${MOD_KEY}+Enter` : 'Enter'} to save, Esc to skip, U to undo`
+              ? `${cfg.fields.some(f => f.multiline || f.type === 'people') ? `${MOD_KEY}+Enter` : 'Enter'} to save, Esc to skip, U to undo`
               : cfg.mode === 'cover'
                 ? 'Click a thumbnail to set, S to skip, U to undo'
                 : `${cfg.options.map((_, i) => i === 9 && cfg.options.length === 10 ? '0' : i + 1).join(' / ')} to choose, S to skip, U to undo`}
