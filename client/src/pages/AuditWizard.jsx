@@ -611,6 +611,11 @@ export default function AuditWizard() {
       setLastAction(null);
     }).catch(() => {
       if (cancelled) return;
+      // Land in the Done view instead of leaving pool=null (which
+      // keeps the "Loading wizard…" message visible forever). The
+      // error banner tells the user what happened; Refresh pool
+      // gives them a retry path.
+      setPool([]);
       setError('Failed to load records for the wizard.');
     });
     return () => { cancelled = true; };
@@ -926,7 +931,6 @@ export default function AuditWizard() {
               mode is a focused input + Save / Skip / Undo. */}
           {cfg.mode === 'text' ? (() => {
             const anyMultiline = cfg.fields.some(f => f.multiline);
-            const anyPeople    = cfg.fields.some(f => f.type === 'people');
             // Save is enabled when any field has content. For people
             // fields, both committed chips and uncommitted input text
             // count — submit auto-commits the latter before sending.
