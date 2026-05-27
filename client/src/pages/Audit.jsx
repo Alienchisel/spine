@@ -88,7 +88,7 @@ export default function Audit() {
     : archivist;
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    <div className="max-w-5xl mx-auto space-y-8">
       <div className="flex items-center justify-between gap-4">
         <h1 className="font-slab text-2xl text-parchment tracking-wide uppercase">Library audit</h1>
         <Link to="/stats" state={FROM_AUDIT} className="text-xs text-neutral-500 hover:text-neutral-200 transition-colors">

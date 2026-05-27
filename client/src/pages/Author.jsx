@@ -312,7 +312,7 @@ export default function Author() {
 
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
+    <div>
       {/*
         Back: navigate directly to state.fromPath so the click destination
         matches the label. Pass no `state` so the destination renders

@@ -833,11 +833,11 @@ export default function DataViz() {
   }, [comp]);
   const spec = useMemo(() => buildSpectrum(stats?.decadesPublished), [stats]);
 
-  if (error) return <div role="alert" className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-warn text-sm">{error}</div>;
-  if (!stats || !calendar || !authors || !trajectory || !completion) return <div role="status" className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-neutral-700 text-sm">Loading…</div>;
+  if (error) return <div role="alert" className="text-warn text-sm">{error}</div>;
+  if (!stats || !calendar || !authors || !trajectory || !completion) return <div role="status" className="text-neutral-700 text-sm">Loading…</div>;
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
+    <div className="max-w-5xl mx-auto space-y-12">
       <h1 className="font-slab text-2xl text-parchment tracking-wide uppercase">Data visualization</h1>
 
       {/* ── Experiment #1 — Acquisitions by source ── */}

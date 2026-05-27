@@ -245,7 +245,7 @@ export default function Collage() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6">
+    <div className="max-w-5xl mx-auto">
       <Link to={backPath} className="text-sm text-neutral-500 hover:text-neutral-200 transition-colors">
         {backLabel}
       </Link>
