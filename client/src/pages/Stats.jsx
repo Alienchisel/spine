@@ -395,7 +395,7 @@ export default function Stats() {
   // are loaded, a subsequent refresh-tick failure surfaces as a dismissible
   // banner above the existing data rather than wiping it — mirrors
   // ShelfView's pattern.
-  if (!stats && error) return <div role="alert" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-warn text-sm">{error}</div>;
+  if (!stats && error) return <div role="alert" className="text-warn text-sm">{error}</div>;
   if (!stats) return null;
 
   const { totals, formats, fiction, ownedStatus, ratings, acquisitionSources, pagesRead, minutesListened, byYear, acquiredByYear = [], byMonth = [], topAuthors, topLovedAuthors = [], topNarrators, languages, authorsByGender = { male: 0, female: 0, other: 0, unassigned: 0 }, streaks, todayPages, thisYearBooks, thisYearPages, topTags, topSeries, avgPagesPerDay, avgDaysToFinish, inProgressPace = [], decadesPublished = [], records } = stats;
@@ -427,7 +427,7 @@ export default function Stats() {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
+    <div className="space-y-10">
       <div className="flex items-center justify-between gap-4">
         <h1 className="font-slab text-2xl text-parchment tracking-wide uppercase">Stats</h1>
         <Link to="/collage" state={FROM_STATS} className="text-xs text-neutral-500 hover:text-neutral-200 transition-colors">
