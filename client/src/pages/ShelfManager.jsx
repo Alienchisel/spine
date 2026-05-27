@@ -330,7 +330,7 @@ export default function ShelfManager() {
       <Link to="/shelf-view" className="text-sm text-neutral-600 hover:text-neutral-300 mb-8 inline-block transition-colors">
         ← Shelf view
       </Link>
-      <h1 className="font-slab text-2xl text-parchment tracking-wide uppercase mb-8">Shelves</h1>
+      <h1 className="font-display text-2xl text-parchment tracking-wide uppercase mb-8">Shelves</h1>
 
       <ErrorBanner message={error} onDismiss={() => setError(null)} className="mb-4" />
 

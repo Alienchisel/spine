@@ -33,7 +33,7 @@ export default function Nav() {
         <div className="flex items-center gap-6">
           <Link
             to="/"
-            className="font-slab text-xl tracking-wider text-parchment hover:text-leather transition-colors uppercase flex items-baseline gap-1.5"
+            className="font-display text-xl tracking-wider text-parchment hover:text-leather transition-colors uppercase flex items-baseline gap-1.5"
           >
             Spine
             <span className="text-[10px] tracking-normal text-neutral-700 font-normal normal-case">v{__APP_VERSION__}</span>

@@ -89,7 +89,7 @@ export default function TagsIndex() {
     <div className="max-w-3xl">
       <IncomingBackLink />
       <header className="mb-6">
-        <h1 className="text-2xl font-slab text-parchment uppercase tracking-wider">Tags</h1>
+        <h1 className="text-2xl font-display text-parchment uppercase tracking-wider">Tags</h1>
         {!loading && !error && (
           <p className="text-xs text-neutral-600 mt-2">
             {counts.total} tags · {counts.single} used by a single book

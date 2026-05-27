@@ -429,7 +429,7 @@ export default function Stats() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
       <div className="flex items-center justify-between gap-4">
-        <h1 className="font-slab text-2xl text-parchment tracking-wide uppercase">Stats</h1>
+        <h1 className="font-display text-2xl text-parchment tracking-wide uppercase">Stats</h1>
         <Link to="/collage" state={FROM_STATS} className="text-xs text-neutral-500 hover:text-neutral-200 transition-colors">
           Reading collage →
         </Link>
@@ -443,7 +443,7 @@ export default function Stats() {
           const inner = (
             <>
               <p className="text-[10px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">{h.label}</p>
-              <p className="font-slab text-4xl sm:text-5xl text-parchment tabular-nums leading-none">{h.value}</p>
+              <p className="font-display text-4xl sm:text-5xl text-parchment tabular-nums leading-none">{h.value}</p>
             </>
           );
           return h.to ? (

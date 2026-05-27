@@ -107,7 +107,7 @@ export default function SeriesIndex() {
     <div className="max-w-4xl">
       <IncomingBackLink />
       <header className="mb-6">
-        <h1 className="text-2xl font-slab text-parchment uppercase tracking-wider">Series</h1>
+        <h1 className="text-2xl font-display text-parchment uppercase tracking-wider">Series</h1>
         {!loading && !error && (
           <p className="text-xs text-neutral-600 mt-2">
             {totals.total} series · {totals.books} books across them
