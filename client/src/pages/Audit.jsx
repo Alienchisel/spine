@@ -223,11 +223,32 @@ export default function Audit() {
                   // audits supply '/authors' so the click-through lands on
                   // the right index.
                   const href = `${row.path || '/'}?${row.query}`;
+                  // Fill-wizard affordance — rows with wizardKey get an
+                  // adjacent ✨ button that opens the bulk-entry wizard.
+                  // Sits outside the row Link so clicking the wand
+                  // doesn't also trigger the row-level filter jump.
+                  const wand = !resolved && row.wizardKey ? (
+                    <Link
+                      to={`/audit/wizard/${row.wizardKey}`}
+                      state={FROM_AUDIT}
+                      aria-label={`Open fill wizard for ${row.label}`}
+                      title="Open fill wizard"
+                      className="text-neutral-600 hover:text-oak transition-colors px-1"
+                      onClick={e => e.stopPropagation()}
+                    >
+                      ✨
+                    </Link>
+                  ) : null;
                   return (
                     <li key={row.label}>
                       {resolved
                         ? <div className="flex items-center gap-3 px-2 py-1">{inner}</div>
-                        : <Link to={href} state={FROM_AUDIT} className="group flex items-center gap-3 px-2 py-1 rounded hover:bg-neutral-900/50 transition-colors">{inner}</Link>
+                        : (
+                          <div className="flex items-center group rounded hover:bg-neutral-900/50 transition-colors">
+                            <Link to={href} state={FROM_AUDIT} className="flex items-center gap-3 px-2 py-1 flex-1 min-w-0">{inner}</Link>
+                            {wand}
+                          </div>
+                        )
                       }
                     </li>
                   );

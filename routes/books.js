@@ -4,6 +4,7 @@ import { validateBook, isValidDate, isValidPartialDate, partialDateBefore } from
 import { getBook, getBookCounts, getBookFacets, listBooks, createBook, updateBook, patchBook, deleteBook, updateBookCover, linkEditions, unlinkEdition } from '../lib/books/repository.js';
 import { syncStoryAuthors, pruneOrphanPeople } from '../lib/books/people.js';
 import { buildFilterConditions } from '../lib/books/filters.js';
+import { ENUM_VALUES } from '../shared/bookFields.js';
 
 const router = express.Router();
 
@@ -405,6 +406,15 @@ router.patch('/:id', (req, res) => {
       return res.status(400).json({ error: `current_minutes cannot exceed duration_minutes (${bounds.duration_minutes})` });
     }
     req.body.current_minutes = n;
+  }
+  // Enum-validate binding when present. Empty string / null clears the
+  // field; any other value must be in the binding enum. Caller is trusted
+  // to only patch this on physical books (the audit wizard does so; other
+  // callers can validate their own format gating).
+  if (req.body.binding !== undefined && req.body.binding !== null && req.body.binding !== '') {
+    if (!ENUM_VALUES.binding.includes(req.body.binding)) {
+      return res.status(400).json({ error: 'Invalid binding' });
+    }
   }
   const book = patchBook(id, req.body);
   if (!book) return res.status(404).json({ error: 'Not found' });

@@ -18,6 +18,7 @@ import Diary from './pages/Diary.jsx';
 import Stats from './pages/Stats.jsx';
 import Collage from './pages/Collage.jsx';
 import Audit from './pages/Audit.jsx';
+import AuditWizard from './pages/AuditWizard.jsx';
 import DataViz from './pages/DataViz.jsx';
 import ShelfManager from './pages/ShelfManager.jsx';
 import ShelfView from './pages/ShelfView.jsx';
@@ -60,6 +61,7 @@ const router = createBrowserRouter(
         <Route path="stats"                 element={<Stats />} />
         <Route path="collage"               element={<Collage />} />
         <Route path="audit"                 element={<Audit />} />
+        <Route path="audit/wizard/:key"     element={<AuditWizard />} />
         <Route path="data-viz"              element={<DataViz />} />
         <Route path="shelf"                 element={<ShelfManager />} />
         <Route path="shelf-view"            element={<ShelfView />} />
