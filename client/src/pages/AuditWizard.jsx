@@ -648,6 +648,7 @@ export default function AuditWizard() {
     setCoverQuery(initial);
     setCandidates([]);
     setCandidatesError(null);
+    inputRef.current?.focus();
     if (!initial.trim()) return;
     setCandidatesLoading(true);
     let cancelled = false;
@@ -1059,6 +1060,7 @@ export default function AuditWizard() {
                 className="flex gap-2"
               >
                 <input
+                  ref={inputRef}
                   type="text"
                   value={coverQuery}
                   onChange={e => setCoverQuery(e.target.value)}
