@@ -212,6 +212,7 @@ function ReadingCalendar({ days, selectedYear, totals, onDayClick }) {
               type="button"
               onClick={() => onDayClick(dateStr)}
               title={tipParts.join(' · ')}
+              aria-label={`${formatDate(dateStr)} · ${tipParts.length > 0 ? tipParts.join(' · ') : 'reading day'}`}
               className={cellClass}
             >
               {inner}

@@ -165,6 +165,7 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
           {ratings.map(r => (
             <button key={r} type="button" onClick={() => toggle('ratings', r)}
               aria-pressed={filters.ratings.includes(r)}
+              aria-label={`Filter by ${r} star${r === 1 ? '' : 's'}`}
               className={pill(filters.ratings.includes(r))}>
               {'★'.repeat(Math.floor(r))}{r % 1 !== 0 ? '½' : ''}
             </button>
