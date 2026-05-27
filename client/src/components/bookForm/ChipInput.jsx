@@ -1,11 +1,12 @@
-import { useId } from 'react';
+import { forwardRef, useId } from 'react';
 import { label as labelClass } from './styles.js';
 
 // Reusable chip+input pattern. Used for authors, narrators, translators, and
 // tags — all share the same UX: existing items shown as removable pills, an
 // input that accepts new entries on Enter or comma, and a datalist of past
-// values.
-export default function ChipInput({
+// values. Forwards refs to the internal <input> so callers (e.g. the audit
+// wizard's per-card focus effect) can drive focus without reaching in.
+export default forwardRef(function ChipInput({
   label,
   items,
   onItemsChange,
@@ -15,7 +16,7 @@ export default function ChipInput({
   datalistOptions,
   placeholder,
   inputClassName,
-}) {
+}, ref) {
   const inputId = useId();
   function commit() {
     // Split on commas so pasting "a, b, c" + Enter commits three chips
@@ -55,6 +56,7 @@ export default function ChipInput({
       )}
       <div className="flex items-center gap-2">
         <input
+          ref={ref}
           id={inputId}
           className={inputClassName}
           list={datalistId}
@@ -78,4 +80,4 @@ export default function ChipInput({
       </datalist>
     </div>
   );
-}
+});

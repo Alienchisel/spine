@@ -1023,6 +1023,7 @@ export default function AuditWizard() {
                     return (
                       <ChipInput
                         key={f.name}
+                        ref={i === 0 ? inputRef : null}
                         label={f.label ?? f.name}
                         items={values[f.name] ?? []}
                         onItemsChange={items => setValues(v => ({ ...v, [f.name]: items }))}
