@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { formatAuthors, initialsFor, MOD_KEY } from '../utils.js';
@@ -793,32 +793,40 @@ export default function AuditWizard() {
   // length so a stray key press doesn't fire something undefined.
   // When a wizard has 10 options (rating), `0` maps to the 10th —
   // 1..9 then 0 is the natural number-row layout.
-  useEffect(() => {
-    if (!cfg) return undefined;
-    function onKey(e) {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-      // Number-row shortcuts only apply to enum-mode wizards. Text-mode
-      // wizards have no options array; the Save / Skip flow uses Enter
-      // (form submit, handled natively) and Esc (input onKeyDown).
-      if (cfg.mode === 'enum' || cfg.mode === undefined) {
-        const raw = parseInt(e.key, 10);
-        const n = (raw === 0 && cfg.options.length === 10) ? 10 : raw;
-        if (!Number.isNaN(n) && n >= 1 && n <= cfg.options.length && current) {
-          e.preventDefault();
-          pick(cfg.options[n - 1].value);
-          return;
-        }
+  //
+  // The latest-handler-ref pattern lets the listener attach exactly once
+  // (on mount, detach on unmount) while still calling through to a
+  // closure that sees the freshest cfg/current/lastAction/pick/skip/undo
+  // on every keystroke. Re-attaching listeners on every render works but
+  // burns cycles for no benefit.
+  const onKeyRef = useRef(null);
+  onKeyRef.current = function onKey(e) {
+    if (!cfg) return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    // Number-row shortcuts only apply to enum-mode wizards. Text-mode
+    // wizards have no options array; the Save / Skip flow uses Enter
+    // (form submit, handled natively) and Esc (input onKeyDown).
+    if (cfg.mode === 'enum' || cfg.mode === undefined) {
+      const raw = parseInt(e.key, 10);
+      const n = (raw === 0 && cfg.options.length === 10) ? 10 : raw;
+      if (!Number.isNaN(n) && n >= 1 && n <= cfg.options.length && current) {
+        e.preventDefault();
+        pick(cfg.options[n - 1].value);
+        return;
       }
-      // Skip via S works in any non-text mode (text uses Esc on the
-      // focused input). Cover mode wants S too; enum mode wants S too.
-      if (cfg.mode !== 'text' && e.key.toLowerCase() === 's' && current) {
-        e.preventDefault(); skip(); return;
-      }
-      if (e.key.toLowerCase() === 'u' && lastAction) { e.preventDefault(); undo(); }
     }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  });
+    // Skip via S works in any non-text mode (text uses Esc on the
+    // focused input). Cover mode wants S too; enum mode wants S too.
+    if (cfg.mode !== 'text' && e.key.toLowerCase() === 's' && current) {
+      e.preventDefault(); skip(); return;
+    }
+    if (e.key.toLowerCase() === 'u' && lastAction) { e.preventDefault(); undo(); }
+  };
+  useEffect(() => {
+    const listener = (e) => onKeyRef.current?.(e);
+    window.addEventListener('keydown', listener);
+    return () => window.removeEventListener('keydown', listener);
+  }, []);
 
   if (!cfg) {
     return (
