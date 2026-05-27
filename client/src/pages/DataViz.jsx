@@ -1061,7 +1061,7 @@ export default function DataViz() {
           </p>
           {cloud.length > 0 && (
             <div className="space-y-1">
-              <div className="text-[11px] uppercase tracking-wide text-neutral-500">Tags</div>
+              <div className="text-xs text-neutral-500 italic">Tags</div>
               <svg viewBox={`0 0 ${CLOUD_W} ${CLOUD_H}`} className="w-full h-auto" preserveAspectRatio="xMidYMid meet">
                 {cloud.map(t => (
                   <Link
@@ -1090,7 +1090,7 @@ export default function DataViz() {
           )}
           {authorCloud.length > 0 && (
             <div className="space-y-1">
-              <div className="text-[11px] uppercase tracking-wide text-neutral-500">Authors</div>
+              <div className="text-xs text-neutral-500 italic">Authors</div>
               <svg viewBox={`0 0 ${CLOUD_W} ${CLOUD_H}`} className="w-full h-auto" preserveAspectRatio="xMidYMid meet">
                 {authorCloud.map(a => (
                   <Link
