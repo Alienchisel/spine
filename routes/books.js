@@ -416,6 +416,17 @@ router.patch('/:id', (req, res) => {
       return res.status(400).json({ error: 'Invalid binding' });
     }
   }
+  // Same shape for format. Note: PATCH'ing format doesn't clear
+  // format-specific fields (binding, narrator, duration, shelf_id).
+  // Safe in the audit-wizard case because the pool is books with
+  // format IS NULL — there's no existing format-specific data to
+  // inconsistency. Other callers should use PUT for a format-change
+  // workflow that needs to clean up.
+  if (req.body.format !== undefined && req.body.format !== null && req.body.format !== '') {
+    if (!ENUM_VALUES.format.includes(req.body.format)) {
+      return res.status(400).json({ error: 'Invalid format' });
+    }
+  }
   const book = patchBook(id, req.body);
   if (!book) return res.status(404).json({ error: 'Not found' });
   res.json(book);

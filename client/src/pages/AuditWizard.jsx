@@ -59,6 +59,20 @@ const WIZARDS = {
     ],
     clearValue: null,
   },
+  format: {
+    title: 'Set format',
+    audit: 'Owned books have format',
+    field: 'format',
+    fetch: () => api.getBooks({ tab: 'owned', missing: 'format', limit: 200, sort: 'random' }),
+    // Label "Digital" mirrors the rest of Spine's UI for `ebook` (see
+    // FilterPanel.FORMAT_LABEL); the wire value stays as the enum key.
+    options: [
+      { value: 'physical',  label: 'Physical'  },
+      { value: 'ebook',     label: 'Digital'   },
+      { value: 'audiobook', label: 'Audiobook' },
+    ],
+    clearValue: null,
+  },
 };
 
 function shuffle(arr) {
