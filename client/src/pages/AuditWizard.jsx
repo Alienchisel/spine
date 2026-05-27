@@ -45,13 +45,19 @@ import ErrorBanner from '../components/ErrorBanner.jsx';
 //                 a Save button. Keyboard binds adapt per mode.
 //   options     — enum-mode only. Left-to-right buttons. The first
 //                 option's count historically dominates, so order matters.
-//   placeholder — text-mode only. Input placeholder.
-//   multiline   — text-mode only. true → textarea (descriptions / bios),
-//                 false/absent → single-line input. Multiline saves on
-//                 Cmd/Ctrl+Enter so plain Enter still inserts newlines.
-//   clearValue  — value sent back via PATCH to undo a fill. For
-//                 nullable booleans this must be `null`; for text enums
-//                 like binding it can be `''` (server coerces to null).
+//   fields      — text-mode only. Array of input descriptors, each:
+//                 { name, label?, placeholder?, multiline? }. The name
+//                 is the API payload key; the patch function decides
+//                 what to do with the assembled { name: value, ... }
+//                 object. Multi-field wizards (e.g. author_dates) get
+//                 one input per entry; single-field wizards just have
+//                 one. Multiline saves on Cmd/Ctrl+Enter so plain Enter
+//                 still inserts newlines.
+//   clearValue  — enum-mode only. Value sent back via PATCH to undo a
+//                 fill. For nullable booleans this must be `null`; for
+//                 text enums like binding it can be `''`. Text-mode
+//                 wizards auto-derive an all-empty values object for
+//                 undo from their fields list, so no clearValue here.
 const WIZARDS = {
   binding: {
     title: 'Set binding',
@@ -175,12 +181,11 @@ const WIZARDS = {
     field: 'publisher',
     kind:  'book',
     mode:  'text',
-    placeholder: 'Publisher name',
+    fields: [{ name: 'publisher', placeholder: 'Publisher name' }],
     fetch: () => api.getBooks({ missing: 'publisher', limit: 200, sort: 'random' }).then(r => r.books ?? []),
-    patch: (id, value) => api.patchBook(id, { publisher: value }),
+    patch: (id, values) => api.patchBook(id, values),
     getName: r => r.title,
     getLink: r => `/books/${r.id}`,
-    clearValue: '',
   },
   description: {
     title: 'Set description',
@@ -188,13 +193,11 @@ const WIZARDS = {
     field: 'description',
     kind:  'book',
     mode:  'text',
-    multiline: true,
-    placeholder: 'Book description — paste from a listing or write a short blurb',
+    fields: [{ name: 'description', placeholder: 'Book description — paste from a listing or write a short blurb', multiline: true }],
     fetch: () => api.getBooks({ missing: 'description', limit: 200, sort: 'random' }).then(r => r.books ?? []),
-    patch: (id, value) => api.patchBook(id, { description: value }),
+    patch: (id, values) => api.patchBook(id, values),
     getName: r => r.title,
     getLink: r => `/books/${r.id}`,
-    clearValue: '',
   },
   isbn: {
     title: 'Set ISBN',
@@ -202,14 +205,15 @@ const WIZARDS = {
     field: 'isbn',
     kind:  'book',
     mode:  'text',
-    placeholder: 'ISBN-10 or ISBN-13 (hyphens/spaces OK)',
+    fields: [{ name: 'isbn', placeholder: 'ISBN-10 or ISBN-13 (hyphens/spaces OK)' }],
     fetch: () => api.getBooks({ missing: 'isbn', limit: 200, sort: 'random' }).then(r => r.books ?? []),
     // Single-string input routes to isbn_10 or isbn_13 by length. The
     // server's PATCH route validates the format and writes only the
     // matching column, but we still null the other so a previously-
     // wrong-format entry gets cleared on save. Empty value clears
     // both columns (undo path).
-    patch: (id, value) => {
+    patch: (id, values) => {
+      const value = values.isbn;
       if (value == null || value === '') {
         return api.patchBook(id, { isbn_10: null, isbn_13: null });
       }
@@ -220,7 +224,6 @@ const WIZARDS = {
     },
     getName: r => r.title,
     getLink: r => `/books/${r.id}`,
-    clearValue: '',
   },
   old_birth_death: {
     title: 'Set death date',
@@ -228,7 +231,7 @@ const WIZARDS = {
     field: 'death_date',
     kind:  'author',
     mode:  'text',
-    placeholder: 'YYYY, YYYY-MM, or YYYY-MM-DD',
+    fields: [{ name: 'death_date', placeholder: 'YYYY, YYYY-MM, or YYYY-MM-DD' }],
     // Audit's gate: birth_date set, death_date null, leading year of
     // birth more than 110 years ago, with at least one book. We mirror
     // it client-side from the flat /authors response. The regex pulls
@@ -246,10 +249,9 @@ const WIZARDS = {
         return parseInt(m[1], 10) < now - 110;
       }).slice(0, 200);
     },
-    patch: (id, value) => api.updateAuthor(id, { death_date: value }),
+    patch: (id, values) => api.updateAuthor(id, values),
     getName: r => r.name,
     getLink: r => `/authors/${r.id}`,
-    clearValue: '',
   },
   author_bio: {
     title: 'Set author bio',
@@ -257,16 +259,37 @@ const WIZARDS = {
     field: 'bio',
     kind:  'author',
     mode:  'text',
-    multiline: true,
-    placeholder: 'Library-catalog bio — 60-150 words, structured 4-part shape per the bio convention (see memory feedback_author_bio_standard).',
+    fields: [{ name: 'bio', placeholder: 'Library-catalog bio — 60-150 words, structured 4-part shape per the bio convention (see memory feedback_author_bio_standard).', multiline: true }],
     fetch: async () => {
       const arr = await api.getAuthors();
       return arr.filter(a => !a.has_bio && (a.book_count || 0) > 0).slice(0, 200);
     },
-    patch: (id, value) => api.updateAuthor(id, { bio: value }),
+    patch: (id, values) => api.updateAuthor(id, values),
     getName: r => r.name,
     getLink: r => `/authors/${r.id}`,
-    clearValue: '',
+  },
+  author_dates: {
+    title: 'Set author dates',
+    audit: 'Authors have birth/death dates',
+    field: 'birth_date',
+    kind:  'author',
+    mode:  'text',
+    // Two date inputs on one card. Save commits whatever the user has
+    // filled — partial fills (just birth, just death) are common since
+    // older authors often have one knowable date but not the other.
+    fields: [
+      { name: 'birth_date', label: 'Born', placeholder: 'YYYY or YYYY-MM-DD' },
+      { name: 'death_date', label: 'Died', placeholder: 'YYYY or YYYY-MM-DD' },
+    ],
+    // Pool: authors with NEITHER date set AND at least one book.
+    // Matches the audit's gate.
+    fetch: async () => {
+      const arr = await api.getAuthors();
+      return arr.filter(a => !a.birth_date && !a.death_date && (a.book_count || 0) > 0).slice(0, 200);
+    },
+    patch: (id, values) => api.updateAuthor(id, values),
+    getName: r => r.name,
+    getLink: r => `/authors/${r.id}`,
   },
   author_gender: {
     title: 'Set author gender',
@@ -320,10 +343,11 @@ export default function AuditWizard() {
   // card-deck flow is forward-driven and a multi-step undo would
   // mostly invite cascading regret-clicks.
   const [lastAction, setLastAction] = useState(null);
-  // Text-mode wizards keep an in-flight input value here. Reset on
-  // every card change so a leftover string from the previous card
-  // doesn't bleed in. Enum-mode wizards ignore this state.
-  const [text, setText] = useState('');
+  // Text-mode wizards keep an in-flight values object here (keyed by
+  // each field's `name`). Reset on every card change so leftover input
+  // from the previous card doesn't bleed in. Enum-mode wizards ignore
+  // this state.
+  const [values, setValues] = useState({});
   const inputRef = useRef(null);
   const saveGuard = useActionGuard();
 
@@ -346,13 +370,13 @@ export default function AuditWizard() {
 
   const current = pool && idx < pool.length ? pool[idx] : null;
 
-  // Text-mode: reset the input and re-focus on every card change so
-  // typing never lands in a stale value, and the cursor is always
-  // where the user expects (in the input, ready). cfg can be undefined
-  // on the "Unknown wizard" branch — guard for that.
+  // Text-mode: reset all field values and re-focus the first input on
+  // every card change so typing never lands in a stale value, and the
+  // cursor is always where the user expects. cfg can be undefined on
+  // the "Unknown wizard" branch — guard for that.
   useEffect(() => {
     if (cfg?.mode !== 'text') return;
-    setText('');
+    setValues(Object.fromEntries(cfg.fields.map(f => [f.name, ''])));
     inputRef.current?.focus();
   }, [cfg, current?.id]);
 
@@ -397,7 +421,13 @@ export default function AuditWizard() {
       setError(null);
       try {
         const target = pool[index];
-        await cfg.patch(target.id, cfg.clearValue);
+        // Text-mode auto-derives a clear payload from the fields list
+        // (all-empty values object) so configs don't repeat the field
+        // names; enum-mode uses the explicit clearValue.
+        const clearPayload = cfg.mode === 'text'
+          ? Object.fromEntries(cfg.fields.map(f => [f.name, '']))
+          : cfg.clearValue;
+        await cfg.patch(target.id, clearPayload);
         setFilled(n => n - 1);
       } catch {
         setError('Failed to undo — try again.');
@@ -572,62 +602,83 @@ export default function AuditWizard() {
               guessing bias outweighs the dopamine of clearing the
               count. Mode branches: enum mode is a button grid; text
               mode is a focused input + Save / Skip / Undo. */}
-          {cfg.mode === 'text' ? (
-            <form
-              onSubmit={e => { e.preventDefault(); if (text.trim()) pick(text.trim()); }}
-              className="space-y-2"
-            >
-              {cfg.multiline ? (
-                <textarea
-                  ref={inputRef}
-                  value={text}
-                  onChange={e => setText(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Escape') { e.preventDefault(); skip(); return; }
-                    // Cmd/Ctrl+Enter saves; plain Enter inserts a newline.
-                    submitOnModEnter(e);
-                  }}
-                  placeholder={cfg.placeholder ?? ''}
-                  aria-label={`Set ${cfg.field} for ${cfg.getName(current)}`}
-                  disabled={saveGuard.busy}
-                  rows={6}
-                  className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50 disabled:opacity-40 resize-y"
-                />
-              ) : (
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={text}
-                  onChange={e => setText(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Escape') { e.preventDefault(); skip(); } }}
-                  placeholder={cfg.placeholder ?? ''}
-                  aria-label={`Set ${cfg.field} for ${cfg.getName(current)}`}
-                  disabled={saveGuard.busy}
-                  className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50 disabled:opacity-40"
-                />
-              )}
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  type="submit"
-                  disabled={saveGuard.busy || !text.trim()}
-                  className="px-4 py-3 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
-                >
-                  <span>Save</span>
-                  <span className="text-[10px] text-neutral-500">{cfg.multiline ? `${MOD_KEY}+↵` : '↵'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={skip}
-                  disabled={saveGuard.busy}
-                  aria-label={`Skip ${cfg.getName(current)}`}
-                  className="px-4 py-3 bg-neutral-900 border border-neutral-700 hover:border-neutral-500 disabled:opacity-40 text-neutral-400 hover:text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
-                >
-                  <span>Skip</span>
-                  <span className="text-[10px] text-neutral-600">Esc</span>
-                </button>
-              </div>
-            </form>
-          ) : (
+          {cfg.mode === 'text' ? (() => {
+            const anyMultiline = cfg.fields.some(f => f.multiline);
+            const anyFilled = Object.values(values).some(v => (v ?? '').trim());
+            return (
+              <form
+                onSubmit={e => {
+                  e.preventDefault();
+                  // Build the payload from only the filled fields so a
+                  // user who fills birth but leaves death blank doesn't
+                  // wipe death (or in single-field wizards, sends
+                  // exactly the field they edited).
+                  const payload = {};
+                  for (const f of cfg.fields) {
+                    const v = (values[f.name] ?? '').trim();
+                    if (v) payload[f.name] = v;
+                  }
+                  if (Object.keys(payload).length === 0) return;
+                  pick(payload);
+                }}
+                className="space-y-2"
+              >
+                {cfg.fields.map((f, i) => {
+                  const common = {
+                    ref: i === 0 ? inputRef : null,
+                    value: values[f.name] ?? '',
+                    onChange: e => setValues(v => ({ ...v, [f.name]: e.target.value })),
+                    placeholder: f.placeholder ?? '',
+                    'aria-label': `Set ${f.label || f.name} for ${cfg.getName(current)}`,
+                    disabled: saveGuard.busy,
+                  };
+                  return (
+                    <div key={f.name}>
+                      {f.label && <label className="block text-xs text-neutral-500 mb-1">{f.label}</label>}
+                      {f.multiline ? (
+                        <textarea
+                          {...common}
+                          onKeyDown={e => {
+                            if (e.key === 'Escape') { e.preventDefault(); skip(); return; }
+                            submitOnModEnter(e);
+                          }}
+                          rows={6}
+                          className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50 disabled:opacity-40 resize-y"
+                        />
+                      ) : (
+                        <input
+                          {...common}
+                          type="text"
+                          onKeyDown={e => { if (e.key === 'Escape') { e.preventDefault(); skip(); } }}
+                          className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50 disabled:opacity-40"
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="submit"
+                    disabled={saveGuard.busy || !anyFilled}
+                    className="px-4 py-3 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
+                  >
+                    <span>Save</span>
+                    <span className="text-[10px] text-neutral-500">{anyMultiline ? `${MOD_KEY}+↵` : '↵'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={skip}
+                    disabled={saveGuard.busy}
+                    aria-label={`Skip ${cfg.getName(current)}`}
+                    className="px-4 py-3 bg-neutral-900 border border-neutral-700 hover:border-neutral-500 disabled:opacity-40 text-neutral-400 hover:text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
+                  >
+                    <span>Skip</span>
+                    <span className="text-[10px] text-neutral-600">Esc</span>
+                  </button>
+                </div>
+              </form>
+            );
+          })() : (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {cfg.options.map((opt, i) => (
                 <button
@@ -657,7 +708,7 @@ export default function AuditWizard() {
 
           <p className="text-[10px] text-neutral-600 text-center">
             Keyboard: {cfg.mode === 'text'
-              ? `${cfg.multiline ? `${MOD_KEY}+Enter` : 'Enter'} to save, Esc to skip, U to undo`
+              ? `${cfg.fields.some(f => f.multiline) ? `${MOD_KEY}+Enter` : 'Enter'} to save, Esc to skip, U to undo`
               : `${cfg.options.map((_, i) => i === 9 && cfg.options.length === 10 ? '0' : i + 1).join(' / ')} to choose, S to skip, U to undo`}
           </p>
         </>
