@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../api.js';
+
+const FROM_DV = { from: 'Data viz', fromPath: '/data-viz' };
 
 // ── Experiment #1 — Acquisitions by source ───────────────────────────────
 
@@ -768,12 +771,47 @@ function SpectrumPanel({ bins, panelMin, panelMax, tickStep, showLegend }) {
   );
 }
 
+// ── Experiment #7 — Tag cloud ────────────────────────────────────────────
+//
+// Font *area* (size²) scales linearly with book_count, so doubling the
+// count doubles the visual area on the page — lie factor ≈ 1.0 despite
+// size being the encoding. Achieved by interpolating font-size in
+// sqrt-space between a readable floor and a noticeable ceiling.
+//
+// Why "tag cloud" at all: size-as-magnitude is famously imprecise for
+// comparing non-adjacent values (Tufte's eraser test on a stock cloud
+// asks what the non-data ink earns). We mitigate by sorting tags by
+// count desc (position carries weak ordinal signal alongside size),
+// exposing the exact count on hover, and linking each word to its
+// browse page — so the cloud is the macro overview and precise counts
+// are one hover or click away.
+const CLOUD_MIN_PX = 12;
+const CLOUD_MAX_PX = 56;
+function buildTagCloud(tags) {
+  if (!tags?.length) return [];
+  const sorted = [...tags].sort((a, b) => b.book_count - a.book_count);
+  const minCount = sorted[sorted.length - 1].book_count;
+  const maxCount = sorted[0].book_count;
+  // Edge case: a single tag or all-equal counts — fall back to max size
+  // so the cloud doesn't collapse to a hairline.
+  if (minCount === maxCount) {
+    return sorted.map(t => ({ ...t, fontSize: CLOUD_MAX_PX }));
+  }
+  const sqrtMin = Math.sqrt(minCount);
+  const sqrtMax = Math.sqrt(maxCount);
+  return sorted.map(t => {
+    const f = (Math.sqrt(t.book_count) - sqrtMin) / (sqrtMax - sqrtMin);
+    return { ...t, fontSize: Math.round(CLOUD_MIN_PX + f * (CLOUD_MAX_PX - CLOUD_MIN_PX)) };
+  });
+}
+
 export default function DataViz() {
   const [stats, setStats] = useState(null);
   const [calendar, setCalendar] = useState(null);
   const [authors, setAuthors] = useState(null);
   const [trajectory, setTrajectory] = useState(null);
   const [completion, setCompletion] = useState(null);
+  const [tags, setTags] = useState(null);
   const [error, setError] = useState(null);
   // Experiment #5 tab: 'in_progress' (partial-completion sparklines) or
   // 'complete' (series the user owns 100% of, where the sparkline shape
@@ -806,9 +844,11 @@ export default function DataViz() {
       api.getAuthors(),
       api.getLibraryTrajectory(),
       api.getSeriesCompletion(),
+      api.getTags(),
     ])
-      .then(([s, c, a, t, sc]) => {
+      .then(([s, c, a, t, sc, tg]) => {
         setStats(s); setCalendar(c); setAuthors(a); setTrajectory(t); setCompletion(sc);
+        setTags(tg);
       })
       .catch(() => setError('Failed to load data.'));
   }, []);
@@ -832,9 +872,10 @@ export default function DataViz() {
     return { inProgress, complete };
   }, [comp]);
   const spec = useMemo(() => buildSpectrum(stats?.decadesPublished), [stats]);
+  const cloud = useMemo(() => buildTagCloud(tags), [tags]);
 
   if (error) return <div role="alert" className="text-warn text-sm">{error}</div>;
-  if (!stats || !calendar || !authors || !trajectory || !completion) return <div role="status" className="text-neutral-700 text-sm">Loading…</div>;
+  if (!stats || !calendar || !authors || !trajectory || !completion || !tags) return <div role="status" className="text-neutral-700 text-sm">Loading…</div>;
 
   return (
     <div className="max-w-5xl mx-auto space-y-12">
@@ -940,6 +981,29 @@ export default function DataViz() {
               <SpectrumPanel bins={spec.allBins} panelMin={1500} panelMax={spec.maxDecade} tickStep={100} showLegend={false} />
             </div>
           )}
+        </section>
+      )}
+
+      {/* ── Experiment #7 — Tag cloud ── */}
+      {cloud.length > 0 && (
+        <section className="space-y-4">
+          <p className="text-sm text-neutral-500">
+            <span className="text-neutral-300 font-semibold">Experiment #7 — Tag cloud</span>, {cloud.length} tags ({cloud[cloud.length - 1].book_count}–{cloud[0].book_count} books). Font area (size²) scales linearly with book_count via sqrt-space interpolation, so a doubled count gives double visual area — lie factor ≈ 1, unlike the naive linear-font-size cloud that would inflate by 4×. Tags sorted by count descending so position carries weak ordinal signal alongside the size encoding. Size is still imprecise for comparing non-adjacent words (the inherent tag-cloud trade-off) — hover any word for the exact count, or jump to the Tags index for the precise ranked table.
+          </p>
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-2 leading-tight">
+            {cloud.map(t => (
+              <Link
+                key={t.id}
+                to={`/browse/tag/${encodeURIComponent(t.name)}`}
+                state={FROM_DV}
+                className="text-parchment hover:text-oak transition-colors"
+                style={{ fontSize: `${t.fontSize}px` }}
+                title={`${t.name} · ${t.book_count} ${t.book_count === 1 ? 'book' : 'books'}`}
+              >
+                {t.name}
+              </Link>
+            ))}
+          </div>
         </section>
       )}
 
