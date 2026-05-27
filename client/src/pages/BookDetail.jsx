@@ -19,6 +19,7 @@ import { useActionGuard } from '../hooks/useActionGuard.js';
 import { useSpineEvent } from '../hooks/useSpineEvent.js';
 
 const STATUS_LABEL = { reading: 'Reading', finished: 'Finished', unread: 'Unread' };
+const FORMAT_LABEL_LC = { physical: 'physical', ebook: 'digital', audiobook: 'audiobook' };
 const STATUS_COLOR = {
   reading:  'text-parchment bg-oak/30',
   finished: 'text-leather bg-binding/30',
@@ -715,6 +716,27 @@ export default function BookDetail() {
             <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_COLOR[book.status]}`}>
               {STATUS_LABEL[book.status]}
             </span>
+            {/* When this edition is unread but a sibling edition is finished,
+                hint at the cross-edition history. Keeps the status pill honest
+                (this *copy* really is unread) while making the page reflect
+                that the user knows the work. */}
+            {book.status === 'unread' && (() => {
+              const sib = book.editions?.find(e => e.status === 'finished');
+              if (!sib) return null;
+              const sameFormat = sib.format === book.format;
+              const formatText = sameFormat
+                ? 'another edition'
+                : (FORMAT_LABEL_LC[sib.format] ?? sib.format);
+              return (
+                <Link
+                  to={`/books/${sib.id}`}
+                  state={bookFromState}
+                  className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
+                >
+                  · read in {formatText} ↗
+                </Link>
+              );
+            })()}
             {Boolean(book.owned) && (
               <span className="text-xs font-medium px-2.5 py-1 rounded-full text-parchment bg-binding/60">
                 Owned
