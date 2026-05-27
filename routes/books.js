@@ -494,6 +494,10 @@ router.patch('/:id', (req, res) => {
   if (req.body.series_number !== undefined && req.body.series_number !== null && req.body.series_number !== '') {
     const n = Number(req.body.series_number);
     if (Number.isNaN(n)) return res.status(400).json({ error: 'Invalid series_number' });
+    // Series numbering is whole or half-volume only — matches BookForm's
+    // step="0.5" and the wizard's HTML5 step constraint. Without this the
+    // server-side path (curl, scripts, etc.) would silently accept 1.3 / 1.7.
+    if ((n * 2) % 1 !== 0) return res.status(400).json({ error: 'series_number must be a multiple of 0.5' });
     req.body.series_number = n;
   }
   // Join-table arrays. Caller passes a list of strings or {name}

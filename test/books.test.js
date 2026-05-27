@@ -261,6 +261,23 @@ describe('books', () => {
       assert.equal(status, 400);
     });
 
+    it('rejects non-half-step series_number on POST (e.g. 1.3, 1.7)', async () => {
+      // Half-step accepted values (1, 1.5, 2, …) are covered implicitly by
+      // every other POST test that supplies a series_number; only the
+      // reject path is novel here. Status 400 means no rows are written,
+      // so this test does not pollute the shared in-memory DB.
+      for (const bad of [1.3, 1.7, 2.25, 0.3]) {
+        const { status } = await req('POST', '/api/books', { title: 'X', series: 'S', series_number: bad });
+        assert.equal(status, 400, `series_number ${bad} should be rejected`);
+      }
+    });
+
+    it('PATCH rejects non-half-step series_number', async () => {
+      const { body: created } = await req('POST', '/api/books', { title: 'series_patch_check', authors: ['Z series_patch'] });
+      const { status } = await req('PATCH', `/api/books/${created.id}`, { series_number: 1.3 });
+      assert.equal(status, 400);
+    });
+
     it('rejects impossible date', async () => {
       const { status } = await req('POST', '/api/books', { title: 'X', date_started: '2026-99-99' });
       assert.equal(status, 400);
