@@ -113,6 +113,28 @@ const WIZARDS = {
     ],
     clearValue: '',
   },
+  acquisition_source: {
+    title: 'Set acquisition source',
+    audit: 'Owned books have acquisition source',
+    field: 'acquisition_source',
+    kind:  'book',
+    fetch: () => api.getBooks({ tab: 'owned', missing: 'source', limit: 200, sort: 'random' }).then(r => r.books ?? []),
+    patch: (id, value) => api.patchBook(id, { acquisition_source: value }),
+    getName: r => r.title,
+    getLink: r => `/books/${r.id}`,
+    // Top values from the user's library. The full distribution has a
+    // long tail of small physical bookstores; those stay with Skip and
+    // can be filled later via BookForm — the wizard only tries to
+    // bulk-clear the dominant cases.
+    options: [
+      { value: 'Audible',     label: 'Audible' },
+      { value: 'Kindle',      label: 'Kindle' },
+      { value: 'Amazon',      label: 'Amazon' },
+      { value: 'Internet',    label: 'Internet' },
+      { value: 'Book Outlet', label: 'Book Outlet' },
+    ],
+    clearValue: '',
+  },
   author_gender: {
     title: 'Set author gender',
     audit: 'Authors have gender',
