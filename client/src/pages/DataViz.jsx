@@ -1095,7 +1095,7 @@ export default function DataViz() {
                 {authorCloud.map(a => (
                   <Link
                     key={a.id}
-                    to={`/browse/author/${encodeURIComponent(a.name)}`}
+                    to={`/authors/${a.id}`}
                     state={FROM_DV}
                   >
                     <text
