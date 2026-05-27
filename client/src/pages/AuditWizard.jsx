@@ -22,19 +22,42 @@ import ErrorBanner from '../components/ErrorBanner.jsx';
 //     the whole point is throughput. Click-only support would defeat
 //     the bulk-entry framing.
 
+// Each wizard declares:
+//   title       — page heading
+//   audit       — audit row label (shown in the caption so users see which
+//                 audit they're clearing)
+//   field       — book field that PATCH targets
+//   fetch       — () => Promise<{ books: [...] }>, the pool source
+//   options     — left-to-right buttons. The first option's count
+//                 historically dominates, so order matters.
+//   clearValue  — value sent back via PATCH to undo a fill. For
+//                 nullable booleans this must be `null`; for text enums
+//                 like binding it can be `''` (server coerces to null).
 const WIZARDS = {
   binding: {
     title: 'Set binding',
     audit: 'Physical books have binding',
     field: 'binding',
     fetch: () => api.getBooks({ formats: 'physical', missing: 'binding', limit: 200, sort: 'random' }),
-    // Options render left-to-right. Order picked to surface the most
-    // common case first (paperback dominates the library by volume).
     options: [
       { value: 'paperback', label: 'Paperback' },
       { value: 'hardcover', label: 'Hardcover' },
       { value: 'other',     label: 'Other' },
     ],
+    clearValue: '',
+  },
+  fiction: {
+    title: 'Set fiction flag',
+    audit: 'Owned books have fiction flag',
+    field: 'fiction',
+    fetch: () => api.getBooks({ tab: 'owned', missing: 'fiction', limit: 200, sort: 'random' }),
+    // Two-button decision. The PATCH layer accepts native booleans:
+    // true → fiction = 1, false → 0, null → clears.
+    options: [
+      { value: true,  label: 'Fiction' },
+      { value: false, label: 'Non-fiction' },
+    ],
+    clearValue: null,
   },
 };
 
@@ -127,7 +150,7 @@ export default function AuditWizard() {
       setError(null);
       try {
         const targetBook = pool[index];
-        await api.patchBook(targetBook.id, { [cfg.field]: cfg.clearValue ?? '' });
+        await api.patchBook(targetBook.id, { [cfg.field]: cfg.clearValue });
         setFilled(n => n - 1);
       } catch {
         setError('Failed to undo — try again.');
@@ -266,11 +289,11 @@ export default function AuditWizard() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {cfg.options.map((opt, i) => (
               <button
-                key={opt.value}
+                key={String(opt.value)}
                 type="button"
                 onClick={() => pick(opt.value)}
                 disabled={saveGuard.busy}
-                aria-label={`Set binding for ${current.title} to ${opt.label}`}
+                aria-label={`Set ${cfg.field} for ${current.title} to ${opt.label}`}
                 className="px-4 py-3 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-wait text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
               >
                 <span>{opt.label}</span>
