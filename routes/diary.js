@@ -15,11 +15,32 @@ router.get('/', (req, res) => {
   // story_id may be NULL (book-level read) or set (story-level read).
   // Layer 3: a non-NULL story_id surfaces the story's title and position
   // in the diary entry as "Read 'Story' — Book Title".
+  //
+  // `finished` flags an entry whose date matches a non-DNF finish event:
+  // book-level rows consult reads.date_finished, story-level rows consult
+  // the joined stories.date_finished. The diary then chips the row so a
+  // session that closed out the book is distinguishable from one that
+  // just made progress.
+  const finishedExpr = `
+    CASE
+      WHEN rl.story_id IS NULL AND EXISTS (
+        SELECT 1 FROM reads r
+        WHERE r.book_id = rl.book_id
+          AND r.date_finished = rl.date
+          AND COALESCE(r.did_not_finish, 0) = 0
+      ) THEN 1
+      WHEN rl.story_id IS NOT NULL
+        AND s.date_finished = rl.date
+        AND COALESCE(s.did_not_finish, 0) = 0 THEN 1
+      ELSE 0
+    END
+  `;
   const rows = year
     ? db.prepare(`
         SELECT rl.id, rl.book_id, rl.story_id, rl.date, rl.pages_read, rl.minutes_read,
                b.title, b.cover_path, b.format,
-               s.title AS story_title, s.position AS story_position
+               s.title AS story_title, s.position AS story_position,
+               (${finishedExpr}) AS finished
         FROM reading_log rl
         JOIN books b ON b.id = rl.book_id
         LEFT JOIN stories s ON s.id = rl.story_id
@@ -29,7 +50,8 @@ router.get('/', (req, res) => {
     : db.prepare(`
         SELECT rl.id, rl.book_id, rl.story_id, rl.date, rl.pages_read, rl.minutes_read,
                b.title, b.cover_path, b.format,
-               s.title AS story_title, s.position AS story_position
+               s.title AS story_title, s.position AS story_position,
+               (${finishedExpr}) AS finished
         FROM reading_log rl
         JOIN books b ON b.id = rl.book_id
         LEFT JOIN stories s ON s.id = rl.story_id
@@ -59,6 +81,7 @@ router.get('/', (req, res) => {
       cover_path: toCoverUrl(row.cover_path),
       format: row.format, pages_read: row.pages_read, minutes_read: row.minutes_read,
       story_id: row.story_id, story_title: row.story_title, story_position: row.story_position,
+      finished: Boolean(row.finished),
     });
   }
 

@@ -117,6 +117,63 @@ describe('diary', () => {
     });
   });
 
+  describe('finished flag', () => {
+    // Local-date formatter mirrors how the server logs reading_log.date via
+    // SQLite date('now','localtime'); using toISOString() would drift across
+    // the UTC boundary.
+    const localToday = () => {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
+
+    it('flags entries on the day a book was finished', async () => {
+      const { body: book } = await req('POST', '/api/books', {
+        title: 'Finished Today Book', status: 'reading', format: 'physical', page_count: 100,
+      });
+      // PATCH writes a reading_log row dated today.
+      await req('PATCH', `/api/books/${book.id}`, { current_page: 50 });
+      // POST /reads attaches a non-DNF finish event dated today, which the
+      // diary's finished-flag CASE matches against the reading_log row.
+      const today = localToday();
+      await req('POST', `/api/books/${book.id}/reads`, {
+        date_started: today, date_finished: today, did_not_finish: false,
+      });
+
+      const { body } = await req('GET', '/api/diary');
+      const entries = body.days.flatMap(d => d.entries).filter(e => e.book_id === book.id);
+      assert.ok(entries.length >= 1, 'expected at least one diary entry');
+      assert.ok(entries.some(e => e.finished === true), 'expected a finished entry');
+    });
+
+    it('leaves the flag false on entries with no matching finish', async () => {
+      const { body: book } = await req('POST', '/api/books', {
+        title: 'Just Progress Book', status: 'reading', format: 'physical', page_count: 100,
+      });
+      await req('PATCH', `/api/books/${book.id}`, { current_page: 20 });
+
+      const { body } = await req('GET', '/api/diary');
+      const entry = body.days.flatMap(d => d.entries).find(e => e.book_id === book.id);
+      assert.ok(entry, 'expected a diary entry');
+      assert.equal(entry.finished, false);
+    });
+
+    it('does not flag entries when the matching read is DNF', async () => {
+      const { body: book } = await req('POST', '/api/books', {
+        title: 'DNF Today Book', status: 'reading', format: 'physical', page_count: 100,
+      });
+      await req('PATCH', `/api/books/${book.id}`, { current_page: 40 });
+      const today = localToday();
+      await req('POST', `/api/books/${book.id}/reads`, {
+        date_started: today, date_finished: today, did_not_finish: true,
+      });
+
+      const { body } = await req('GET', '/api/diary');
+      const entry = body.days.flatMap(d => d.entries).find(e => e.book_id === book.id);
+      assert.ok(entry, 'expected a diary entry');
+      assert.equal(entry.finished, false, 'DNF reads should not flag as finished');
+    });
+  });
+
   describe('entry shape: joined book authors', () => {
     it('returns authors as an array of names in position order', async () => {
       const { body: book } = await req('POST', '/api/books', {

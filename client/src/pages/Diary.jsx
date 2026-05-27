@@ -403,6 +403,11 @@ function DiaryEntry({ entry, onDelete }) {
         </Link>
         {subParts.length > 0 && <p className="text-xs text-neutral-500 truncate mt-0.5">{subParts.join(' · ')}</p>}
       </div>
+      {entry.finished && (
+        <span className="text-[10px] uppercase tracking-wider text-leather border border-binding/40 rounded px-1 py-px flex-shrink-0">
+          Finished
+        </span>
+      )}
       {progress && <span className="text-xs text-neutral-500 flex-shrink-0">{progress}</span>}
       <button
         type="button"
