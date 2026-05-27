@@ -545,6 +545,7 @@ export default function BookDetail() {
                   type="button"
                   onClick={handleFinish}
                   disabled={finishGuard.busy}
+                  aria-label={`Mark ${book.title} as finished`}
                   className="w-full text-xs text-neutral-500 hover:text-parchment disabled:opacity-40 disabled:cursor-default transition-colors text-center"
                 >
                   {finishGuard.busy ? 'Saving…' : 'Mark as finished'}
@@ -794,6 +795,7 @@ export default function BookDetail() {
                     type="button"
                     onClick={() => setDescExpanded(e => !e)}
                     aria-expanded={descExpanded}
+                    aria-label={`${descExpanded ? 'Collapse' : 'Expand'} description for ${book.title}`}
                     className="mt-1 text-xs text-neutral-600 hover:text-neutral-400 transition-colors"
                   >
                     {descExpanded ? 'Show less' : 'Read more'}
@@ -927,6 +929,7 @@ export default function BookDetail() {
               type="button"
               onClick={handleDelete}
               disabled={deleteGuard.busy}
+              aria-label={`Delete ${book.title}`}
               className="text-sm text-neutral-600 hover:text-warn disabled:opacity-50 disabled:cursor-wait transition-colors"
             >
               {deleteGuard.busy ? 'Deleting…' : 'Delete'}
