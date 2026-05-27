@@ -51,9 +51,9 @@ function shuffle(arr) {
 }
 
 export default function AuditWizard() {
-  const { key } = useParams();
+  const { wizardKey } = useParams();
   const navigate = useNavigate();
-  const cfg = WIZARDS[key];
+  const cfg = WIZARDS[wizardKey];
 
   const [pool, setPool] = useState(null);     // null = loading
   const [idx, setIdx]   = useState(0);
@@ -76,7 +76,7 @@ export default function AuditWizard() {
       setError('Failed to load books for the wizard.');
     });
     return () => { cancelled = true; };
-  }, [cfg, key]);
+  }, [cfg, wizardKey]);
 
   const current = pool && idx < pool.length ? pool[idx] : null;
 
@@ -128,7 +128,7 @@ export default function AuditWizard() {
   if (!cfg) {
     return (
       <div className="max-w-2xl mx-auto space-y-4">
-        <p role="alert" className="text-sm text-warn">Unknown wizard: <code>{key}</code></p>
+        <p role="alert" className="text-sm text-warn">Unknown wizard: <code>{wizardKey}</code></p>
         <Link to="/audit" className="text-xs text-neutral-500 hover:text-neutral-200">← Back to Audit</Link>
       </div>
     );

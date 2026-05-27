@@ -61,7 +61,7 @@ const router = createBrowserRouter(
         <Route path="stats"                 element={<Stats />} />
         <Route path="collage"               element={<Collage />} />
         <Route path="audit"                 element={<Audit />} />
-        <Route path="audit/wizard/:key"     element={<AuditWizard />} />
+        <Route path="audit/wizard/:wizardKey" element={<AuditWizard />} />
         <Route path="data-viz"              element={<DataViz />} />
         <Route path="shelf"                 element={<ShelfManager />} />
         <Route path="shelf-view"            element={<ShelfView />} />
