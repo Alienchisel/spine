@@ -771,7 +771,7 @@ function SpectrumPanel({ bins, panelMin, panelMax, tickStep, showLegend }) {
   );
 }
 
-// ── Experiment #7 — Tag cloud ────────────────────────────────────────────
+// ── Experiments #7 & #8 — Word clouds (tags, authors) ──────────────────
 //
 // Font *area* (size²) scales linearly with book_count, so doubling the
 // count doubles the visual area on the page — lie factor ≈ 1.0 despite
@@ -779,10 +779,11 @@ function SpectrumPanel({ bins, panelMin, panelMax, tickStep, showLegend }) {
 // sqrt-space between a readable floor and a noticeable ceiling.
 //
 // Words are spiral-packed from the center outward, sorted by count desc
-// so the heaviest tags land in the eye-catching middle and lighter tags
-// fill the surround. Most words sit horizontal; a deterministic minority
-// rotate 90° to mimic the irregular packing of a true word cloud. Color
-// varies per tag (deterministic by id) within a restrained palette.
+// so the heaviest entries land in the eye-catching middle and lighter
+// entries fill the surround. Most words sit horizontal; a deterministic
+// minority rotate 90° to mimic the irregular packing of a true word
+// cloud. Color varies per item (deterministic by id) within a restrained
+// palette.
 //
 // Trade-offs: size-as-magnitude remains imprecise for comparing
 // non-adjacent values (Tufte's eraser test on a stock cloud asks what
@@ -799,9 +800,9 @@ const CLOUD_GAP = 5;
 // (× 17) decorrelate from id ordering so adjacent ids don't share hues.
 const CLOUD_PALETTE = ['#d4a574', '#b8896a', '#8a5d37', '#a3a3a3', '#6b7d8a', '#7d6b8a'];
 
-function buildTagCloud(tags) {
-  if (!tags?.length) return [];
-  const sorted = [...tags].sort((a, b) => b.book_count - a.book_count);
+function buildCloud(items) {
+  if (!items?.length) return [];
+  const sorted = [...items].sort((a, b) => b.book_count - a.book_count);
   const minCount = sorted[sorted.length - 1].book_count;
   const maxCount = sorted[0].book_count;
   const sqrtMin = Math.sqrt(minCount);
@@ -929,7 +930,18 @@ export default function DataViz() {
     return { inProgress, complete };
   }, [comp]);
   const spec = useMemo(() => buildSpectrum(stats?.decadesPublished), [stats]);
-  const cloud = useMemo(() => buildTagCloud(tags), [tags]);
+  const cloud = useMemo(() => buildCloud(tags), [tags]);
+  // Authors cloud — capped at top 40 by book_count so the spiral pack
+  // can find non-colliding slots within an 800×480 canvas. The long
+  // tail (454 single-book authors) is the wrong shape for a cloud.
+  const authorCloud = useMemo(() => {
+    if (!authors) return [];
+    const top = [...authors]
+      .filter(a => (a.book_count || 0) > 0)
+      .sort((a, b) => b.book_count - a.book_count)
+      .slice(0, 40);
+    return buildCloud(top);
+  }, [authors]);
 
   if (error) return <div role="alert" className="text-warn text-sm">{error}</div>;
   if (!stats || !calendar || !authors || !trajectory || !completion || !tags) return <div role="status" className="text-neutral-700 text-sm">Loading…</div>;
@@ -1067,6 +1079,39 @@ export default function DataViz() {
                 >
                   <title>{`${t.name} · ${t.book_count} ${t.book_count === 1 ? 'book' : 'books'}`}</title>
                   {t.name}
+                </text>
+              </Link>
+            ))}
+          </svg>
+        </section>
+      )}
+
+      {/* ── Experiment #8 — Author cloud ── */}
+      {authorCloud.length > 0 && (
+        <section className="space-y-4">
+          <p className="text-sm text-neutral-500">
+            <span className="text-neutral-300 font-semibold">Experiment #8 — Author cloud</span>, top {authorCloud.length} authors by book_count. Same encoding as Experiment #7 — sqrt-space sizing so font area scales linearly with count. Long tail truncated: of 661 authors in the library, 454 have a single book, which would crowd the cloud into illegibility without revealing anything. Hover for the exact count, click to browse that author's books.
+          </p>
+          <svg viewBox={`0 0 ${CLOUD_W} ${CLOUD_H}`} className="w-full h-auto" preserveAspectRatio="xMidYMid meet">
+            {authorCloud.map(a => (
+              <Link
+                key={a.id}
+                to={`/browse/author/${encodeURIComponent(a.name)}`}
+                state={FROM_DV}
+              >
+                <text
+                  x={a.x}
+                  y={a.y}
+                  fontSize={a.fontSize}
+                  fill={a.color}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  transform={a.rotate ? `rotate(${a.rotate} ${a.x} ${a.y})` : undefined}
+                  className="cursor-pointer transition-opacity hover:opacity-70"
+                  fontWeight="500"
+                >
+                  <title>{`${a.name} · ${a.book_count} ${a.book_count === 1 ? 'book' : 'books'}`}</title>
+                  {a.name}
                 </text>
               </Link>
             ))}
