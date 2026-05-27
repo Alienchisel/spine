@@ -27,9 +27,10 @@ const MISSING_FIELDS = [
   { key: 'description', label: 'Description' },
   { key: 'rating',      label: 'Rating' },
   { key: 'stories',     label: 'Contents' },
-  // Ownership
-  { key: 'source',      label: 'Source' },
-  { key: 'acquired',    label: 'Acquired' },
+  // Ownership — both gated to owned, non-custom books on the server
+  // (acquisition data only makes sense for things you actually bought).
+  { key: 'source',      label: 'Source',   title: 'Owned, non-custom books missing acquisition source. For all books with no source (incl. unowned), use Source → Missing source.' },
+  { key: 'acquired',    label: 'Acquired', title: 'Owned, non-custom books missing acquisition date.' },
 ];
 
 const FORMAT_LABEL = { physical: 'Physical', ebook: 'Digital', audiobook: 'Audiobook' };
@@ -307,6 +308,7 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
           <button key={f.key} type="button"
             onClick={() => toggle('missing', f.key)}
             aria-pressed={filters.missing.includes(f.key)}
+            title={f.title}
             className={pill(filters.missing.includes(f.key), 'missing')}>
             {f.label}
           </button>
