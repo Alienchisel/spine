@@ -771,7 +771,7 @@ function SpectrumPanel({ bins, panelMin, panelMax, tickStep, showLegend }) {
   );
 }
 
-// ── Experiments #7 & #8 — Word clouds (tags, authors) ──────────────────
+// ── Experiment #7 — Clouds (tags, authors) ─────────────────────────────
 //
 // Font *area* (size²) scales linearly with book_count, so doubling the
 // count doubles the visual area on the page — lie factor ≈ 1.0 despite
@@ -1053,69 +1053,70 @@ export default function DataViz() {
         </section>
       )}
 
-      {/* ── Experiment #7 — Tag cloud ── */}
-      {cloud.length > 0 && (
+      {/* ── Experiment #7 — Clouds ── */}
+      {(cloud.length > 0 || authorCloud.length > 0) && (
         <section className="space-y-4">
           <p className="text-sm text-neutral-500">
-            <span className="text-neutral-300 font-semibold">Experiment #7 — Tag cloud</span>, {cloud.length} tags. Font area (size²) scales linearly with book_count via sqrt-space interpolation, so a doubled count gives double visual area — lie factor ≈ 1. Words spiral-pack from the center outward, heaviest first, with a deterministic minority rotated 90° for cloud texture. Size is imprecise for comparing non-adjacent words (the inherent tag-cloud trade-off) — hover for the exact count, click to browse, or jump to the Tags index for the precise ranked table.
+            <span className="text-neutral-300 font-semibold">Experiment #7 — Clouds</span>. Font area (size²) scales linearly with book_count via sqrt-space interpolation, so a doubled count gives double visual area — lie factor ≈ 1. Words spiral-pack from the center outward, heaviest first, with a deterministic minority rotated 90° for cloud texture. Size is imprecise for comparing non-adjacent words (the inherent cloud trade-off) — hover for the exact count, click to browse. For analytical reading the Tags and Authors index pages give the precise sorted tables.
           </p>
-          <svg viewBox={`0 0 ${CLOUD_W} ${CLOUD_H}`} className="w-full h-auto" preserveAspectRatio="xMidYMid meet">
-            {cloud.map(t => (
-              <Link
-                key={t.id}
-                to={`/browse/tag/${encodeURIComponent(t.name)}`}
-                state={FROM_DV}
-              >
-                <text
-                  x={t.x}
-                  y={t.y}
-                  fontSize={t.fontSize}
-                  fill={t.color}
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  transform={t.rotate ? `rotate(${t.rotate} ${t.x} ${t.y})` : undefined}
-                  className="cursor-pointer transition-opacity hover:opacity-70"
-                  fontWeight="500"
-                >
-                  <title>{`${t.name} · ${t.book_count} ${t.book_count === 1 ? 'book' : 'books'}`}</title>
-                  {t.name}
-                </text>
-              </Link>
-            ))}
-          </svg>
-        </section>
-      )}
-
-      {/* ── Experiment #8 — Author cloud ── */}
-      {authorCloud.length > 0 && (
-        <section className="space-y-4">
-          <p className="text-sm text-neutral-500">
-            <span className="text-neutral-300 font-semibold">Experiment #8 — Author cloud</span>, top {authorCloud.length} authors by book_count. Same encoding as Experiment #7 — sqrt-space sizing so font area scales linearly with count. Long tail truncated: of 661 authors in the library, 454 have a single book, which would crowd the cloud into illegibility without revealing anything. Hover for the exact count, click to browse that author's books.
-          </p>
-          <svg viewBox={`0 0 ${CLOUD_W} ${CLOUD_H}`} className="w-full h-auto" preserveAspectRatio="xMidYMid meet">
-            {authorCloud.map(a => (
-              <Link
-                key={a.id}
-                to={`/browse/author/${encodeURIComponent(a.name)}`}
-                state={FROM_DV}
-              >
-                <text
-                  x={a.x}
-                  y={a.y}
-                  fontSize={a.fontSize}
-                  fill={a.color}
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  transform={a.rotate ? `rotate(${a.rotate} ${a.x} ${a.y})` : undefined}
-                  className="cursor-pointer transition-opacity hover:opacity-70"
-                  fontWeight="500"
-                >
-                  <title>{`${a.name} · ${a.book_count} ${a.book_count === 1 ? 'book' : 'books'}`}</title>
-                  {a.name}
-                </text>
-              </Link>
-            ))}
-          </svg>
+          {cloud.length > 0 && (
+            <div className="space-y-1">
+              <div className="text-[11px] uppercase tracking-wide text-neutral-500">Tags · {cloud.length}</div>
+              <svg viewBox={`0 0 ${CLOUD_W} ${CLOUD_H}`} className="w-full h-auto" preserveAspectRatio="xMidYMid meet">
+                {cloud.map(t => (
+                  <Link
+                    key={t.id}
+                    to={`/browse/tag/${encodeURIComponent(t.name)}`}
+                    state={FROM_DV}
+                  >
+                    <text
+                      x={t.x}
+                      y={t.y}
+                      fontSize={t.fontSize}
+                      fill={t.color}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      transform={t.rotate ? `rotate(${t.rotate} ${t.x} ${t.y})` : undefined}
+                      className="cursor-pointer transition-opacity hover:opacity-70"
+                      fontWeight="500"
+                    >
+                      <title>{`${t.name} · ${t.book_count} ${t.book_count === 1 ? 'book' : 'books'}`}</title>
+                      {t.name}
+                    </text>
+                  </Link>
+                ))}
+              </svg>
+            </div>
+          )}
+          {authorCloud.length > 0 && (
+            <div className="space-y-1">
+              <div className="text-[11px] uppercase tracking-wide text-neutral-500">Authors · top {authorCloud.length} of {authors.length}</div>
+              <svg viewBox={`0 0 ${CLOUD_W} ${CLOUD_H}`} className="w-full h-auto" preserveAspectRatio="xMidYMid meet">
+                {authorCloud.map(a => (
+                  <Link
+                    key={a.id}
+                    to={`/browse/author/${encodeURIComponent(a.name)}`}
+                    state={FROM_DV}
+                  >
+                    <text
+                      x={a.x}
+                      y={a.y}
+                      fontSize={a.fontSize}
+                      fill={a.color}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      transform={a.rotate ? `rotate(${a.rotate} ${a.x} ${a.y})` : undefined}
+                      className="cursor-pointer transition-opacity hover:opacity-70"
+                      fontWeight="500"
+                    >
+                      <title>{`${a.name} · ${a.book_count} ${a.book_count === 1 ? 'book' : 'books'}`}</title>
+                      {a.name}
+                    </text>
+                  </Link>
+                ))}
+              </svg>
+            </div>
+          )}
         </section>
       )}
 
