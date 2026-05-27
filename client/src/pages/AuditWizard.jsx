@@ -591,6 +591,11 @@ export default function AuditWizard() {
   // to "{title} {first-author surname}" on every card; user can edit
   // and re-search if the auto-query missed.
   const [coverQuery, setCoverQuery] = useState('');
+  // Candidate indices whose <img> 404'd or failed to decode. Tiles for
+  // those indices are dropped from the rendered grid so OL placeholder
+  // results (we pass `?default=false` so missing photos 404 cleanly)
+  // and broken thumbnails don't take up space.
+  const [failedThumbs, setFailedThumbs] = useState(() => new Set());
   const inputRef = useRef(null);
   const saveGuard = useActionGuard();
 
@@ -648,6 +653,7 @@ export default function AuditWizard() {
     setCoverQuery(initial);
     setCandidates([]);
     setCandidatesError(null);
+    setFailedThumbs(new Set());
     inputRef.current?.focus();
     if (!initial.trim()) return;
     setCandidatesLoading(true);
@@ -670,6 +676,7 @@ export default function AuditWizard() {
     setCandidatesLoading(true);
     setCandidatesError(null);
     setCandidates([]);
+    setFailedThumbs(new Set());
     try {
       const results = await cfg.searchCandidates(coverQuery);
       setCandidates(results || []);
@@ -1083,23 +1090,40 @@ export default function AuditWizard() {
                 <p className="text-xs text-neutral-500">No cover candidates. Try refining the query or skip.</p>
               )}
 
-              {candidates.length > 0 && (
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                  {candidates.map((c, i) => (
-                    <button
-                      key={`${c.source_url}-${i}`}
-                      type="button"
-                      onClick={() => pickCover(c)}
-                      disabled={saveGuard.busy}
-                      aria-label={`Use image: ${c.label || 'unlabeled candidate'}`}
-                      title={c.label || ''}
-                      className={`bg-neutral-800 rounded overflow-hidden ring-1 ring-transparent hover:ring-oak transition-all disabled:opacity-40 disabled:cursor-wait ${cfg.kind === 'author' ? 'aspect-square' : 'aspect-[2/3]'}`}
-                    >
-                      <img src={c.thumbnail_url} alt="" className="w-full h-full object-cover" />
-                    </button>
-                  ))}
-                </div>
-              )}
+              {candidates.length > 0 && (() => {
+                const visible = candidates
+                  .map((c, i) => ({ c, i }))
+                  .filter(({ i }) => !failedThumbs.has(i));
+                if (visible.length === 0) {
+                  return <p className="text-xs text-neutral-500">No real images returned. Try refining the query or skip.</p>;
+                }
+                return (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                    {visible.map(({ c, i }) => (
+                      <button
+                        key={`${c.source_url}-${i}`}
+                        type="button"
+                        onClick={() => pickCover(c)}
+                        disabled={saveGuard.busy}
+                        aria-label={`Use image: ${c.label || 'unlabeled candidate'}`}
+                        title={c.label || ''}
+                        className={`bg-neutral-800 rounded overflow-hidden ring-1 ring-transparent hover:ring-oak transition-all disabled:opacity-40 disabled:cursor-wait ${cfg.kind === 'author' ? 'aspect-square' : 'aspect-[2/3]'}`}
+                      >
+                        <img
+                          src={c.thumbnail_url}
+                          alt=""
+                          onError={() => setFailedThumbs(prev => {
+                            const next = new Set(prev);
+                            next.add(i);
+                            return next;
+                          })}
+                          className="w-full h-full object-cover"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
 
               {/* Skip — equal-weight with the candidate clicks, same
                   framing as the enum-mode wizard. */}

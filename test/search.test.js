@@ -146,7 +146,7 @@ describe('search', () => {
       assert.deepEqual(r.authors, ['Jane Doe', 'John Roe']);
       assert.equal(r.publisher, 'Acme Press');
       assert.equal(r.page_count, 320);
-      assert.equal(r.cover_url, 'https://covers.openlibrary.org/b/id/9876-M.jpg');
+      assert.equal(r.cover_url, 'https://covers.openlibrary.org/b/id/9876-M.jpg?default=false');
       assert.equal(r.isbn_10, '1234567890');
       assert.equal(r.isbn_13, '9781234567897');
     } finally {

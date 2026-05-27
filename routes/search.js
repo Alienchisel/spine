@@ -58,7 +58,7 @@ router.get('/', async (req, res) => {
         authors: doc.author_name?.slice(0, 5) || [],
         publisher: doc.publisher?.[0] || null,
         page_count: doc.number_of_pages_median || null,
-        cover_url: doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg` : null,
+        cover_url: doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg?default=false` : null,
         isbn_10: isbns.find(i => i.length === 10) || null,
         isbn_13: isbns.find(i => i.length === 13) || null,
       };
