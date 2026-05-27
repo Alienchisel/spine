@@ -60,6 +60,11 @@ export default function AuditWizard() {
   const [filled, setFilled]   = useState(0);
   const [skipped, setSkipped] = useState(0);
   const [error, setError]     = useState(null);
+  // Single-step undo: the position + action of the most recent
+  // fill/skip. Cleared after use; we don't keep a stack because the
+  // card-deck flow is forward-driven and a multi-step undo would
+  // mostly invite cascading regret-clicks.
+  const [lastAction, setLastAction] = useState(null);
   const saveGuard = useActionGuard();
 
   useEffect(() => {
@@ -71,6 +76,7 @@ export default function AuditWizard() {
       setIdx(0);
       setFilled(0);
       setSkipped(0);
+      setLastAction(null);
     }).catch(() => {
       if (cancelled) return;
       setError('Failed to load books for the wizard.');
@@ -89,9 +95,11 @@ export default function AuditWizard() {
     if (!current) return;
     if (!saveGuard.begin()) return;
     setError(null);
+    const actionIdx = idx;
     try {
       await api.patchBook(current.id, { [cfg.field]: value });
       setFilled(n => n + 1);
+      setLastAction({ index: actionIdx, type: 'fill' });
       advance();
     } catch {
       setError('Failed to save — try again or skip.');
@@ -103,23 +111,53 @@ export default function AuditWizard() {
   function skip() {
     if (saveGuard.busy) return;
     setSkipped(n => n + 1);
+    setLastAction({ index: idx, type: 'skip' });
     advance();
   }
 
+  // Single-step undo. Fills revert via a PATCH that clears the field
+  // (empty string → server's existing patchBook treats as null); skips
+  // are local-only so we just decrement the counter. Either way, idx
+  // rewinds to the previous card so the user can re-decide.
+  async function undo() {
+    if (!lastAction || saveGuard.busy) return;
+    const { index, type } = lastAction;
+    if (type === 'fill') {
+      if (!saveGuard.begin()) return;
+      setError(null);
+      try {
+        const targetBook = pool[index];
+        await api.patchBook(targetBook.id, { [cfg.field]: cfg.clearValue ?? '' });
+        setFilled(n => n - 1);
+      } catch {
+        setError('Failed to undo — try again.');
+        saveGuard.end();
+        return;
+      }
+      saveGuard.end();
+    } else {
+      setSkipped(n => n - 1);
+    }
+    setIdx(index);
+    setLastAction(null);
+    setError(null);
+  }
+
   // Keyboard shortcuts for throughput: 1..N pick the matching option,
-  // S or → skip. Number range capped to the actual options length so
-  // a stray 4-key press doesn't fire something undefined.
+  // S to skip, U to undo. Number range capped to the actual options
+  // length so a stray 4-key press doesn't fire something undefined.
   useEffect(() => {
-    if (!cfg || !current) return undefined;
+    if (!cfg) return undefined;
     function onKey(e) {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
       const n = parseInt(e.key, 10);
-      if (!Number.isNaN(n) && n >= 1 && n <= cfg.options.length) {
+      if (!Number.isNaN(n) && n >= 1 && n <= cfg.options.length && current) {
         e.preventDefault();
         pick(cfg.options[n - 1].value);
         return;
       }
-      if (e.key.toLowerCase() === 's') { e.preventDefault(); skip(); }
+      if (e.key.toLowerCase() === 's' && current) { e.preventDefault(); skip(); return; }
+      if (e.key.toLowerCase() === 'u' && lastAction) { e.preventDefault(); undo(); }
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -156,10 +194,23 @@ export default function AuditWizard() {
       </p>
 
       {/* Progress strip — always visible so the user can pace themselves
-          and notice their own skip ratio. */}
+          and notice their own skip ratio. Undo lives here, anchored to
+          the counters that change. Hidden until there's an action to
+          undo so it doesn't look like a stray control. */}
       <div className="flex items-center gap-6 text-xs text-neutral-500 tabular-nums border-y border-neutral-800 py-2">
         <span><span className="text-parchment">{filled}</span> filled</span>
         <span><span className="text-neutral-400">{skipped}</span> skipped</span>
+        {lastAction && (
+          <button
+            type="button"
+            onClick={undo}
+            disabled={saveGuard.busy}
+            className="text-neutral-500 hover:text-parchment disabled:opacity-40 transition-colors"
+            aria-label={`Undo last ${lastAction.type}`}
+          >
+            ← Undo
+          </button>
+        )}
         <span className="ml-auto"><span className="text-neutral-400">{Math.max(0, total - idx)}</span> remaining</span>
       </div>
 
@@ -239,7 +290,7 @@ export default function AuditWizard() {
           </div>
 
           <p className="text-[10px] text-neutral-600 text-center">
-            Keyboard: {cfg.options.map((_, i) => i + 1).join(' / ')} to choose, S to skip
+            Keyboard: {cfg.options.map((_, i) => i + 1).join(' / ')} to choose, S to skip, U to undo
           </p>
         </>
       )}
