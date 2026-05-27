@@ -113,6 +113,32 @@ const WIZARDS = {
     ],
     clearValue: '',
   },
+  rating: {
+    title: 'Set rating',
+    audit: 'Finished books have rating',
+    field: 'rating',
+    kind:  'book',
+    fetch: () => api.getBooks({ tab: 'finished', missing: 'rating', limit: 200, sort: 'random' }).then(r => r.books ?? []),
+    patch: (id, value) => api.patchBook(id, { rating: value }),
+    getName: r => r.title,
+    getLink: r => `/books/${r.id}`,
+    // 10-step scale (0.5 → 5 in 0.5 increments). Labels mirror the
+    // existing rating-pill rendering in FilterPanel (floor stars +
+    // optional half), so a 4½★ here matches the chip elsewhere.
+    options: [
+      { value: 0.5, label: '½'      },
+      { value: 1,   label: '★'      },
+      { value: 1.5, label: '★½'     },
+      { value: 2,   label: '★★'     },
+      { value: 2.5, label: '★★½'    },
+      { value: 3,   label: '★★★'    },
+      { value: 3.5, label: '★★★½'   },
+      { value: 4,   label: '★★★★'   },
+      { value: 4.5, label: '★★★★½'  },
+      { value: 5,   label: '★★★★★'  },
+    ],
+    clearValue: null,
+  },
   acquisition_source: {
     title: 'Set acquisition source',
     audit: 'Owned books have acquisition source',

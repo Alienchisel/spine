@@ -432,6 +432,17 @@ router.patch('/:id', (req, res) => {
       return res.status(400).json({ error: 'Invalid condition' });
     }
   }
+  // Rating: 0.5–5 in 0.5-step increments, or null/empty to clear.
+  // The DB has a CHECK constraint matching the same shape (see
+  // migration 053); validating here gives a friendlier error and
+  // matches the half-stars-everywhere convention in feedback memory.
+  if (req.body.rating !== undefined && req.body.rating !== null && req.body.rating !== '') {
+    const r = Number(req.body.rating);
+    if (Number.isNaN(r) || r < 0.5 || r > 5 || (r * 2) % 1 !== 0) {
+      return res.status(400).json({ error: 'Invalid rating' });
+    }
+    req.body.rating = r;
+  }
   const book = patchBook(id, req.body);
   if (!book) return res.status(404).json({ error: 'Not found' });
   res.json(book);
