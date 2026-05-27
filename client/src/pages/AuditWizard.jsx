@@ -293,12 +293,15 @@ export default function AuditWizard() {
 
   // Keyboard shortcuts for throughput: 1..N pick the matching option,
   // S to skip, U to undo. Number range capped to the actual options
-  // length so a stray 4-key press doesn't fire something undefined.
+  // length so a stray key press doesn't fire something undefined.
+  // When a wizard has 10 options (rating), `0` maps to the 10th —
+  // 1..9 then 0 is the natural number-row layout.
   useEffect(() => {
     if (!cfg) return undefined;
     function onKey(e) {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-      const n = parseInt(e.key, 10);
+      const raw = parseInt(e.key, 10);
+      const n = (raw === 0 && cfg.options.length === 10) ? 10 : raw;
       if (!Number.isNaN(n) && n >= 1 && n <= cfg.options.length && current) {
         e.preventDefault();
         pick(cfg.options[n - 1].value);
@@ -451,7 +454,7 @@ export default function AuditWizard() {
                 className="px-4 py-3 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-wait text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
               >
                 <span>{opt.label}</span>
-                <span className="text-[10px] text-neutral-500">{i + 1}</span>
+                <span className="text-[10px] text-neutral-500">{i === 9 && cfg.options.length === 10 ? '0' : i + 1}</span>
               </button>
             ))}
             <button
@@ -467,7 +470,7 @@ export default function AuditWizard() {
           </div>
 
           <p className="text-[10px] text-neutral-600 text-center">
-            Keyboard: {cfg.options.map((_, i) => i + 1).join(' / ')} to choose, S to skip, U to undo
+            Keyboard: {cfg.options.map((_, i) => i === 9 && cfg.options.length === 10 ? '0' : i + 1).join(' / ')} to choose, S to skip, U to undo
           </p>
         </>
       )}
