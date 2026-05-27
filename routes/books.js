@@ -443,6 +443,19 @@ router.patch('/:id', (req, res) => {
     }
     req.body.rating = r;
   }
+  // ISBN columns share validateBook's regex shape so a PATCH writes
+  // exactly what a full PUT would. Caller picks the right column based
+  // on length (the wizard does this client-side). Hyphens / spaces are
+  // accepted on input and stripped before length-checking, since
+  // ISBN-10s are conventionally typed as "0-471-12345-X" etc.
+  for (const col of ['isbn_10', 'isbn_13']) {
+    if (req.body[col] !== undefined && req.body[col] !== null && req.body[col] !== '') {
+      const stripped = String(req.body[col]).replace(/[-\s]/g, '');
+      const ok = col === 'isbn_10' ? /^\d{9}[\dX]$/.test(stripped) : /^\d{13}$/.test(stripped);
+      if (!ok) return res.status(400).json({ error: `Invalid ${col.replace('_', '-').toUpperCase()}` });
+      req.body[col] = stripped;
+    }
+  }
   const book = patchBook(id, req.body);
   if (!book) return res.status(404).json({ error: 'Not found' });
   res.json(book);

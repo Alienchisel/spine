@@ -196,6 +196,32 @@ const WIZARDS = {
     getLink: r => `/books/${r.id}`,
     clearValue: '',
   },
+  isbn: {
+    title: 'Set ISBN',
+    audit: 'Printed books have ISBN',
+    field: 'isbn',
+    kind:  'book',
+    mode:  'text',
+    placeholder: 'ISBN-10 or ISBN-13 (hyphens/spaces OK)',
+    fetch: () => api.getBooks({ missing: 'isbn', limit: 200, sort: 'random' }).then(r => r.books ?? []),
+    // Single-string input routes to isbn_10 or isbn_13 by length. The
+    // server's PATCH route validates the format and writes only the
+    // matching column, but we still null the other so a previously-
+    // wrong-format entry gets cleared on save. Empty value clears
+    // both columns (undo path).
+    patch: (id, value) => {
+      if (value == null || value === '') {
+        return api.patchBook(id, { isbn_10: null, isbn_13: null });
+      }
+      const stripped = String(value).replace(/[-\s]/g, '');
+      if (stripped.length === 13) return api.patchBook(id, { isbn_13: stripped, isbn_10: null });
+      if (stripped.length === 10) return api.patchBook(id, { isbn_10: stripped, isbn_13: null });
+      return Promise.reject(new Error('ISBN must be 10 or 13 digits'));
+    },
+    getName: r => r.title,
+    getLink: r => `/books/${r.id}`,
+    clearValue: '',
+  },
   author_bio: {
     title: 'Set author bio',
     audit: 'Authors have bio',
