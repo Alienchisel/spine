@@ -46,13 +46,15 @@ import ErrorBanner from '../components/ErrorBanner.jsx';
 //   options     — enum-mode only. Left-to-right buttons. The first
 //                 option's count historically dominates, so order matters.
 //   fields      — text-mode only. Array of input descriptors, each:
-//                 { name, label?, placeholder?, multiline? }. The name
-//                 is the API payload key; the patch function decides
-//                 what to do with the assembled { name: value, ... }
-//                 object. Multi-field wizards (e.g. author_dates) get
-//                 one input per entry; single-field wizards just have
-//                 one. Multiline saves on Cmd/Ctrl+Enter so plain Enter
-//                 still inserts newlines.
+//                 { name, label?, placeholder?, multiline?, type?,
+//                   min?, max?, step? }. The name is the API payload
+//                 key; the patch function decides what to do with the
+//                 assembled { name: value, ... } object. Multi-field
+//                 wizards (e.g. author_dates) get one input per entry.
+//                 Multiline saves on Cmd/Ctrl+Enter so plain Enter
+//                 still inserts newlines. type='number' renders an
+//                 HTML5 number input with the given min/max/step;
+//                 step='0.5' supports series_number's half-steps.
 //   clearValue  — enum-mode only. Value sent back via PATCH to undo a
 //                 fill. For nullable booleans this must be `null`; for
 //                 text enums like binding it can be `''`. Text-mode
@@ -257,6 +259,74 @@ const WIZARDS = {
     mode:  'text',
     fields: [{ name: 'date_started', placeholder: 'YYYY or YYYY-MM-DD' }],
     fetch: () => api.getBooks({ tab: 'reading', missing: 'date_started', limit: 200, sort: 'random' }).then(r => r.books ?? []),
+    patch: (id, values) => api.patchBook(id, values),
+    getName: r => r.title,
+    getLink: r => `/books/${r.id}`,
+  },
+  year_published: {
+    title: 'Set year published',
+    audit: 'Owned books have year published',
+    field: 'year_published',
+    kind:  'book',
+    mode:  'text',
+    // step=1 keeps the up/down spinners honest; min isn't set because
+    // pre-modern works carry negative years (BCE) and the server's
+    // validation just rejects 0. Same shape applies to year_edition.
+    fields: [{ name: 'year_published', type: 'number', step: 1, placeholder: 'YYYY (negative for BCE)' }],
+    fetch: () => api.getBooks({ tab: 'owned', missing: 'year', limit: 200, sort: 'random' }).then(r => r.books ?? []),
+    patch: (id, values) => api.patchBook(id, values),
+    getName: r => r.title,
+    getLink: r => `/books/${r.id}`,
+  },
+  year_edition: {
+    title: 'Set year edition',
+    audit: 'Owned physical books have year_edition',
+    field: 'year_edition',
+    kind:  'book',
+    mode:  'text',
+    fields: [{ name: 'year_edition', type: 'number', step: 1, placeholder: 'Printing year (not edition number)' }],
+    fetch: () => api.getBooks({ tab: 'owned', formats: 'physical', missing: 'year_edition', limit: 200, sort: 'random' }).then(r => r.books ?? []),
+    patch: (id, values) => api.patchBook(id, values),
+    getName: r => r.title,
+    getLink: r => `/books/${r.id}`,
+  },
+  page_count: {
+    title: 'Set page count',
+    audit: 'Audiobooks have page count (cross-format)',
+    field: 'page_count',
+    kind:  'book',
+    mode:  'text',
+    fields: [{ name: 'page_count', type: 'number', min: 1, step: 1, placeholder: 'Print-equivalent page count' }],
+    fetch: () => api.getBooks({ formats: 'audiobook', missing: 'page_count', limit: 200, sort: 'random' }).then(r => r.books ?? []),
+    patch: (id, values) => api.patchBook(id, values),
+    getName: r => r.title,
+    getLink: r => `/books/${r.id}`,
+  },
+  duration: {
+    title: 'Set duration',
+    audit: 'Audiobooks have duration',
+    field: 'duration_minutes',
+    kind:  'book',
+    mode:  'text',
+    fields: [{ name: 'duration_minutes', type: 'number', min: 1, step: 1, placeholder: 'Minutes (e.g. 480 for 8h)' }],
+    fetch: () => api.getBooks({ formats: 'audiobook', missing: 'duration', limit: 200, sort: 'random' }).then(r => r.books ?? []),
+    patch: (id, values) => api.patchBook(id, values),
+    getName: r => r.title,
+    getLink: r => `/books/${r.id}`,
+  },
+  series_number: {
+    title: 'Set series number',
+    audit: 'Series-tagged books have series number',
+    field: 'series_number',
+    kind:  'book',
+    mode:  'text',
+    // step=0.5 enforces the half-volume convention from memory
+    // (feedback_series_number_step): 1, 1.5, 2 are accepted; 1.1 / 1.7
+    // are not. Browser blocks invalid steps in the spinner UI; pasted
+    // values get past it, but the server validation in routes/books.js
+    // still rejects non-numeric.
+    fields: [{ name: 'series_number', type: 'number', min: 0.5, step: 0.5, placeholder: 'e.g. 1, 1.5, 2' }],
+    fetch: () => api.getBooks({ missing: 'series_number', limit: 200, sort: 'random' }).then(r => r.books ?? []),
     patch: (id, values) => api.patchBook(id, values),
     getName: r => r.title,
     getLink: r => `/books/${r.id}`,
@@ -684,9 +754,12 @@ export default function AuditWizard() {
                       ) : (
                         <input
                           {...common}
-                          type="text"
+                          type={f.type ?? 'text'}
+                          min={f.min}
+                          max={f.max}
+                          step={f.step}
                           onKeyDown={e => { if (e.key === 'Escape') { e.preventDefault(); skip(); } }}
-                          className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50 disabled:opacity-40"
+                          className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50 disabled:opacity-40 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
                       )}
                     </div>

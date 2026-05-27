@@ -467,6 +467,35 @@ router.patch('/:id', (req, res) => {
       req.body[col] = trimmed;
     }
   }
+  // Number fields. Validation mirrors validateBook (PUT path) so PATCH
+  // can't sneak in shapes a PUT would reject. year_* allow negatives
+  // (BCE) but reject 0 (no year zero in BC/AD convention). page_count
+  // / duration_minutes must be positive integers. series_number is
+  // numeric (BookForm UI restricts to 0.5 steps, but the column
+  // accepts any number — wizard does the same).
+  for (const col of ['year_published', 'year_edition']) {
+    if (req.body[col] !== undefined && req.body[col] !== null && req.body[col] !== '') {
+      const n = Number(req.body[col]);
+      if (!Number.isInteger(n) || n === 0) {
+        return res.status(400).json({ error: `Invalid ${col} — must be a non-zero integer (negatives are BCE)` });
+      }
+      req.body[col] = n;
+    }
+  }
+  for (const col of ['page_count', 'duration_minutes']) {
+    if (req.body[col] !== undefined && req.body[col] !== null && req.body[col] !== '') {
+      const n = Number(req.body[col]);
+      if (!Number.isInteger(n) || n < 1) {
+        return res.status(400).json({ error: `Invalid ${col} — must be a positive integer` });
+      }
+      req.body[col] = n;
+    }
+  }
+  if (req.body.series_number !== undefined && req.body.series_number !== null && req.body.series_number !== '') {
+    const n = Number(req.body.series_number);
+    if (Number.isNaN(n)) return res.status(400).json({ error: 'Invalid series_number' });
+    req.body.series_number = n;
+  }
   const book = patchBook(id, req.body);
   if (!book) return res.status(404).json({ error: 'Not found' });
   res.json(book);
