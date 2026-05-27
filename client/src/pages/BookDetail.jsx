@@ -712,47 +712,55 @@ export default function BookDetail() {
             );
           })()}
 
-          <div className="flex flex-wrap items-center gap-2 mb-6">
-            <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_COLOR[book.status]}`}>
-              {STATUS_LABEL[book.status]}
-            </span>
-            {/* When this edition is unread but a sibling edition is finished,
-                hint at the cross-edition history. Keeps the status pill honest
-                (this *copy* really is unread) while making the page reflect
-                that the user knows the work. */}
-            {book.status === 'unread' && (() => {
-              const sib = book.editions?.find(e => e.status === 'finished');
-              if (!sib) return null;
-              const sameFormat = sib.format === book.format;
-              const formatText = sameFormat
-                ? 'another edition'
-                : (FORMAT_LABEL_LC[sib.format] ?? sib.format);
-              return (
-                <Link
-                  to={`/books/${sib.id}`}
-                  state={bookFromState}
-                  className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
-                >
-                  · read in {formatText} ↗
-                </Link>
-              );
-            })()}
-            {Boolean(book.owned) && (
-              <span className="text-xs font-medium px-2.5 py-1 rounded-full text-parchment bg-binding/60">
-                Owned
-              </span>
-            )}
-            {!book.owned && Boolean(book.previously_owned) && (
-              <span className="text-xs font-medium px-2.5 py-1 rounded-full text-neutral-400 bg-neutral-800">
-                Previously owned
-              </span>
-            )}
-            {Boolean(book.is_custom) && (
-              <span className="text-xs font-medium px-2.5 py-1 rounded-full text-leather bg-neutral-800">
-                ✦ Custom
-              </span>
-            )}
-          </div>
+          {/* When this edition is unread but a sibling edition is finished,
+              hint at the cross-edition history on its own line below the
+              pill row. Keeps the status pill honest (this *copy* really is
+              unread) while making the page reflect that the user knows
+              the work. */}
+          {(() => {
+            const siblingRead = book.status === 'unread'
+              ? book.editions?.find(e => e.status === 'finished')
+              : null;
+            const sameFormat = siblingRead && siblingRead.format === book.format;
+            const formatText = !siblingRead ? null
+              : sameFormat ? 'another edition'
+              : (FORMAT_LABEL_LC[siblingRead.format] ?? siblingRead.format);
+            return (
+              <>
+                <div className={`flex flex-wrap items-center gap-2 ${siblingRead ? 'mb-1.5' : 'mb-6'}`}>
+                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_COLOR[book.status]}`}>
+                    {STATUS_LABEL[book.status]}
+                  </span>
+                  {Boolean(book.owned) && (
+                    <span className="text-xs font-medium px-2.5 py-1 rounded-full text-parchment bg-binding/60">
+                      Owned
+                    </span>
+                  )}
+                  {!book.owned && Boolean(book.previously_owned) && (
+                    <span className="text-xs font-medium px-2.5 py-1 rounded-full text-neutral-400 bg-neutral-800">
+                      Previously owned
+                    </span>
+                  )}
+                  {Boolean(book.is_custom) && (
+                    <span className="text-xs font-medium px-2.5 py-1 rounded-full text-leather bg-neutral-800">
+                      ✦ Custom
+                    </span>
+                  )}
+                </div>
+                {siblingRead && (
+                  <p className="text-xs text-neutral-500 mb-6">
+                    <Link
+                      to={`/books/${siblingRead.id}`}
+                      state={bookFromState}
+                      className="hover:text-neutral-300 transition-colors"
+                    >
+                      Read in {formatText} ↗
+                    </Link>
+                  </p>
+                )}
+              </>
+            );
+          })()}
 
           {book.status === 'reading' && (
             <ProgressSection book={book} log={log} onChange={(updated) => {
