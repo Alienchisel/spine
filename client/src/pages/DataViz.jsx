@@ -778,31 +778,88 @@ function SpectrumPanel({ bins, panelMin, panelMax, tickStep, showLegend }) {
 // size being the encoding. Achieved by interpolating font-size in
 // sqrt-space between a readable floor and a noticeable ceiling.
 //
-// Why "tag cloud" at all: size-as-magnitude is famously imprecise for
-// comparing non-adjacent values (Tufte's eraser test on a stock cloud
-// asks what the non-data ink earns). We mitigate by sorting tags by
-// count desc (position carries weak ordinal signal alongside size),
-// exposing the exact count on hover, and linking each word to its
-// browse page — so the cloud is the macro overview and precise counts
-// are one hover or click away.
+// Words are spiral-packed from the center outward, sorted by count desc
+// so the heaviest tags land in the eye-catching middle and lighter tags
+// fill the surround. Most words sit horizontal; a deterministic minority
+// rotate 90° to mimic the irregular packing of a true word cloud. Color
+// varies per tag (deterministic by id) within a restrained palette.
+//
+// Trade-offs: size-as-magnitude remains imprecise for comparing
+// non-adjacent values (Tufte's eraser test on a stock cloud asks what
+// each non-data pixel earns). We accept the trade-off for visual
+// texture and expose exact counts on hover; the Tags index page carries
+// the precise sorted table for analytical reading.
 const CLOUD_MIN_PX = 12;
 const CLOUD_MAX_PX = 56;
+const CLOUD_W = 800;
+const CLOUD_H = 480;
+const CLOUD_GAP = 5;
+// Restrained palette of warm + cool accents chosen to stay within Spine's
+// bookish range. Tag id mod palette length picks the color; small primes
+// (× 17) decorrelate from id ordering so adjacent ids don't share hues.
+const CLOUD_PALETTE = ['#d4a574', '#b8896a', '#8a5d37', '#a3a3a3', '#6b7d8a', '#7d6b8a'];
+
 function buildTagCloud(tags) {
   if (!tags?.length) return [];
   const sorted = [...tags].sort((a, b) => b.book_count - a.book_count);
   const minCount = sorted[sorted.length - 1].book_count;
   const maxCount = sorted[0].book_count;
-  // Edge case: a single tag or all-equal counts — fall back to max size
-  // so the cloud doesn't collapse to a hairline.
-  if (minCount === maxCount) {
-    return sorted.map(t => ({ ...t, fontSize: CLOUD_MAX_PX }));
-  }
   const sqrtMin = Math.sqrt(minCount);
   const sqrtMax = Math.sqrt(maxCount);
-  return sorted.map(t => {
+  const fontSize = t => {
+    if (minCount === maxCount) return CLOUD_MAX_PX;
     const f = (Math.sqrt(t.book_count) - sqrtMin) / (sqrtMax - sqrtMin);
-    return { ...t, fontSize: Math.round(CLOUD_MIN_PX + f * (CLOUD_MAX_PX - CLOUD_MIN_PX)) };
-  });
+    return Math.round(CLOUD_MIN_PX + f * (CLOUD_MAX_PX - CLOUD_MIN_PX));
+  };
+
+  // Spiral-pack each word: try the center first, then walk outward along
+  // an Archimedean spiral checking AABB collision against placed words.
+  // Words placed first (heaviest) get prime real estate; smaller words
+  // fill gaps. Conservative width estimate (0.55 × fontSize × len) keeps
+  // adjacent words from kerning into each other.
+  const cx = CLOUD_W / 2;
+  const cy = CLOUD_H / 2;
+  const placed = [];
+  for (const t of sorted) {
+    const fs = fontSize(t);
+    // ~16% of words rotate 90°. Deterministic-by-id so the layout is
+    // stable across re-renders. Larger tags (top 4) always horizontal so
+    // the centerpiece reads cleanly.
+    const isLarge = sorted.indexOf(t) < 4;
+    const rotate = !isLarge && (t.id * 17) % 6 === 0 ? 90 : 0;
+    const baseW = t.name.length * fs * 0.55 + CLOUD_GAP * 2;
+    const baseH = fs * 1.1 + CLOUD_GAP * 2;
+    const boxW = rotate === 90 ? baseH : baseW;
+    const boxH = rotate === 90 ? baseW : baseH;
+    const colorIdx = (t.id * 17) % CLOUD_PALETTE.length;
+    const color = CLOUD_PALETTE[colorIdx];
+
+    let spot = null;
+    const MAX_ITERS = 2000;
+    for (let i = 0; i < MAX_ITERS; i++) {
+      // Archimedean spiral. step controls density; tuned so 56 tags pack
+      // within an 800×480 viewport without huge gaps.
+      const theta = 0.35 * Math.sqrt(i) * Math.PI * 2;
+      const r = 5 * Math.sqrt(i);
+      const x = cx + r * Math.cos(theta);
+      const y = cy + r * Math.sin(theta);
+      const x1 = x - boxW / 2, y1 = y - boxH / 2;
+      const x2 = x + boxW / 2, y2 = y + boxH / 2;
+      if (x1 < 0 || y1 < 0 || x2 > CLOUD_W || y2 > CLOUD_H) continue;
+      let collides = false;
+      for (const p of placed) {
+        if (x1 < p.x2 && x2 > p.x1 && y1 < p.y2 && y2 > p.y1) { collides = true; break; }
+      }
+      if (!collides) { spot = { x, y, x1, y1, x2, y2 }; break; }
+    }
+    if (spot) {
+      placed.push({ ...t, fontSize: fs, rotate, color, ...spot });
+    }
+    // else: skip — couldn't find a non-colliding spot within MAX_ITERS.
+    // The skipped word is, by construction, one of the smallest (largest
+    // were placed early when the canvas was empty).
+  }
+  return placed;
 }
 
 export default function DataViz() {
@@ -988,22 +1045,32 @@ export default function DataViz() {
       {cloud.length > 0 && (
         <section className="space-y-4">
           <p className="text-sm text-neutral-500">
-            <span className="text-neutral-300 font-semibold">Experiment #7 — Tag cloud</span>, {cloud.length} tags ({cloud[cloud.length - 1].book_count}–{cloud[0].book_count} books). Font area (size²) scales linearly with book_count via sqrt-space interpolation, so a doubled count gives double visual area — lie factor ≈ 1, unlike the naive linear-font-size cloud that would inflate by 4×. Tags sorted by count descending so position carries weak ordinal signal alongside the size encoding. Size is still imprecise for comparing non-adjacent words (the inherent tag-cloud trade-off) — hover any word for the exact count, or jump to the Tags index for the precise ranked table.
+            <span className="text-neutral-300 font-semibold">Experiment #7 — Tag cloud</span>, {cloud.length} tags. Font area (size²) scales linearly with book_count via sqrt-space interpolation, so a doubled count gives double visual area — lie factor ≈ 1. Words spiral-pack from the center outward, heaviest first, with a deterministic minority rotated 90° for cloud texture. Size is imprecise for comparing non-adjacent words (the inherent tag-cloud trade-off) — hover for the exact count, click to browse, or jump to the Tags index for the precise ranked table.
           </p>
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-2 leading-tight">
+          <svg viewBox={`0 0 ${CLOUD_W} ${CLOUD_H}`} className="w-full h-auto" preserveAspectRatio="xMidYMid meet">
             {cloud.map(t => (
               <Link
                 key={t.id}
                 to={`/browse/tag/${encodeURIComponent(t.name)}`}
                 state={FROM_DV}
-                className="text-parchment hover:text-oak transition-colors"
-                style={{ fontSize: `${t.fontSize}px` }}
-                title={`${t.name} · ${t.book_count} ${t.book_count === 1 ? 'book' : 'books'}`}
               >
-                {t.name}
+                <text
+                  x={t.x}
+                  y={t.y}
+                  fontSize={t.fontSize}
+                  fill={t.color}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  transform={t.rotate ? `rotate(${t.rotate} ${t.x} ${t.y})` : undefined}
+                  className="cursor-pointer transition-opacity hover:opacity-70"
+                  fontWeight="500"
+                >
+                  <title>{`${t.name} · ${t.book_count} ${t.book_count === 1 ? 'book' : 'books'}`}</title>
+                  {t.name}
+                </text>
               </Link>
             ))}
-          </div>
+          </svg>
         </section>
       )}
 
