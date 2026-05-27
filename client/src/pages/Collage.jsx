@@ -166,7 +166,7 @@ export default function Collage() {
     if (!exportGuard.begin()) return;
     setError(null);
     try {
-      // Custom fonts (font-display) might not be ready at first paint;
+      // Custom fonts (font-slab) might not be ready at first paint;
       // html2canvas would otherwise capture the fallback metric. Wait
       // for the font registry to settle before snapshotting.
       if (document.fonts?.ready) await document.fonts.ready;
@@ -414,7 +414,7 @@ function Tile({ tile, linkState, showName }) {
         // line carries the meaning so "AS" isn't a mystery without a
         // hover. Cap at 3 lines of name for very long titles.
         <div className="w-full h-full bg-gradient-to-br from-neutral-800 to-neutral-900 flex flex-col items-center justify-center p-3 gap-2">
-          <span className="text-3xl font-display text-neutral-500 leading-none tracking-wide">
+          <span className="text-3xl font-slab text-neutral-500 leading-none tracking-wide">
             {initialsFor(tile.label)}
           </span>
           <span className="text-xs text-neutral-500 font-medium leading-tight line-clamp-3 text-center">{tile.label}</span>

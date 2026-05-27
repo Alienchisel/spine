@@ -139,7 +139,7 @@ export default function AuthorsIndex() {
     <div className="max-w-5xl">
       <IncomingBackLink />
       <header className="mb-6">
-        <h1 className="text-2xl font-display text-parchment uppercase tracking-wider">Authors</h1>
+        <h1 className="text-2xl font-slab text-parchment uppercase tracking-wider">Authors</h1>
         {!loading && !error && (
           <p className="text-xs text-neutral-600 mt-2">
             {counts.total} authors · {counts.withBio} with bios · {counts.withPhoto} with portraits · {counts.withDates} with dates · {counts.withGender} with gender

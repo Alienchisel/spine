@@ -349,7 +349,7 @@ export default function Author() {
                 className="w-full h-full object-cover bg-neutral-800"
               />
             ) : (
-              <div className="w-full h-full bg-gradient-to-br from-neutral-800 to-neutral-900 flex items-center justify-center text-neutral-700 text-3xl font-display tracking-wide">
+              <div className="w-full h-full bg-gradient-to-br from-neutral-800 to-neutral-900 flex items-center justify-center text-neutral-700 text-3xl font-slab tracking-wide">
                 {initialsFor(author?.name)}
               </div>
             )}

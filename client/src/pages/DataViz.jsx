@@ -838,7 +838,7 @@ export default function DataViz() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
-      <h1 className="font-display text-2xl text-parchment tracking-wide uppercase">Data visualization</h1>
+      <h1 className="font-slab text-2xl text-parchment tracking-wide uppercase">Data visualization</h1>
 
       {/* ── Experiment #1 — Acquisitions by source ── */}
       <section className="space-y-4">

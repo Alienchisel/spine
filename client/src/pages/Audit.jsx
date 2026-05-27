@@ -90,7 +90,7 @@ export default function Audit() {
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       <div className="flex items-center justify-between gap-4">
-        <h1 className="font-display text-2xl text-parchment tracking-wide uppercase">Library audit</h1>
+        <h1 className="font-slab text-2xl text-parchment tracking-wide uppercase">Library audit</h1>
         <Link to="/stats" state={FROM_AUDIT} className="text-xs text-neutral-500 hover:text-neutral-200 transition-colors">
           ← Stats
         </Link>
@@ -103,7 +103,7 @@ export default function Audit() {
             you scroll the audit list. Stacks above on narrow viewports. */}
         <div className="md:sticky md:top-8 md:self-start">
           <p className="text-[10px] font-semibold text-neutral-600 uppercase tracking-wider mb-2">Library clean</p>
-          <p className={`font-display text-7xl sm:text-8xl tabular-nums leading-none tracking-tight ${heroColor}`}>{cleanPctLabel}</p>
+          <p className={`font-slab text-7xl sm:text-8xl tabular-nums leading-none tracking-tight ${heroColor}`}>{cleanPctLabel}</p>
           <p className="text-xs text-neutral-500 mt-4">
             {summary.totalGaps.toLocaleString()} outstanding gaps across {summary.rowCount} audits.
           </p>

@@ -4,7 +4,7 @@ export default {
     extend: {
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
-        display: ['EB Garamond', 'Georgia', 'serif'],
+        slab: ['Zilla Slab', 'Georgia', 'serif'],
       },
       colors: {
         white: 'rgb(var(--color-parchment) / <alpha-value>)',
