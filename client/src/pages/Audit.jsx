@@ -212,10 +212,7 @@ export default function Audit() {
                       {countCell}
                       <span className={`text-sm flex-1 ${resolved ? 'text-neutral-600' : 'text-neutral-300'}`}>{row.label}</span>
                       {!resolved && (
-                        <>
-                          <span className="text-xs text-neutral-500 tabular-nums w-12 text-right">{rowPctLabel}</span>
-                          <span className="text-neutral-700 ml-1 group-hover:text-neutral-400 transition-colors" aria-hidden="true">→</span>
-                        </>
+                        <span className="text-xs text-neutral-500 tabular-nums w-12 text-right">{rowPctLabel}</span>
                       )}
                     </>
                   );
@@ -244,7 +241,7 @@ export default function Audit() {
                       {resolved
                         ? <div className="flex items-center gap-3 px-2 py-1">{inner}</div>
                         : (
-                          <div className="flex items-center group rounded hover:bg-neutral-900/50 transition-colors">
+                          <div className="flex items-center rounded hover:bg-neutral-900/50 transition-colors">
                             <Link to={href} state={FROM_AUDIT} className="flex items-center gap-3 px-2 py-1 flex-1 min-w-0">{inner}</Link>
                             {wand}
                           </div>
