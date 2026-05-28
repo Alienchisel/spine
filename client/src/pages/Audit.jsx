@@ -205,46 +205,50 @@ export default function Audit() {
                       </span>;
                   // Resolved rows aren't actionable — keep them visible
                   // for the "all clear" signal but skip the link wrapper.
+                  // Always reserve the % column so the values align across
+                  // resolved/unresolved rows. Resolved rows render an empty
+                  // spacer of the same width.
+                  const pctCell = resolved
+                    ? <span className="w-12 flex-shrink-0" aria-hidden="true" />
+                    : <span className="text-xs text-neutral-500 tabular-nums w-12 text-right">{rowPctLabel}</span>;
                   const inner = (
                     <>
                       {countCell}
                       <span className={`text-sm flex-1 ${resolved ? 'text-neutral-600' : 'text-neutral-300'}`}>{row.label}</span>
-                      {!resolved && (
-                        <span className="text-xs text-neutral-500 tabular-nums w-12 text-right">{rowPctLabel}</span>
-                      )}
+                      {pctCell}
                     </>
                   );
                   // Path defaults to '/' for backward compatibility; author
                   // audits supply '/authors' so the click-through lands on
                   // the right index.
                   const href = `${row.path || '/'}?${row.query}`;
-                  // Fill-wizard affordance — rows with wizardKey get an
-                  // adjacent ✨ button that opens the bulk-entry wizard.
-                  // Sits outside the row Link so clicking the wand
-                  // doesn't also trigger the row-level filter jump.
-                  const wand = !resolved && row.wizardKey ? (
+                  // Wand slot — fixed width so the ✨ button (or its
+                  // absence) lands at the same x-position on every row.
+                  // The Link sits outside the row Link so clicking the
+                  // wand doesn't also trigger the row-level filter jump.
+                  const wandSlot = !resolved && row.wizardKey ? (
                     <Link
                       to={`/audit/wizard/${row.wizardKey}`}
                       state={FROM_AUDIT}
                       aria-label={`Open fill wizard for ${row.label}`}
                       title="Open fill wizard"
-                      className="text-neutral-600 hover:text-oak transition-colors px-1"
+                      className="w-7 flex-shrink-0 flex items-center justify-center text-neutral-600 hover:text-oak transition-colors"
                       onClick={e => e.stopPropagation()}
                     >
                       ✨
                     </Link>
-                  ) : null;
+                  ) : (
+                    <span className="w-7 flex-shrink-0" aria-hidden="true" />
+                  );
                   return (
                     <li key={row.label}>
-                      {resolved
-                        ? <div className="flex items-center gap-3 px-2 py-1">{inner}</div>
-                        : (
-                          <div className="flex items-center rounded hover:bg-neutral-900/50 transition-colors">
-                            <Link to={href} state={FROM_AUDIT} className="flex items-center gap-3 px-2 py-1 flex-1 min-w-0">{inner}</Link>
-                            {wand}
-                          </div>
-                        )
-                      }
+                      <div className={`flex items-center rounded ${!resolved ? 'hover:bg-neutral-900/50 transition-colors' : ''}`}>
+                        {resolved
+                          ? <div className="flex items-center gap-3 px-2 py-1 flex-1 min-w-0">{inner}</div>
+                          : <Link to={href} state={FROM_AUDIT} className="flex items-center gap-3 px-2 py-1 flex-1 min-w-0">{inner}</Link>
+                        }
+                        {wandSlot}
+                      </div>
                     </li>
                   );
                 })}
