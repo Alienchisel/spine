@@ -2,27 +2,59 @@ import { useEffect, useRef, useState } from 'react';
 import { MOD_KEY } from '../../utils.js';
 import { submitOnModEnter } from '../../components/bookForm/styles.js';
 import ChipInput from '../../components/bookForm/ChipInput.jsx';
+import { loadDraft, saveDraft } from './wizards.js';
 
 // Text-mode wizard: focused input(s) + Save / Skip. Owns the per-card
 // values/chipInputs state and the per-card focus-the-first-input effect
 // so the orchestrator doesn't have to. People fields render a ChipInput
 // with autocomplete from `suggestions` (fetched once when the wizard
 // mounts, since a wizard's people fields don't change mid-session).
-export default function TextModeForm({ cfg, current, busy, suggestions, onPick, onSkip }) {
+//
+// Per-card drafts are persisted to localStorage on every keystroke
+// (debounced 300ms) so closing the tab mid-bio doesn't lose work. On
+// card mount we hydrate from the stored draft if one exists; otherwise
+// we reset to empty. Drafts are cleared by the orchestrator on
+// successful save and on Refresh pool — see wizards.js helpers.
+const DRAFT_DEBOUNCE_MS = 300;
+
+export default function TextModeForm({ cfg, wizardKey, current, busy, suggestions, onPick, onSkip }) {
   const [values, setValues] = useState({});
   const [chipInputs, setChipInputs] = useState({});
   const inputRef = useRef(null);
 
-  // Reset all field values and re-focus the first input on every card
-  // change so typing never lands in a stale value and the cursor is
-  // always where the user expects. People fields default to an empty
-  // array (committed chips) plus an empty chipInputs buffer (in-progress
-  // text). Fires once per current.id flip.
+  // Reset (or hydrate from draft) on every card change so typing never
+  // lands in a stale value. People fields default to an empty array
+  // (committed chips) plus an empty chipInputs buffer (in-progress
+  // text). Focus the first input so the keyboard-first flow keeps
+  // working.
   useEffect(() => {
-    setValues(Object.fromEntries(cfg.fields.map(f => [f.name, f.type === 'people' ? [] : ''])));
-    setChipInputs(Object.fromEntries(cfg.fields.filter(f => f.type === 'people').map(f => [f.name, ''])));
+    const draft = current?.id != null ? loadDraft(wizardKey, current.id) : null;
+    if (draft && draft.values && draft.chipInputs) {
+      setValues(draft.values);
+      setChipInputs(draft.chipInputs);
+    } else {
+      setValues(Object.fromEntries(cfg.fields.map(f => [f.name, f.type === 'people' ? [] : ''])));
+      setChipInputs(Object.fromEntries(cfg.fields.filter(f => f.type === 'people').map(f => [f.name, ''])));
+    }
     inputRef.current?.focus();
-  }, [cfg, current?.id]);
+  }, [cfg, current?.id, wizardKey]);
+
+  // Debounced draft persist. Re-armed every time values or chipInputs
+  // change; only the final keystroke in a burst actually writes.
+  // Trailing-edge semantics — instant feedback isn't useful here.
+  useEffect(() => {
+    if (current?.id == null) return undefined;
+    const id = current.id;
+    const t = setTimeout(() => {
+      // Skip writing the empty-defaults blob; reduces clutter when the
+      // user just clicks through cards without typing.
+      const hasValueText = Object.values(values).some(v => Array.isArray(v) ? v.length > 0 : (v ?? '').trim());
+      const hasChipText  = Object.values(chipInputs).some(v => (v ?? '').trim());
+      if (!hasValueText && !hasChipText) return;
+      saveDraft(wizardKey, id, { values, chipInputs });
+    }, DRAFT_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [values, chipInputs, wizardKey, current?.id]);
 
   // Cmd+Enter is the save shortcut whenever any field is multiline or
   // people-typed (textareas swallow plain Enter; ChipInputs commit a

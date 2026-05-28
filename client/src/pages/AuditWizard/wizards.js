@@ -504,3 +504,59 @@ export function shuffle(arr) {
   }
   return out;
 }
+
+// Per-card draft persistence for text-mode wizards. Closing the tab
+// mid-card (especially mid-bio) used to silently throw away the in-
+// progress text. Now TextModeForm writes a debounced snapshot of
+// { values, chipInputs } on every keystroke, and hydrates from it on
+// card mount instead of resetting to empty.
+//
+// Key layout: spine.wizard.<wizardKey>.<recordId>. The wizardKey scope
+// matters — a half-written bio for author 42 shouldn't surface in the
+// publisher wizard for book 42. clearAllDrafts() sweeps the whole
+// wizardKey on Refresh pool, since refresh draws a brand-new batch
+// and any old drafts become contextually orphaned.
+//
+// localStorage isn't always available (private-mode quirks, quota
+// exceeded, storage disabled). All helpers swallow errors — a draft
+// that doesn't persist is a small loss; a wizard that throws on
+// keystroke is a big one.
+const DRAFT_PREFIX = 'spine.wizard.';
+
+function draftKey(wizardKey, recordId) {
+  return `${DRAFT_PREFIX}${wizardKey}.${recordId}`;
+}
+
+export function loadDraft(wizardKey, recordId) {
+  try {
+    const raw = localStorage.getItem(draftKey(wizardKey, recordId));
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch { return null; }
+}
+
+export function saveDraft(wizardKey, recordId, data) {
+  try {
+    localStorage.setItem(draftKey(wizardKey, recordId), JSON.stringify(data));
+  } catch { /* quota or disabled — drop silently */ }
+}
+
+export function clearDraft(wizardKey, recordId) {
+  try { localStorage.removeItem(draftKey(wizardKey, recordId)); }
+  catch { /* drop silently */ }
+}
+
+export function clearAllDrafts(wizardKey) {
+  // localStorage.length + key(i) walk is the only standards-compliant
+  // way to enumerate keys. Collect first, delete after — splicing
+  // while iterating shifts indices.
+  try {
+    const prefix = `${DRAFT_PREFIX}${wizardKey}.`;
+    const victims = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(prefix)) victims.push(k);
+    }
+    for (const k of victims) localStorage.removeItem(k);
+  } catch { /* drop silently */ }
+}

@@ -4,7 +4,7 @@ import { api } from '../../api.js';
 import { formatAuthors, initialsFor, MOD_KEY } from '../../utils.js';
 import { useActionGuard } from '../../hooks/useActionGuard.js';
 import ErrorBanner from '../../components/ErrorBanner.jsx';
-import { WIZARDS, shuffle } from './wizards.js';
+import { WIZARDS, shuffle, clearDraft, clearAllDrafts } from './wizards.js';
 import EnumModeButtons from './EnumModeButtons.jsx';
 import TextModeForm from './TextModeForm.jsx';
 import CoverModeGrid from './CoverModeGrid.jsx';
@@ -90,10 +90,16 @@ export default function AuditWizard() {
     if (!saveGuard.begin()) return;
     setError(null);
     const actionIdx = idx;
+    const actionId  = current.id;
     try {
       await cfg.patch(current.id, value);
       setFilled(n => n + 1);
       setLastAction({ index: actionIdx, type: 'fill' });
+      // Text-mode drafts are stored per card while the user types.
+      // Clear ours now that the server has the committed value; if
+      // the user hits Undo, they'll see the cleared server state and
+      // not a stale local draft.
+      if (cfg.mode === 'text') clearDraft(wizardKey, actionId);
       advance();
     } catch (err) {
       // Surface the API's actual error (e.g. "Invalid ISBN-13",
@@ -291,6 +297,13 @@ export default function AuditWizard() {
                 setPool(null);
                 setError(null);
                 setLastAction(null);
+                // Sweep all text-mode drafts for this wizardKey — the
+                // new pool draws different records, so any half-typed
+                // bios from the previous session are contextually
+                // orphaned. Keeping them would silently re-hydrate a
+                // bio meant for a different author if the same id
+                // happened to come back.
+                clearAllDrafts(wizardKey);
                 setRefreshTick(t => t + 1);
               }}
               className="text-sm text-neutral-400 hover:text-parchment transition-colors"
@@ -366,6 +379,7 @@ export default function AuditWizard() {
           {cfg.mode === 'text' ? (
             <TextModeForm
               cfg={cfg}
+              wizardKey={wizardKey}
               current={current}
               busy={busy}
               suggestions={suggestions}
