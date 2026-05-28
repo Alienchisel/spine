@@ -338,7 +338,7 @@ export default function AuditWizard() {
               </div>
             )}
             <div className="flex-1 min-w-0 space-y-1">
-              <Link to={cfg.getLink(current)} className="text-base font-medium text-parchment hover:text-oak transition-colors block">
+              <Link to={cfg.getLink(current)} className="text-base font-medium text-parchment hover:text-oak transition-colors inline-block">
                 {cfg.getName(current)}
               </Link>
               {cfg.kind === 'author' ? (
