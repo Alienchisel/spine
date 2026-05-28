@@ -18,7 +18,7 @@ import Diary from './pages/Diary.jsx';
 import Stats from './pages/Stats.jsx';
 import Collage from './pages/Collage.jsx';
 import Audit from './pages/Audit.jsx';
-import AuditWizard from './pages/AuditWizard.jsx';
+import AuditWizard from './pages/AuditWizard/index.jsx';
 import DataViz from './pages/DataViz.jsx';
 import ShelfManager from './pages/ShelfManager.jsx';
 import ShelfView from './pages/ShelfView.jsx';
