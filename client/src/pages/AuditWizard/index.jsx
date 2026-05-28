@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../../api.js';
-import { formatAuthors, initialsFor, MOD_KEY } from '../../utils.js';
+import { formatAuthors, formatPartialDate, initialsFor, MOD_KEY } from '../../utils.js';
 import { useActionGuard } from '../../hooks/useActionGuard.js';
 import ErrorBanner from '../../components/ErrorBanner.jsx';
 import { WIZARDS, shuffle, clearDraft, clearAllDrafts } from './wizards.js';
@@ -345,7 +345,7 @@ export default function AuditWizard() {
                 <>
                   {(current.birth_date || current.death_date) && (
                     <p className="text-sm text-neutral-400">
-                      {current.birth_date || '?'} – {current.death_date || ''}
+                      {formatPartialDate(current.birth_date) || '?'} – {formatPartialDate(current.death_date) || ''}
                     </p>
                   )}
                   <p className="text-xs text-neutral-600">

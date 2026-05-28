@@ -93,12 +93,26 @@ export function formatDate(dateStr) {
 
 // Format a partial date — YYYY / YYYY-MM / YYYY-MM-DD — as a human
 // label: "1938" / "July 1938" / "18 July 1938". Returns null for empty.
+// Handles BCE years (leading '-' → "65 BCE" / "December 65 BCE" /
+// "8 December 65 BCE"); Date() can't construct negative years natively,
+// so we parse and compose manually for all cases — keeps positive and
+// BCE branches consistent.
+const PARTIAL_DATE_MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
 export function formatPartialDate(val) {
   if (!val) return null;
-  const parts = String(val).split('-');
-  if (parts.length === 1) return parts[0];
-  if (parts.length === 2) return new Date(`${val}-01T12:00:00`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
-  return formatDate(val);
+  const m = String(val).match(/^(-?\d{1,4})(?:-(\d{2}))?(?:-(\d{2}))?$/);
+  if (!m) return String(val);
+  const year  = parseInt(m[1], 10);
+  const month = m[2] ? parseInt(m[2], 10) : null;
+  const day   = m[3] ? parseInt(m[3], 10) : null;
+  const yearLabel = year < 0 ? `${-year} BCE` : String(year);
+  if (!month) return yearLabel;
+  const monthLabel = PARTIAL_DATE_MONTHS[month - 1] ?? '';
+  if (!day) return `${monthLabel} ${yearLabel}`;
+  return `${day} ${monthLabel} ${yearLabel}`;
 }
 
 // Display labels for Library tabs. Mirrors the TABS table in
