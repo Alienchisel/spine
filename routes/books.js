@@ -503,8 +503,9 @@ router.patch('/:id', (req, res) => {
   }
   // Join-table arrays. Caller passes a list of strings or {name}
   // objects; the syncPeople helper handles both shapes. Empty array
-  // clears all rows. Anything else is a client bug.
-  for (const col of ['authors', 'narrators', 'translators']) {
+  // clears all rows. Anything else is a client bug. Tags follow the
+  // same shape (strings or {name}) and use syncTags.
+  for (const col of ['authors', 'narrators', 'translators', 'tags']) {
     if (req.body[col] !== undefined && !Array.isArray(req.body[col])) {
       return res.status(400).json({ error: `${col} must be an array` });
     }

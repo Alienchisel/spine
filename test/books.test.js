@@ -996,6 +996,24 @@ describe('books', () => {
       assert.equal(body.error, 'Not found');
     });
 
+    it('PATCH syncs tags (adds, replaces, clears)', async () => {
+      // Same gap as owned/previously_owned: patchBook used to silently
+      // drop tags, so adding a tag to an existing entry required a full
+      // PUT. Z-prefixed fixture so sort=title doesn't displace fixtures.
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Zzz Tag Patch', authors: ['Z tag_patch'], tags: ['Science'],
+      });
+      assert.deepEqual(created.tags.map(t => t.name).sort(), ['Science']);
+      // Replace with a different set.
+      const { body: patched } = await req('PATCH', `/api/books/${created.id}`, {
+        tags: ['History', 'Geography'],
+      });
+      assert.deepEqual(patched.tags.map(t => t.name).sort(), ['Geography', 'History']);
+      // Clear via empty array.
+      const { body: cleared } = await req('PATCH', `/api/books/${created.id}`, { tags: [] });
+      assert.deepEqual(cleared.tags, []);
+    });
+
     it('PATCH updates owned + previously_owned flags', async () => {
       // The use case: a book already in the library as unowned (or as a
       // wishlist record) needs to be marked owned when the user acquires
