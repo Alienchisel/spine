@@ -996,6 +996,28 @@ describe('books', () => {
       assert.equal(body.error, 'Not found');
     });
 
+    it('PATCH updates owned + previously_owned flags', async () => {
+      // The use case: a book already in the library as unowned (or as a
+      // wishlist record) needs to be marked owned when the user acquires
+      // a copy. Without these in the whitelist, the PATCH silently drops
+      // the field — the only path was a full PUT.
+      // Z-prefixed title+author so this fixture lands at the end of
+      // alphabetical sorts and doesn't displace earlier fixtures past
+      // the limit-capped 200.
+      const { body: created } = await req('POST', '/api/books', { title: 'Zzz Owned Flip', authors: ['Z owned_test'] });
+      assert.equal(created.owned, 0);
+      const { status, body } = await req('PATCH', `/api/books/${created.id}`, {
+        owned: 1, previously_owned: 1, acquisition_source: 'Audible',
+      });
+      assert.equal(status, 200);
+      assert.equal(body.owned, 1);
+      assert.equal(body.previously_owned, 1);
+      assert.equal(body.acquisition_source, 'Audible');
+      // Flip back.
+      const { body: cleared } = await req('PATCH', `/api/books/${created.id}`, { owned: 0 });
+      assert.equal(cleared.owned, 0);
+    });
+
     it('does not bump updated_at when re-submitting the same current_page', async () => {
       // SQLite datetime('now', 'localtime') is second-precision, so we sleep
       // past the second boundary to make any spurious bump observable. With
