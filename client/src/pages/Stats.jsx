@@ -419,7 +419,7 @@ export default function Stats() {
   const authorTotal = (authorsByGender.male || 0) + (authorsByGender.female || 0)
                     + (authorsByGender.other || 0) + (authorsByGender.unassigned || 0);
   const hero = [
-    { label: 'Books in library', value: totals?.books?.toLocaleString() ?? '—', to: '/?tab=all' },
+    { label: 'Books in library', value: totals?.owned?.toLocaleString() ?? '—', to: '/?tab=owned' },
     { label: 'Authors',          value: authorTotal > 0 ? authorTotal.toLocaleString() : '—', to: '/authors' },
     { label: 'Pages read',       value: pagesRead?.toLocaleString() ?? '—', to: '/?tab=all&formats=physical&formats=ebook&progress=any' },
     { label: 'Hours listened',   value: minutesListened > 0 ? Math.floor(minutesListened / 60).toLocaleString() : '—', to: '/?tab=all&formats=audiobook&progress=any' },
