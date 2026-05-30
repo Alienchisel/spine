@@ -117,7 +117,7 @@ export default function LookupPanel({ onApply, coverInFlight }) {
       />
       {searching && <p role="status" className="absolute right-3 top-2.5 text-xs text-neutral-600 pointer-events-none">Searching…</p>}
       {error && results.length === 0 && (
-        <p role="alert" className="absolute z-10 w-full mt-1 px-4 py-2 text-xs text-warn bg-neutral-900 border border-neutral-700 rounded-lg">
+        <p role="alert" className="absolute z-40 w-full mt-1 px-4 py-2 text-xs text-warn bg-neutral-900 border border-neutral-700 rounded-lg">
           {error}
         </p>
       )}
@@ -135,7 +135,7 @@ export default function LookupPanel({ onApply, coverInFlight }) {
         // EditionsSection. The element is conditionally rendered;
         // modern screen readers re-scan polite regions on subtree
         // mutations, so the new <p> is announced when it appears.
-        <div className="absolute z-10 w-full mt-1 bg-neutral-900 border border-neutral-700 rounded-lg overflow-hidden shadow-xl">
+        <div className="absolute z-40 w-full mt-1 bg-neutral-900 border border-neutral-700 rounded-lg overflow-hidden shadow-xl">
           {coverInFlight && (
             <p id="lookup-cover-in-flight-notice" role="status" className="px-4 py-2 text-xs text-neutral-400 border-b border-neutral-800">
               A cover action is in progress — wait for it to finish.
