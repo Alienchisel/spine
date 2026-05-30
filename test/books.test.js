@@ -996,6 +996,36 @@ describe('books', () => {
       assert.equal(body.error, 'Not found');
     });
 
+    it('PATCH assigns shelf_id and normalises sibling location fields', async () => {
+      // Latent gap: patchBook used to silently drop location fields.
+      // For the user's actual workflow (assigning a series of books to
+      // a specific shelf), this required a round-trip GET + PUT per
+      // book. With shelf_id in the whitelist + normalizeBookLocation
+      // run on any location-touching patch, PATCH covers it.
+      const db = await loadDb();
+      // Set up a tiny building/room/unit/shelf so we have a real id.
+      const b = db.prepare("INSERT INTO buildings (name, order_index) VALUES (?, 0)").run('PatchTestBuilding');
+      const r = db.prepare("INSERT INTO rooms (building_id, name, order_index) VALUES (?, ?, 0)").run(b.lastInsertRowid, 'PatchTestRoom');
+      const u = db.prepare("INSERT INTO units (room_id, name, order_index) VALUES (?, ?, 0)").run(r.lastInsertRowid, 'PatchTestUnit');
+      const s = db.prepare("INSERT INTO shelves (unit_id, label, order_index) VALUES (?, ?, 0)").run(u.lastInsertRowid, 'PatchTestShelf');
+      const shelfId = s.lastInsertRowid;
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Zzz Shelf Patch', authors: ['Z shelf_patch'], owned: 1, format: 'physical',
+      });
+      // Assign to shelf via PATCH.
+      const { body: patched } = await req('PATCH', `/api/books/${created.id}`, { shelf_id: shelfId });
+      assert.equal(patched.shelf_id, shelfId);
+      assert.equal(patched.unit_id, null, 'unit_id should be cleared when shelf_id is set');
+      // Move up one level — set unit_id; shelf_id should clear.
+      const { body: moved } = await req('PATCH', `/api/books/${created.id}`, { unit_id: u.lastInsertRowid });
+      assert.equal(moved.shelf_id, null, 'shelf_id should clear when unit_id is set');
+      assert.equal(moved.unit_id, u.lastInsertRowid);
+      // Unshelve entirely.
+      const { body: cleared } = await req('PATCH', `/api/books/${created.id}`, { shelf_id: null });
+      assert.equal(cleared.shelf_id, null);
+      assert.equal(cleared.unit_id, null);
+    });
+
     it('PATCH syncs tags (adds, replaces, clears)', async () => {
       // Same gap as owned/previously_owned: patchBook used to silently
       // drop tags, so adding a tag to an existing entry required a full
