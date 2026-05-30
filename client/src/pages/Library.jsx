@@ -62,6 +62,12 @@ const SORTS = [
   { key: 'started',     label: 'Date started' },
   { key: 'finished',    label: 'Date finished' },
   { key: 'length',      label: 'Length' },
+  // Duration is only meaningful when audiobooks can appear in the
+  // listing — gated below in the dropdown render against filters.formats.
+  // (If the user has the saved sort but narrows the format filter to
+  // exclude audiobooks, the sort still works server-side; it just
+  // sorts other formats as 0 minutes at the bottom.)
+  { key: 'duration',    label: 'Duration', requiresAudiobook: true },
   // Custom (manual rank) sort is gated to the Never owned tab — that's the
   // only surface where it's meaningful. The dropdown filters this entry
   // out on every other tab, but a stale saved sort lands on a non-custom
@@ -802,8 +808,18 @@ export default function Library() {
               className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-300 focus:outline-none focus:border-oak/50 transition-colors duration-150 disabled:opacity-50"
             >
               {/* Filter sort options to those allowed on the active tab. The
-                  Custom-order sort is gated to Never owned via SORTS[].tabs. */}
-              {SORTS.filter(s => !s.tabs || s.tabs.includes(tab)).map(s => (
+                  Custom-order sort is gated to Never owned via SORTS[].tabs;
+                  Duration is gated on format-filter via requiresAudiobook
+                  (visible when no format filter is set, since all formats
+                  show, or when 'audiobook' is in the selected set). */}
+              {SORTS.filter(s => {
+                if (s.tabs && !s.tabs.includes(tab)) return false;
+                if (s.requiresAudiobook) {
+                  const fmts = filters.formats ?? [];
+                  if (fmts.length > 0 && !fmts.includes('audiobook')) return false;
+                }
+                return true;
+              }).map(s => (
                 <option key={s.key} value={s.key}>{s.label}</option>
               ))}
             </select>
