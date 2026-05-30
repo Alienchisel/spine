@@ -290,9 +290,30 @@ export const WIZARDS = {
     field: 'duration_minutes',
     kind:  'book',
     mode:  'text',
-    fields: [{ name: 'duration_minutes', type: 'number', min: 1, step: 1, placeholder: 'Minutes (e.g. 480 for 8h)' }],
+    // Two inputs split for ergonomics — typing 8h 15m as "495" is awkward.
+    // The patch function recombines them into a single duration_minutes.
+    // Undo (both fields empty) routes to a duration_minutes:null clear.
+    fields: [
+      { name: 'hours',   type: 'number', min: 0, step: 1, label: 'Hours',   placeholder: 'e.g. 8'  },
+      { name: 'minutes', type: 'number', min: 0, step: 1, label: 'Minutes', placeholder: 'e.g. 15' },
+    ],
     fetch: () => api.getBooks({ formats: 'audiobook', missing: 'duration', limit: 200, sort: 'random' }).then(r => r.books ?? []),
-    patch: (id, values) => api.patchBook(id, values),
+    patch: (id, values) => {
+      const hStr = String(values.hours   ?? '').trim();
+      const mStr = String(values.minutes ?? '').trim();
+      if (hStr === '' && mStr === '') {
+        // Undo path — both blank means clear the field.
+        return api.patchBook(id, { duration_minutes: null });
+      }
+      const h = Number(hStr || 0);
+      const m = Number(mStr || 0);
+      if (!Number.isInteger(h) || !Number.isInteger(m) || h < 0 || m < 0) {
+        return Promise.reject(new Error('Hours and minutes must be whole non-negative numbers'));
+      }
+      const total = h * 60 + m;
+      if (total < 1) return Promise.reject(new Error('Enter at least 1 minute'));
+      return api.patchBook(id, { duration_minutes: total });
+    },
     getName: r => r.title,
     getLink: r => `/books/${r.id}`,
   },
