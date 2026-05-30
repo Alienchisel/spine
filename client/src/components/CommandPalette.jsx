@@ -621,9 +621,14 @@ export default function CommandPalette() {
     setBookLoading(true);
     const epoch = queryGuard.next();
     const skipAuthors = !!context;
+    // When the user pinned the query to a series, the default
+    // updated-time sort scrambles volume order — a freshly-added
+    // volume 6 elbows past vols 1-5. Override to sort by series name +
+    // series_number so results come back in reading order.
+    const hasSeriesQualifier = /(?:^|\s|\()series:/i.test(q);
     const t = setTimeout(async () => {
       const [booksRes, authorsRes] = await Promise.allSettled([
-        api.getBooks({ q, limit: 20 }),
+        api.getBooks({ q, limit: 20, ...(hasSeriesQualifier ? { sort: 'series' } : {}) }),
         skipAuthors ? Promise.resolve([]) : api.getAuthors({ q }),
       ]);
       if (!queryGuard.isFresh(epoch)) return;
