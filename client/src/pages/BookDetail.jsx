@@ -89,6 +89,21 @@ export default function BookDetail() {
   const deleteGuard   = useActionGuard();
   const [finishError, setFinishError] = useState(null);
   const [loadError, setLoadError] = useState(false);
+  // Click-to-zoom on the cover. Opens a full-screen lightbox over a dim
+  // backdrop; Esc and any click dismiss. Only applies when book.cover_path
+  // is set — the initials fallback isn't worth zooming.
+  const [coverZoomed, setCoverZoomed] = useState(false);
+  useEffect(() => {
+    if (!coverZoomed) return undefined;
+    function onKey(e) { if (e.key === 'Escape') setCoverZoomed(false); }
+    document.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [coverZoomed]);
   // Surfaces failures from the three quick actions in the action column
   // (loved/readlist toggles, rate). finishError is kept separate because
   // it has its own established render slot under the Mark-as-finished button.
@@ -471,7 +486,14 @@ export default function BookDetail() {
             title="Paste an image to set the cover"
           >
             {book.cover_path ? (
-              <img src={book.cover_path} alt="" className="w-full h-full object-cover" />
+              <button
+                type="button"
+                onClick={() => setCoverZoomed(true)}
+                aria-label={`Enlarge cover for ${book.title}`}
+                className="block w-full h-full cursor-zoom-in"
+              >
+                <img src={book.cover_path} alt="" className="w-full h-full object-cover" />
+              </button>
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center p-3 bg-gradient-to-br from-neutral-700 to-neutral-900 gap-3">
                 <span className="text-6xl font-bold text-neutral-500 select-none leading-none tracking-wide">
@@ -938,6 +960,24 @@ export default function BookDetail() {
           </div>
         </div>
       </div>
+      {/* Cover lightbox — full-screen overlay on a dim backdrop. Clicking
+          anywhere (image or backdrop) closes it; Esc handled by the
+          effect attached to coverZoomed. */}
+      {coverZoomed && book.cover_path && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Cover for ${book.title}`}
+          onClick={() => setCoverZoomed(false)}
+          className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-6 cursor-zoom-out"
+        >
+          <img
+            src={book.cover_path}
+            alt={`Cover for ${book.title}`}
+            className="max-w-full max-h-full object-contain shadow-2xl"
+          />
+        </div>
+      )}
     </div>
   );
 }
