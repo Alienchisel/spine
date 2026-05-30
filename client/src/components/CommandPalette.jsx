@@ -1068,6 +1068,30 @@ export default function CommandPalette() {
           path: `/lists/${l.id}`,
         }));
 
+      // Series and tag direct-jump entries mirror the Lists pattern:
+      // filter the cached corpus-wide facets by query, surface as result
+      // rows pointing at the existing /browse/series/:name and
+      // /browse/tag/:name destinations. Bridges the gap where authors
+      // surfaced naturally via /api/authors?q= but series/tags only
+      // appeared as qualifier-completion suggestions.
+      const seriesEntries = (facets?.series || [])
+        .filter(s => matchesQuery(s, q))
+        .map(s => ({
+          id: `series.${s}`,
+          kind: 'series',
+          label: s,
+          path: `/browse/series/${encodeURIComponent(s)}`,
+        }));
+
+      const tagEntries = (facets?.tags || [])
+        .filter(t => matchesQuery(t, q))
+        .map(t => ({
+          id: `tag.${t}`,
+          kind: 'tag',
+          label: t,
+          path: `/browse/tag/${encodeURIComponent(t)}`,
+        }));
+
       const bookEntries = bookResults.map(b => ({
         id:     `book.${b.id}`,
         kind:   'book',
@@ -1094,6 +1118,8 @@ export default function CommandPalette() {
         { kind: 'nav',    label: 'Navigate', entries: navEntries },
         { kind: 'action', label: 'Actions',  entries: matchedActions },
         { kind: 'list',   label: 'Lists',    entries: listEntries },
+        { kind: 'series', label: 'Series',   entries: seriesEntries },
+        { kind: 'tag',    label: 'Tags',     entries: tagEntries },
         { kind: 'author', label: 'Authors',  entries: authorEntries },
         { kind: 'book',   label: 'Books',    entries: bookEntries },
       ];
@@ -1101,7 +1127,7 @@ export default function CommandPalette() {
 
     _sections = _sections.filter(s => s.entries.length > 0);
     return { sections: _sections, flat: _sections.flatMap(s => s.entries) };
-  }, [query, lists, bookResults, authorResults, actionEntries, bookActions, continueEntries, recentEntries, subPrompt, context, suggestions, suggestionsTotal, applyCompletion, libraryActions]);
+  }, [query, lists, facets, bookResults, authorResults, actionEntries, bookActions, continueEntries, recentEntries, subPrompt, context, suggestions, suggestionsTotal, applyCompletion, libraryActions]);
 
   // Clamp the selected index whenever the result set shrinks (e.g.
   // user typed a more restrictive query). Reset to 0 on each query
@@ -1342,6 +1368,8 @@ export default function CommandPalette() {
                                 : entry.kind === 'action'  ? '⚡'
                                 : entry.kind === 'suggest' ? ':'
                                 : entry.kind === 'author'  ? '✎'
+                                : entry.kind === 'series'  ? '❦'
+                                : entry.kind === 'tag'     ? '#'
                                 : '☰'}
                             </div>
                           )}
