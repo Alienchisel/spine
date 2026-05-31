@@ -1101,6 +1101,82 @@ describe('books', () => {
       }
     });
 
+    it('PATCH status to finished bumps read_count, inserts reads row, auto-fills date_finished', async () => {
+      // Cascade mirrors updateBook (PUT) for finish-transition: read_count
+      // ++; reads row inserted; date_finished defaults to today when not
+      // supplied. Editions-independence rule: no propagation across siblings.
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Zzz Status Finish', authors: ['Z status_finish'],
+      });
+      assert.equal(created.status, 'unread');
+      assert.equal(created.read_count, 0);
+
+      const { status: rc, body: finished } = await req('PATCH', `/api/books/${created.id}`, { status: 'finished' });
+      assert.equal(rc, 200);
+      assert.equal(finished.status, 'finished');
+      assert.equal(finished.read_count, 1, 'read_count should auto-bump on finish-transition');
+
+      const today = new Date();
+      const todayISO = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      assert.equal(finished.date_finished, todayISO, 'date_finished should default to today');
+
+      // One reads row should now exist with today's date_finished.
+      const { body: reads } = await req('GET', `/api/books/${created.id}/reads`);
+      assert.equal(reads.length, 1);
+      assert.equal(reads[0].date_finished, todayISO);
+    });
+
+    it('PATCH status to finished honours explicit date_finished/date_started', async () => {
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Zzz Status Explicit', authors: ['Z status_explicit'],
+      });
+      const { body: finished } = await req('PATCH', `/api/books/${created.id}`, {
+        status: 'finished', date_started: '2024-01-15', date_finished: '2024-02-15',
+      });
+      assert.equal(finished.date_started, '2024-01-15');
+      assert.equal(finished.date_finished, '2024-02-15');
+      const { body: reads } = await req('GET', `/api/books/${created.id}/reads`);
+      assert.equal(reads.length, 1);
+      assert.equal(reads[0].date_started, '2024-01-15');
+      assert.equal(reads[0].date_finished, '2024-02-15');
+    });
+
+    it('PATCH status from finished to unread does NOT decrement read_count', async () => {
+      // read_count is the authoritative completion counter and decoupled
+      // from reads row count. A status flip back to unread shouldn't
+      // erase that history.
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Zzz Status Unfinish', authors: ['Z status_unfinish'],
+      });
+      await req('PATCH', `/api/books/${created.id}`, { status: 'finished' });
+      const { body: unread } = await req('PATCH', `/api/books/${created.id}`, { status: 'unread' });
+      assert.equal(unread.status, 'unread');
+      assert.equal(unread.read_count, 1, 'read_count should persist past status flip back');
+    });
+
+    it('PATCH status to finished a second time bumps read_count and inserts another reads row', async () => {
+      // The N>=2 path: a re-read PATCH ('reading' → 'finished') bumps
+      // again and logs another reads row. Catches a bug where
+      // isFinishTransition only fired on the first finish.
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Zzz Status ReRead', authors: ['Z status_reread'],
+      });
+      await req('PATCH', `/api/books/${created.id}`, { status: 'finished' });
+      await req('PATCH', `/api/books/${created.id}`, { status: 'reading' });
+      const { body: refinished } = await req('PATCH', `/api/books/${created.id}`, { status: 'finished' });
+      assert.equal(refinished.read_count, 2);
+      const { body: reads } = await req('GET', `/api/books/${created.id}/reads`);
+      assert.equal(reads.length, 2);
+    });
+
+    it('PATCH rejects invalid status', async () => {
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Zzz Status Invalid', authors: ['Z status_invalid'],
+      });
+      const bad = await req('PATCH', `/api/books/${created.id}`, { status: 'in-progress' });
+      assert.equal(bad.status, 400);
+    });
+
     it('PATCH source_type: round-trips on fiction=0, rejects otherwise', async () => {
       // source_type is non-fiction-only (mirrors validation.js for POST/PUT).
       // The route reads existing.fiction when fiction isn't in the patch,

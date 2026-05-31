@@ -495,6 +495,11 @@ router.patch('/:id', (req, res) => {
   if (req.body.title !== undefined && (req.body.title == null || !String(req.body.title).trim())) {
     return res.status(400).json({ error: 'Title cannot be empty' });
   }
+  if (req.body.status !== undefined && req.body.status !== null && req.body.status !== '') {
+    if (!ENUM_VALUES.status.includes(req.body.status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+  }
   // source_type is non-fiction-only (mirrors validation.js for POST/PUT).
   // Patches that set source_type must also leave the book on fiction=0
   // (either by patching fiction:false here, or the book is already
