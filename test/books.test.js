@@ -1026,6 +1026,79 @@ describe('books', () => {
       assert.equal(cleared.unit_id, null);
     });
 
+    it('PATCH coverage: every simple-shape column round-trips through patchBook', async () => {
+      // Coverage net for the silent-no-op gap class: every column that
+      // patchBook is expected to accept gets a PATCH and a re-GET, and
+      // the asserted value must persist. New columns added to the books
+      // table without a patchBook whitelist entry will fail here.
+      //
+      // Excluded (covered by other tests or have non-trivial semantics
+      // that warrant their own coverage):
+      //   id, created_at, updated_at         — server-managed
+      //   cover_path                          — file-deletion side-effects
+      //   current_page, current_minutes       — bounded by page_count / duration_minutes
+      //   shelf_id, unit_id, room_id,
+      //     building_id, shelf_position        — location normalization
+      //   archived, on_readlist,
+      //     readlist_position, desire_rank     — readlist / archive cascades
+      //   status, read_count, work_id          — reads / editions logic
+      //   source_type                          — fiction-gate (deferred)
+      //   is_custom                            — set at creation only
+      const CASES = [
+        // text
+        { col: 'title',                       val: 'Zzz Coverage Title',   expect: 'Zzz Coverage Title' },
+        { col: 'description',                 val: 'desc',                 expect: 'desc' },
+        { col: 'notes',                       val: 'a note',               expect: 'a note' },
+        { col: 'review',                      val: 'a review',             expect: 'a review' },
+        { col: 'publisher',                   val: 'Publisher',            expect: 'Publisher' },
+        { col: 'series',                      val: 'Series Name',          expect: 'Series Name' },
+        { col: 'isbn_10',                     val: '0123456789',           expect: '0123456789' },
+        { col: 'isbn_13',                     val: '9780123456786',        expect: '9780123456786' },
+        { col: 'asin',                        val: 'b00abc1234',           expect: 'B00ABC1234' }, // uppercased
+        { col: 'language',                    val: 'French',               expect: 'French' },
+        { col: 'original_language',           val: 'Latin',                expect: 'Latin' },
+        { col: 'acquisition_source',          val: 'Amazon',               expect: 'Amazon' },
+        // enum text
+        { col: 'binding',                     val: 'paperback',            expect: 'paperback' },
+        { col: 'format',                      val: 'physical',             expect: 'physical' },
+        { col: 'condition',                   val: 'good',                 expect: 'good' },
+        // partial-date text
+        { col: 'date_started',                val: '2024-01-15',           expect: '2024-01-15' },
+        { col: 'date_finished',               val: '2024-02-15',           expect: '2024-02-15' },
+        { col: 'acquisition_date',            val: '2024',                 expect: '2024' },
+        // numeric
+        { col: 'page_count',                  val: 200,                    expect: 200 },
+        { col: 'duration_minutes',            val: 360,                    expect: 360 },
+        { col: 'year_published',              val: 2020,                   expect: 2020 },
+        { col: 'year_edition',                val: 2021,                   expect: 2021 },
+        { col: 'series_number',               val: 1.5,                    expect: 1.5 },
+        { col: 'rating',                      val: 4.5,                    expect: 4.5 },
+        // booleans
+        { col: 'owned',                       val: 1, expect: 1 },
+        { col: 'previously_owned',            val: 1, expect: 1 },
+        { col: 'loved',                       val: 1, expect: 1 },
+        { col: 'fiction',                     val: 0, expect: 0 },
+        { col: 'is_stub',                     val: 1, expect: 1 },
+        { col: 'year_approximate',            val: 1, expect: 1 },
+        { col: 'year_published_approximate',  val: 1, expect: 1 },
+        { col: 'abridged',                    val: 1, expect: 1 },
+      ];
+      // Z-prefixed title so sort=title doesn't displace earlier fixtures.
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Zzz Coverage Seed', authors: ['Z coverage_seed'], format: 'physical',
+      });
+      for (const c of CASES) {
+        const { status, body: patched } = await req('PATCH', `/api/books/${created.id}`, { [c.col]: c.val });
+        assert.equal(status, 200, `${c.col}: PATCH returned ${status}`);
+        assert.equal(patched[c.col], c.expect, `${c.col}: response did not reflect PATCH (got ${JSON.stringify(patched[c.col])})`);
+        // Re-GET to confirm the value actually persisted (catches the
+        // "response built from in-memory payload" trap where the API
+        // echoes the input without writing it).
+        const { body: refetched } = await req('GET', `/api/books/${created.id}`);
+        assert.equal(refetched[c.col], c.expect, `${c.col}: GET after PATCH did not reflect the value`);
+      }
+    });
+
     it('PATCH updates title, series, language, original_language', async () => {
       // Same shape as the owned/tags gap: these text fields used to fall
       // through the patchBook destructure and silently no-op. Z-prefixed
@@ -1049,7 +1122,7 @@ describe('books', () => {
     it('PATCH rejects empty title', async () => {
       // patchBook now accepts title; the route enforces that PATCH can't
       // wipe it (mirrors POST/PUT, which require it).
-      const { body: created } = await req('POST', '/api/books', { title: 'Zzz Title Guard' });
+      const { body: created } = await req('POST', '/api/books', { title: 'Zzz Title Guard', authors: ['Z title_guard'] });
       const blank = await req('PATCH', `/api/books/${created.id}`, { title: '' });
       assert.equal(blank.status, 400);
       const ws = await req('PATCH', `/api/books/${created.id}`, { title: '   ' });
