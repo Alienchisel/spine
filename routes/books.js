@@ -492,6 +492,9 @@ router.patch('/:id', (req, res) => {
       req.body[col] = n;
     }
   }
+  if (req.body.title !== undefined && (req.body.title == null || !String(req.body.title).trim())) {
+    return res.status(400).json({ error: 'Title cannot be empty' });
+  }
   if (req.body.series_number !== undefined && req.body.series_number !== null && req.body.series_number !== '') {
     const n = Number(req.body.series_number);
     if (Number.isNaN(n)) return res.status(400).json({ error: 'Invalid series_number' });

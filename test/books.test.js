@@ -1026,6 +1026,38 @@ describe('books', () => {
       assert.equal(cleared.unit_id, null);
     });
 
+    it('PATCH updates title, series, language, original_language', async () => {
+      // Same shape as the owned/tags gap: these text fields used to fall
+      // through the patchBook destructure and silently no-op. Z-prefixed
+      // title so sort=title doesn't displace earlier fixtures.
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Zzz Title Patch', authors: ['Z title_patch'],
+      });
+      const { status, body } = await req('PATCH', `/api/books/${created.id}`, {
+        title: 'Zzz Title Patched',
+        series: 'Patch Series',
+        language: 'French',
+        original_language: 'Latin',
+      });
+      assert.equal(status, 200);
+      assert.equal(body.title, 'Zzz Title Patched');
+      assert.equal(body.series, 'Patch Series');
+      assert.equal(body.language, 'French');
+      assert.equal(body.original_language, 'Latin');
+    });
+
+    it('PATCH rejects empty title', async () => {
+      // patchBook now accepts title; the route enforces that PATCH can't
+      // wipe it (mirrors POST/PUT, which require it).
+      const { body: created } = await req('POST', '/api/books', { title: 'Zzz Title Guard' });
+      const blank = await req('PATCH', `/api/books/${created.id}`, { title: '' });
+      assert.equal(blank.status, 400);
+      const ws = await req('PATCH', `/api/books/${created.id}`, { title: '   ' });
+      assert.equal(ws.status, 400);
+      const nulled = await req('PATCH', `/api/books/${created.id}`, { title: null });
+      assert.equal(nulled.status, 400);
+    });
+
     it('PATCH syncs tags (adds, replaces, clears)', async () => {
       // Same gap as owned/previously_owned: patchBook used to silently
       // drop tags, so adding a tag to an existing entry required a full
