@@ -495,6 +495,28 @@ router.patch('/:id', (req, res) => {
   if (req.body.title !== undefined && (req.body.title == null || !String(req.body.title).trim())) {
     return res.status(400).json({ error: 'Title cannot be empty' });
   }
+  // source_type is non-fiction-only (mirrors validation.js for POST/PUT).
+  // Patches that set source_type must also leave the book on fiction=0
+  // (either by patching fiction:false here, or the book is already
+  // non-fiction). Enum-check the value first; then gate on effective
+  // fiction by reading the existing row when fiction isn't in the patch.
+  if (req.body.source_type !== undefined && req.body.source_type !== null && req.body.source_type !== '') {
+    if (!ENUM_VALUES.source_type.includes(req.body.source_type)) {
+      return res.status(400).json({ error: 'Invalid source_type' });
+    }
+    const incomingFiction = req.body.fiction;
+    let effectiveFiction;
+    if (incomingFiction !== undefined) {
+      effectiveFiction = (incomingFiction === false || incomingFiction === 0 || incomingFiction === '0') ? 0 : 1;
+    } else {
+      const row = db.prepare('SELECT fiction FROM books WHERE id = ?').get(id);
+      if (!row) return res.status(404).json({ error: 'Not found' });
+      effectiveFiction = row.fiction;
+    }
+    if (effectiveFiction !== 0) {
+      return res.status(400).json({ error: 'source_type requires fiction: false' });
+    }
+  }
   if (req.body.series_number !== undefined && req.body.series_number !== null && req.body.series_number !== '') {
     const n = Number(req.body.series_number);
     if (Number.isNaN(n)) return res.status(400).json({ error: 'Invalid series_number' });

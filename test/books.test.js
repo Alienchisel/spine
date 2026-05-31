@@ -1042,8 +1042,10 @@ describe('books', () => {
       //   archived, on_readlist,
       //     readlist_position, desire_rank     — readlist / archive cascades
       //   status, read_count, work_id          — reads / editions logic
-      //   source_type                          — fiction-gate (deferred)
       //   is_custom                            — set at creation only
+      // source_type is covered separately below because it requires
+      // fiction=0 on the row; seeding the coverage book with
+      // fiction:false would change the shape of every other case here.
       const CASES = [
         // text
         { col: 'title',                       val: 'Zzz Coverage Title',   expect: 'Zzz Coverage Title' },
@@ -1097,6 +1099,41 @@ describe('books', () => {
         const { body: refetched } = await req('GET', `/api/books/${created.id}`);
         assert.equal(refetched[c.col], c.expect, `${c.col}: GET after PATCH did not reflect the value`);
       }
+    });
+
+    it('PATCH source_type: round-trips on fiction=0, rejects otherwise', async () => {
+      // source_type is non-fiction-only (mirrors validation.js for POST/PUT).
+      // The route reads existing.fiction when fiction isn't in the patch,
+      // so the gate works on the effective-fiction value either way.
+      const { body: nonFic } = await req('POST', '/api/books', {
+        title: 'Zzz Src NonFic', authors: ['Z src_nonfic'], fiction: false,
+      });
+      const set = await req('PATCH', `/api/books/${nonFic.id}`, { source_type: 'primary' });
+      assert.equal(set.status, 200);
+      assert.equal(set.body.source_type, 'primary');
+      // Flip secondary→primary on the existing non-fiction row.
+      const flip = await req('PATCH', `/api/books/${nonFic.id}`, { source_type: 'secondary' });
+      assert.equal(flip.status, 200);
+      assert.equal(flip.body.source_type, 'secondary');
+
+      // Fiction row: source_type alone must be rejected.
+      const { body: fic } = await req('POST', '/api/books', {
+        title: 'Zzz Src Fic', authors: ['Z src_fic'], fiction: true,
+      });
+      const bare = await req('PATCH', `/api/books/${fic.id}`, { source_type: 'primary' });
+      assert.equal(bare.status, 400);
+
+      // ...but a combined fiction:false + source_type PATCH should pass.
+      const combo = await req('PATCH', `/api/books/${fic.id}`, {
+        fiction: false, source_type: 'primary',
+      });
+      assert.equal(combo.status, 200);
+      assert.equal(combo.body.fiction, 0);
+      assert.equal(combo.body.source_type, 'primary');
+
+      // Bad enum value: 400 regardless of fiction.
+      const badEnum = await req('PATCH', `/api/books/${nonFic.id}`, { source_type: 'tertiary' });
+      assert.equal(badEnum.status, 400);
     });
 
     it('PATCH updates title, series, language, original_language', async () => {
