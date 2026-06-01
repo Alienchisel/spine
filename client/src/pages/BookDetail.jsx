@@ -483,7 +483,7 @@ export default function BookDetail() {
           the full width above the 3-column body so the title isn't
           competing horizontally with right-rail content. Center/cover/
           right-rail flow below this band. */}
-      <header className="mb-8 pb-6 border-b border-neutral-800/60">
+      <header className="mb-8">
         <div className="flex items-start justify-between gap-4 mb-2">
           <h1 className="font-slab text-4xl text-parchment leading-[1.1] tracking-tight">
             {book.title}
@@ -790,6 +790,21 @@ export default function BookDetail() {
               </div>
             )}
           </div>
+          {/* Destructive action lives at the foot of the management rail
+              rather than in the main reading flow — same intent space as
+              Archive (in the card above), one tap further away. */}
+          <div className="mt-4 text-center">
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleteGuard.busy}
+              aria-label={`Delete ${book.title}`}
+              className="text-[11px] text-neutral-700 hover:text-warn disabled:opacity-50 disabled:cursor-wait transition-colors"
+            >
+              {deleteGuard.busy ? 'Deleting…' : 'Delete this book'}
+            </button>
+            {deleteError && <p role="alert" className="mt-1 text-[11px] text-warn">{deleteError}</p>}
+          </div>
         </div>
 
         <div className="flex-1 min-w-0 pt-1">
@@ -887,18 +902,6 @@ export default function BookDetail() {
             );
           })()}
 
-          <div className="mt-8 pt-6 border-t border-neutral-800/60">
-            <button
-              type="button"
-              onClick={handleDelete}
-              disabled={deleteGuard.busy}
-              aria-label={`Delete ${book.title}`}
-              className="text-sm text-neutral-600 hover:text-warn disabled:opacity-50 disabled:cursor-wait transition-colors"
-            >
-              {deleteGuard.busy ? 'Deleting…' : 'Delete'}
-            </button>
-            {deleteError && <p role="alert" className="text-xs text-warn mt-2">{deleteError}</p>}
-          </div>
         </div>
 
         {/* Right rail: ambient / log content. Sits adjacent to the main
