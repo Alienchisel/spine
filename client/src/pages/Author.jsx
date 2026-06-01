@@ -184,6 +184,11 @@ export default function Author() {
   // toggle stuck on for Author A doesn't carry over to Author B.
   const [showArchived, setShowArchived] = useState(false);
   useEffect(() => { setShowArchived(false); }, [id]);
+  // Unowned (wishlist / reference) books default-hide on the author page
+  // so the bibliography reads as "what I have by this author." Toggle
+  // reveals the full set. Same per-author reset as archived.
+  const [showUnowned, setShowUnowned] = useState(false);
+  useEffect(() => { setShowUnowned(false); }, [id]);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -537,7 +542,10 @@ export default function Author() {
         const allBooks      = author.books || [];
         const stories       = author.stories || [];
         const archivedCount = allBooks.filter(b => b.archived).length;
-        const visibleBooks  = showArchived ? allBooks : allBooks.filter(b => !b.archived);
+        const unownedCount  = allBooks.filter(b => !b.owned).length;
+        let visibleBooks    = allBooks;
+        if (!showArchived) visibleBooks = visibleBooks.filter(b => !b.archived);
+        if (!showUnowned)  visibleBooks = visibleBooks.filter(b => b.owned);
         return (
           <>
             {allBooks.length > 0 && (
@@ -558,6 +566,17 @@ export default function Author() {
                       <option value="added">Recently added</option>
                     </select>
                   </label>
+                  {unownedCount > 0 && (
+                    <label className="inline-flex items-center gap-1.5 text-xs text-neutral-500 cursor-pointer hover:text-neutral-300 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={showUnowned}
+                        onChange={(e) => setShowUnowned(e.target.checked)}
+                        className="accent-oak"
+                      />
+                      <span>Show unowned ({unownedCount})</span>
+                    </label>
+                  )}
                   {archivedCount > 0 && (
                     <label className="inline-flex items-center gap-1.5 text-xs text-neutral-500 cursor-pointer hover:text-neutral-300 transition-colors">
                       <input
@@ -572,7 +591,7 @@ export default function Author() {
                 </div>
                 {visibleBooks.length === 0 ? (
                   <div className="text-neutral-600 text-sm">
-                    No active books — {plural(archivedCount, 'book')} archived.
+                    No books match current filters.
                   </div>
                 ) : (
                   <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-3 gap-y-5 items-start">
