@@ -4,9 +4,8 @@
 // destructive change.
 //
 // Usage:
-//   node scripts/dedupe.js scan-authors
-//   node scripts/dedupe.js scan-publishers
-//   node scripts/dedupe.js merge-author <keep_id> <drop_id> [--yes]
+//   node scripts/dedupe.js scan-{authors,narrators,translators,publishers}
+//   node scripts/dedupe.js merge-{author,narrator,translator} <keep_id> <drop_id> [--yes]
 //   node scripts/dedupe.js rename-publisher "<old>" "<new>" [--yes]
 //
 // Scans use a relaxed-normalization grouping (lowercased, diacritics
@@ -125,6 +124,79 @@ function scanAuthors() {
   console.log('Merge with:  node scripts/dedupe.js merge-author <keep_id> <drop_id>');
 }
 
+// Narrators and translators are simpler than authors — name-only tables
+// with no bio / photo / dates / alias group — so they share a generic
+// scan/merge pair rather than duplicating the author code.
+function scanSimplePersons(table, junction, fkCol, kindLabel) {
+  const rows = db.prepare(`
+    SELECT p.id, p.name,
+           (SELECT COUNT(*) FROM ${junction} WHERE ${fkCol} = p.id) AS book_count
+    FROM ${table} p
+    ORDER BY p.name
+  `).all();
+  const groups = new Map();
+  for (const r of rows) {
+    const norm = normalizeName(r.name);
+    if (!norm) continue;
+    if (!groups.has(norm)) groups.set(norm, []);
+    groups.get(norm).push(r);
+  }
+  const dupes = [...groups.entries()].filter(([, g]) => g.length > 1);
+  if (!dupes.length) { console.log(`No ${kindLabel} duplicate candidates.`); return; }
+  console.log(`${dupes.length} candidate group(s):\n`);
+  for (const [norm, group] of dupes) {
+    console.log(`[${norm}]`);
+    for (const r of group) {
+      console.log(`  ${String(r.id).padStart(4)}  ${r.name}  (${r.book_count} books)`);
+    }
+    console.log('');
+  }
+  console.log(`Merge with:  node scripts/dedupe.js merge-${kindLabel} <keep_id> <drop_id>`);
+}
+
+async function mergeSimplePerson(table, junction, fkCol, kindLabel, keepIdStr, dropIdStr, autoYes) {
+  const keepId = parseInt(keepIdStr, 10);
+  const dropId = parseInt(dropIdStr, 10);
+  if (!Number.isInteger(keepId) || !Number.isInteger(dropId) || keepId === dropId) {
+    console.error(`Usage: dedupe.js merge-${kindLabel} <keep_id> <drop_id>`);
+    process.exit(1);
+  }
+  const keep = db.prepare(`SELECT * FROM ${table} WHERE id = ?`).get(keepId);
+  const drop = db.prepare(`SELECT * FROM ${table} WHERE id = ?`).get(dropId);
+  if (!keep) { console.error(`${kindLabel} #${keepId} not found.`); process.exit(1); }
+  if (!drop) { console.error(`${kindLabel} #${dropId} not found.`); process.exit(1); }
+
+  const keepBooks = db.prepare(`SELECT book_id FROM ${junction} WHERE ${fkCol} = ?`).all(keepId);
+  const dropBooks = db.prepare(`SELECT book_id FROM ${junction} WHERE ${fkCol} = ?`).all(dropId);
+  const keepBookIds = new Set(keepBooks.map(b => b.book_id));
+  const overlap = dropBooks.filter(b => keepBookIds.has(b.book_id));
+  const exclusive = dropBooks.filter(b => !keepBookIds.has(b.book_id));
+
+  console.log(`\nMerging two ${kindLabel}s:`);
+  console.log(`  KEEP  #${keep.id}  ${keep.name}  (${keepBooks.length} books)`);
+  console.log(`  DROP  #${drop.id}  ${drop.name}  (${dropBooks.length} books)`);
+  console.log(`\nPlan:`);
+  console.log(`  • re-attribute ${exclusive.length} book row(s) from drop → keep`);
+  if (overlap.length) console.log(`  • drop ${overlap.length} duplicate attribution row(s) (book already credits keep)`);
+  console.log(`  • delete ${table} row #${drop.id}\n`);
+
+  if (!await confirm('Proceed?', autoYes)) { console.log('Aborted.'); return; }
+
+  const snap = snapshot(db, `${kindLabel}-${dropId}-into-${keepId}`);
+  console.log(`Snapshot:  ${snap}`);
+
+  db.transaction(() => {
+    if (overlap.length) {
+      db.prepare(`DELETE FROM ${junction} WHERE ${fkCol} = ? AND book_id IN (${overlap.map(() => '?').join(',')})`)
+        .run(dropId, ...overlap.map(b => b.book_id));
+    }
+    db.prepare(`UPDATE ${junction} SET ${fkCol} = ? WHERE ${fkCol} = ?`).run(keepId, dropId);
+    db.prepare(`DELETE FROM ${table} WHERE id = ?`).run(dropId);
+  })();
+
+  console.log(`Merged. #${dropId} (${drop.name}) → #${keepId} (${keep.name}).`);
+}
+
 function scanPublishers() {
   const rows = db.prepare(`
     SELECT publisher, COUNT(*) AS c
@@ -240,18 +312,26 @@ const args = argv.filter(a => a !== '--yes');
 const [cmd, ...rest] = args;
 
 const commands = {
-  'scan-authors':     () => scanAuthors(),
-  'scan-publishers':  () => scanPublishers(),
-  'merge-author':     () => mergeAuthor(rest[0], rest[1], autoYes),
-  'rename-publisher': () => renamePublisher(rest[0], rest[1], autoYes),
+  'scan-authors':      () => scanAuthors(),
+  'scan-narrators':    () => scanSimplePersons('narrators',   'book_narrators',   'narrator_id',   'narrator'),
+  'scan-translators':  () => scanSimplePersons('translators', 'book_translators', 'translator_id', 'translator'),
+  'scan-publishers':   () => scanPublishers(),
+  'merge-author':      () => mergeAuthor(rest[0], rest[1], autoYes),
+  'merge-narrator':    () => mergeSimplePerson('narrators',   'book_narrators',   'narrator_id',   'narrator',   rest[0], rest[1], autoYes),
+  'merge-translator':  () => mergeSimplePerson('translators', 'book_translators', 'translator_id', 'translator', rest[0], rest[1], autoYes),
+  'rename-publisher':  () => renamePublisher(rest[0], rest[1], autoYes),
 };
 
 const fn = commands[cmd];
 if (!fn) {
   console.log('Usage:');
   console.log('  node scripts/dedupe.js scan-authors');
+  console.log('  node scripts/dedupe.js scan-narrators');
+  console.log('  node scripts/dedupe.js scan-translators');
   console.log('  node scripts/dedupe.js scan-publishers');
   console.log('  node scripts/dedupe.js merge-author <keep_id> <drop_id> [--yes]');
+  console.log('  node scripts/dedupe.js merge-narrator <keep_id> <drop_id> [--yes]');
+  console.log('  node scripts/dedupe.js merge-translator <keep_id> <drop_id> [--yes]');
   console.log('  node scripts/dedupe.js rename-publisher "<old>" "<new>" [--yes]');
   process.exit(1);
 }
