@@ -73,6 +73,13 @@ function emptyMessageFor(field, decoded, heading) {
 
 const PAGE_SIZE = 48;
 
+// Fields where "Show unowned" makes sense as a per-page toggle: series,
+// publisher, and tag are collection-scoping slices where the dominant
+// question is "what do I own under this slice". Other fields (author,
+// year_finished, rating, etc.) either have their own canonical surface
+// or are about reading/quality rather than collection state.
+const OWNED_TOGGLE_FIELDS = new Set(['series', 'tag', 'publisher']);
+
 export default function BrowsePage() {
   const { field, value } = useParams();
   const decoded = decodeURIComponent(value);
@@ -107,6 +114,13 @@ export default function BrowsePage() {
   const [loading,     setLoading]     = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadingAll,  setLoadingAll]  = useState(false);
+  // Owned/unowned toggle for collection-scoping slices. Default off so the
+  // page reads as "what I own under this slice"; resets per-target so a
+  // stuck toggle doesn't carry between browse views.
+  const usesOwnedToggle = OWNED_TOGGLE_FIELDS.has(field);
+  const [showUnowned, setShowUnowned] = useState(false);
+  useEffect(() => { setShowUnowned(false); }, [field, decoded]);
+  const ownedTab = (usesOwnedToggle && !showUnowned) ? 'owned' : undefined;
   // Initial load failure: replaces the empty-state with an error message.
   const [fetchError,  setFetchError]  = useState(false);
   // Pagination failure: leaves loaded books visible, shows near Load more.
@@ -134,7 +148,10 @@ export default function BrowsePage() {
     // run will bump the guard's epoch and these guards will short-circuit
     // the stale response so it can't overwrite the new browse target.
     const epoch = guard.next();
-    const target = `${field}|${decoded}`;
+    // Include the owned toggle in the target key so flipping it counts
+    // as a real navigation: clear books, show loading, refetch from
+    // offset 0 — same behaviour as switching field/value.
+    const target = `${field}|${decoded}|${ownedTab ?? ''}`;
     const isSameTarget = target === lastTargetRef.current;
     lastTargetRef.current = target;
     setFetchError(false);
@@ -162,7 +179,7 @@ export default function BrowsePage() {
         let serverTotal = 0;
         const target = Math.max(PAGE_SIZE, prevDepth);
         while (guard.isFresh(epoch)) {
-          const { books: b, total: t } = await api.getBooks({ field, value: decoded, sort: browseSort(field), limit: PAGE_SIZE, offset: collected.length });
+          const { books: b, total: t } = await api.getBooks({ field, value: decoded, tab: ownedTab, sort: browseSort(field), limit: PAGE_SIZE, offset: collected.length });
           if (!guard.isFresh(epoch)) return;
           collected.push(...b);
           serverTotal = t;
@@ -179,7 +196,7 @@ export default function BrowsePage() {
         if (guard.isFresh(epoch)) setLoading(false);
       }
     })();
-  }, [field, decoded, refreshTick]);
+  }, [field, decoded, ownedTab, refreshTick]);
 
   function handleLoadMore() {
     if (pagingRef.current || loadingMore || loadingAll) return;
@@ -187,7 +204,7 @@ export default function BrowsePage() {
     pagingRef.current = true;
     setLoadingMore(true);
     setActionError(null);
-    api.getBooks({ field, value: decoded, sort: browseSort(field), limit: PAGE_SIZE, offset: loadedRef.current })
+    api.getBooks({ field, value: decoded, tab: ownedTab, sort: browseSort(field), limit: PAGE_SIZE, offset: loadedRef.current })
       .then(({ books: b, total: t }) => {
         if (!guard.isFresh(epoch)) return;
         setBooks(prev => [...prev, ...b]);
@@ -215,7 +232,7 @@ export default function BrowsePage() {
     try {
       let serverTotal = total;
       while (guard.isFresh(epoch) && loadedRef.current < serverTotal) {
-        const { books: b, total: t } = await api.getBooks({ field, value: decoded, sort: browseSort(field), limit: PAGE_SIZE, offset: loadedRef.current });
+        const { books: b, total: t } = await api.getBooks({ field, value: decoded, tab: ownedTab, sort: browseSort(field), limit: PAGE_SIZE, offset: loadedRef.current });
         if (!guard.isFresh(epoch)) break;
         setBooks(prev => [...prev, ...b]);
         setTotal(t);
@@ -255,6 +272,20 @@ export default function BrowsePage() {
           <CoverSizeSlider size={coverSize} onChange={setCoverSize} min={coverMin} max={coverMax} />
         )}
       </div>
+
+      {!loading && usesOwnedToggle && (
+        <div className="mb-4 flex items-center gap-4 flex-wrap">
+          <label className="inline-flex items-center gap-1.5 text-xs text-neutral-500 cursor-pointer hover:text-neutral-300 transition-colors">
+            <input
+              type="checkbox"
+              checked={showUnowned}
+              onChange={(e) => setShowUnowned(e.target.checked)}
+              className="accent-oak"
+            />
+            <span>Show unowned</span>
+          </label>
+        </div>
+      )}
 
       {/* First-load failure (no books yet) replaces the view with an
           error message; a refresh-tick failure on an already-loaded
