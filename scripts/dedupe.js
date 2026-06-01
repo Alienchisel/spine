@@ -68,10 +68,14 @@ function normalizePublisher(s) {
 }
 
 function snapshot(db, label) {
-  const ts = Math.floor(Date.now() / 1000);
+  // ms precision + random suffix so back-to-back rename runs in the same
+  // second don't collide on the snapshot path (VACUUM INTO refuses to
+  // overwrite an existing file, so a collision aborts the whole rename).
+  const ts = Date.now();
+  const rand = Math.random().toString(36).slice(2, 6);
   const dir = path.join(__dirname, '..', 'backups');
   fs.mkdirSync(dir, { recursive: true });
-  const out = path.join(dir, `spine-pre-dedup-${label}-${ts}.db`);
+  const out = path.join(dir, `spine-pre-dedup-${label}-${ts}-${rand}.db`);
   db.exec(`VACUUM INTO '${out.replace(/'/g, "''")}'`);
   return out;
 }
