@@ -546,8 +546,14 @@ export default function Author() {
       ) : (() => {
         const allBooks      = author.books || [];
         const stories       = author.stories || [];
-        const archivedCount = allBooks.filter(b => b.archived).length;
-        const unownedCount  = allBooks.filter(b => !b.owned).length;
+        // Counts reflect what each toggle would actually reveal given the
+        // current state of the other toggle — so "Show unowned (N)" is
+        // honest about how many books would appear when ticked, not a
+        // raw total that includes archived books a separate toggle is
+        // still hiding. Was over-promising on the empty-state CTA when
+        // all unowned books were also archived.
+        const archivedCount = allBooks.filter(b => b.archived && (showUnowned || b.owned)).length;
+        const unownedCount  = allBooks.filter(b => !b.owned && (showArchived || !b.archived)).length;
         let visibleBooks    = allBooks;
         if (!showArchived) visibleBooks = visibleBooks.filter(b => !b.archived);
         if (!showUnowned)  visibleBooks = visibleBooks.filter(b => b.owned);
