@@ -912,7 +912,7 @@ export default function BookDetail() {
             it on smaller widths so the page still reads top-to-bottom on
             narrow viewports. Width is fixed so the editions/reads/review
             stack reads as a coherent panel rather than reflowing. */}
-        <aside className="hidden lg:block flex-shrink-0 w-[360px] pt-1">
+        <aside className="hidden lg:block flex-shrink-0 w-[360px] pt-1 [&>div:first-child]:border-t-0 [&>div:first-child]:pt-0">
           {/* Edition-row Links inherit this page's navState when it
               exists (so '← Library / Stats / etc.' threads through
               edition hops), and fall back to a link pointing at the
