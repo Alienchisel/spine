@@ -1114,14 +1114,19 @@ export default function CommandPalette() {
         path:  `/authors/${a.id}`,
       }));
 
+      // Section order reflects intent likelihood for typed queries: name-
+      // shaped queries usually mean the author or one of their books,
+      // not a personal list named after them. Series and Tags are
+      // browse-facets, ranked above Lists which are curated collections
+      // and small in count.
       _sections = [
         { kind: 'nav',    label: 'Navigate', entries: navEntries },
         { kind: 'action', label: 'Actions',  entries: matchedActions },
-        { kind: 'list',   label: 'Lists',    entries: listEntries },
-        { kind: 'series', label: 'Series',   entries: seriesEntries },
-        { kind: 'tag',    label: 'Tags',     entries: tagEntries },
         { kind: 'author', label: 'Authors',  entries: authorEntries },
         { kind: 'book',   label: 'Books',    entries: bookEntries },
+        { kind: 'series', label: 'Series',   entries: seriesEntries },
+        { kind: 'tag',    label: 'Tags',     entries: tagEntries },
+        { kind: 'list',   label: 'Lists',    entries: listEntries },
       ];
     }
 
