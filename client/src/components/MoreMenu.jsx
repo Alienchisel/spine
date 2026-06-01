@@ -215,6 +215,16 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
       // seconds away.
       setActionError(null);
       dispatchSpineEvent('spine:book-mutated', { id: book.id });
+      // Mark-as-finished from a menu deserves a landing page for the
+      // rate-and-review follow-up: jump to BookDetail and pass the
+      // existing `justFinished` flag (same one Library's quick-edit
+      // already uses) so the rating row reads "How was it?" — the same
+      // prompt the user would see if they'd finished from the detail
+      // page directly.
+      if (nextStatus === 'finished' && !book.rating) {
+        const state = returnState ?? { from: labelForPath(pathname), fromPath: pathname + search };
+        navigate(`/books/${book.id}`, { state: { ...state, justFinished: true } });
+      }
     } catch {
       setActionError('Failed to update status. Try again.');
     }
