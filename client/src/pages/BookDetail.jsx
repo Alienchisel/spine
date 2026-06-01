@@ -73,6 +73,16 @@ export default function BookDetail() {
   const [reads, setReads] = useState([]);
   const [descExpanded, setDescExpanded] = useState(false);
   const [ratingPrompt, setRatingPrompt] = useState(false);
+  // Final-session prompt sits alongside the rating prompt when the user
+  // landed here from a Mark-as-finished action that left a gap between
+  // their last logged page and the page they actually stopped at. Skip
+  // is one click; saving PATCHes current_page → server auto-inserts
+  // today's reading_log entry for the delta (same path ProgressSection
+  // uses for incremental updates).
+  const [finalSessionVisible, setFinalSessionVisible] = useState(false);
+  const [finalSessionDraft, setFinalSessionDraft] = useState('');
+  const [finalSessionSaving, setFinalSessionSaving] = useState(false);
+  const [finalSessionError, setFinalSessionError] = useState(null);
   // In-flight lockouts for the action-column buttons. Without the sync
   // ref half, a fast double-click reads stale `book.loved` (etc.) before
   // the first PUT's response has landed, so both intents resolve to the
@@ -209,6 +219,18 @@ export default function BookDetail() {
         // on a surface that sticks. Only fire if we actually need a
         // rating; revisits of the same already-rated book stay quiet.
         if (navState?.justFinished && !b.rating) setRatingPrompt(true);
+        // Same trigger surfaces the final-session prompt — pages-based
+        // formats only (audiobook minute-tracking is a separate flow),
+        // and only when there's actual room between last logged page
+        // and the book's length. Skips if the user already filled
+        // current_page to the end before finishing.
+        if (navState?.justFinished
+            && b.format !== 'audiobook'
+            && b.page_count > 0
+            && (b.current_page ?? 0) < b.page_count) {
+          setFinalSessionVisible(true);
+          setFinalSessionDraft(String(b.current_page ?? 0));
+        }
       })
       .catch(() => { if (idGuard.isFresh(epoch)) setLoadError(true); })
       .finally(() => { if (idGuard.isFresh(epoch)) setLoading(false); });
@@ -427,6 +449,47 @@ export default function BookDetail() {
     } catch {
       if (!isStillCurrent(reqId) || !ratingGuard.isFresh(epoch)) return;
       setActionError('Failed to save rating');
+    }
+  }
+
+  async function saveFinalSession() {
+    if (finalSessionSaving) return;
+    setFinalSessionError(null);
+    const raw = finalSessionDraft.trim();
+    const next = parseInt(raw, 10);
+    if (!Number.isInteger(next) || next < 0) {
+      setFinalSessionError('Enter a page number.');
+      return;
+    }
+    const prevPage = book.current_page ?? 0;
+    if (next <= prevPage) {
+      // Nothing to log — silently skip rather than save a no-op PATCH.
+      setFinalSessionVisible(false);
+      return;
+    }
+    if (book.page_count && next > book.page_count) {
+      setFinalSessionError(`Page can't exceed ${book.page_count}.`);
+      return;
+    }
+    setFinalSessionSaving(true);
+    const reqId = book.id;
+    try {
+      // PATCH current_page → server inserts a reading_log row dated
+      // today for (next - prev) pages.
+      const updated = await api.patchBook(reqId, { current_page: next });
+      if (!isStillCurrent(reqId)) return;
+      setBook(b => ({ ...b, ...updated }));
+      // Refresh the visible reading log so the new entry appears
+      // without requiring a page reload.
+      const log = await api.getBookLog(reqId);
+      if (!isStillCurrent(reqId)) return;
+      setLog(log);
+      setFinalSessionVisible(false);
+    } catch {
+      if (!isStillCurrent(reqId)) return;
+      setFinalSessionError('Failed to save. Try again.');
+    } finally {
+      setFinalSessionSaving(false);
     }
   }
 
@@ -791,6 +854,50 @@ export default function BookDetail() {
                 <p className="text-center text-xs text-neutral-600 mt-2">{book.rating} / 5</p>
               )}
             </div>
+            {finalSessionVisible && (
+              <div className="border-t border-neutral-800 py-3 px-3">
+                <p className="text-[10px] uppercase tracking-wider text-neutral-600 text-center mb-2">
+                  Final page
+                </p>
+                <div className="flex items-center justify-center gap-2">
+                  <input
+                    type="number"
+                    min="0"
+                    max={book.page_count ?? undefined}
+                    value={finalSessionDraft}
+                    onChange={(e) => setFinalSessionDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') { e.preventDefault(); saveFinalSession(); }
+                      if (e.key === 'Escape') setFinalSessionVisible(false);
+                    }}
+                    aria-label={`Final page reached for ${book.title}`}
+                    className="w-20 bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-sm text-neutral-200 text-center focus:outline-none focus:border-oak/50"
+                  />
+                  <span className="text-xs text-neutral-600">/ {book.page_count ?? '—'}</span>
+                </div>
+                <div className="flex items-center justify-center gap-3 mt-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={saveFinalSession}
+                    disabled={finalSessionSaving}
+                    className="text-oak hover:text-leather disabled:opacity-50 disabled:cursor-wait transition-colors"
+                  >
+                    {finalSessionSaving ? 'Saving…' : 'Log'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setFinalSessionVisible(false); setFinalSessionError(null); }}
+                    disabled={finalSessionSaving}
+                    className="text-neutral-600 hover:text-neutral-400 transition-colors"
+                  >
+                    skip
+                  </button>
+                </div>
+                {finalSessionError && (
+                  <p role="alert" className="text-[10px] text-warn text-center mt-1.5">{finalSessionError}</p>
+                )}
+              </div>
+            )}
             {actionError && (
               <div className="border-t border-neutral-800 py-2 px-3">
                 <p role="alert" className="text-[10px] text-warn text-center">{actionError}</p>
