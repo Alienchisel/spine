@@ -664,7 +664,11 @@ export default function BookDetail() {
       </header>
 
       <div className="flex flex-col lg:flex-row gap-8 lg:gap-10">
-        <div className="flex-shrink-0 self-start lg:sticky lg:top-[4.5rem]">
+        {/* Cover-rail is left-aligned on lg+ (sticky, beside the content),
+            but in vertical-stack mode it centres so a 280px cover doesn't
+            sit alone in the left corner with empty space to the right of
+            it. pt-1 matches the center/right columns' top alignment. */}
+        <div className="flex-shrink-0 pt-1 self-center lg:self-start lg:sticky lg:top-[4.5rem]">
           <div
             className={`relative w-[280px] ${book.format === 'audiobook' ? 'h-[280px]' : 'h-[420px]'} bg-neutral-800 rounded overflow-hidden shadow-2xl ring-1 ring-white/5`}
             title="Paste an image to set the cover"
@@ -912,7 +916,12 @@ export default function BookDetail() {
             it on smaller widths so the page still reads top-to-bottom on
             narrow viewports. Width is fixed so the editions/reads/review
             stack reads as a coherent panel rather than reflowing. */}
-        <aside className="flex-shrink-0 w-full lg:w-[360px] pt-1 [&>div:first-child]:border-t-0 [&>div:first-child]:pt-0">
+        {/* First-child border strip applies only at lg+ — in vertical-
+            stack mode the top border on the rail's first section gives
+            the rail visual separation from the center column above it,
+            which is the only thing distinguishing where one ends and
+            the other begins. */}
+        <aside className="flex-shrink-0 w-full lg:w-[360px] pt-1 lg:[&>div:first-child]:border-t-0 lg:[&>div:first-child]:pt-0">
           {/* Edition-row Links inherit this page's navState when it
               exists (so '← Library / Stats / etc.' threads through
               edition hops), and fall back to a link pointing at the
