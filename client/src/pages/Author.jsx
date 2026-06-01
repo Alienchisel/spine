@@ -185,10 +185,15 @@ export default function Author() {
   const [showArchived, setShowArchived] = useState(false);
   useEffect(() => { setShowArchived(false); }, [id]);
   // Unowned (wishlist / reference) books default-hide on the author page
-  // so the bibliography reads as "what I have by this author." Toggle
-  // reveals the full set. Same per-author reset as archived.
-  const [showUnowned, setShowUnowned] = useState(false);
-  useEffect(() => { setShowUnowned(false); }, [id]);
+  // so the bibliography reads as "what I have by this author." Persisted
+  // to localStorage so the preference carries across author + browse
+  // surfaces — sharing the same key as BrowsePage's toggle.
+  const [showUnowned, setShowUnowned] = useState(
+    () => typeof window !== 'undefined' && localStorage.getItem('spine-show-unowned') === 'true',
+  );
+  useEffect(() => {
+    localStorage.setItem('spine-show-unowned', showUnowned ? 'true' : 'false');
+  }, [showUnowned]);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -590,9 +595,28 @@ export default function Author() {
                   )}
                 </div>
                 {visibleBooks.length === 0 ? (
-                  <div className="text-neutral-600 text-sm">
-                    No books match current filters.
-                  </div>
+                  !showUnowned && unownedCount > 0 ? (
+                    <div className="text-sm">
+                      {/* Default owned-only view filtered to nothing — every
+                          book by this author is either unowned or archived.
+                          Acknowledge the unowned count and offer one click
+                          to reveal it instead of reading as "no books". */}
+                      <p className="text-neutral-600">
+                        No owned books — {unownedCount} unowned.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setShowUnowned(true)}
+                        className="mt-2 text-oak hover:text-leather transition-colors"
+                      >
+                        Show unowned →
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="text-neutral-600 text-sm">
+                      No books match current filters.
+                    </div>
+                  )
                 ) : (
                   <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-3 gap-y-5 items-start">
                     {visibleBooks.map(book => <BookCard key={book.id} book={book} linkState={fromState} />)}

@@ -118,9 +118,20 @@ export default function BrowsePage() {
   // page reads as "what I own under this slice"; resets per-target so a
   // stuck toggle doesn't carry between browse views.
   const usesOwnedToggle = OWNED_TOGGLE_FIELDS.has(field);
-  const [showUnowned, setShowUnowned] = useState(false);
-  useEffect(() => { setShowUnowned(false); }, [field, decoded]);
+  // Toggle preference is session-wide via localStorage so browsing through
+  // several series with unowned visible doesn't require re-clicking on each.
+  // Shared key with Author page so the intent carries across surfaces.
+  const [showUnowned, setShowUnowned] = useState(
+    () => typeof window !== 'undefined' && localStorage.getItem('spine-show-unowned') === 'true',
+  );
+  useEffect(() => {
+    localStorage.setItem('spine-show-unowned', showUnowned ? 'true' : 'false');
+  }, [showUnowned]);
   const ownedTab = (usesOwnedToggle && !showUnowned) ? 'owned' : undefined;
+  // `unowned_total` is returned by the main listBooks fetch when we pass
+  // counts=owned — no separate round-trip. Tracks the unowned subset of the
+  // current browse slice independently of the tab filter, so the toggle
+  // label "Show unowned (N)" is correct in both states.
   const [unownedCount, setUnownedCount] = useState(0);
   // Initial load failure: replaces the empty-state with an error message.
   const [fetchError,  setFetchError]  = useState(false);
@@ -136,22 +147,6 @@ export default function BrowsePage() {
   const pagingRef = useRef(false);
   const { size: coverSize, setSize: setCoverSize, cols: gridCols, compact, gridStyle, gridClassName, MIN: coverMin, MAX: coverMax } = useCoverSize();
   const refreshTick = useRefreshTick();
-  // Independent of the main fetch — gives "Show unowned (N)" the count to
-  // display. Two parallel limit=1 requests per browse target so the value
-  // is stable regardless of which tab is currently displayed.
-  useEffect(() => {
-    if (!usesOwnedToggle) { setUnownedCount(0); return; }
-    let cancelled = false;
-    Promise.all([
-      api.getBooks({ field, value: decoded, limit: 1 }),
-      api.getBooks({ field, value: decoded, tab: 'owned', limit: 1 }),
-    ])
-      .then(([{ total: allTotal }, { total: ownedTotal }]) => {
-        if (!cancelled) setUnownedCount(Math.max(0, allTotal - ownedTotal));
-      })
-      .catch(() => { /* No banner — the toggle just won't show a count. */ });
-    return () => { cancelled = true; };
-  }, [field, decoded, usesOwnedToggle, refreshTick]);
   // Snapshot of the browse target so we can distinguish navigation
   // (different field/value → wipe to loading) from refresh-tick
   // refetch (same target → keep books visible so scroll position
@@ -194,10 +189,20 @@ export default function BrowsePage() {
       try {
         const collected = [];
         let serverTotal = 0;
+        let serverUnowned;
         const target = Math.max(PAGE_SIZE, prevDepth);
         while (guard.isFresh(epoch)) {
-          const { books: b, total: t } = await api.getBooks({ field, value: decoded, tab: ownedTab, sort: browseSort(field), limit: PAGE_SIZE, offset: collected.length });
+          // Only the first page needs counts=owned — the unowned_total
+          // doesn't change with pagination offset, and computing it on
+          // every page would waste the COUNT query.
+          const wantCounts = usesOwnedToggle && collected.length === 0;
+          const { books: b, total: t, unowned_total: u } = await api.getBooks({
+            field, value: decoded, tab: ownedTab, sort: browseSort(field),
+            limit: PAGE_SIZE, offset: collected.length,
+            counts: wantCounts ? 'owned' : undefined,
+          });
           if (!guard.isFresh(epoch)) return;
+          if (wantCounts) serverUnowned = u;
           collected.push(...b);
           serverTotal = t;
           if (b.length === 0) break;
@@ -206,6 +211,8 @@ export default function BrowsePage() {
         if (!guard.isFresh(epoch)) return;
         setBooks(collected);
         setTotal(serverTotal);
+        if (serverUnowned !== undefined) setUnownedCount(serverUnowned);
+        else if (!usesOwnedToggle)       setUnownedCount(0);
         loadedRef.current = collected.length;
       } catch {
         if (guard.isFresh(epoch)) setFetchError(true);
@@ -213,7 +220,7 @@ export default function BrowsePage() {
         if (guard.isFresh(epoch)) setLoading(false);
       }
     })();
-  }, [field, decoded, ownedTab, refreshTick]);
+  }, [field, decoded, ownedTab, usesOwnedToggle, refreshTick]);
 
   function handleLoadMore() {
     if (pagingRef.current || loadingMore || loadingAll) return;
@@ -326,7 +333,26 @@ export default function BrowsePage() {
         </div>
       ) : books.length === 0 ? (
         <div className="text-center py-32">
-          <p className="text-neutral-600">{emptyMessageFor(field, decoded, heading)}</p>
+          {ownedTab && unownedCount > 0 ? (
+            <>
+              {/* Owned-only default surfaced an empty slice (e.g. a series
+                  you don't yet own anything from). Acknowledge the unowned
+                  books and offer one click to reveal them, so the page
+                  doesn't read as a dead end. */}
+              <p className="text-neutral-600">
+                No owned books — {unownedCount} unowned.
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowUnowned(true)}
+                className="mt-3 text-sm text-oak hover:text-leather transition-colors"
+              >
+                Show unowned →
+              </button>
+            </>
+          ) : (
+            <p className="text-neutral-600">{emptyMessageFor(field, decoded, heading)}</p>
+          )}
         </div>
       ) : (() => {
         // Mid-pagination, hide trailing partial-row books; reveal on next load.
