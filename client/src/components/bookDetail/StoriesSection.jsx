@@ -297,7 +297,7 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
   return (
     <div className="border-t border-neutral-800 pt-5 mb-6">
       <div className="flex items-baseline justify-between mb-3">
-        <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Contents</p>
+        <p className="font-slab text-xs text-neutral-500 uppercase tracking-wider">Contents</p>
         {stories.length > 0 && (
           <p className="text-[10px] text-neutral-600 tabular-nums">
             {accounted} of {stories.length} finished

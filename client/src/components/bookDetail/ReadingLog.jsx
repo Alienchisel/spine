@@ -36,7 +36,7 @@ export default function ReadingLog({ log, isAudiobook, status, pageCount }) {
 
   return (
     <div className="border-t border-neutral-800 pt-5 mb-6">
-      <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Reading log</p>
+      <p className="font-slab text-xs text-neutral-500 uppercase tracking-wider mb-3">Reading log</p>
       <p className="text-xs text-neutral-600 mb-3">{activeDays} days{total ? ` · ${total}` : ''} since {since}</p>
       <div className="space-y-1">
         {visible.map((entry) => (

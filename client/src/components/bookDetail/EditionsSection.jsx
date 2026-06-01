@@ -191,7 +191,7 @@ export default function EditionsSection({ book, onChange, linkState }) {
 
   return (
     <div className="border-t border-neutral-800 pt-5 mb-6">
-      <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">
+      <p className="font-slab text-xs text-neutral-500 uppercase tracking-wider mb-3">
         Other editions of this work
       </p>
       {error && <p role="alert" className="text-xs text-warn mb-2">{error}</p>}

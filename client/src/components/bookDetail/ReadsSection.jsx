@@ -133,7 +133,7 @@ export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBo
 
   return (
     <div className="border-t border-neutral-800 pt-5 mb-6">
-      <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Read history</p>
+      <p className="font-slab text-xs text-neutral-500 uppercase tracking-wider mb-3">Read history</p>
       {reads.length > 0 ? (
         <div className="space-y-2 mb-3">
           {reads.map((r, i) => editId === r.id ? (

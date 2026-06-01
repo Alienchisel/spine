@@ -479,6 +479,187 @@ export default function BookDetail() {
         ← {backLabel}
       </Link>
 
+      {/* Hero band — title + identity carry the top of the page, spanning
+          the full width above the 3-column body so the title isn't
+          competing horizontally with right-rail content. Center/cover/
+          right-rail flow below this band. */}
+      <header className="mb-8 pb-6 border-b border-neutral-800/60">
+        <div className="flex items-start justify-between gap-4 mb-2">
+          <h1 className="font-slab text-4xl text-parchment leading-[1.1] tracking-tight">
+            {book.title}
+            {book.archived ? (
+              <span className="ml-2 align-middle text-[10px] uppercase tracking-wider text-amber-500/80 font-normal border border-amber-500/30 rounded px-1.5 py-0.5">
+                Archived
+              </span>
+            ) : null}
+          </h1>
+          <div className="flex items-center gap-2 flex-shrink-0 pt-2">
+            <span className="text-xs text-neutral-700 tabular-nums" title="Book ID">#{book.id}</span>
+            <span className="text-neutral-800">·</span>
+            <Link
+              to={`/books/${book.id}/edit`}
+              state={detailReturnState}
+              className="text-sm text-neutral-500 hover:text-neutral-200 transition-colors"
+            >
+              Edit
+            </Link>
+          </div>
+        </div>
+        {(() => {
+          // Pen-name aliases: same person, different byline. The
+          // "also writes as" line surfaces here so a Bronze Age
+          // Pervert page links to a Costin Alamariu page (and vice
+          // versa) without forcing one canonical name.
+          const seenIds = new Set(book.authors?.map(a => a.id) || []);
+          const aliases = [];
+          for (const a of book.authors || []) {
+            for (const al of a.aliases || []) {
+              if (seenIds.has(al.id)) continue;
+              seenIds.add(al.id);
+              aliases.push(al);
+            }
+          }
+          return (
+            <>
+              {book.authors?.length > 0 && (
+                <p className="text-neutral-400 text-lg mb-1">
+                  {book.authors.map((a, i) => (
+                    <span key={a.id}>
+                      {i > 0 && <span className="text-neutral-600">{i === book.authors.length - 1 ? ' & ' : ', '}</span>}
+                      <Link to={`/authors/${a.id}`} state={bookFromState} className="hover:text-neutral-200 transition-colors">
+                        {a.name}
+                      </Link>
+                    </span>
+                  ))}
+                </p>
+              )}
+              {aliases.length > 0 && (
+                <p className="text-neutral-600 text-xs mb-1">
+                  also writes as{' '}
+                  {aliases.map((a, i) => (
+                    <span key={a.id}>
+                      {i > 0 && (i === aliases.length - 1 ? ' & ' : ', ')}
+                      <Link to={`/authors/${a.id}`} state={bookFromState} className="hover:text-neutral-400 transition-colors">
+                        {a.name}
+                      </Link>
+                    </span>
+                  ))}
+                </p>
+              )}
+            </>
+          );
+        })()}
+
+        {seriesError && (
+          <p role="alert" className="text-xs text-warn mb-3">{seriesError}</p>
+        )}
+        {(() => {
+          if (seriesSiblings.length < 2) return null;
+          // Series nav means "next volume", not "next sibling row." When two
+          // books share the same series_number (e.g. M&C in two narrator
+          // recordings) the array-index approach would point "next" at the
+          // duplicate edition instead of advancing to volume N+1. Compute
+          // prev/next directly from series_number, skipping any sibling at
+          // the same volume slot. Cross-edition switching belongs in the
+          // EditionsSection below, not in this nav.
+          const cur = book.series_number;
+          let prev = null, next = null;
+          if (cur != null) {
+            const numbered = seriesSiblings.filter(b => b.series_number != null);
+            const lower  = numbered.filter(b => b.series_number < cur);
+            const higher = numbered.filter(b => b.series_number > cur);
+            // Tie-break ties at the same series_number by lower id so the
+            // chosen sibling is stable across reloads regardless of fetch
+            // order.
+            const cmpAsc  = (a, b) => a.series_number - b.series_number || a.id - b.id;
+            const cmpDesc = (a, b) => b.series_number - a.series_number || a.id - b.id;
+            prev = lower.sort(cmpDesc)[0]  ?? null;
+            next = higher.sort(cmpAsc)[0]  ?? null;
+          } else {
+            // Unnumbered current book: fall back to the original
+            // array-index nav so we still surface SOME prev/next instead
+            // of nothing. Order is whatever the backend's series query
+            // returned (no clean canonical order without numbers).
+            const idx = seriesSiblings.findIndex(b => b.id === book.id);
+            prev = idx > 0 ? seriesSiblings[idx - 1] : null;
+            next = idx >= 0 && idx < seriesSiblings.length - 1 ? seriesSiblings[idx + 1] : null;
+          }
+          if (!prev && !next) return null;
+          return (
+            <div className="flex items-center justify-between text-xs text-neutral-600 mt-3 mb-3">
+              {prev ? (() => {
+                const prevLabel = `${prev.series_number != null ? `#${prev.series_number} ` : ''}${prev.title}`;
+                return (
+                  <Link to={`/books/${prev.id}`} state={detailReturnState} title={prevLabel} className="hover:text-neutral-400 transition-colors flex items-center gap-1 min-w-0">
+                    <span className="flex-shrink-0">←</span>
+                    <span className="truncate">{prevLabel}</span>
+                  </Link>
+                );
+              })() : <span />}
+              {next && (() => {
+                const nextLabel = `${next.series_number != null ? `#${next.series_number} ` : ''}${next.title}`;
+                return (
+                  <Link to={`/books/${next.id}`} state={detailReturnState} title={nextLabel} className="hover:text-neutral-400 transition-colors flex items-center gap-1 min-w-0 ml-4">
+                    <span className="truncate text-right">{nextLabel}</span>
+                    <span className="flex-shrink-0">→</span>
+                  </Link>
+                );
+              })()}
+            </div>
+          );
+        })()}
+
+        {/* When this edition is unread but a sibling edition is finished,
+            hint at the cross-edition history on its own line below the
+            pill row. Keeps the status pill honest (this *copy* really is
+            unread) while making the page reflect that the user knows
+            the work. */}
+        {(() => {
+          const siblingRead = book.status === 'unread'
+            ? book.editions?.find(e => e.status === 'finished')
+            : null;
+          const sameFormat = siblingRead && siblingRead.format === book.format;
+          const formatText = !siblingRead ? null
+            : sameFormat ? 'another edition'
+            : (FORMAT_LABEL_LC[siblingRead.format] ?? siblingRead.format);
+          return (
+            <>
+              <div className="flex flex-wrap items-center gap-2 mt-3">
+                <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_COLOR[book.status]}`}>
+                  {STATUS_LABEL[book.status]}
+                </span>
+                {Boolean(book.owned) && (
+                  <span className="text-xs font-medium px-2.5 py-1 rounded-full text-parchment bg-binding/60">
+                    Owned
+                  </span>
+                )}
+                {!book.owned && Boolean(book.previously_owned) && (
+                  <span className="text-xs font-medium px-2.5 py-1 rounded-full text-neutral-400 bg-neutral-800">
+                    Previously owned
+                  </span>
+                )}
+                {Boolean(book.is_custom) && (
+                  <span className="text-xs font-medium px-2.5 py-1 rounded-full text-leather bg-neutral-800">
+                    ✦ Custom
+                  </span>
+                )}
+              </div>
+              {siblingRead && (
+                <p className="text-xs text-neutral-500 mt-2">
+                  <Link
+                    to={`/books/${siblingRead.id}`}
+                    state={bookFromState}
+                    className="hover:text-neutral-300 transition-colors"
+                  >
+                    Read in {formatText} ↗
+                  </Link>
+                </p>
+              )}
+            </>
+          );
+        })()}
+      </header>
+
       <div className="flex gap-8 lg:gap-10">
         <div className="flex-shrink-0 sticky top-[4.5rem] self-start">
           <div
@@ -612,182 +793,6 @@ export default function BookDetail() {
         </div>
 
         <div className="flex-1 min-w-0 pt-1">
-          <div className="flex items-start justify-between gap-4 mb-1">
-            <h1 className="font-slab text-4xl text-parchment leading-[1.1] tracking-tight">
-              {book.title}
-              {book.archived ? (
-                <span className="ml-2 align-middle text-[10px] uppercase tracking-wider text-amber-500/80 font-normal border border-amber-500/30 rounded px-1.5 py-0.5">
-                  Archived
-                </span>
-              ) : null}
-            </h1>
-            <div className="flex items-center gap-2 flex-shrink-0 pt-1">
-              <span className="text-xs text-neutral-700 tabular-nums" title="Book ID">#{book.id}</span>
-              <span className="text-neutral-800">·</span>
-              <Link
-                to={`/books/${book.id}/edit`}
-                state={detailReturnState}
-                className="text-sm text-neutral-500 hover:text-neutral-200 transition-colors"
-              >
-                Edit
-              </Link>
-            </div>
-          </div>
-          {(() => {
-            // Pen-name aliases: same person, different byline. The
-            // "also writes as" line surfaces here so a Bronze Age
-            // Pervert page links to a Costin Alamariu page (and vice
-            // versa) without forcing one canonical name.
-            const seenIds = new Set(book.authors?.map(a => a.id) || []);
-            const aliases = [];
-            for (const a of book.authors || []) {
-              for (const al of a.aliases || []) {
-                if (seenIds.has(al.id)) continue;
-                seenIds.add(al.id);
-                aliases.push(al);
-              }
-            }
-            const bylineMb = aliases.length ? 'mb-1' : 'mb-5';
-            return (
-              <>
-                {book.authors?.length > 0 && (
-                  <p className={`text-neutral-400 text-base ${bylineMb}`}>
-                    {book.authors.map((a, i) => (
-                      <span key={a.id}>
-                        {i > 0 && <span className="text-neutral-600">{i === book.authors.length - 1 ? ' & ' : ', '}</span>}
-                        <Link to={`/authors/${a.id}`} state={bookFromState} className="hover:text-neutral-200 transition-colors">
-                          {a.name}
-                        </Link>
-                      </span>
-                    ))}
-                  </p>
-                )}
-                {aliases.length > 0 && (
-                  <p className="text-neutral-600 text-xs mb-5">
-                    also writes as{' '}
-                    {aliases.map((a, i) => (
-                      <span key={a.id}>
-                        {i > 0 && (i === aliases.length - 1 ? ' & ' : ', ')}
-                        <Link to={`/authors/${a.id}`} state={bookFromState} className="hover:text-neutral-400 transition-colors">
-                          {a.name}
-                        </Link>
-                      </span>
-                    ))}
-                  </p>
-                )}
-              </>
-            );
-          })()}
-
-          {seriesError && (
-            <p role="alert" className="text-xs text-warn mb-5 -mt-2">{seriesError}</p>
-          )}
-          {(() => {
-            if (seriesSiblings.length < 2) return null;
-            // Series nav means "next volume", not "next sibling row." When two
-            // books share the same series_number (e.g. M&C in two narrator
-            // recordings) the array-index approach would point "next" at the
-            // duplicate edition instead of advancing to volume N+1. Compute
-            // prev/next directly from series_number, skipping any sibling at
-            // the same volume slot. Cross-edition switching belongs in the
-            // EditionsSection below, not in this nav.
-            const cur = book.series_number;
-            let prev = null, next = null;
-            if (cur != null) {
-              const numbered = seriesSiblings.filter(b => b.series_number != null);
-              const lower  = numbered.filter(b => b.series_number < cur);
-              const higher = numbered.filter(b => b.series_number > cur);
-              // Tie-break ties at the same series_number by lower id so the
-              // chosen sibling is stable across reloads regardless of fetch
-              // order.
-              const cmpAsc  = (a, b) => a.series_number - b.series_number || a.id - b.id;
-              const cmpDesc = (a, b) => b.series_number - a.series_number || a.id - b.id;
-              prev = lower.sort(cmpDesc)[0]  ?? null;
-              next = higher.sort(cmpAsc)[0]  ?? null;
-            } else {
-              // Unnumbered current book: fall back to the original
-              // array-index nav so we still surface SOME prev/next instead
-              // of nothing. Order is whatever the backend's series query
-              // returned (no clean canonical order without numbers).
-              const idx = seriesSiblings.findIndex(b => b.id === book.id);
-              prev = idx > 0 ? seriesSiblings[idx - 1] : null;
-              next = idx >= 0 && idx < seriesSiblings.length - 1 ? seriesSiblings[idx + 1] : null;
-            }
-            if (!prev && !next) return null;
-            return (
-              <div className="flex items-center justify-between text-xs text-neutral-600 mb-5 -mt-2">
-                {prev ? (() => {
-                  const prevLabel = `${prev.series_number != null ? `#${prev.series_number} ` : ''}${prev.title}`;
-                  return (
-                    <Link to={`/books/${prev.id}`} state={detailReturnState} title={prevLabel} className="hover:text-neutral-400 transition-colors flex items-center gap-1 min-w-0">
-                      <span className="flex-shrink-0">←</span>
-                      <span className="truncate">{prevLabel}</span>
-                    </Link>
-                  );
-                })() : <span />}
-                {next && (() => {
-                  const nextLabel = `${next.series_number != null ? `#${next.series_number} ` : ''}${next.title}`;
-                  return (
-                    <Link to={`/books/${next.id}`} state={detailReturnState} title={nextLabel} className="hover:text-neutral-400 transition-colors flex items-center gap-1 min-w-0 ml-4">
-                      <span className="truncate text-right">{nextLabel}</span>
-                      <span className="flex-shrink-0">→</span>
-                    </Link>
-                  );
-                })()}
-              </div>
-            );
-          })()}
-
-          {/* When this edition is unread but a sibling edition is finished,
-              hint at the cross-edition history on its own line below the
-              pill row. Keeps the status pill honest (this *copy* really is
-              unread) while making the page reflect that the user knows
-              the work. */}
-          {(() => {
-            const siblingRead = book.status === 'unread'
-              ? book.editions?.find(e => e.status === 'finished')
-              : null;
-            const sameFormat = siblingRead && siblingRead.format === book.format;
-            const formatText = !siblingRead ? null
-              : sameFormat ? 'another edition'
-              : (FORMAT_LABEL_LC[siblingRead.format] ?? siblingRead.format);
-            return (
-              <>
-                <div className={`flex flex-wrap items-center gap-2 ${siblingRead ? 'mb-1.5' : 'mb-6'}`}>
-                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_COLOR[book.status]}`}>
-                    {STATUS_LABEL[book.status]}
-                  </span>
-                  {Boolean(book.owned) && (
-                    <span className="text-xs font-medium px-2.5 py-1 rounded-full text-parchment bg-binding/60">
-                      Owned
-                    </span>
-                  )}
-                  {!book.owned && Boolean(book.previously_owned) && (
-                    <span className="text-xs font-medium px-2.5 py-1 rounded-full text-neutral-400 bg-neutral-800">
-                      Previously owned
-                    </span>
-                  )}
-                  {Boolean(book.is_custom) && (
-                    <span className="text-xs font-medium px-2.5 py-1 rounded-full text-leather bg-neutral-800">
-                      ✦ Custom
-                    </span>
-                  )}
-                </div>
-                {siblingRead && (
-                  <p className="text-xs text-neutral-500 mb-6">
-                    <Link
-                      to={`/books/${siblingRead.id}`}
-                      state={bookFromState}
-                      className="hover:text-neutral-300 transition-colors"
-                    >
-                      Read in {formatText} ↗
-                    </Link>
-                  </p>
-                )}
-              </>
-            );
-          })()}
-
           {book.status === 'reading' && (
             <ProgressSection book={book} log={log} onChange={(updated) => {
               // ProgressSection's save resolved — but the user may have
@@ -940,7 +945,7 @@ export default function BookDetail() {
 
           {(book.status === 'finished' || book.read_count > 0) && book.review && (
             <div className="border-t border-neutral-800 pt-5 mb-6">
-              <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Review</p>
+              <p className="font-slab text-xs text-neutral-500 uppercase tracking-wider mb-3">Review</p>
               <div className="text-neutral-300 text-sm leading-relaxed prose-sm prose-invert prose-neutral max-w-none
                 [&_strong]:text-neutral-200 [&_em]:text-neutral-400 [&_p]:mb-2 [&_p:last-child]:mb-0">
                 <ReactMarkdown>{book.review}</ReactMarkdown>
@@ -950,7 +955,7 @@ export default function BookDetail() {
 
           {book.notes && (
             <div className="border-t border-neutral-800 pt-5 mb-6">
-              <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Notes</p>
+              <p className="font-slab text-xs text-neutral-500 uppercase tracking-wider mb-3">Notes</p>
               <div className="text-neutral-400 text-sm leading-relaxed prose-sm prose-invert prose-neutral max-w-none
                 [&_strong]:text-neutral-300 [&_em]:text-neutral-400 [&_p]:mb-2 [&_p:last-child]:mb-0">
                 <ReactMarkdown>{book.notes}</ReactMarkdown>

@@ -106,7 +106,7 @@ export default function ProgressSection({ book, onChange, log }) {
 
   return (
     <div className="border border-neutral-800 rounded-lg p-4 mb-6">
-      <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">
+      <p className="font-slab text-xs text-neutral-500 uppercase tracking-wider mb-3">
         {isAudiobook ? 'Listening progress' : 'Reading progress'}
       </p>
 
