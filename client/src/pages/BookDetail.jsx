@@ -613,7 +613,7 @@ export default function BookDetail() {
 
         <div className="flex-1 min-w-0 pt-1">
           <div className="flex items-start justify-between gap-4 mb-1">
-            <h1 className="text-2xl font-bold text-white leading-tight">
+            <h1 className="font-slab text-4xl text-parchment leading-[1.1] tracking-tight">
               {book.title}
               {book.archived ? (
                 <span className="ml-2 align-middle text-[10px] uppercase tracking-wider text-amber-500/80 font-normal border border-amber-500/30 rounded px-1.5 py-0.5">
