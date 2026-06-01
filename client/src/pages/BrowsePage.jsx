@@ -121,6 +121,7 @@ export default function BrowsePage() {
   const [showUnowned, setShowUnowned] = useState(false);
   useEffect(() => { setShowUnowned(false); }, [field, decoded]);
   const ownedTab = (usesOwnedToggle && !showUnowned) ? 'owned' : undefined;
+  const [unownedCount, setUnownedCount] = useState(0);
   // Initial load failure: replaces the empty-state with an error message.
   const [fetchError,  setFetchError]  = useState(false);
   // Pagination failure: leaves loaded books visible, shows near Load more.
@@ -135,6 +136,22 @@ export default function BrowsePage() {
   const pagingRef = useRef(false);
   const { size: coverSize, setSize: setCoverSize, cols: gridCols, compact, gridStyle, gridClassName, MIN: coverMin, MAX: coverMax } = useCoverSize();
   const refreshTick = useRefreshTick();
+  // Independent of the main fetch — gives "Show unowned (N)" the count to
+  // display. Two parallel limit=1 requests per browse target so the value
+  // is stable regardless of which tab is currently displayed.
+  useEffect(() => {
+    if (!usesOwnedToggle) { setUnownedCount(0); return; }
+    let cancelled = false;
+    Promise.all([
+      api.getBooks({ field, value: decoded, limit: 1 }),
+      api.getBooks({ field, value: decoded, tab: 'owned', limit: 1 }),
+    ])
+      .then(([{ total: allTotal }, { total: ownedTotal }]) => {
+        if (!cancelled) setUnownedCount(Math.max(0, allTotal - ownedTotal));
+      })
+      .catch(() => { /* No banner — the toggle just won't show a count. */ });
+    return () => { cancelled = true; };
+  }, [field, decoded, usesOwnedToggle, refreshTick]);
   // Snapshot of the browse target so we can distinguish navigation
   // (different field/value → wipe to loading) from refresh-tick
   // refetch (same target → keep books visible so scroll position
@@ -273,7 +290,7 @@ export default function BrowsePage() {
         )}
       </div>
 
-      {!loading && usesOwnedToggle && (
+      {!loading && usesOwnedToggle && unownedCount > 0 && (
         <div className="mb-4 flex items-center gap-4 flex-wrap">
           <label className="inline-flex items-center gap-1.5 text-xs text-neutral-500 cursor-pointer hover:text-neutral-300 transition-colors">
             <input
@@ -282,7 +299,7 @@ export default function BrowsePage() {
               onChange={(e) => setShowUnowned(e.target.checked)}
               className="accent-oak"
             />
-            <span>Show unowned</span>
+            <span>Show unowned ({unownedCount})</span>
           </label>
         </div>
       )}
