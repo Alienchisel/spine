@@ -474,15 +474,15 @@ export default function BookDetail() {
   if (!book) return <div className="text-neutral-600 text-sm">{loadError ? 'Failed to load book.' : 'Book not found.'}</div>;
 
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-7xl">
       <Link to={backPath} className="text-sm text-neutral-600 hover:text-neutral-300 mb-8 inline-block transition-colors">
         ← {backLabel}
       </Link>
 
-      <div className="flex gap-8 sm:gap-10">
+      <div className="flex gap-8 lg:gap-10">
         <div className="flex-shrink-0 sticky top-[4.5rem] self-start">
           <div
-            className={`relative w-[230px] ${book.format === 'audiobook' ? 'h-[230px]' : 'h-[345px]'} bg-neutral-800 rounded overflow-hidden shadow-2xl ring-1 ring-white/5`}
+            className={`relative w-[280px] ${book.format === 'audiobook' ? 'h-[280px]' : 'h-[420px]'} bg-neutral-800 rounded overflow-hidden shadow-2xl ring-1 ring-white/5`}
             title="Paste an image to set the cover"
           >
             {book.cover_path ? (
@@ -847,6 +847,61 @@ export default function BookDetail() {
             </div>
           )}
 
+          {/* Stories (collection table-of-contents). Surface only on
+              books tagged Stories, Anthology, or Compilation — or any
+              book that already has stories attached, so a user can
+              still see/edit them after retagging. Compilation extends
+              the same shape to nonfiction collected-works / essay
+              volumes, swapping the user-visible noun from "story" to
+              "entry" since the items are essays or books, not shorts. */}
+          {(() => {
+            const tagNames = (book.tags || []).map(t => t.name);
+            const isCollection = tagNames.includes('Stories') || tagNames.includes('Anthology') || tagNames.includes('Compilation');
+            const stories = book.stories || [];
+            if (!isCollection && stories.length === 0) return null;
+            const noun = tagNames.includes('Compilation') && !tagNames.includes('Stories') && !tagNames.includes('Anthology') ? 'entry' : 'story';
+            return (
+              <StoriesSection
+                bookId={book.id}
+                stories={stories}
+                bookAuthors={book.authors || []}
+                noun={noun}
+                onUpdate={() => api.getBook(book.id).then(b => {
+                  if (String(b.id) !== String(latestIdRef.current)) return;
+                  // When the last story-finish auto-rolls the parent
+                  // collection to status='finished', surface the rating
+                  // prompt the same way an explicit finish would. Compares
+                  // the prior `book` snapshot held in closure to the
+                  // freshly-fetched `b`.
+                  if (book && book.status !== 'finished' && b.status === 'finished' && !b.rating) {
+                    setRatingPrompt(true);
+                  }
+                  setBook(b);
+                })}
+              />
+            );
+          })()}
+
+          <div className="mt-8 pt-6 border-t border-neutral-800/60">
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleteGuard.busy}
+              aria-label={`Delete ${book.title}`}
+              className="text-sm text-neutral-600 hover:text-warn disabled:opacity-50 disabled:cursor-wait transition-colors"
+            >
+              {deleteGuard.busy ? 'Deleting…' : 'Delete'}
+            </button>
+            {deleteError && <p role="alert" className="text-xs text-warn mt-2">{deleteError}</p>}
+          </div>
+        </div>
+
+        {/* Right rail: ambient / log content. Sits adjacent to the main
+            center column on lg+ screens; falls back to inline-block under
+            it on smaller widths so the page still reads top-to-bottom on
+            narrow viewports. Width is fixed so the editions/reads/review
+            stack reads as a coherent panel rather than reflowing. */}
+        <aside className="hidden lg:block flex-shrink-0 w-[360px] pt-1">
           {/* Edition-row Links inherit this page's navState when it
               exists (so '← Library / Stats / etc.' threads through
               edition hops), and fall back to a link pointing at the
@@ -883,41 +938,6 @@ export default function BookDetail() {
             </>
           )}
 
-          {/* Stories (collection table-of-contents). Surface only on
-              books tagged Stories, Anthology, or Compilation — or any
-              book that already has stories attached, so a user can
-              still see/edit them after retagging. Compilation extends
-              the same shape to nonfiction collected-works / essay
-              volumes, swapping the user-visible noun from "story" to
-              "entry" since the items are essays or books, not shorts. */}
-          {(() => {
-            const tagNames = (book.tags || []).map(t => t.name);
-            const isCollection = tagNames.includes('Stories') || tagNames.includes('Anthology') || tagNames.includes('Compilation');
-            const stories = book.stories || [];
-            if (!isCollection && stories.length === 0) return null;
-            const noun = tagNames.includes('Compilation') && !tagNames.includes('Stories') && !tagNames.includes('Anthology') ? 'entry' : 'story';
-            return (
-              <StoriesSection
-                bookId={book.id}
-                stories={stories}
-                bookAuthors={book.authors || []}
-                noun={noun}
-                onUpdate={() => api.getBook(book.id).then(b => {
-                  if (String(b.id) !== String(latestIdRef.current)) return;
-                  // When the last story-finish auto-rolls the parent
-                  // collection to status='finished', surface the rating
-                  // prompt the same way an explicit finish would. Compares
-                  // the prior `book` snapshot held in closure to the
-                  // freshly-fetched `b`.
-                  if (book && book.status !== 'finished' && b.status === 'finished' && !b.rating) {
-                    setRatingPrompt(true);
-                  }
-                  setBook(b);
-                })}
-              />
-            );
-          })()}
-
           {(book.status === 'finished' || book.read_count > 0) && book.review && (
             <div className="border-t border-neutral-800 pt-5 mb-6">
               <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Review</p>
@@ -945,20 +965,7 @@ export default function BookDetail() {
             status={book.status}
             pageCount={book.page_count}
           />
-
-          <div className="mt-8 pt-6 border-t border-neutral-800/60">
-            <button
-              type="button"
-              onClick={handleDelete}
-              disabled={deleteGuard.busy}
-              aria-label={`Delete ${book.title}`}
-              className="text-sm text-neutral-600 hover:text-warn disabled:opacity-50 disabled:cursor-wait transition-colors"
-            >
-              {deleteGuard.busy ? 'Deleting…' : 'Delete'}
-            </button>
-            {deleteError && <p role="alert" className="text-xs text-warn mt-2">{deleteError}</p>}
-          </div>
-        </div>
+        </aside>
       </div>
       {/* Cover lightbox — full-screen overlay on a dim backdrop. Clicking
           anywhere (image or backdrop) closes it; Esc handled by the
