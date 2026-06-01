@@ -3348,6 +3348,34 @@ describe('books', () => {
       assert.ok(ids.includes(ownedNet.id),    'owned Internet-sourced book should appear on Owned tab (broad meaning)');
     });
 
+    it('counts=owned returns unowned_total, independent of the tab filter', async () => {
+      // BrowsePage's "Show unowned (N)" toggle relies on this — one fetch
+      // returns both the displayed `total` (respecting tab) AND the
+      // unowned count for the same browse slice (ignoring tab). Lets the
+      // toggle label stay correct in both owned-only and all-visible
+      // states without a second round-trip.
+      const tag = 'Counts-Owned ' + Math.random().toString(36).slice(2, 8);
+      await req('POST', '/api/books', { title: 'Counts owned A',   owned: true,  tags: [tag] });
+      await req('POST', '/api/books', { title: 'Counts owned B',   owned: true,  tags: [tag] });
+      await req('POST', '/api/books', { title: 'Counts unowned A', owned: false, tags: [tag] });
+
+      const url = `/api/books?field=tag&value=${encodeURIComponent(tag)}&counts=owned`;
+      const { body: all }   = await req('GET', `${url}&limit=1`);
+      const { body: owned } = await req('GET', `${url}&tab=owned&limit=1`);
+
+      assert.equal(all.total,           3, 'all-tab returns 3 books in this tag');
+      assert.equal(all.unowned_total,   1, 'unowned_total counts the 1 unowned book');
+      assert.equal(owned.total,         2, 'tab=owned narrows total to 2');
+      assert.equal(owned.unowned_total, 1, 'unowned_total stays 1 — independent of the tab filter');
+    });
+
+    it('counts=owned is opt-in — without it, unowned_total is absent', async () => {
+      // Existing Library / Diary / Audit consumers don't need the extra
+      // COUNT query, so the field stays off the response by default.
+      const { body } = await req('GET', '/api/books?limit=1');
+      assert.ok(!('unowned_total' in body), 'unowned_total absent without counts=owned');
+    });
+
     it('GET /api/books/counts.never_owned counts only real books that are neither owned nor previously owned', async () => {
       // Four POSTs: only the plain never-owned fixture should increment
       // never_owned. The owned + prev fixtures land in their own buckets,
