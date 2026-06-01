@@ -17,6 +17,12 @@ const LIST_ORDER_BY = {
   author: "(SELECT a.name FROM authors a JOIN book_authors ba ON ba.author_id = a.id WHERE ba.book_id = b.id ORDER BY ba.position LIMIT 1) COLLATE NOCASE ASC, b.title COLLATE NOCASE ASC",
   rating: "COALESCE(b.rating, 0) DESC, b.title COLLATE NOCASE ASC",
   added:  "lb.position ASC, lb.added_at DESC",
+  // Chronological by original year of publication. NULL years sort last
+  // in both directions so unknowns don't crowd the top — same convention
+  // as Author page year sorts. Tiebreakers fall through series_number
+  // then title so volume-2-of-a-1789-series still lands after volume-1.
+  year_published:      "(b.year_published IS NULL), b.year_published ASC,  COALESCE(b.series_number, 9999) ASC, b.title COLLATE NOCASE ASC",
+  year_published_desc: "(b.year_published IS NULL), b.year_published DESC, COALESCE(b.series_number, 9999) ASC, b.title COLLATE NOCASE ASC",
 };
 
 function booksForList(listId, { sort = 'added', limit = null, offset = 0 } = {}) {

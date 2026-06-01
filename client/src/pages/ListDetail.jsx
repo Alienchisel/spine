@@ -28,10 +28,12 @@ import { useStaleGuard } from '../hooks/useStaleGuard.js';
 const PAGE_SIZE = 48;
 
 const SORTS = [
-  { key: 'added',  label: 'Custom order' },
-  { key: 'title',  label: 'Title A–Z' },
-  { key: 'author', label: 'Author A–Z' },
-  { key: 'rating', label: 'Rating' },
+  { key: 'added',               label: 'Custom order' },
+  { key: 'title',               label: 'Title A–Z' },
+  { key: 'author',              label: 'Author A–Z' },
+  { key: 'year_published',      label: 'Chronological' },
+  { key: 'year_published_desc', label: 'Reverse chronological' },
+  { key: 'rating',              label: 'Rating' },
 ];
 
 function DragHandle() {

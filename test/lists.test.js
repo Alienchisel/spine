@@ -190,6 +190,30 @@ describe('lists', () => {
       assert.equal(ids[2], bookId2);
     });
 
+    it('sort=year_published orders by original year, NULLs last', async () => {
+      // Three fixtures with explicit years + one with NULL year. ASC
+      // pushes 1605 → 1818 → 1989 → unknown to the end; DESC reverses
+      // the dated bucket and still keeps the unknown last so missing
+      // metadata doesn't crowd the top.
+      const { body: oldBook } = await req('POST', '/api/books', { title: 'Year-sort: Don Quixote',     year_published: 1605 });
+      const { body: midBook } = await req('POST', '/api/books', { title: 'Year-sort: Frankenstein',    year_published: 1818 });
+      const { body: newBook } = await req('POST', '/api/books', { title: 'Year-sort: Foucault\'s Pendulum', year_published: 1989 });
+      const { body: nilBook } = await req('POST', '/api/books', { title: 'Year-sort: Unknown year' });
+
+      const { body: yList } = await req('POST', '/api/lists', { name: 'Year-sort list' });
+      for (const b of [nilBook, newBook, oldBook, midBook]) {
+        await req('POST', `/api/lists/${yList.id}/books`, { book_id: b.id });
+      }
+
+      const { body: asc } = await req('GET', `/api/lists/${yList.id}?sort=year_published`);
+      const ascIds = asc.books.map(b => b.id);
+      assert.deepEqual(ascIds, [oldBook.id, midBook.id, newBook.id, nilBook.id]);
+
+      const { body: desc } = await req('GET', `/api/lists/${yList.id}?sort=year_published_desc`);
+      const descIds = desc.books.map(b => b.id);
+      assert.deepEqual(descIds, [newBook.id, midBook.id, oldBook.id, nilBook.id]);
+    });
+
     it('PUT /api/lists/:id/order rejects malformed id arrays', async () => {
       // Pre-fix the route only checked Array.isArray, so floats, strings,
       // negatives, and zeros silently fell through and the position UPDATE
