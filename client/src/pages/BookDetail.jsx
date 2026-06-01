@@ -484,7 +484,7 @@ export default function BookDetail() {
           competing horizontally with right-rail content. Center/cover/
           right-rail flow below this band. */}
       <header className="mb-8">
-        <div className="flex items-start justify-between gap-4 mb-2">
+        <div className="flex items-baseline gap-3 flex-wrap mb-2">
           <h1 className="font-slab text-4xl text-parchment leading-[1.1] tracking-tight">
             {book.title}
             {book.archived ? (
@@ -493,7 +493,10 @@ export default function BookDetail() {
               </span>
             ) : null}
           </h1>
-          <div className="flex items-center gap-2 flex-shrink-0 pt-2">
+          {/* Meta cluster docks against the title's baseline so short titles
+              don't leave it floating off in space. flex-wrap lets it drop
+              to its own row only when the title genuinely fills the line. */}
+          <div className="flex items-center gap-2 flex-shrink-0">
             <span className="text-xs text-neutral-700 tabular-nums" title="Book ID">#{book.id}</span>
             <span className="text-neutral-800">·</span>
             <Link
@@ -758,7 +761,7 @@ export default function BookDetail() {
             )}
             <div className="border-t border-neutral-800 py-3 px-2">
               <p className="text-[10px] uppercase tracking-wider text-neutral-600 text-center mb-2.5">
-                {ratingPrompt ? 'How was it?' : 'Rate'}
+                {ratingPrompt ? 'How was it?' : book.rating ? 'Rating' : 'Rate'}
               </p>
               <div className="flex justify-center">
                 <StarRating
