@@ -383,12 +383,15 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
             <p role="alert" className="mt-1.5 text-xs text-warn">{error}</p>
           )}
           {open && (
-            <form onSubmit={handleSubmit} className="mt-1.5 flex gap-1 items-center flex-wrap">
+            // Framed editor: gives the form a discrete control area
+            // distinct from the surrounding card text, so the select / input /
+            // buttons read as one widget rather than four floating fragments.
+            <form onSubmit={handleSubmit} className="mt-1.5 bg-neutral-900/60 border border-neutral-800 rounded-md p-1.5 flex gap-1.5 items-center flex-wrap">
               <select
                 value={mode}
                 onChange={(e) => changeMode(e.target.value)}
                 aria-label="Progress unit"
-                className="bg-neutral-800 border border-neutral-700 text-neutral-300 text-xs rounded px-1.5 py-1 focus:outline-none"
+                className="bg-neutral-800 border border-neutral-700 text-neutral-400 text-[10px] uppercase tracking-wider rounded px-1.5 py-1 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 transition-colors"
               >
                 {isAudiobook ? (
                   <>
@@ -409,7 +412,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
                     onChange={(e) => { setError(null); setInputH(e.target.value); }}
                     placeholder="h"
                     aria-label="Hours"
-                    className={`w-12 ${numCls}`}
+                    className={`w-12 text-sm ${numCls}`}
                   />
                   <span className="text-neutral-500 text-xs">h</span>
                   <input
@@ -419,7 +422,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
                     onBlur={(e) => setInputM(clampMinutes(e.target.value))}
                     placeholder="m"
                     aria-label="Minutes"
-                    className={`w-12 ${numCls}`}
+                    className={`w-12 text-sm ${numCls}`}
                   />
                   <span className="text-neutral-500 text-xs">m</span>
                 </div>
@@ -433,14 +436,14 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
                   onChange={(e) => { setError(null); setInputVal(e.target.value); }}
                   placeholder={mode === 'pct' ? '0–100' : '#'}
                   aria-label={mode === 'pct' ? 'Percent complete' : 'Current page'}
-                  className={`flex-1 min-w-[3rem] ${numCls}`}
+                  className={`flex-1 min-w-[3rem] text-sm ${numCls}`}
                 />
               )}
               <button
                 type="submit"
                 disabled={saveGuard.busy || isEmpty}
                 aria-label={`${saveGuard.busy ? 'Saving progress' : 'Save progress'}: ${book.title}`}
-                className="text-xs bg-binding hover:bg-binding/80 motion-safe:active:scale-[0.98] disabled:opacity-60 text-parchment px-2 py-1 rounded transition-[transform,background-color] ease-out duration-150"
+                className="text-sm bg-binding hover:bg-binding/80 motion-safe:active:scale-[0.98] disabled:opacity-60 text-parchment px-2.5 py-1 rounded transition-[transform,background-color] ease-out duration-150"
               >
                 {saveGuard.busy ? '…' : '✓'}
               </button>
@@ -448,7 +451,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
                 type="button"
                 onClick={() => setOpen(false)}
                 aria-label={`Close progress editor for ${book.title}`}
-                className="text-xs text-neutral-600 hover:text-neutral-400 px-1 py-1"
+                className="text-sm text-neutral-600 hover:text-neutral-400 px-1 py-1 transition-colors"
               >
                 ✕
               </button>
