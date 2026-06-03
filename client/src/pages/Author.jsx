@@ -3,6 +3,7 @@ import { useParams, useLocation, Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { plural, initialsFor, MOD_KEY } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
+import { GridSkeleton } from '../components/Skeleton.jsx';
 import { useTextOverflow } from '../hooks/useTextOverflow.js';
 import { dispatchSpineEvent } from '../hooks/useSpineEvent.js';
 
@@ -550,7 +551,10 @@ export default function Author() {
       </div>
 
       {loading ? (
-        <div role="status" className="text-neutral-700 text-sm">Loading…</div>
+        <GridSkeleton
+          count={10}
+          gridClassName="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-3 gap-y-5 items-start"
+        />
       ) : errorKind === 'fetch' ? (
         <div className="text-center py-32">
           <p className="text-neutral-600">Failed to load author. Please try again.</p>

@@ -1,0 +1,78 @@
+// Quiet skeleton placeholders for cover-first surfaces. Renders during
+// the initial load window only — refetches keep the prior cards on
+// screen, so layering skeletons during a refresh would be a visible
+// regression. Used by Library, BrowsePage, Author, BookDetail.
+//
+// Pulse is gated to `motion-safe:` so a user with prefers-reduced-motion
+// sees a static placeholder instead of a breathing one. The bg-* tone
+// matches BookCard's "no cover yet" fallback so the placeholder reads as
+// "an image is coming here" rather than as an empty box.
+
+// Single cover-aspect placeholder. `compact` matches the BookCard prop —
+// smaller covers in dense modes drop the rounded corner and shadow.
+export function CoverSkeleton({ compact = false }) {
+  return (
+    <div
+      aria-hidden="true"
+      className={`bg-neutral-800/60 motion-safe:animate-pulse aspect-[2/3] ${
+        compact ? 'rounded-sm' : 'rounded shadow-lg'
+      }`}
+    />
+  );
+}
+
+// Grid of cover skeletons. Pass through the same `gridStyle` /
+// `gridClassName` the real grid uses (Library + BrowsePage get these
+// from useCoverSize so the column count exactly matches what the real
+// books will land into — no layout shift on data arrival). Author has
+// its own hardcoded grid; pass that in via `gridClassName` and leave
+// `gridStyle` undefined.
+//
+// `count` should approximate first-page-worth of books at typical
+// viewport so the screen feels populated. A small count (6) for sparse
+// surfaces like Author's per-author book grid; a larger one (20) for
+// the main Library.
+export function GridSkeleton({
+  count = 12,
+  compact = false,
+  gridStyle,
+  gridClassName = 'grid items-start gap-x-3 gap-y-5 grid-cols-3 sm:grid-cols-4 md:grid-cols-5',
+}) {
+  return (
+    <div
+      role="status"
+      aria-label="Loading books"
+      className={gridClassName}
+      style={gridStyle}
+    >
+      {Array.from({ length: count }, (_, i) => (
+        <CoverSkeleton key={i} compact={compact} />
+      ))}
+    </div>
+  );
+}
+
+// BookDetail's hero + cover-rail skeleton. Mirrors the page's actual
+// layout — cover-rail on the left (280×420), hero band + center column
+// on the right with title-bar / byline / meta-cluster placeholders —
+// so the page's structure is anchored before the data lands.
+export function BookDetailSkeleton() {
+  return (
+    <div role="status" aria-label="Loading book" className="max-w-7xl">
+      <div className="bg-neutral-800/60 motion-safe:animate-pulse h-4 w-20 rounded mb-8" />
+      <div className="bg-neutral-800/60 motion-safe:animate-pulse h-9 w-3/4 rounded mb-2" />
+      <div className="bg-neutral-800/60 motion-safe:animate-pulse h-4 w-1/3 rounded mb-6" />
+      <div className="flex flex-col lg:flex-row gap-8 lg:gap-10">
+        <div className="flex-shrink-0 self-center lg:self-start">
+          <div className="bg-neutral-800/60 motion-safe:animate-pulse w-[280px] h-[420px] rounded shadow-2xl" />
+        </div>
+        <div className="flex-1 min-w-0 space-y-3 pt-1">
+          <div className="bg-neutral-800/60 motion-safe:animate-pulse h-3 w-2/3 rounded" />
+          <div className="bg-neutral-800/60 motion-safe:animate-pulse h-3 w-1/2 rounded" />
+          <div className="bg-neutral-800/60 motion-safe:animate-pulse h-3 w-3/5 rounded" />
+          <div className="bg-neutral-800/60 motion-safe:animate-pulse h-3 w-2/5 rounded" />
+        </div>
+      </div>
+    </div>
+  );
+}

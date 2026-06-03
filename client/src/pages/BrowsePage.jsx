@@ -5,6 +5,7 @@ import { plural } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
 import CoverSizeSlider from '../components/CoverSizeSlider.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
+import { GridSkeleton } from '../components/Skeleton.jsx';
 import { useCoverSize } from '../hooks/useCoverSize.js';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
@@ -326,7 +327,12 @@ export default function BrowsePage() {
       )}
 
       {loading ? (
-        <div role="status" className="text-neutral-700 text-sm">Loading…</div>
+        <GridSkeleton
+          count={15}
+          compact={compact}
+          gridStyle={gridStyle}
+          gridClassName={gridClassName}
+        />
       ) : books.length === 0 && fetchError ? (
         <div className="text-center py-32">
           <p className="text-neutral-600">Failed to load books. Please try again.</p>

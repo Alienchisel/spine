@@ -28,6 +28,7 @@ import { paramsToFilters, writeFiltersToParams, filtersEqual } from '../componen
 import { buildDisplayItems } from '../components/library/grouping.js';
 import { useCoverSize } from '../hooks/useCoverSize.js';
 import CoverSizeSlider from '../components/CoverSizeSlider.jsx';
+import { GridSkeleton } from '../components/Skeleton.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useLatest } from '../hooks/useLatest.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
@@ -939,7 +940,12 @@ export default function Library() {
       </div>
 
       {loading ? (
-        <div role="status" className="text-neutral-700 text-sm">Loading…</div>
+        <GridSkeleton
+          count={20}
+          compact={compact}
+          gridStyle={gridStyle}
+          gridClassName={gridClassName}
+        />
       ) : fetchError ? (
         <div className="text-center py-32">
           <p className="text-neutral-600">Failed to load books. Please try again.</p>

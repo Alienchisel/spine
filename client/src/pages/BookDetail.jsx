@@ -13,6 +13,7 @@ import MetadataList from '../components/bookDetail/MetadataList.jsx';
 import EditionsSection from '../components/bookDetail/EditionsSection.jsx';
 import ReadingLog from '../components/bookDetail/ReadingLog.jsx';
 import BookRef from '../components/bookDetail/BookRef.jsx';
+import { BookDetailSkeleton } from '../components/Skeleton.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useTextOverflow } from '../hooks/useTextOverflow.js';
 import { useLatest } from '../hooks/useLatest.js';
@@ -560,7 +561,7 @@ export default function BookDetail() {
     },
   }), [bookFromState]);
 
-  if (loading) return <div role="status" className="text-neutral-700 text-sm">Loading…</div>;
+  if (loading) return <BookDetailSkeleton />;
   if (!book) return <div className="text-neutral-600 text-sm">{loadError ? 'Failed to load book.' : 'Book not found.'}</div>;
 
   return (
