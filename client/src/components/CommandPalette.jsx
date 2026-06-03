@@ -318,6 +318,16 @@ export default function CommandPalette() {
   // failed. Same clear semantics as subPromptError.
   const [actionError, setActionError] = useState(null);
 
+  // Brief inline success confirmation. Set by pick() after a mutation
+  // action (loved/readlist/archive toggle, add-to-list) resolves; auto-
+  // clears + closes the palette after CONFIRM_HOLD_MS. Lets the user see
+  // that the action succeeded even though the affected surface (a card
+  // far down the list, a BookDetail on another route) is off-screen.
+  // Not used for actions that have their own visual confirmation:
+  // delete (page navigates away), edit (navigates to BookForm), open
+  // book / browse path (page changes).
+  const [confirmation, setConfirmation] = useState(null);
+
   // Reset query / results / selection without dismissing the palette
   // — used both by close() and by sub-prompt transitions, where we
   // want a fresh input but want to stay open. Resets cursorPos too so
@@ -336,12 +346,18 @@ export default function CommandPalette() {
     setSubPrompt(null);
     setActionError(null);
     setSubPromptError(null);
+    setConfirmation(null);
     const target = returnFocusRef.current;
     returnFocusRef.current = null;
     if (target && typeof target.focus === 'function') {
       requestAnimationFrame(() => target.focus());
     }
   }, [resetQuery]);
+
+  // How long the brief "✓ {verb}" confirmation stays visible after a
+  // mutation completes from the palette. Long enough to be readable,
+  // short enough not to feel like the palette is hanging open.
+  const CONFIRM_HOLD_MS = 700;
 
   // Open shortcut. See header comment for binding rationale.
   useEffect(() => {
@@ -755,6 +771,7 @@ export default function CommandPalette() {
         kind: 'action',
         label: currentBook.loved ? 'Remove from loved' : 'Mark as loved',
         hint: title,
+        confirmVerb: currentBook.loved ? 'Removed from loved' : 'Marked as loved',
         perform: guarded(currentBook.loved ? 'remove from loved' : 'mark as loved', async () => {
           await api.patchBook(id, { loved: !currentBook.loved });
           fireMutation();
@@ -765,6 +782,7 @@ export default function CommandPalette() {
         kind: 'action',
         label: currentBook.on_readlist ? 'Remove from readlist' : 'Add to readlist',
         hint: title,
+        confirmVerb: currentBook.on_readlist ? 'Removed from readlist' : 'Added to readlist',
         perform: guarded(currentBook.on_readlist ? 'remove from readlist' : 'add to readlist', async () => {
           await api.patchBook(id, { on_readlist: !currentBook.on_readlist });
           fireMutation();
@@ -775,6 +793,7 @@ export default function CommandPalette() {
         kind: 'action',
         label: currentBook.archived ? 'Restore from archive' : 'Archive book',
         hint: title,
+        confirmVerb: currentBook.archived ? 'Restored from archive' : 'Archived',
         perform: guarded(currentBook.archived ? 'restore from archive' : 'archive book', async () => {
           await api.patchBook(id, { archived: !currentBook.archived });
           fireMutation();
@@ -975,6 +994,7 @@ export default function CommandPalette() {
           kind: 'list',
           label: l.name,
           hint: l.book_count != null ? plural(l.book_count, 'book') : null,
+          confirmVerb: `Added to ${l.name}`,
           perform: async () => {
             setSubPromptError(null);
             try {
@@ -1173,6 +1193,17 @@ export default function CommandPalette() {
         return;
       }
     }
+    // Confirmable mutations: hold the palette open briefly with a "✓
+    // {verb}" badge so the user sees that the action took effect even
+    // though the affected surface may not be on screen. Then close.
+    // remember() still runs so MRU is updated; we skip the navigate
+    // branch below since confirmable actions don't navigate.
+    if (entry.confirmVerb) {
+      remember(entry);
+      setConfirmation({ verb: entry.confirmVerb });
+      setTimeout(() => close(), CONFIRM_HOLD_MS);
+      return;
+    }
     remember(entry);
     close();
     if (entry.path) {
@@ -1302,6 +1333,21 @@ export default function CommandPalette() {
               so the user sees that the list they're looking at may not
               yet reflect the current query. The 'Searching…' empty-state
               text below covers the no-prior-results case. */}
+          {/* Confirmation overlay: brief "✓ {verb}" badge covers the
+              input slot after a mutation action resolves, then the
+              palette closes via pick()'s scheduled close(). Sits over
+              the live input (not replacing it) so focus management
+              isn't disturbed during the hold window. */}
+          {confirmation && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="absolute inset-0 flex items-center bg-neutral-900 border-b border-neutral-800 px-4"
+            >
+              <span aria-hidden="true" className="text-sm text-oak mr-2">✓</span>
+              <span className="text-sm text-parchment">{confirmation.verb}</span>
+            </div>
+          )}
           {bookLoading && query.trim() && (
             <span
               role="status"
