@@ -76,6 +76,16 @@ describe('diary', () => {
       assert.deepEqual(e.authors, []);
     });
 
+    it('pre-computes pages_total and minutes_total per day', async () => {
+      // Single source of truth for the daily aggregation so the four
+      // sites in Diary.jsx that previously each ran .reduce() over
+      // entries don't drift when the rule changes.
+      const { body } = await req('GET', '/api/diary');
+      const day = body.days[0];
+      assert.equal(day.pages_total, 30, 'matches the sum of entries.pages_read');
+      assert.equal(day.minutes_total, 0, 'no minutes in this fixture');
+    });
+
     it('includes the current year in the years list', async () => {
       const { body } = await req('GET', '/api/diary');
       const currentYear = new Date().getFullYear();

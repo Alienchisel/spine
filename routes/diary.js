@@ -105,7 +105,16 @@ router.get('/', (req, res) => {
   `).get();
 
   res.json({
-    days:  Object.entries(byDate).map(([date, entries]) => ({ date, entries })),
+    // pages_total / minutes_total are pre-summed here so the client has
+    // a single source of truth for daily aggregates — previously each
+    // of four call sites in Diary.jsx ran its own .reduce() over
+    // entries, easy to drift when the aggregation rule changes.
+    days: Object.entries(byDate).map(([date, entries]) => ({
+      date,
+      entries,
+      pages_total:   entries.reduce((s, e) => s + (e.pages_read   || 0), 0),
+      minutes_total: entries.reduce((s, e) => s + (e.minutes_read || 0), 0),
+    })),
     years,
     stats: {
       dayStreak:           streaks.days.current,

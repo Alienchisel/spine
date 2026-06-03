@@ -73,15 +73,18 @@ function ReadingCalendar({ days, selectedYear, totals, onDayClick }) {
     setViewMonth(selectedYear === currentYear ? today.getMonth() : 11);
   }, [selectedYear]);
 
+  // Daily totals come pre-summed from /api/diary as day.pages_total /
+  // day.minutes_total — single source of truth for the aggregation
+  // rule rather than four separate client-side reduces over entries.
   const pagesByDate = useMemo(() => {
     const map = {};
-    for (const day of days) map[day.date] = day.entries.reduce((s, e) => s + (e.pages_read || 0), 0);
+    for (const day of days) map[day.date] = day.pages_total;
     return map;
   }, [days]);
 
   const minutesByDate = useMemo(() => {
     const map = {};
-    for (const day of days) map[day.date] = day.entries.reduce((s, e) => s + (e.minutes_read || 0), 0);
+    for (const day of days) map[day.date] = day.minutes_total;
     return map;
   }, [days]);
 
@@ -241,8 +244,8 @@ function YearHeatmap({ days, selectedYear, onDayClick }) {
   const activityByDate = useMemo(() => {
     const map = {};
     for (const day of days) {
-      const p = day.entries.reduce((s, e) => s + (e.pages_read   || 0), 0);
-      const m = day.entries.reduce((s, e) => s + (e.minutes_read || 0), 0);
+      const p = day.pages_total;
+      const m = day.minutes_total;
       map[day.date] = { pages: p, minutes: m, score: p + m / 2 };
     }
     return map;
@@ -586,8 +589,8 @@ export default function Diary() {
                     <span>{formatDate(day.date)}</span>
                     <span className="text-neutral-700 normal-case tracking-normal font-normal">
                       {(() => {
-                        const p = day.entries.reduce((s, e) => s + (e.pages_read   || 0), 0);
-                        const m = day.entries.reduce((s, e) => s + (e.minutes_read || 0), 0);
+                        const p = day.pages_total;
+                        const m = day.minutes_total;
                         const parts = [];
                         if (p > 0) parts.push(plural(p, 'page'));
                         if (m > 0) parts.push(`${Math.floor(m / 60)}h ${m % 60}m`);
