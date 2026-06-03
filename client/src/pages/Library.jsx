@@ -777,7 +777,7 @@ export default function Library() {
                   tabIndex={tab === t.key ? 0 : -1}
                   onClick={() => switchTab(t.key)}
                   onKeyDown={e => handleTabKey(e, i)}
-                  className={`px-5 py-2 text-sm rounded-md whitespace-nowrap transition-[transform,background-color,color] ease-out duration-150 motion-safe:active:scale-[0.98] ${
+                  className={`h-9 inline-flex items-center px-5 text-sm rounded-md whitespace-nowrap transition-[transform,background-color,color] ease-out duration-150 motion-safe:active:scale-[0.98] ${
                     tab === t.key
                       ? 'bg-binding/25 text-parchment font-semibold'
                       : 'font-medium text-neutral-400 hover:text-neutral-200'
@@ -805,7 +805,7 @@ export default function Library() {
               disabled={editMode}
               title={editMode ? 'Sorting is locked to Custom order while editing' : ''}
               onChange={(e) => { setSort(e.target.value); setExpandedSeries(new Set()); }}
-              className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-300 focus:outline-none focus:border-oak/50 transition-colors duration-150 disabled:opacity-50"
+              className="h-9 bg-neutral-800 border border-neutral-700 rounded-lg px-3 text-sm text-neutral-300 focus:outline-none focus:border-oak/50 transition-colors duration-150 disabled:opacity-50"
             >
               {/* Filter sort options to those allowed on the active tab. The
                   Custom-order sort is gated to Never owned via SORTS[].tabs;
@@ -829,7 +829,7 @@ export default function Library() {
                 onClick={() => setRandomSeed(rollSeed())}
                 title="Reshuffle"
                 aria-label="Reshuffle random order"
-                className="text-neutral-500 hover:text-parchment text-base leading-none px-2 py-2 rounded-lg border border-neutral-800 hover:border-oak/50 transition-colors duration-150"
+                className="h-9 inline-flex items-center justify-center text-neutral-500 hover:text-parchment text-base leading-none px-2 rounded-lg border border-neutral-800 hover:border-oak/50 transition-colors duration-150"
               >
                 🎲
               </button>
@@ -848,7 +848,7 @@ export default function Library() {
                 // outrank freshly-stamped top picks.
                 disabled={enteringEdit}
                 title={enteringEdit ? 'Loading all books to rank…' : ''}
-                className={`text-sm px-3 py-2 rounded-lg whitespace-nowrap transition-colors disabled:opacity-60 disabled:cursor-wait ${
+                className={`h-9 inline-flex items-center text-sm px-3 rounded-lg whitespace-nowrap transition-colors disabled:opacity-60 disabled:cursor-wait ${
                   editMode
                     ? 'bg-binding/25 text-parchment'
                     : 'bg-neutral-800 text-neutral-400 hover:text-neutral-200'
@@ -880,7 +880,7 @@ export default function Library() {
                   }
                 }}
                 placeholder="Search title, people, series, or tags…"
-                className="w-full bg-neutral-800 border border-leather/30 rounded-lg pl-4 pr-10 py-2 text-sm text-parchment placeholder-neutral-500 focus:outline-none focus:border-leather/70 focus:ring-1 focus:ring-oak/25 transition-colors duration-150 [&::-webkit-search-cancel-button]:appearance-none"
+                className="h-9 w-full bg-neutral-800 border border-leather/30 rounded-lg pl-4 pr-10 text-sm text-parchment placeholder-neutral-500 focus:outline-none focus:border-leather/70 focus:ring-1 focus:ring-oak/25 transition-colors duration-150 [&::-webkit-search-cancel-button]:appearance-none"
               />
               {/* z-20 lifts this wrapper above the book grid below — the
                   -translate-y-1/2 transform here creates a stacking context
@@ -894,7 +894,7 @@ export default function Library() {
             <button
               type="button"
               onClick={() => setFiltersOpen(o => !o)}
-              className={`flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg whitespace-nowrap transition-[transform,background-color,color] ease-out duration-150 motion-safe:active:scale-[0.98] ${
+              className={`h-9 inline-flex items-center gap-1.5 text-sm px-3 rounded-lg whitespace-nowrap transition-[transform,background-color,color] ease-out duration-150 motion-safe:active:scale-[0.98] ${
                 filtersOpen || activeCount > 0
                   ? 'bg-binding/25 text-parchment'
                   : 'bg-neutral-800 text-neutral-400 hover:text-neutral-200'

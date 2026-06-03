@@ -34,7 +34,7 @@ function editionLabel(book) {
 
 export default function MetadataList({ book, location, linkState }) {
   return (
-    <dl className="space-y-2.5 text-sm mb-6">
+    <dl className="space-y-1.5 text-sm mb-6">
       {book.fiction !== null && book.fiction !== undefined && (
         <Row label="Type">
           {book.fiction ? 'Fiction' : 'Non-fiction'}

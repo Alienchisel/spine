@@ -568,7 +568,7 @@ export default function BookDetail() {
           the full width above the 3-column body so the title isn't
           competing horizontally with right-rail content. Center/cover/
           right-rail flow below this band. */}
-      <header className="mb-8">
+      <header className="mb-6">
         <div className="flex items-baseline gap-3 flex-wrap mb-2">
           <h1 className="font-slab text-4xl text-parchment leading-[1.1] tracking-tight">
             {book.title}
@@ -787,24 +787,23 @@ export default function BookDetail() {
           {coverError && <p role="alert" className="mt-1.5 text-[11px] text-warn">{coverError}</p>}
 
           <div className="mt-3 border border-neutral-800 rounded-lg overflow-hidden">
-            <div className="flex justify-around items-start py-3 px-2">
+            <div className="flex justify-around items-center py-2.5 px-2">
               <button
                 type="button"
                 onClick={toggleLoved}
                 disabled={loveGuard.busy}
-                className={`flex flex-col items-center gap-1.5 transition-colors disabled:opacity-50 ${book.loved ? 'text-red-400' : 'text-neutral-600 hover:text-neutral-300'}`}
+                className={`p-1.5 transition-colors disabled:opacity-50 ${book.loved ? 'text-red-400' : 'text-neutral-600 hover:text-neutral-300'}`}
                 title={book.loved ? 'Remove from loved' : 'Mark as loved'}
                 aria-label={`${book.loved ? 'Remove from loved' : 'Mark as loved'}: ${book.title}`}
                 aria-pressed={!!book.loved}
               >
                 <span className="text-2xl leading-none">{book.loved ? '♥' : '♡'}</span>
-                <span className="text-[10px] uppercase tracking-wider">Loved</span>
               </button>
               <button
                 type="button"
                 onClick={toggleReadlist}
                 disabled={listGuard.busy}
-                className={`flex flex-col items-center gap-1.5 transition-colors disabled:opacity-50 ${book.on_readlist ? 'text-sky-400' : 'text-neutral-600 hover:text-neutral-300'}`}
+                className={`p-1.5 transition-colors disabled:opacity-50 ${book.on_readlist ? 'text-sky-400' : 'text-neutral-600 hover:text-neutral-300'}`}
                 title={book.on_readlist ? 'Remove from readlist' : 'Add to readlist'}
                 aria-label={`${book.on_readlist ? 'Remove from readlist' : 'Add to readlist'}: ${book.title}`}
                 aria-pressed={!!book.on_readlist}
@@ -812,27 +811,10 @@ export default function BookDetail() {
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-5 h-5">
                   <path d="M2 2.75A2.75 2.75 0 0 1 4.75 0h6.5A2.75 2.75 0 0 1 14 2.75v12.5a.75.75 0 0 1-1.18.617L8 12.21l-4.82 3.657A.75.75 0 0 1 2 15.25V2.75Z" />
                 </svg>
-                <span className="text-[10px] uppercase tracking-wider">Readlist</span>
               </button>
-              <div className="flex flex-col items-center gap-1.5 text-neutral-600">
+              <div className="p-1.5 text-neutral-600">
                 <ListPicker bookId={book.id} bookTitle={book.title} iconClassName="w-5 h-5" />
-                <span className="text-[10px] uppercase tracking-wider pointer-events-none">Lists</span>
               </div>
-              <button
-                type="button"
-                onClick={toggleArchived}
-                disabled={archiveGuard.busy}
-                className={`flex flex-col items-center gap-1.5 transition-colors disabled:opacity-50 ${book.archived ? 'text-amber-500' : 'text-neutral-600 hover:text-neutral-300'}`}
-                title={book.archived ? 'Restore from archive' : 'Archive — hide from active library'}
-                aria-label={`${book.archived ? 'Restore from archive' : 'Archive'}: ${book.title}`}
-                aria-pressed={!!book.archived}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-5 h-5">
-                  <path d="M2 3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1.5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3Z" />
-                  <path fillRule="evenodd" d="M2.875 7a.5.5 0 0 0-.5.5v5.625A1.875 1.875 0 0 0 4.25 15h7.5a1.875 1.875 0 0 0 1.875-1.875V7.5a.5.5 0 0 0-.5-.5h-10.25Zm3.625 2.5a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75Z" clipRule="evenodd" />
-                </svg>
-                <span className="text-[10px] uppercase tracking-wider">{book.archived ? 'Archived' : 'Archive'}</span>
-              </button>
             </div>
             {book.status === 'reading' && (
               <div className="border-t border-neutral-800 py-2.5 px-3">
@@ -926,21 +908,34 @@ export default function BookDetail() {
               </div>
             )}
           </div>
-          {/* Destructive action lives at the foot of the management rail
-              rather than in the main reading flow — same intent space as
-              Archive (in the card above), one tap further away. */}
-          <div className="mt-4 text-center">
+          {/* Lifecycle actions — Archive (reversible) sits adjacent to
+              Delete (permanent). Both live below the management rail
+              rather than in the main reading flow so the everyday
+              actions (Loved/Readlist/Lists) keep their visual weight. */}
+          <div className="mt-4 flex items-center justify-center gap-2.5 text-[11px]">
+            <button
+              type="button"
+              onClick={toggleArchived}
+              disabled={archiveGuard.busy}
+              aria-label={`${book.archived ? 'Restore from archive' : 'Archive'}: ${book.title}`}
+              aria-pressed={!!book.archived}
+              title={book.archived ? 'Restore from archive' : 'Archive — hide from active library'}
+              className={`disabled:opacity-50 disabled:cursor-wait transition-colors ${book.archived ? 'text-amber-500 hover:text-amber-400' : 'text-neutral-700 hover:text-amber-500'}`}
+            >
+              {archiveGuard.busy ? 'Saving…' : book.archived ? 'Restore from archive' : 'Archive'}
+            </button>
+            <span aria-hidden="true" className="text-neutral-800">·</span>
             <button
               type="button"
               onClick={handleDelete}
               disabled={deleteGuard.busy}
               aria-label={`Delete ${book.title}`}
-              className="text-[11px] text-neutral-700 hover:text-warn disabled:opacity-50 disabled:cursor-wait transition-colors"
+              className="text-neutral-700 hover:text-warn disabled:opacity-50 disabled:cursor-wait transition-colors"
             >
               {deleteGuard.busy ? 'Deleting…' : 'Delete this book'}
             </button>
-            {deleteError && <p role="alert" className="mt-1 text-[11px] text-warn">{deleteError}</p>}
           </div>
+          {deleteError && <p role="alert" className="mt-1 text-[11px] text-warn text-center">{deleteError}</p>}
         </div>
 
         <div className="flex-1 min-w-0 pt-1">
