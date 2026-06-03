@@ -160,17 +160,17 @@ export default function TextModeForm({ cfg, wizardKey, current, busy, suggestion
         <button
           type="submit"
           disabled={busy || !anyFilled}
-          className="px-4 py-3 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-60 disabled:cursor-not-allowed text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
+          className="px-4 py-3 bg-oak hover:bg-leather disabled:opacity-60 disabled:cursor-not-allowed text-neutral-950 text-sm font-semibold rounded transition-colors focus:outline-none focus:ring-2 focus:ring-oak/60 flex flex-col items-center gap-1"
         >
           <span>Save</span>
-          <span className="text-[10px] text-neutral-500">{needsModEnter ? `${MOD_KEY}+↵` : '↵'}</span>
+          <span className="text-[10px] text-neutral-800">{needsModEnter ? `${MOD_KEY}+↵` : '↵'}</span>
         </button>
         <button
           type="button"
           onClick={onSkip}
           disabled={busy}
           aria-label={`Skip ${cfg.getName(current)}`}
-          className="px-4 py-3 bg-neutral-900 border border-neutral-700 hover:border-neutral-500 disabled:opacity-60 text-neutral-400 hover:text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
+          className="px-4 py-3 bg-neutral-900 border border-neutral-700 hover:border-neutral-500 disabled:opacity-60 text-neutral-400 hover:text-parchment text-sm rounded transition-colors focus:outline-none focus:ring-2 focus:ring-oak/40 flex flex-col items-center gap-1"
         >
           <span>Skip</span>
           <span className="text-[10px] text-neutral-600">Esc</span>
