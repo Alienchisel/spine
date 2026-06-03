@@ -127,7 +127,7 @@ export default function ProgressSection({ book, onChange, log }) {
       <form onSubmit={handleSubmit} className="flex flex-wrap items-center gap-2">
         <select value={mode} onChange={(e) => changeMode(e.target.value)}
           aria-label="Progress unit"
-          className="bg-neutral-900 border border-neutral-700 text-neutral-300 text-sm rounded px-2 py-1.5 focus:outline-none">
+          className="bg-neutral-900 border border-neutral-700 text-neutral-300 text-sm rounded px-2 py-1.5 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 transition-colors">
           {isAudiobook ? (
             <>
               <option value="min">Time elapsed</option>
@@ -173,7 +173,7 @@ export default function ProgressSection({ book, onChange, log }) {
         )}
         <button type="submit" disabled={saveGuard.busy || isEmpty}
           aria-label={`${saveGuard.busy ? 'Saving progress' : 'Update progress'} for ${book.title}`}
-          className="text-sm bg-binding hover:bg-binding/80 motion-safe:active:scale-[0.98] disabled:opacity-60 disabled:cursor-default text-parchment px-4 py-1.5 rounded transition-[transform,background-color] ease-out duration-150">
+          className="text-sm bg-binding hover:bg-binding/80 motion-safe:active:scale-[0.98] disabled:opacity-60 disabled:cursor-wait text-parchment px-4 py-1.5 rounded transition-[transform,background-color] ease-out duration-150">
           {saveGuard.busy ? 'Saving…' : 'Update'}
         </button>
         {error && <p role="alert" className="w-full text-xs text-warn mt-1">{error}</p>}

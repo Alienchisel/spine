@@ -194,7 +194,7 @@ export default function EditionsSection({ book, onChange, linkState }) {
       <p className="font-slab text-xs text-neutral-500 uppercase tracking-wider mb-3">
         Other editions of this work
       </p>
-      {error && <p role="alert" className="text-xs text-warn mb-2">{error}</p>}
+      {error && <p role="alert" className="text-xs text-warn mb-3">{error}</p>}
       <div className="divide-y divide-neutral-800/60">
         {editions.map(e => (
           <EditionRow key={e.id} edition={e} onUnlink={() => handleUnlink(e.id)} disabled={mutatingId === e.id} linkState={linkState} />
@@ -227,7 +227,7 @@ export default function EditionsSection({ book, onChange, linkState }) {
                     type="button"
                     onClick={() => handlePick(r.id)}
                     disabled={mutatingId === r.id}
-                    className="w-full text-left flex items-center gap-3 px-2 py-1.5 hover:bg-neutral-800/60 disabled:opacity-50 disabled:cursor-wait transition-colors"
+                    className="w-full text-left flex items-center gap-3 px-2 py-1.5 hover:bg-neutral-800/60 disabled:opacity-60 disabled:cursor-wait transition-colors"
                   >
                     <div className="w-7 h-[42px] flex-shrink-0 rounded overflow-hidden bg-neutral-800">
                       {r.cover_path
