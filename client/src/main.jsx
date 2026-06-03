@@ -17,6 +17,7 @@ import Lists from './pages/Lists.jsx';
 import ListDetail from './pages/ListDetail.jsx';
 import Diary from './pages/Diary.jsx';
 import Stats from './pages/Stats.jsx';
+import Notes from './pages/Notes.jsx';
 import Collage from './pages/Collage.jsx';
 import Audit from './pages/Audit.jsx';
 import AuditWizard from './pages/AuditWizard/index.jsx';
@@ -78,6 +79,7 @@ const router = createBrowserRouter(
         <Route path="lists"                 element={<Lists />} />
         <Route path="lists/:id"             element={<ListDetail />} />
         <Route path="diary"                 element={<Diary />} />
+        <Route path="notes"                 element={<Notes />} />
         <Route path="stats"                 element={<Stats />} />
         <Route path="collage"               element={<Collage />} />
         <Route path="audit"                 element={<Audit />} />

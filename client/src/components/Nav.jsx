@@ -11,6 +11,7 @@ export default function Nav() {
   const onLoved = pathname === '/loved';
   const onLists = pathname === '/lists' || pathname.startsWith('/lists/');
   const onDiary = pathname === '/diary';
+  const onNotes = pathname === '/notes';
   const onStats = pathname === '/stats';
   const onShelfView   = pathname === '/shelf-view';
 
@@ -53,6 +54,7 @@ export default function Nav() {
             {navLink('/loved',      'Loved',    onLoved,     'text-rose-400',    'hover:text-rose-300')}
             {navLink('/lists',      'Lists',    onLists,     'text-emerald-400', 'hover:text-emerald-300')}
             {navLink('/diary',      'Diary',    onDiary,     'text-amber-400',   'hover:text-amber-300')}
+            {navLink('/notes',      'Notes',    onNotes,     'text-leather',     'hover:text-parchment')}
             {navLink('/stats',      'Stats',    onStats,     'text-violet-400',  'hover:text-violet-300')}
             {navLink('/shelf-view', 'Shelves',  onShelfView, 'text-oak',         'hover:text-leather')}
           </nav>
