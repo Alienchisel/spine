@@ -80,12 +80,12 @@ export default function CoverModeGrid({ cfg, current, busy, onPick, onSkip }) {
           placeholder="Search query"
           aria-label="Cover search query"
           disabled={busy}
-          className="flex-1 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50 disabled:opacity-40"
+          className="flex-1 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50 disabled:opacity-60"
         />
         <button
           type="submit"
           disabled={candidatesLoading || busy || !coverQuery.trim()}
-          className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-40 text-parchment text-sm rounded transition-colors"
+          className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-60 text-parchment text-sm rounded transition-colors"
         >
           Search
         </button>
@@ -114,7 +114,7 @@ export default function CoverModeGrid({ cfg, current, busy, onPick, onSkip }) {
                 disabled={busy}
                 aria-label={`Use image: ${c.label || 'unlabeled candidate'}`}
                 title={c.label || ''}
-                className={`bg-neutral-800 rounded overflow-hidden ring-1 ring-transparent hover:ring-oak transition-all disabled:opacity-40 disabled:cursor-wait ${cfg.kind === 'author' ? 'aspect-square' : 'aspect-[2/3]'}`}
+                className={`bg-neutral-800 rounded overflow-hidden ring-1 ring-transparent hover:ring-oak transition-all disabled:opacity-60 disabled:cursor-wait ${cfg.kind === 'author' ? 'aspect-square' : 'aspect-[2/3]'}`}
               >
                 <img
                   src={c.thumbnail_url}
@@ -139,7 +139,7 @@ export default function CoverModeGrid({ cfg, current, busy, onPick, onSkip }) {
         onClick={onSkip}
         disabled={busy}
         aria-label={`Skip ${cfg.getName(current)}`}
-        className="w-full px-4 py-3 bg-neutral-900 border border-neutral-700 hover:border-neutral-500 disabled:opacity-40 text-neutral-400 hover:text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
+        className="w-full px-4 py-3 bg-neutral-900 border border-neutral-700 hover:border-neutral-500 disabled:opacity-60 text-neutral-400 hover:text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
       >
         <span>Skip</span>
         <span className="text-[10px] text-neutral-600">S</span>

@@ -172,7 +172,7 @@ function QuickAdd({ listId, onAdded }) {
       <button
         type="submit"
         disabled={saveGuard.busy || !title.trim()}
-        className="text-sm font-medium bg-oak hover:bg-leather disabled:opacity-40 motion-safe:active:scale-[0.98] text-neutral-950 px-4 py-2 rounded-lg transition-[transform,background-color] ease-out duration-150 whitespace-nowrap"
+        className="text-sm font-medium bg-oak hover:bg-leather disabled:opacity-60 motion-safe:active:scale-[0.98] text-neutral-950 px-4 py-2 rounded-lg transition-[transform,background-color] ease-out duration-150 whitespace-nowrap"
       >
         Add
       </button>
@@ -594,7 +594,7 @@ export default function ListDetail() {
                   type="button"
                   onClick={loadMore}
                   disabled={loadingMore || loadingAll}
-                  className="text-sm text-neutral-500 hover:text-neutral-300 disabled:opacity-40 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
+                  className="text-sm text-neutral-500 hover:text-neutral-300 disabled:opacity-60 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
                 >
                   {loadingMore ? 'Loading…' : `Load more · ${total - list.books.length} remaining`}
                 </button>
@@ -602,7 +602,7 @@ export default function ListDetail() {
                   type="button"
                   onClick={loadAll}
                   disabled={loadingMore || loadingAll}
-                  className="text-sm text-neutral-500 hover:text-neutral-300 disabled:opacity-40 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
+                  className="text-sm text-neutral-500 hover:text-neutral-300 disabled:opacity-60 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
                 >
                   {loadingAll ? `Loading all · ${list.books.length}/${total}` : 'Load all'}
                 </button>

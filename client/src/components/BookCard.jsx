@@ -210,7 +210,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
     ? (audioMins != null ? (hasPct ? `${pct}%` : audioElapsed) : null)
     : (book.current_page != null ? (hasPct ? `${pct}%` : `p. ${book.current_page}`) : null);
 
-  const numCls = 'bg-neutral-800 border border-neutral-700 text-parchment text-xs rounded px-2 py-1 focus:outline-none focus:border-leather [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none';
+  const numCls = 'bg-neutral-800 border border-neutral-700 text-parchment text-xs rounded px-2 py-1 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none';
 
   // Archived books are dimmed and slightly desaturated so the state reads at
   // a glance — used on the Archived tab and on search-result cards (search
@@ -437,7 +437,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
                 type="submit"
                 disabled={saveGuard.busy || isEmpty}
                 aria-label={`${saveGuard.busy ? 'Saving progress' : 'Save progress'}: ${book.title}`}
-                className="text-xs bg-binding hover:bg-binding/80 motion-safe:active:scale-[0.98] disabled:opacity-40 text-parchment px-2 py-1 rounded transition-[transform,background-color] ease-out duration-150"
+                className="text-xs bg-binding hover:bg-binding/80 motion-safe:active:scale-[0.98] disabled:opacity-60 text-parchment px-2 py-1 rounded transition-[transform,background-color] ease-out duration-150"
               >
                 {saveGuard.busy ? '…' : '✓'}
               </button>

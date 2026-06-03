@@ -841,7 +841,7 @@ export default function BookDetail() {
                   onClick={handleFinish}
                   disabled={finishGuard.busy}
                   aria-label={`Mark ${book.title} as finished`}
-                  className="w-full text-xs text-neutral-500 hover:text-parchment disabled:opacity-40 disabled:cursor-default transition-colors text-center"
+                  className="w-full text-xs text-neutral-500 hover:text-parchment disabled:opacity-60 disabled:cursor-default transition-colors text-center"
                 >
                   {finishGuard.busy ? 'Saving…' : 'Mark as finished'}
                 </button>

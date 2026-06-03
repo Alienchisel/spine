@@ -146,7 +146,7 @@ export default function ProgressSection({ book, onChange, log }) {
               onChange={(e) => { setError(null); setInputH(e.target.value); }}
               placeholder="0"
               aria-label="Hours"
-              className="w-16 bg-neutral-900 border border-neutral-700 rounded px-3 py-1.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-500 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              className="w-16 bg-neutral-900 border border-neutral-700 rounded px-3 py-1.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
             <span className="text-neutral-500 text-sm">h</span>
             <input
@@ -156,7 +156,7 @@ export default function ProgressSection({ book, onChange, log }) {
               onBlur={(e) => setInputM(clampMinutes(e.target.value))}
               placeholder="0"
               aria-label="Minutes"
-              className="w-16 bg-neutral-900 border border-neutral-700 rounded px-3 py-1.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-500 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              className="w-16 bg-neutral-900 border border-neutral-700 rounded px-3 py-1.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
             <span className="text-neutral-500 text-sm">m</span>
           </>
@@ -168,12 +168,12 @@ export default function ProgressSection({ book, onChange, log }) {
             onChange={(e) => { setError(null); setInputVal(e.target.value); }}
             placeholder={mode === 'pct' ? 'e.g. 42' : 'e.g. 123'}
             aria-label={mode === 'pct' ? 'Percent complete' : 'Current page'}
-            className="flex-1 bg-neutral-900 border border-neutral-700 rounded px-3 py-1.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-500 transition-colors"
+            className="flex-1 bg-neutral-900 border border-neutral-700 rounded px-3 py-1.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 transition-colors"
           />
         )}
         <button type="submit" disabled={saveGuard.busy || isEmpty}
           aria-label={`${saveGuard.busy ? 'Saving progress' : 'Update progress'} for ${book.title}`}
-          className="text-sm bg-binding hover:bg-binding/80 motion-safe:active:scale-[0.98] disabled:opacity-40 disabled:cursor-default text-parchment px-4 py-1.5 rounded transition-[transform,background-color] ease-out duration-150">
+          className="text-sm bg-binding hover:bg-binding/80 motion-safe:active:scale-[0.98] disabled:opacity-60 disabled:cursor-default text-parchment px-4 py-1.5 rounded transition-[transform,background-color] ease-out duration-150">
           {saveGuard.busy ? 'Saving…' : 'Update'}
         </button>
         {error && <p role="alert" className="w-full text-xs text-warn mt-1">{error}</p>}

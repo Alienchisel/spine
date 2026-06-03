@@ -55,7 +55,7 @@ function EditionRow({ edition, onUnlink, disabled, linkState }) {
         type="button"
         onClick={onUnlink}
         disabled={disabled}
-        className="text-neutral-700 hover:text-warn disabled:opacity-40 disabled:cursor-wait text-lg leading-none flex-shrink-0 transition-colors"
+        className="text-neutral-700 hover:text-warn disabled:opacity-60 disabled:cursor-wait text-lg leading-none flex-shrink-0 transition-colors"
         title="Unlink this edition"
         aria-label={`Unlink edition ${edition.title}`}
       >

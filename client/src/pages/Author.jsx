@@ -620,7 +620,7 @@ export default function Author() {
                     </div>
                   ) : (
                     <div className="text-neutral-600 text-sm">
-                      No books match current filters.
+                      No books match the current filters.
                     </div>
                   )
                 ) : (

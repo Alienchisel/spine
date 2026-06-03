@@ -268,7 +268,7 @@ export default function AuditWizard() {
             type="button"
             onClick={undo}
             disabled={busy}
-            className="text-neutral-500 hover:text-parchment disabled:opacity-40 transition-colors"
+            className="text-neutral-500 hover:text-parchment disabled:opacity-60 transition-colors"
             aria-label={`Undo last ${lastAction.type}`}
           >
             ← Undo

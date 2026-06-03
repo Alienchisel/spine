@@ -21,7 +21,7 @@ export function InlineInput({ placeholder, onSave, onCancel, ariaLabel }) {
         placeholder={placeholder}
         className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-oak/50 w-36"
       />
-      <button type="submit" disabled={!val.trim()} className="text-xs text-oak hover:text-leather disabled:opacity-40 transition-colors">add</button>
+      <button type="submit" disabled={!val.trim()} className="text-xs text-oak hover:text-leather disabled:opacity-60 transition-colors">add</button>
       <button type="button" onClick={onCancel} className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors">cancel</button>
     </form>
   );
@@ -47,7 +47,7 @@ export function InlineEdit({ value, onSave, onCancel, ariaLabel = 'Rename' }) {
         aria-label={ariaLabel}
         className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-oak/50 w-36"
       />
-      <button type="submit" disabled={!val.trim()} className="text-xs text-oak hover:text-leather disabled:opacity-40 transition-colors">save</button>
+      <button type="submit" disabled={!val.trim()} className="text-xs text-oak hover:text-leather disabled:opacity-60 transition-colors">save</button>
       <button type="button" onClick={onCancel} className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors">cancel</button>
     </form>
   );

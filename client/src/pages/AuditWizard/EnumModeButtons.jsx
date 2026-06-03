@@ -11,7 +11,7 @@ export default function EnumModeButtons({ cfg, current, busy, onPick, onSkip }) 
           onClick={() => onPick(opt.value)}
           disabled={busy}
           aria-label={`Set ${cfg.field} for ${cfg.getName(current)} to ${opt.label}`}
-          className="px-4 py-3 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-wait text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
+          className="px-4 py-3 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-60 disabled:cursor-wait text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
         >
           <span>{opt.label}</span>
           <span className="text-[10px] text-neutral-500">{i === 9 && cfg.options.length === 10 ? '0' : i + 1}</span>
@@ -22,7 +22,7 @@ export default function EnumModeButtons({ cfg, current, busy, onPick, onSkip }) 
         onClick={onSkip}
         disabled={busy}
         aria-label={`Skip ${cfg.getName(current)}`}
-        className="px-4 py-3 bg-neutral-900 border border-neutral-700 hover:border-neutral-500 disabled:opacity-40 text-neutral-400 hover:text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
+        className="px-4 py-3 bg-neutral-900 border border-neutral-700 hover:border-neutral-500 disabled:opacity-60 text-neutral-400 hover:text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
       >
         <span>Skip</span>
         <span className="text-[10px] text-neutral-600">S</span>

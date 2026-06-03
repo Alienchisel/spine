@@ -853,7 +853,7 @@ export default function AuditWizard() {
             type="button"
             onClick={undo}
             disabled={saveGuard.busy}
-            className="text-neutral-500 hover:text-parchment disabled:opacity-40 transition-colors"
+            className="text-neutral-500 hover:text-parchment disabled:opacity-60 transition-colors"
             aria-label={`Undo last ${lastAction.type}`}
           >
             ← Undo
@@ -1021,7 +1021,7 @@ export default function AuditWizard() {
                         datalistId={`wizard-${f.name}-list`}
                         datalistOptions={suggestions?.[f.name] ?? []}
                         placeholder={f.placeholder ?? 'Type a name, Enter or comma to add'}
-                        inputClassName="flex-1 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50 disabled:opacity-40"
+                        inputClassName="flex-1 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50 disabled:opacity-60"
                       />
                     );
                   }
@@ -1044,7 +1044,7 @@ export default function AuditWizard() {
                             submitOnModEnter(e);
                           }}
                           rows={6}
-                          className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50 disabled:opacity-40 resize-y"
+                          className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50 disabled:opacity-60 resize-y"
                         />
                       ) : (
                         <input
@@ -1054,7 +1054,7 @@ export default function AuditWizard() {
                           max={f.max}
                           step={f.step}
                           onKeyDown={e => { if (e.key === 'Escape') { e.preventDefault(); skip(); } }}
-                          className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50 disabled:opacity-40 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50 disabled:opacity-60 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
                       )}
                     </div>
@@ -1064,7 +1064,7 @@ export default function AuditWizard() {
                   <button
                     type="submit"
                     disabled={saveGuard.busy || !anyFilled}
-                    className="px-4 py-3 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
+                    className="px-4 py-3 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-60 disabled:cursor-not-allowed text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
                   >
                     <span>Save</span>
                     <span className="text-[10px] text-neutral-500">{needsModEnter ? `${MOD_KEY}+↵` : '↵'}</span>
@@ -1074,7 +1074,7 @@ export default function AuditWizard() {
                     onClick={skip}
                     disabled={saveGuard.busy}
                     aria-label={`Skip ${cfg.getName(current)}`}
-                    className="px-4 py-3 bg-neutral-900 border border-neutral-700 hover:border-neutral-500 disabled:opacity-40 text-neutral-400 hover:text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
+                    className="px-4 py-3 bg-neutral-900 border border-neutral-700 hover:border-neutral-500 disabled:opacity-60 text-neutral-400 hover:text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
                   >
                     <span>Skip</span>
                     <span className="text-[10px] text-neutral-600">Esc</span>
@@ -1099,12 +1099,12 @@ export default function AuditWizard() {
                   placeholder="Search query"
                   aria-label="Cover search query"
                   disabled={saveGuard.busy}
-                  className="flex-1 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50 disabled:opacity-40"
+                  className="flex-1 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50 disabled:opacity-60"
                 />
                 <button
                   type="submit"
                   disabled={candidatesLoading || saveGuard.busy || !coverQuery.trim()}
-                  className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-40 text-parchment text-sm rounded transition-colors"
+                  className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-60 text-parchment text-sm rounded transition-colors"
                 >
                   Search
                 </button>
@@ -1133,7 +1133,7 @@ export default function AuditWizard() {
                         disabled={saveGuard.busy}
                         aria-label={`Use image: ${c.label || 'unlabeled candidate'}`}
                         title={c.label || ''}
-                        className={`bg-neutral-800 rounded overflow-hidden ring-1 ring-transparent hover:ring-oak transition-all disabled:opacity-40 disabled:cursor-wait ${cfg.kind === 'author' ? 'aspect-square' : 'aspect-[2/3]'}`}
+                        className={`bg-neutral-800 rounded overflow-hidden ring-1 ring-transparent hover:ring-oak transition-all disabled:opacity-60 disabled:cursor-wait ${cfg.kind === 'author' ? 'aspect-square' : 'aspect-[2/3]'}`}
                       >
                         <img
                           src={c.thumbnail_url}
@@ -1158,7 +1158,7 @@ export default function AuditWizard() {
                 onClick={skip}
                 disabled={saveGuard.busy}
                 aria-label={`Skip ${cfg.getName(current)}`}
-                className="w-full px-4 py-3 bg-neutral-900 border border-neutral-700 hover:border-neutral-500 disabled:opacity-40 text-neutral-400 hover:text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
+                className="w-full px-4 py-3 bg-neutral-900 border border-neutral-700 hover:border-neutral-500 disabled:opacity-60 text-neutral-400 hover:text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
               >
                 <span>Skip</span>
                 <span className="text-[10px] text-neutral-600">S</span>
@@ -1173,7 +1173,7 @@ export default function AuditWizard() {
                   onClick={() => pick(opt.value)}
                   disabled={saveGuard.busy}
                   aria-label={`Set ${cfg.field} for ${cfg.getName(current)} to ${opt.label}`}
-                  className="px-4 py-3 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-wait text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
+                  className="px-4 py-3 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-60 disabled:cursor-wait text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
                 >
                   <span>{opt.label}</span>
                   <span className="text-[10px] text-neutral-500">{i === 9 && cfg.options.length === 10 ? '0' : i + 1}</span>
@@ -1184,7 +1184,7 @@ export default function AuditWizard() {
                 onClick={skip}
                 disabled={saveGuard.busy}
                 aria-label={`Skip ${cfg.getName(current)}`}
-                className="px-4 py-3 bg-neutral-900 border border-neutral-700 hover:border-neutral-500 disabled:opacity-40 text-neutral-400 hover:text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
+                className="px-4 py-3 bg-neutral-900 border border-neutral-700 hover:border-neutral-500 disabled:opacity-60 text-neutral-400 hover:text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
               >
                 <span>Skip</span>
                 <span className="text-[10px] text-neutral-600">S</span>

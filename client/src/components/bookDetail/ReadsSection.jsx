@@ -145,7 +145,7 @@ export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBo
                 <input type="checkbox" checked={form.did_not_finish} onChange={e => setForm(f => ({ ...f, did_not_finish: e.target.checked }))} className="accent-warn" />
                 DNF
               </label>
-              <button type="submit" disabled={saveGuard.busy} className="text-xs text-oak hover:text-oak/80 transition-colors disabled:opacity-40">Save</button>
+              <button type="submit" disabled={saveGuard.busy} className="text-xs text-oak hover:text-oak/80 transition-colors disabled:opacity-60">Save</button>
               <button type="button" onClick={cancel} className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors">Cancel</button>
             </form>
           ) : (
@@ -177,7 +177,7 @@ export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBo
               DNF
             </label>
           )}
-          <button type="submit" disabled={saveGuard.busy} className="text-xs text-oak hover:text-oak/80 transition-colors disabled:opacity-40">Add</button>
+          <button type="submit" disabled={saveGuard.busy} className="text-xs text-oak hover:text-oak/80 transition-colors disabled:opacity-60">Add</button>
           <button type="button" onClick={cancel} className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors">Cancel</button>
         </form>
       ) : (

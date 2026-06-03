@@ -309,7 +309,7 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
           {visibleStories.map(s => editId === s.id ? (
             <form key={s.id} onSubmit={e => handleUpdate(e, s.id)} className="flex flex-wrap items-center gap-2">
               {formBody}
-              <button type="submit" disabled={saveGuard.busy} className="text-xs text-oak hover:text-oak/80 transition-colors disabled:opacity-40">Save</button>
+              <button type="submit" disabled={saveGuard.busy} className="text-xs text-oak hover:text-oak/80 transition-colors disabled:opacity-60">Save</button>
               <button type="button" onClick={cancel} className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors">Cancel</button>
             </form>
           ) : (
@@ -376,7 +376,7 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
       {adding ? (
         <form onSubmit={handleAdd} className="flex flex-wrap items-center gap-2">
           {formBody}
-          <button type="submit" disabled={saveGuard.busy} className="text-xs text-oak hover:text-oak/80 transition-colors disabled:opacity-40">Add</button>
+          <button type="submit" disabled={saveGuard.busy} className="text-xs text-oak hover:text-oak/80 transition-colors disabled:opacity-60">Add</button>
           <button type="button" onClick={cancel} className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors">Cancel</button>
         </form>
       ) : (

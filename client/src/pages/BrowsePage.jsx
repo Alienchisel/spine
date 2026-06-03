@@ -372,7 +372,7 @@ export default function BrowsePage() {
               type="button"
               onClick={handleLoadMore}
               disabled={loadingMore || loadingAll}
-              className="text-sm text-neutral-500 hover:text-neutral-200 disabled:opacity-40 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
+              className="text-sm text-neutral-500 hover:text-neutral-200 disabled:opacity-60 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
             >
               {loadingMore ? 'Loading…' : `Load more · ${total - loadedRef.current} remaining`}
             </button>
@@ -380,7 +380,7 @@ export default function BrowsePage() {
               type="button"
               onClick={handleLoadAll}
               disabled={loadingMore || loadingAll}
-              className="text-sm text-neutral-500 hover:text-neutral-200 disabled:opacity-40 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
+              className="text-sm text-neutral-500 hover:text-neutral-200 disabled:opacity-60 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
             >
               {loadingAll ? `Loading all · ${loadedRef.current}/${total}` : 'Load all'}
             </button>

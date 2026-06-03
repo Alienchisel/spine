@@ -79,7 +79,7 @@ export default forwardRef(function ChipInput({
           onClick={commit}
           disabled={!inputValue.trim()}
           aria-label={`Add ${label.toLowerCase()}`}
-          className="text-xs text-oak hover:text-leather disabled:opacity-40 transition-colors flex-shrink-0"
+          className="text-xs text-oak hover:text-leather disabled:opacity-60 transition-colors flex-shrink-0"
         >
           add
         </button>

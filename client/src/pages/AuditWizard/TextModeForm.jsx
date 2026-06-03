@@ -117,7 +117,7 @@ export default function TextModeForm({ cfg, wizardKey, current, busy, suggestion
               datalistId={`wizard-${f.name}-list`}
               datalistOptions={suggestions?.[f.name] ?? []}
               placeholder={f.placeholder ?? 'Type a name, Enter or comma to add'}
-              inputClassName="flex-1 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50 disabled:opacity-40"
+              inputClassName="flex-1 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50 disabled:opacity-60"
             />
           );
         }
@@ -140,7 +140,7 @@ export default function TextModeForm({ cfg, wizardKey, current, busy, suggestion
                   submitOnModEnter(e);
                 }}
                 rows={6}
-                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50 disabled:opacity-40 resize-y"
+                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50 disabled:opacity-60 resize-y"
               />
             ) : (
               <input
@@ -150,7 +150,7 @@ export default function TextModeForm({ cfg, wizardKey, current, busy, suggestion
                 max={f.max}
                 step={f.step}
                 onKeyDown={e => { if (e.key === 'Escape') { e.preventDefault(); onSkip(); } }}
-                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50 disabled:opacity-40 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50 disabled:opacity-60 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
             )}
           </div>
@@ -160,7 +160,7 @@ export default function TextModeForm({ cfg, wizardKey, current, busy, suggestion
         <button
           type="submit"
           disabled={busy || !anyFilled}
-          className="px-4 py-3 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
+          className="px-4 py-3 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-60 disabled:cursor-not-allowed text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
         >
           <span>Save</span>
           <span className="text-[10px] text-neutral-500">{needsModEnter ? `${MOD_KEY}+↵` : '↵'}</span>
@@ -170,7 +170,7 @@ export default function TextModeForm({ cfg, wizardKey, current, busy, suggestion
           onClick={onSkip}
           disabled={busy}
           aria-label={`Skip ${cfg.getName(current)}`}
-          className="px-4 py-3 bg-neutral-900 border border-neutral-700 hover:border-neutral-500 disabled:opacity-40 text-neutral-400 hover:text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
+          className="px-4 py-3 bg-neutral-900 border border-neutral-700 hover:border-neutral-500 disabled:opacity-60 text-neutral-400 hover:text-parchment text-sm rounded transition-colors flex flex-col items-center gap-1"
         >
           <span>Skip</span>
           <span className="text-[10px] text-neutral-600">Esc</span>
