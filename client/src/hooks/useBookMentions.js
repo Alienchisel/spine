@@ -7,6 +7,22 @@ import { api } from '../api.js';
 // then keeps typing without selecting a result.
 const MENTION_RE = /(?:^|\s)@([^\s@]{0,40})$/;
 
+// Extracted as a pure function so the trigger semantics are testable
+// without a DOM (test/useBookMentions.test.js). Given a textarea value
+// and a caret position, returns the mention state or null:
+//   - `query` is the chars typed after `@`
+//   - `matchStart` is the index of the `@` character (used to splice
+//     the replacement text on select)
+// Returns null when the caret isn't immediately after an `@…` sequence
+// preceded by start-of-text or whitespace, or when the value before the
+// caret doesn't end with the mention pattern.
+export function detectMention(value, caretPos) {
+  const before = value.slice(0, caretPos);
+  const m = before.match(MENTION_RE);
+  if (!m) return null;
+  return { query: m[1], matchStart: caretPos - m[1].length - 1 };
+}
+
 // Reads the textarea's caret, looks for `@query` immediately before it,
 // and exposes a small menu state + keyboard handler. Inserts an explicit
 // markdown link `[#NNN](spine-book:NNN)` on select so the rendered field
@@ -23,13 +39,11 @@ export function useBookMentions(textareaRef, value, onValue) {
     if (!ta) { setMenu(null); return; }
     const pos = ta.selectionStart;
     if (pos !== ta.selectionEnd) { setMenu(null); return; }
-    const before = value.slice(0, pos);
-    const m = before.match(MENTION_RE);
-    if (!m) { setMenu(null); return; }
-    const matchStart = pos - m[1].length - 1;
-    setMenu(prev => (prev && prev.matchStart === matchStart && prev.query === m[1])
+    const detected = detectMention(value, pos);
+    if (!detected) { setMenu(null); return; }
+    setMenu(prev => (prev && prev.matchStart === detected.matchStart && prev.query === detected.query)
       ? prev
-      : { query: m[1], matchStart, selectedIdx: 0 });
+      : { ...detected, selectedIdx: 0 });
   }, [value, textareaRef]);
 
   useEffect(() => { refreshDetection(); }, [refreshDetection]);

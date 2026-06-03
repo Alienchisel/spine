@@ -3943,7 +3943,10 @@ describe('books', () => {
         title: `${stem}-B`, authors: [`Aalbrecht ${stem}`, `Zylphinax ${stem}`],
       });
 
-      const { body: results } = await req('GET', '/api/books?sort=author&limit=500');
+      // Narrow by stem — /api/books caps limit at 200 and earlier tests in
+      // this file have populated the in-memory DB past that. Querying the
+      // stem (unique per run) returns just these fixtures regardless.
+      const { body: results } = await req('GET', `/api/books?sort=author&q=${stem}&limit=50`);
       const ids = results.books.map(b => b.id);
       const iSingle = ids.indexOf(single.body.id);
       const iMulti  = ids.indexOf(multi.body.id);
@@ -3961,7 +3964,9 @@ describe('books', () => {
       const { body: apple } = await req('POST', '/api/books', { title: `${stem}-apple` });
       const { body: moon  } = await req('POST', '/api/books', { title: `A ${stem}-moon` });
 
-      const { body: results } = await req('GET', '/api/books?sort=title&limit=500');
+      // Narrow by stem — /api/books caps limit at 200 and earlier tests in
+      // this file have populated the in-memory DB past that.
+      const { body: results } = await req('GET', `/api/books?sort=title&q=${stem}&limit=50`);
       const ids = results.books.map(b => b.id);
       const [iApple, iMoon, iZebra] = [apple.id, moon.id, zebra.id].map(id => ids.indexOf(id));
       assert.ok(iApple >= 0 && iMoon >= 0 && iZebra >= 0, 'all three fixtures should appear in result');
