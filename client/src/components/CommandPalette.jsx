@@ -268,6 +268,11 @@ export default function CommandPalette() {
   const [selected, setSelected] = useState(0);
   const inputRef = useRef(null);
   const listRef = useRef(null);
+  // Tracks the in-flight close-after-confirmation timer so an early
+  // close (Esc, click outside, rapid reopen) cancels the deferred close
+  // — otherwise the scheduled close would fire on a freshly-reopened
+  // palette ~700ms after the original action.
+  const confirmCloseTimerRef = useRef(null);
   // Element to refocus when the palette closes — usually the page-level
   // control the user was last on. Mirrors ConfirmModal's pattern so
   // keyboard users aren't dumped to <body>.
@@ -347,6 +352,10 @@ export default function CommandPalette() {
     setActionError(null);
     setSubPromptError(null);
     setConfirmation(null);
+    if (confirmCloseTimerRef.current) {
+      clearTimeout(confirmCloseTimerRef.current);
+      confirmCloseTimerRef.current = null;
+    }
     const target = returnFocusRef.current;
     returnFocusRef.current = null;
     if (target && typeof target.focus === 'function') {
@@ -1201,7 +1210,13 @@ export default function CommandPalette() {
     if (entry.confirmVerb) {
       remember(entry);
       setConfirmation({ verb: entry.confirmVerb });
-      setTimeout(() => close(), CONFIRM_HOLD_MS);
+      // Track the timer so close() can cancel it — protects against the
+      // user reopening Cmd-K (or hitting Esc) within the 700ms window
+      // and getting a stale close fired on their fresh palette.
+      confirmCloseTimerRef.current = setTimeout(() => {
+        confirmCloseTimerRef.current = null;
+        close();
+      }, CONFIRM_HOLD_MS);
       return;
     }
     remember(entry);
