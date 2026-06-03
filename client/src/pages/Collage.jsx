@@ -331,7 +331,7 @@ export default function Collage() {
           type="button"
           onClick={downloadPng}
           disabled={exportGuard.busy || tiles.length === 0}
-          className="text-xs px-3 py-1 rounded bg-neutral-800 border border-neutral-700 text-neutral-300 hover:text-neutral-100 hover:bg-neutral-700 disabled:opacity-50 disabled:cursor-wait transition-colors"
+          className="text-xs px-3 py-1 rounded bg-neutral-800 border border-neutral-700 text-neutral-300 hover:text-neutral-100 hover:bg-neutral-700 disabled:opacity-60 disabled:cursor-wait transition-colors"
           title="Download a PNG of this collage"
         >
           {exportGuard.busy ? 'Rendering…' : '↓ Download PNG'}

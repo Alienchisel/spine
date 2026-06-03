@@ -145,9 +145,9 @@ function ReadingCalendar({ days, selectedYear, totals, onDayClick }) {
       </div>
 
       <div className="flex items-center justify-between mb-3">
-        <button type="button" onClick={prevMonth} disabled={atStart} aria-label="Previous month" className="text-neutral-600 hover:text-neutral-300 transition-colors w-6 text-center disabled:opacity-20">‹</button>
+        <button type="button" onClick={prevMonth} disabled={atStart} aria-label="Previous month" className="text-neutral-600 hover:text-neutral-300 transition-colors w-6 text-center disabled:opacity-60">‹</button>
         <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">{monthLabel}</span>
-        <button type="button" onClick={nextMonth} disabled={atEnd}  aria-label="Next month"     className="text-neutral-600 hover:text-neutral-300 transition-colors w-6 text-center disabled:opacity-20">›</button>
+        <button type="button" onClick={nextMonth} disabled={atEnd}  aria-label="Next month"     className="text-neutral-600 hover:text-neutral-300 transition-colors w-6 text-center disabled:opacity-60">›</button>
       </div>
 
       <div className="grid grid-cols-7 mb-1">

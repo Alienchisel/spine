@@ -149,7 +149,7 @@ export default function LookupPanel({ onApply, coverInFlight }) {
                   <button type="button" onClick={() => handlePick(r)}
                     disabled={coverInFlight}
                     aria-describedby={coverInFlight ? 'lookup-cover-in-flight-notice' : undefined}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent">
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-neutral-800 transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-transparent">
                     {r.cover_url
                       ? <img src={r.cover_url} alt="" className="w-8 h-12 object-cover rounded flex-shrink-0" />
                       : <div className="w-8 h-12 bg-neutral-800 rounded flex-shrink-0" />}

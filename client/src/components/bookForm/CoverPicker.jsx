@@ -60,7 +60,7 @@ export default function CoverPicker({
           type="button"
           onClick={onFetchFromIsbn}
           disabled={coverBusy}
-          className="mt-2 w-full text-center text-xs text-neutral-600 hover:text-neutral-400 transition-colors disabled:opacity-50"
+          className="mt-2 w-full text-center text-xs text-neutral-600 hover:text-neutral-400 transition-colors disabled:opacity-60"
         >
           {/* Plain text — the primary cover-picker label above wraps
               the same Uploading… / Fetching… string in role='status'.

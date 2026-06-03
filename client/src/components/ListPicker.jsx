@@ -112,7 +112,7 @@ export default function ListPicker({ bookId, bookTitle, dropUp = false, iconClas
               disabled={busyIds.has(list.id)}
               role="menuitemcheckbox"
               aria-checked={checked}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-neutral-800 transition-colors disabled:opacity-50"
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-neutral-800 transition-colors disabled:opacity-60"
             >
               <span className={`w-3.5 h-3.5 flex-shrink-0 rounded border flex items-center justify-center ${checked ? 'bg-sky-500 border-sky-500' : 'border-neutral-600'}`}>
                 {checked && (

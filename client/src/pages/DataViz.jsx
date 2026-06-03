@@ -490,7 +490,7 @@ function LifespansWithLoupe(life) {
             onClick={() => setZoom(z => Math.max(LIFESPAN_ZOOM_MIN, z - 1))}
             disabled={zoom <= LIFESPAN_ZOOM_MIN}
             aria-label="Zoom out"
-            className="w-7 h-7 rounded border border-neutral-700 cursor-pointer hover:border-neutral-500 hover:text-neutral-200 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-neutral-700 transition-colors"
+            className="w-7 h-7 rounded border border-neutral-700 cursor-pointer hover:border-neutral-500 hover:text-neutral-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:border-neutral-700 transition-colors"
           >−</button>
           <span className="tabular-nums px-2 w-12 text-center">{zoom}×</span>
           <button
@@ -498,7 +498,7 @@ function LifespansWithLoupe(life) {
             onClick={() => setZoom(z => Math.min(LIFESPAN_ZOOM_MAX, z + 1))}
             disabled={zoom >= LIFESPAN_ZOOM_MAX}
             aria-label="Zoom in"
-            className="w-7 h-7 rounded border border-neutral-700 cursor-pointer hover:border-neutral-500 hover:text-neutral-200 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-neutral-700 transition-colors"
+            className="w-7 h-7 rounded border border-neutral-700 cursor-pointer hover:border-neutral-500 hover:text-neutral-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:border-neutral-700 transition-colors"
           >+</button>
         </div>
         <div ref={axisRef} className="overflow-x-hidden">

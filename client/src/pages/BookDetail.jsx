@@ -797,7 +797,7 @@ export default function BookDetail() {
                 type="button"
                 onClick={toggleLoved}
                 disabled={loveGuard.busy}
-                className={`p-1.5 transition-colors disabled:opacity-50 ${book.loved ? 'text-red-400' : 'text-neutral-600 hover:text-neutral-300'}`}
+                className={`p-1.5 transition-colors disabled:opacity-60 ${book.loved ? 'text-red-400' : 'text-neutral-600 hover:text-neutral-300'}`}
                 title={book.loved ? 'Remove from loved' : 'Mark as loved'}
                 aria-label={`${book.loved ? 'Remove from loved' : 'Mark as loved'}: ${book.title}`}
                 aria-pressed={!!book.loved}
@@ -808,7 +808,7 @@ export default function BookDetail() {
                 type="button"
                 onClick={toggleReadlist}
                 disabled={listGuard.busy}
-                className={`p-1.5 transition-colors disabled:opacity-50 ${book.on_readlist ? 'text-sky-400' : 'text-neutral-600 hover:text-neutral-300'}`}
+                className={`p-1.5 transition-colors disabled:opacity-60 ${book.on_readlist ? 'text-sky-400' : 'text-neutral-600 hover:text-neutral-300'}`}
                 title={book.on_readlist ? 'Remove from readlist' : 'Add to readlist'}
                 aria-label={`${book.on_readlist ? 'Remove from readlist' : 'Add to readlist'}: ${book.title}`}
                 aria-pressed={!!book.on_readlist}
@@ -889,7 +889,7 @@ export default function BookDetail() {
                     type="button"
                     onClick={saveFinalSession}
                     disabled={finalSessionSaving}
-                    className="text-oak hover:text-leather disabled:opacity-50 disabled:cursor-wait transition-colors"
+                    className="text-oak hover:text-leather disabled:opacity-60 disabled:cursor-wait transition-colors"
                   >
                     {finalSessionSaving ? 'Saving…' : 'Log'}
                   </button>
@@ -925,7 +925,7 @@ export default function BookDetail() {
               aria-label={`${book.archived ? 'Restore from archive' : 'Archive'}: ${book.title}`}
               aria-pressed={!!book.archived}
               title={book.archived ? 'Restore from archive' : 'Archive — hide from active library'}
-              className={`disabled:opacity-50 disabled:cursor-wait transition-colors ${book.archived ? 'text-amber-500 hover:text-amber-400' : 'text-neutral-700 hover:text-amber-500'}`}
+              className={`disabled:opacity-60 disabled:cursor-wait transition-colors ${book.archived ? 'text-amber-500 hover:text-amber-400' : 'text-neutral-700 hover:text-amber-500'}`}
             >
               {archiveGuard.busy ? 'Saving…' : book.archived ? 'Restore from archive' : 'Archive'}
             </button>
@@ -935,7 +935,7 @@ export default function BookDetail() {
               onClick={handleDelete}
               disabled={deleteGuard.busy}
               aria-label={`Delete ${book.title}`}
-              className="text-neutral-700 hover:text-warn disabled:opacity-50 disabled:cursor-wait transition-colors"
+              className="text-neutral-700 hover:text-warn disabled:opacity-60 disabled:cursor-wait transition-colors"
             >
               {deleteGuard.busy ? 'Deleting…' : 'Delete this book'}
             </button>

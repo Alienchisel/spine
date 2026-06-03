@@ -386,7 +386,7 @@ export default function Author() {
               type="button"
               onClick={removePhoto}
               disabled={photoBusy}
-              className="block mt-1.5 text-[11px] text-neutral-700 hover:text-warn transition-colors disabled:opacity-50"
+              className="block mt-1.5 text-[11px] text-neutral-700 hover:text-warn transition-colors disabled:opacity-60"
             >
               Remove portrait
             </button>
@@ -470,7 +470,7 @@ export default function Author() {
                       type="button"
                       onClick={saveBio}
                       disabled={bioSaving}
-                      className="text-oak hover:text-leather transition-colors disabled:opacity-50 disabled:cursor-wait"
+                      className="text-oak hover:text-leather transition-colors disabled:opacity-60 disabled:cursor-wait"
                     >
                       {bioSaving ? 'Saving…' : 'Save'}
                     </button>
@@ -540,7 +540,7 @@ export default function Author() {
               type="button"
               onClick={handleManualRefresh}
               disabled={refreshing}
-              className="text-[11px] text-neutral-700 hover:text-neutral-400 mt-3 transition-colors disabled:opacity-50 disabled:cursor-wait"
+              className="text-[11px] text-neutral-700 hover:text-neutral-400 mt-3 transition-colors disabled:opacity-60 disabled:cursor-wait"
               title="Re-fetch bio + portrait from Open Library"
             >
               {refreshing ? '↻ Refreshing…' : '↻ Refresh from Open Library'}
