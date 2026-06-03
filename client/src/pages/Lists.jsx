@@ -112,7 +112,7 @@ export default function Lists() {
           onChange={e => setNewName(e.target.value)}
           aria-label="New list name"
           placeholder="New list name…"
-          className="bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2 text-sm text-parchment placeholder-neutral-500 focus:outline-none focus:border-oak/50 transition-colors w-72"
+          className="bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2 text-sm text-parchment placeholder-neutral-500 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 transition-colors w-72"
         />
         <button
           type="submit"

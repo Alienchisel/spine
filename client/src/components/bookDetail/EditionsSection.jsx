@@ -211,7 +211,7 @@ export default function EditionsSection({ book, onChange, linkState }) {
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => { if (e.key === 'Escape') closePicker(); }}
             placeholder="Search your library by title…"
-            className="w-full bg-neutral-900 border border-neutral-700 rounded px-3 py-1.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-oak/50"
+            className="w-full bg-neutral-900 border border-neutral-700 rounded px-3 py-1.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20"
           />
           {searching && <p role="status" className="text-xs text-neutral-600">Searching…</p>}
           {!searching && query.trim() && results.length === 0 && (

@@ -117,7 +117,7 @@ export default function TextModeForm({ cfg, wizardKey, current, busy, suggestion
               datalistId={`wizard-${f.name}-list`}
               datalistOptions={suggestions?.[f.name] ?? []}
               placeholder={f.placeholder ?? 'Type a name, Enter or comma to add'}
-              inputClassName="flex-1 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50 disabled:opacity-60"
+              inputClassName="flex-1 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 disabled:opacity-60"
             />
           );
         }
@@ -140,7 +140,7 @@ export default function TextModeForm({ cfg, wizardKey, current, busy, suggestion
                   submitOnModEnter(e);
                 }}
                 rows={6}
-                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50 disabled:opacity-60 resize-y"
+                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 disabled:opacity-60 resize-y"
               />
             ) : (
               <input
@@ -150,7 +150,7 @@ export default function TextModeForm({ cfg, wizardKey, current, busy, suggestion
                 max={f.max}
                 step={f.step}
                 onKeyDown={e => { if (e.key === 'Escape') { e.preventDefault(); onSkip(); } }}
-                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50 disabled:opacity-60 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 disabled:opacity-60 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
             )}
           </div>

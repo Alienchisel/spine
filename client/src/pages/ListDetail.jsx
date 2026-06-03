@@ -157,7 +157,7 @@ function QuickAdd({ listId, onAdded }) {
         onFocus={() => setExpanded(true)}
         placeholder="Quick-add a book by title…"
         aria-label="Book title to add"
-        className="bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2 text-sm text-parchment placeholder-neutral-500 focus:outline-none focus:border-oak/50 transition-colors flex-1"
+        className="bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2 text-sm text-parchment placeholder-neutral-500 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 transition-colors flex-1"
       />
       {expanded && (
         <input
@@ -166,7 +166,7 @@ function QuickAdd({ listId, onAdded }) {
           onChange={e => setAuthor(e.target.value)}
           placeholder="Author (optional)"
           aria-label="Book author (optional)"
-          className="bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2 text-sm text-parchment placeholder-neutral-500 focus:outline-none focus:border-oak/50 transition-colors w-48"
+          className="bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2 text-sm text-parchment placeholder-neutral-500 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 transition-colors w-48"
         />
       )}
       <button
@@ -513,7 +513,7 @@ export default function ListDetail() {
               onChange={e => setRenameValue(e.target.value)}
               onBlur={handleRename}
               aria-label="List name"
-              className="bg-neutral-800 border border-neutral-700 rounded px-3 py-1 text-lg font-bold text-white focus:outline-none focus:border-oak/50"
+              className="bg-neutral-800 border border-neutral-700 rounded px-3 py-1 text-lg font-bold text-white focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 transition-colors"
             />
             {renameError && <span role="alert" className="text-xs text-red-400">{renameError}</span>}
           </form>
@@ -564,7 +564,7 @@ export default function ListDetail() {
               onChange={e => setSort(e.target.value)}
               disabled={editMode}
               title={editMode ? 'Sorting is locked to Custom order while editing' : ''}
-              className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-sm text-neutral-300 focus:outline-none focus:border-oak/50 transition-colors disabled:opacity-50"
+              className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-sm text-neutral-300 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 transition-colors disabled:opacity-60"
             >
               {SORTS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
             </select>

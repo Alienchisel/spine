@@ -125,14 +125,14 @@ function DatesPicker({ birth, death, onChange }) {
           type="text" value={birthDraft} onChange={(e) => setBirthDraft(autoFormatDate(e.target.value))}
           onKeyDown={onKey} autoFocus aria-label="Birth date"
           placeholder="1938-07-18"
-          className="w-28 bg-neutral-900 border border-neutral-700 rounded px-1.5 py-0.5 text-sm text-neutral-200 placeholder-neutral-700 focus:outline-none focus:border-oak/50"
+          className="w-28 bg-neutral-900 border border-neutral-700 rounded px-1.5 py-0.5 text-sm text-neutral-200 placeholder-neutral-700 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20"
         />
         <span className="text-neutral-700">–</span>
         <input
           type="text" value={deathDraft} onChange={(e) => setDeathDraft(autoFormatDate(e.target.value))}
           onKeyDown={onKey} aria-label="Death date"
           placeholder="2007"
-          className="w-28 bg-neutral-900 border border-neutral-700 rounded px-1.5 py-0.5 text-sm text-neutral-200 placeholder-neutral-700 focus:outline-none focus:border-oak/50"
+          className="w-28 bg-neutral-900 border border-neutral-700 rounded px-1.5 py-0.5 text-sm text-neutral-200 placeholder-neutral-700 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20"
         />
         <button type="button" onClick={commit} className="text-xs text-oak hover:text-leather transition-colors">Save</button>
         <button type="button" onClick={cancel}  className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors">Cancel</button>
@@ -456,7 +456,7 @@ export default function Author() {
                     autoFocus
                     rows={6}
                     placeholder="Author bio…"
-                    className="w-full bg-neutral-900 border border-neutral-700 rounded px-3 py-2 text-sm text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-oak/50"
+                    className="w-full bg-neutral-900 border border-neutral-700 rounded px-3 py-2 text-sm text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20"
                     aria-label="Author bio"
                   />
                   <div className="flex items-center gap-3 text-xs">
@@ -577,7 +577,7 @@ export default function Author() {
                     <select
                       value={sort}
                       onChange={(e) => setSort(e.target.value)}
-                      className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-xs text-neutral-300 hover:text-neutral-100 focus:outline-none focus:border-oak/50 cursor-pointer transition-colors"
+                      className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-xs text-neutral-300 hover:text-neutral-100 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 cursor-pointer transition-colors"
                       aria-label="Sort author's books"
                     >
                       <option value="year_published">Chronological</option>

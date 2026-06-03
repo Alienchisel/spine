@@ -80,7 +80,7 @@ export default function CoverModeGrid({ cfg, current, busy, onPick, onSkip }) {
           placeholder="Search query"
           aria-label="Cover search query"
           disabled={busy}
-          className="flex-1 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50 disabled:opacity-60"
+          className="flex-1 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-parchment text-sm focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 disabled:opacity-60"
         />
         <button
           type="submit"

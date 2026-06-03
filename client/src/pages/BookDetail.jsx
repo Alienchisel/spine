@@ -875,7 +875,7 @@ export default function BookDetail() {
                       if (e.key === 'Escape') setFinalSessionVisible(false);
                     }}
                     aria-label={`Final page reached for ${book.title}`}
-                    className="w-20 bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-sm text-neutral-200 text-center focus:outline-none focus:border-oak/50"
+                    className="w-20 bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-sm text-neutral-200 text-center focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20"
                   />
                   <span className="text-xs text-neutral-600">/ {book.page_count ?? '—'}</span>
                 </div>

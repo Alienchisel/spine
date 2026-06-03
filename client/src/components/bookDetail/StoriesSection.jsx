@@ -211,7 +211,7 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
         onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
         placeholder={`${noun.charAt(0).toUpperCase()}${noun.slice(1)} title`}
         aria-label={`${noun.charAt(0).toUpperCase()}${noun.slice(1)} title`}
-        className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-oak/50 flex-1 min-w-[12rem]"
+        className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 flex-1 min-w-[12rem]"
       />
       <input
         type="number"
@@ -219,7 +219,7 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
         onChange={e => setForm(f => ({ ...f, position: e.target.value }))}
         placeholder="#"
         aria-label="Position"
-        className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-300 focus:outline-none focus:border-oak/50 w-14"
+        className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-300 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 w-14"
       />
       <input
         type="number"
@@ -228,7 +228,7 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
         placeholder="p."
         title="Starting page"
         aria-label="Starting page"
-        className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-300 focus:outline-none focus:border-oak/50 w-16"
+        className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-300 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 w-16"
       />
       <input
         type="number"
@@ -237,7 +237,7 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
         placeholder="end"
         title="Ending page (optional)"
         aria-label="Ending page"
-        className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-300 focus:outline-none focus:border-oak/50 w-16"
+        className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-300 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 w-16"
       />
       <input
         type="number"
@@ -246,7 +246,7 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
         placeholder="year"
         title="First publication year (optional). Powers the cross-collection chronological view."
         aria-label="First publication year"
-        className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-300 focus:outline-none focus:border-oak/50 w-16"
+        className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-300 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 w-16"
       />
       <input
         type="text"
@@ -255,13 +255,13 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
         placeholder="Authors (override)"
         title="Comma-separated. Empty = use the book's authors."
         aria-label="Authors override (comma-separated)"
-        className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-300 placeholder-neutral-600 focus:outline-none focus:border-oak/50 flex-1 min-w-[10rem]"
+        className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-300 placeholder-neutral-600 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 flex-1 min-w-[10rem]"
       />
       <select
         value={form.status}
         onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
         aria-label="Status"
-        className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-300 focus:outline-none focus:border-oak/50"
+        className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-300 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20"
       >
         <option value="unread">Unread</option>
         <option value="reading">Reading</option>

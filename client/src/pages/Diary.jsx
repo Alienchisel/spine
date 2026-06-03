@@ -539,7 +539,7 @@ export default function Diary() {
           <select
             value={year}
             onChange={e => setYear(parseInt(e.target.value))}
-            className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-sm text-neutral-300 focus:outline-none focus:border-oak/50 transition-colors"
+            className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-sm text-neutral-300 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 transition-colors"
           >
             {years.map(y => <option key={y} value={y}>{y}</option>)}
           </select>

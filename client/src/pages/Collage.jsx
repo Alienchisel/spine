@@ -257,7 +257,7 @@ export default function Collage() {
           <select
             value={mode}
             onChange={(e) => update('mode', e.target.value)}
-            className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-neutral-300 hover:text-neutral-100 focus:outline-none focus:border-oak/50 cursor-pointer transition-colors"
+            className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-neutral-300 hover:text-neutral-100 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 cursor-pointer transition-colors"
             aria-label="Collage mode"
           >
             {MODE_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
@@ -269,7 +269,7 @@ export default function Collage() {
             <select
               value={period}
               onChange={(e) => update('period', e.target.value)}
-              className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-neutral-300 hover:text-neutral-100 focus:outline-none focus:border-oak/50 cursor-pointer transition-colors"
+              className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-neutral-300 hover:text-neutral-100 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 cursor-pointer transition-colors"
               aria-label="Collage period"
             >
               {PERIOD_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
@@ -282,7 +282,7 @@ export default function Collage() {
             <select
               value={year}
               onChange={(e) => update('year', e.target.value)}
-              className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-neutral-300 hover:text-neutral-100 focus:outline-none focus:border-oak/50 cursor-pointer transition-colors"
+              className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-neutral-300 hover:text-neutral-100 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 cursor-pointer transition-colors"
               aria-label="Year to review"
             >
               {/* Ensure the current year shows in the dropdown even
@@ -301,7 +301,7 @@ export default function Collage() {
             <select
               value={size}
               onChange={(e) => update('size', e.target.value)}
-              className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-neutral-300 hover:text-neutral-100 focus:outline-none focus:border-oak/50 cursor-pointer transition-colors"
+              className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-neutral-300 hover:text-neutral-100 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 cursor-pointer transition-colors"
               aria-label="Grid size"
             >
               {SIZE_OPTIONS.map(n => <option key={n} value={n}>{n}×{n}</option>)}

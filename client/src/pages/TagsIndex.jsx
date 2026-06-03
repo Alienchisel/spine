@@ -104,12 +104,12 @@ export default function TagsIndex() {
           onChange={(e) => updateParam('q', e.target.value)}
           placeholder="Filter by name"
           aria-label="Filter tags by name"
-          className="bg-neutral-900 border border-neutral-800 rounded px-3 py-1.5 text-sm text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-oak/50 w-72"
+          className="bg-neutral-900 border border-neutral-800 rounded px-3 py-1.5 text-sm text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 w-72"
         />
         <select
           value={sort}
           onChange={(e) => updateParam('sort', e.target.value === 'name' ? null : e.target.value)}
-          className="bg-neutral-900 border border-neutral-800 rounded px-3 py-1.5 text-sm text-neutral-300 focus:outline-none focus:border-oak/50"
+          className="bg-neutral-900 border border-neutral-800 rounded px-3 py-1.5 text-sm text-neutral-300 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20"
           aria-label="Sort"
         >
           {SORTS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
