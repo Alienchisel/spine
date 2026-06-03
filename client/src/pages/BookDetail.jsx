@@ -14,6 +14,7 @@ import EditionsSection from '../components/bookDetail/EditionsSection.jsx';
 import ReadingLog from '../components/bookDetail/ReadingLog.jsx';
 import BookRef from '../components/bookDetail/BookRef.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
+import { useTextOverflow } from '../hooks/useTextOverflow.js';
 import { useLatest } from '../hooks/useLatest.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import { useActionGuard } from '../hooks/useActionGuard.js';
@@ -73,6 +74,10 @@ export default function BookDetail() {
   const [log, setLog] = useState([]);
   const [reads, setReads] = useState([]);
   const [descExpanded, setDescExpanded] = useState(false);
+  // Measured overflow on the description block — replaces the prior
+  // `book.description.length > 400` char-count proxy so the Read-more
+  // toggle reflects what's actually clipped at the current breakpoint.
+  const [descRef, descOverflows] = useTextOverflow(!descExpanded, [book?.description]);
   const [ratingPrompt, setRatingPrompt] = useState(false);
   // Final-session prompt sits alongside the rating prompt when the user
   // landed here from a Mark-as-finished action that left a gap between
@@ -954,29 +959,31 @@ export default function BookDetail() {
             }} />
           )}
 
-          {book.description && (() => {
-            const long = book.description.length > 400;
-            return (
-              <div className="mb-6">
-                <div className={`text-neutral-400 text-sm leading-relaxed prose-sm prose-invert prose-neutral max-w-none
-                  [&_strong]:text-neutral-300 [&_em]:text-neutral-400 [&_p]:mb-2 [&_p:last-child]:mb-0
-                  ${long && !descExpanded ? 'line-clamp-4' : ''}`}>
-                  <ReactMarkdown {...proseMarkdown}>{book.description}</ReactMarkdown>
-                </div>
-                {long && (
-                  <button
-                    type="button"
-                    onClick={() => setDescExpanded(e => !e)}
-                    aria-expanded={descExpanded}
-                    aria-label={`${descExpanded ? 'Collapse' : 'Expand'} description for ${book.title}`}
-                    className="mt-1 text-xs text-neutral-600 hover:text-neutral-400 transition-colors"
-                  >
-                    {descExpanded ? 'Show less' : 'Read more'}
-                  </button>
-                )}
+          {book.description && (
+            <div className="mb-6">
+              {/* Apply the clamp whenever collapsed, regardless of
+                  measured overflow — the hook needs the clamp on to
+                  detect overflow in the first place. A short
+                  description that fits within four lines is a no-op
+                  under the clamp (no overflow, no Read-more button). */}
+              <div ref={descRef} className={`text-neutral-400 text-sm leading-relaxed prose-sm prose-invert prose-neutral max-w-none
+                [&_strong]:text-neutral-300 [&_em]:text-neutral-400 [&_p]:mb-2 [&_p:last-child]:mb-0
+                ${!descExpanded ? 'line-clamp-4' : ''}`}>
+                <ReactMarkdown {...proseMarkdown}>{book.description}</ReactMarkdown>
               </div>
-            );
-          })()}
+              {descOverflows && (
+                <button
+                  type="button"
+                  onClick={() => setDescExpanded(e => !e)}
+                  aria-expanded={descExpanded}
+                  aria-label={`${descExpanded ? 'Collapse' : 'Expand'} description for ${book.title}`}
+                  className="mt-1 text-xs text-neutral-600 hover:text-neutral-400 transition-colors"
+                >
+                  {descExpanded ? 'Show less' : 'Read more'}
+                </button>
+              )}
+            </div>
+          )}
 
           {locationError && <p role="alert" className="text-xs text-warn mb-2">{locationError}</p>}
           <MetadataList book={book} location={location} linkState={bookFromState} />

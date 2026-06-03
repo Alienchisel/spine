@@ -3,6 +3,7 @@ import { useParams, useLocation, Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { plural, initialsFor, MOD_KEY } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
+import { useTextOverflow } from '../hooks/useTextOverflow.js';
 import { dispatchSpineEvent } from '../hooks/useSpineEvent.js';
 
 // Inline gender picker. Stores 'male' | 'female' | 'other' | null;
@@ -172,6 +173,11 @@ export default function Author() {
   const [errorKind, setErrorKind] = useState(null);
   const [sort, setSort] = useState('year_published');
   const [bioExpanded, setBioExpanded] = useState(false);
+  // Measured overflow replaces the previous `author.bio.length > 280`
+  // proxy — the character count couldn't tell a wide-typeset short bio
+  // from a narrow-typeset long one, so the Show-more button sometimes
+  // appeared on bios that fit and missed bios that didn't.
+  const [bioRef, bioOverflows] = useTextOverflow(!bioExpanded, [author?.bio]);
   const [bioEditing, setBioEditing] = useState(false);
   const [bioDraft, setBioDraft] = useState('');
   const [bioSaving, setBioSaving] = useState(false);
@@ -483,25 +489,24 @@ export default function Author() {
               ) : author.bio ? (
                 <>
                   <div className="relative">
-                    <p className={`text-sm text-neutral-400 whitespace-pre-line ${bioExpanded ? '' : 'line-clamp-4'}`}>
+                    <p ref={bioRef} className={`text-sm text-neutral-400 whitespace-pre-line ${bioExpanded ? '' : 'line-clamp-4'}`}>
                       {author.bio}
                     </p>
                     {/* Soft fade at the clip when collapsed, so the line
                         cut reads as a deliberate fold rather than a hard
-                        truncation. Gated to bios that overflow the clamp
-                        — matches the 280-char heuristic used to surface
-                        the Show more button. */}
-                    {!bioExpanded && author.bio.length > 280 && (
+                        truncation. Gated to bios that actually overflow
+                        the clamp (measured via useTextOverflow). */}
+                    {!bioExpanded && bioOverflows && (
                       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-neutral-950 to-transparent" />
                     )}
                   </div>
                   <div className="flex items-center gap-3 mt-1 text-xs">
-                    {/* "Show more" only when the rendered text overflows
-                        the 4-line clamp. We approximate "long" by char
-                        count to avoid a brittle DOM-measurement pass —
-                        bios over ~280 chars almost always need the
-                        toggle. */}
-                    {author.bio.length > 280 && (
+                    {/* Show-more toggle appears only when the rendered
+                        bio actually exceeds its line-clamp — measured
+                        via useTextOverflow rather than a char-count
+                        proxy, so the button reflects what the user sees
+                        instead of what we guessed about line height. */}
+                    {bioOverflows && (
                       <button
                         type="button"
                         onClick={() => setBioExpanded(b => !b)}
