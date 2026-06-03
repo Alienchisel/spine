@@ -805,7 +805,7 @@ export default function Library() {
               disabled={editMode}
               title={editMode ? 'Sorting is locked to Custom order while editing' : ''}
               onChange={(e) => { setSort(e.target.value); setExpandedSeries(new Set()); }}
-              className="h-9 bg-neutral-800 border border-neutral-700 rounded-lg px-3 text-sm text-neutral-300 focus:outline-none focus:border-oak/50 transition-colors duration-150 disabled:opacity-50"
+              className={`h-9 bg-neutral-800 border rounded-lg px-3 text-sm focus:outline-none focus:border-oak/50 transition-colors duration-150 disabled:opacity-50 ${sort === 'updated' ? 'border-neutral-700 text-neutral-300' : 'border-oak/50 text-parchment'}`}
             >
               {/* Filter sort options to those allowed on the active tab. The
                   Custom-order sort is gated to Never owned via SORTS[].tabs;

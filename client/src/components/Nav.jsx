@@ -3,7 +3,10 @@ import { labelForPath } from '../utils.js';
 
 export default function Nav() {
   const { pathname, search } = useLocation();
-  const showAddButton = pathname === '/' || pathname.startsWith('/browse');
+  // `+ Add book` is always visible — it used to gate on Library / Browse
+  // only, but discoverability suffered (users on Stats, Author, Loved
+  // pages had to nav back to /. before they could add). Other surfaces
+  // get the same one-tap-away affordance.
   const onReadlist = pathname === '/readlist';
   const onLoved = pathname === '/loved';
   const onLists = pathname === '/lists' || pathname.startsWith('/lists/');
@@ -51,15 +54,13 @@ export default function Nav() {
             {navLink('/shelf-view', 'Shelves',  onShelfView, 'text-oak')}
           </nav>
         </div>
-        {showAddButton && (
-          <Link
-            to="/books/new"
-            state={{ from: labelForPath(pathname), fromPath: pathname + search }}
-            className="text-sm font-medium bg-oak hover:bg-leather motion-safe:active:scale-[0.98] text-neutral-950 px-4 py-1.5 rounded-full transition-[transform,background-color] ease-out duration-150"
-          >
-            + Add book
-          </Link>
-        )}
+        <Link
+          to="/books/new"
+          state={{ from: labelForPath(pathname), fromPath: pathname + search }}
+          className="text-sm font-medium bg-oak hover:bg-leather motion-safe:active:scale-[0.98] text-neutral-950 px-4 py-1.5 rounded-full transition-[transform,background-color] ease-out duration-150"
+        >
+          + Add book
+        </Link>
       </div>
     </header>
   );

@@ -1283,19 +1283,34 @@ export default function CommandPalette() {
             <span className="ml-auto text-neutral-700">esc to cancel</span>
           </div>
         )}
-        <input
-          ref={inputRef}
-          value={query}
-          onChange={(e) => { setQuery(e.target.value); setCursorPos(e.target.selectionStart ?? 0); }}
-          onKeyUp={(e) => setCursorPos(e.target.selectionStart ?? 0)}
-          onClick={(e) => setCursorPos(e.target.selectionStart ?? 0)}
-          onFocus={(e) => setCursorPos(e.target.selectionStart ?? 0)}
-          onKeyDown={handleKey}
-          placeholder={subPrompt ? 'Pick a list…' : 'Search library, lists, or navigate…'}
-          aria-label={subPrompt ? 'Pick a list' : 'Command palette search'}
-          aria-autocomplete="list"
-          className="w-full bg-neutral-900 border-b border-neutral-800 px-4 py-3 text-sm text-white placeholder-neutral-600 focus:outline-none"
-        />
+        <div className="relative">
+          <input
+            ref={inputRef}
+            value={query}
+            onChange={(e) => { setQuery(e.target.value); setCursorPos(e.target.selectionStart ?? 0); }}
+            onKeyUp={(e) => setCursorPos(e.target.selectionStart ?? 0)}
+            onClick={(e) => setCursorPos(e.target.selectionStart ?? 0)}
+            onFocus={(e) => setCursorPos(e.target.selectionStart ?? 0)}
+            onKeyDown={handleKey}
+            placeholder={subPrompt ? 'Pick a list…' : 'Search library, lists, or navigate…'}
+            aria-label={subPrompt ? 'Pick a list' : 'Command palette search'}
+            aria-autocomplete="list"
+            className="w-full bg-neutral-900 border-b border-neutral-800 px-4 py-3 pr-10 text-sm text-white placeholder-neutral-600 focus:outline-none"
+          />
+          {/* Pulse-dot fires whenever the search is mid-debounce or in
+              flight, including when stale results are still on screen —
+              so the user sees that the list they're looking at may not
+              yet reflect the current query. The 'Searching…' empty-state
+              text below covers the no-prior-results case. */}
+          {bookLoading && query.trim() && (
+            <span
+              role="status"
+              aria-label="Searching"
+              title="Searching"
+              className="absolute right-4 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-oak animate-pulse"
+            />
+          )}
+        </div>
         {subPrompt && subPromptError && (
           <p role="alert" className="px-4 py-2 text-xs text-warn border-b border-neutral-800">
             {subPromptError}

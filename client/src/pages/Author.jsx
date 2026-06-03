@@ -482,9 +482,19 @@ export default function Author() {
                 </div>
               ) : author.bio ? (
                 <>
-                  <p className={`text-sm text-neutral-400 whitespace-pre-line ${bioExpanded ? '' : 'line-clamp-4'}`}>
-                    {author.bio}
-                  </p>
+                  <div className="relative">
+                    <p className={`text-sm text-neutral-400 whitespace-pre-line ${bioExpanded ? '' : 'line-clamp-4'}`}>
+                      {author.bio}
+                    </p>
+                    {/* Soft fade at the clip when collapsed, so the line
+                        cut reads as a deliberate fold rather than a hard
+                        truncation. Gated to bios that overflow the clamp
+                        — matches the 280-char heuristic used to surface
+                        the Show more button. */}
+                    {!bioExpanded && author.bio.length > 280 && (
+                      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-neutral-950 to-transparent" />
+                    )}
+                  </div>
                   <div className="flex items-center gap-3 mt-1 text-xs">
                     {/* "Show more" only when the rendered text overflows
                         the 4-line clamp. We approximate "long" by char
