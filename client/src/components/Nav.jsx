@@ -14,12 +14,15 @@ export default function Nav() {
   const onStats = pathname === '/stats';
   const onShelfView   = pathname === '/shelf-view';
 
-  function navLink(to, label, active, activeColor = 'text-sky-400') {
+  // Inactive hover shifts toward the link's own active hue (one shade
+  // brighter than active) instead of the previous uniform neutral-200,
+  // so each surface previews its identity colour on hover.
+  function navLink(to, label, active, activeColor = 'text-sky-400', hoverColor = 'hover:text-sky-300') {
     return (
       <Link
         to={to}
         aria-current={active ? 'page' : undefined}
-        className={`text-sm transition-colors ${active ? activeColor : 'text-neutral-500 hover:text-neutral-200'}`}
+        className={`text-sm transition-colors ${active ? activeColor : `text-neutral-500 ${hoverColor}`}`}
       >
         {label}
       </Link>
@@ -46,12 +49,12 @@ export default function Nav() {
                 (sky/emerald/violet) for the curation + analytical
                 surfaces, warm tones (rose/amber/oak) for the more
                 emotional / theme-aligned ones. */}
-            {navLink('/readlist',   'Readlist', onReadlist,  'text-sky-400')}
-            {navLink('/loved',      'Loved',    onLoved,     'text-rose-400')}
-            {navLink('/lists',      'Lists',    onLists,     'text-emerald-400')}
-            {navLink('/diary',      'Diary',    onDiary,     'text-amber-400')}
-            {navLink('/stats',      'Stats',    onStats,     'text-violet-400')}
-            {navLink('/shelf-view', 'Shelves',  onShelfView, 'text-oak')}
+            {navLink('/readlist',   'Readlist', onReadlist,  'text-sky-400',     'hover:text-sky-300')}
+            {navLink('/loved',      'Loved',    onLoved,     'text-rose-400',    'hover:text-rose-300')}
+            {navLink('/lists',      'Lists',    onLists,     'text-emerald-400', 'hover:text-emerald-300')}
+            {navLink('/diary',      'Diary',    onDiary,     'text-amber-400',   'hover:text-amber-300')}
+            {navLink('/stats',      'Stats',    onStats,     'text-violet-400',  'hover:text-violet-300')}
+            {navLink('/shelf-view', 'Shelves',  onShelfView, 'text-oak',         'hover:text-leather')}
           </nav>
         </div>
         <Link

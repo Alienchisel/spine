@@ -538,7 +538,7 @@ export default function BookForm() {
               top-14 butts the strip flush against the Nav. The form body
               scrolls behind, so the strip needs a solid bg to occlude it;
               z-30 keeps it above form content and below the z-50 Nav. */}
-          <div role="tablist" aria-label="Form sections" className="flex gap-6 border-b border-neutral-800 mb-7 sticky top-14 z-30 bg-neutral-950 pt-3">
+          <div role="tablist" aria-label="Form sections" className="flex gap-6 border-b border-neutral-800 mb-7 sticky top-14 z-30 bg-neutral-950 pt-3 shadow-[0_8px_8px_-6px_rgba(0,0,0,0.5)]">
             {TABS.map((t, i) => (
               <button
                 key={t.key}

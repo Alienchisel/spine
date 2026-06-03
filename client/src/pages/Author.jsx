@@ -19,7 +19,7 @@ function GenderPicker({ value, onChange }) {
   const display = value ?? 'unassigned';
   return (
     <span className="relative inline-block group cursor-pointer">
-      <span className="text-sm text-neutral-700 group-hover:text-neutral-400 group-hover:underline group-focus-within:text-neutral-400 group-focus-within:underline transition-colors">
+      <span className="text-sm text-neutral-700 underline decoration-dotted decoration-neutral-800 underline-offset-2 group-hover:text-neutral-400 group-hover:decoration-solid group-hover:decoration-neutral-500 group-focus-within:text-neutral-400 group-focus-within:decoration-solid group-focus-within:decoration-neutral-500 transition-colors">
         {display}
       </span>
       <select
@@ -145,7 +145,7 @@ function DatesPicker({ birth, death, onChange }) {
     <button
       type="button"
       onClick={start}
-      className="text-sm text-neutral-700 hover:text-neutral-400 hover:underline focus:text-neutral-400 focus:underline focus:outline-none transition-colors"
+      className="text-sm text-neutral-700 underline decoration-dotted decoration-neutral-800 underline-offset-2 hover:text-neutral-400 hover:decoration-solid hover:decoration-neutral-500 focus:text-neutral-400 focus:decoration-solid focus:decoration-neutral-500 focus:outline-none transition-colors"
     >
       {text ?? 'add dates'}
     </button>
