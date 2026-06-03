@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
 import { api } from '../api.js';
 import StarRating from '../components/StarRating.jsx';
 import ListPicker from '../components/ListPicker.jsx';
@@ -542,6 +542,12 @@ export default function BookDetail() {
   // through to the default <a>.
   const proseMarkdown = useMemo(() => ({
     remarkPlugins: [remarkBookRefs],
+    // react-markdown's default URL sanitiser strips any scheme outside
+    // the http(s)/mailto/xmpp/irc(s) allow-list — including our internal
+    // `spine-book:` — leaving the href empty so an `<a href="">` reloads
+    // the current page. Allow the custom scheme through; fall back to
+    // the default for everything else.
+    urlTransform: (url) => url.startsWith('spine-book:') ? url : defaultUrlTransform(url),
     components: {
       a: ({ href, children, node: _node, ...props }) => {
         if (href?.startsWith('spine-book:')) {

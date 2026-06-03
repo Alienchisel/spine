@@ -12,13 +12,23 @@ import MentionMenu from './MentionMenu.jsx';
 // mention picker handles ArrowUp/Down/Enter/Tab/Esc only when its menu
 // is open, and forwards everything else (including Ctrl/Cmd+Enter for
 // submitOnModEnter).
-export default function MentionTextarea({ value, onValue, onKeyDown, ...props }) {
+export default function MentionTextarea({ value, onValue, onKeyDown, onBlur, ...props }) {
   const ref = useRef(null);
   const mentions = useBookMentions(ref, value, onValue);
 
   const handleKeyDown = (e) => {
     if (mentions.onKeyDown(e)) return;
     if (onKeyDown) onKeyDown(e);
+  };
+
+  // Close the picker when focus leaves the textarea. MentionMenu's
+  // option buttons use onMouseDown + preventDefault so clicking a
+  // result doesn't fire blur first — that lets us close immediately
+  // here instead of timing-out, and dodges the race where a stray
+  // re-render reopens the menu after a select.
+  const handleBlur = (e) => {
+    mentions.close();
+    if (onBlur) onBlur(e);
   };
 
   return (
@@ -28,6 +38,7 @@ export default function MentionTextarea({ value, onValue, onKeyDown, ...props })
         value={value}
         onChange={(e) => onValue(e.target.value)}
         onKeyDown={handleKeyDown}
+        onBlur={handleBlur}
         {...props}
       />
       <MentionMenu
