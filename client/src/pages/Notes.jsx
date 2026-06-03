@@ -1,17 +1,18 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
-import { initialsFor, plural } from '../utils.js';
+import { initialsFor, plural, pluralWord } from '../utils.js';
 
 // Surfaces the reflective layer — user-authored prose (review + notes)
 // across the library — as a first-class destination, instead of leaving
 // it buried per-book on BookDetail's right rail.
 //
-// v2 adds client-side search across the prose. The corpus is small
-// (low hundreds of books at most), so filtering in memory is instant
-// and lets us do snippet-around-match + inline highlight cleanly. If
-// the corpus grows past a few thousand books with writing the cost
-// would shift to backend FTS5, but that's a long way off.
+// v3 adds tag filtering on top of v2's client-side text search. Clicking
+// a tag pill on any row toggles it in the active filter; active filters
+// AND-combine with each other and with the search query. Tags are the
+// "browse by topic" axis that makes Notes distinct from BookDetail — if
+// the catalogue answers "what books do I own about Philosophy?", Notes
+// answers "what have I written about Philosophy?".
 
 // Strip basic markdown so a preview reads as plain prose. Cheap regex
 // pass — not a full parser, just enough to take out asterisks,
@@ -31,7 +32,7 @@ function formatDate(iso) {
   if (!iso) return '';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric' });
+  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 // Extract a window of plain text around the first match of `q`. When
@@ -97,11 +98,37 @@ function selectPrimary(book, q) {
   return { text: book.notes, kind: 'Notes', alsoOther: false };
 }
 
+// Row-level tag pill — visible as a button so the user can click any
+// tag on any row to add it to the active filter. The pill style mirrors
+// BookDetail's real-tag pills (bg-neutral-800 / text-neutral-400 /
+// rounded-full) but sized a notch smaller to fit the dense row layout.
+// Lives OUTSIDE the row's <Link> so the click doesn't bubble into a
+// navigation — nested interactive elements would also be an a11y bug.
+function TagPill({ name, active, onToggle }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onToggle(name)}
+      aria-pressed={active}
+      className={`text-[11px] px-2 py-0.5 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-oak/40 ${
+        active
+          ? 'bg-oak/30 text-parchment'
+          : 'bg-neutral-800 text-neutral-500 hover:bg-neutral-700 hover:text-neutral-300'
+      }`}
+    >
+      {name}
+    </button>
+  );
+}
+
+const ROW_TAG_LIMIT = 4;
+
 export default function Notes() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [query, setQuery] = useState('');
+  const [activeTags, setActiveTags] = useState(() => new Set());
   const searchRef = useRef(null);
 
   useEffect(() => {
@@ -113,23 +140,43 @@ export default function Notes() {
     return () => { cancelled = true; };
   }, []);
 
-  // Filter against either field's prose. Case-insensitive substring —
-  // good enough for personal-prose-search; phrase / fuzzy / regex are
-  // overkill and would clutter the input. Tabs and other whitespace
-  // are preserved in the stored text but flattened by stripMarkdown
-  // at render time; we still match the raw text since the user
-  // typically searches for a word that lives intact across whitespace.
+  // Toggle a tag in the active-filter set. Empty → adds; present →
+  // removes. Stable identity for the Pill onClick prop via useCallback
+  // so the row-level pills don't re-render every keystroke.
+  const toggleTag = useCallback((name) => {
+    setActiveTags(prev => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  }, []);
+
+  // Combined filter: text match (notes OR review) AND tag intersection
+  // (every active tag must be present on the book's real-tag list).
+  // Virtual tags (Antique/Vintage/Long/Tome) are excluded from the
+  // filterable set — they're derived properties, not user-curated
+  // topics, and would muddy the "browse by topic" intent.
   const filtered = useMemo(() => {
     const q = query.trim();
-    if (!q) return books;
     const ql = q.toLowerCase();
-    return books.filter(b =>
-      (b.notes  && b.notes.toLowerCase().includes(ql)) ||
-      (b.review && b.review.toLowerCase().includes(ql))
-    );
-  }, [books, query]);
+    const tagsToMatch = activeTags;
+    return books.filter(b => {
+      if (q) {
+        const hit = (b.notes  && b.notes.toLowerCase().includes(ql))
+                 || (b.review && b.review.toLowerCase().includes(ql));
+        if (!hit) return false;
+      }
+      if (tagsToMatch.size > 0) {
+        const bookTags = new Set((b.tags || []).filter(t => !t.virtual).map(t => t.name));
+        for (const name of tagsToMatch) if (!bookTags.has(name)) return false;
+      }
+      return true;
+    });
+  }, [books, query, activeTags]);
 
   const activeQuery = query.trim();
+  const anyFilter = activeQuery !== '' || activeTags.size > 0;
 
   return (
     <div className="max-w-5xl">
@@ -152,6 +199,34 @@ export default function Notes() {
         </div>
       )}
 
+      {/* Active filter chip row — shown only when at least one tag is
+          selected. Each chip removes its tag on click; "Clear" wipes
+          the whole filter. Search-query removal is on the search input
+          itself (native ✕). */}
+      {activeTags.size > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-1.5">
+          {[...activeTags].map(name => (
+            <button
+              key={name}
+              type="button"
+              onClick={() => toggleTag(name)}
+              aria-label={`Remove filter ${name}`}
+              className="text-xs bg-oak/30 text-parchment rounded-full pl-3 pr-1.5 py-1 flex items-center gap-1.5 hover:bg-oak/40 transition-colors focus:outline-none focus:ring-2 focus:ring-oak/40"
+            >
+              <span>{name}</span>
+              <span aria-hidden="true" className="text-parchment/60 leading-none text-sm">×</span>
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => setActiveTags(new Set())}
+            className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors ml-1 focus:outline-none focus-visible:text-neutral-300 focus-visible:underline underline-offset-2"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
       {loading ? (
         <div role="status" className="text-neutral-700 text-sm">Loading…</div>
       ) : error ? (
@@ -161,8 +236,8 @@ export default function Notes() {
       ) : (
         <>
           <p className="text-xs text-neutral-600 mb-3">
-            {activeQuery
-              ? <>{plural(filtered.length, 'book')} match <span className="text-neutral-500">"{activeQuery}"</span></>
+            {anyFilter
+              ? <>{filtered.length} of {books.length} {pluralWord(books.length, 'book')}</>
               : <>{plural(books.length, 'book')} with writing</>}
           </p>
           {filtered.length === 0 ? (
@@ -173,12 +248,15 @@ export default function Notes() {
                 const primary = selectPrimary(book, activeQuery);
                 const snip = snippet(primary.text, activeQuery);
                 const authorByline = (book.authors || []).map(a => a.name).join(', ');
+                const realTags = (book.tags || []).filter(t => !t.virtual);
+                const visibleTags = realTags.slice(0, ROW_TAG_LIMIT);
+                const overflowCount = realTags.length - visibleTags.length;
                 return (
-                  <li key={book.id}>
+                  <li key={book.id} className="py-4">
                     <Link
                       to={`/books/${book.id}`}
                       state={{ from: 'Notes', fromPath: '/notes' }}
-                      className="flex gap-4 py-4 group focus:outline-none focus-visible:bg-neutral-900/40 -mx-2 px-2 rounded transition-colors"
+                      className="flex gap-4 group focus:outline-none focus-visible:bg-neutral-900/40 -mx-2 px-2 rounded transition-colors"
                     >
                       {/* Thumbnail — small, just enough to anchor the row
                           to a book. Falls back to initials if no cover. */}
@@ -218,6 +296,29 @@ export default function Notes() {
                         {formatDate(book.updated_at)}
                       </div>
                     </Link>
+
+                    {/* Tag pills sit OUTSIDE the row's Link so clicking
+                        a tag toggles it in the filter rather than
+                        navigating into the book. Indented to align with
+                        the main content column above (w-12 cover + gap-4
+                        ≈ 4rem). */}
+                    {visibleTags.length > 0 && (
+                      <div className="ml-16 mt-1.5 flex flex-wrap gap-1.5">
+                        {visibleTags.map(t => (
+                          <TagPill
+                            key={t.id ?? t.name}
+                            name={t.name}
+                            active={activeTags.has(t.name)}
+                            onToggle={toggleTag}
+                          />
+                        ))}
+                        {overflowCount > 0 && (
+                          <span className="text-[11px] text-neutral-700 leading-none self-center">
+                            +{overflowCount}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </li>
                 );
               })}
