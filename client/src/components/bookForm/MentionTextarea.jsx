@@ -3,8 +3,9 @@ import { useBookMentions } from '../../hooks/useBookMentions.js';
 import MentionMenu from './MentionMenu.jsx';
 
 // Drop-in <textarea> replacement that opens a book picker when the user
-// types `@`. Selecting a result inserts `#NNN ` which the BookDetail
-// markdown renderer (remarkBookRefs + BookRef) turns into a live link.
+// types `@`. Selecting a result inserts `[#NNN](spine-book:NNN) ` which
+// the BookDetail markdown renderer (proseMarkdown `a` override + BookRef)
+// turns into a live link to the target book.
 //
 // API differs from a raw textarea in one place: `onValue(string)`
 // replaces `onChange(e)`, since the hook needs to splice text at the

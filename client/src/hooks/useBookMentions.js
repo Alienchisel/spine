@@ -8,8 +8,11 @@ import { api } from '../api.js';
 const MENTION_RE = /(?:^|\s)@([^\s@]{0,40})$/;
 
 // Reads the textarea's caret, looks for `@query` immediately before it,
-// and exposes a small menu state + keyboard handler. Inserts `#NNN ` on
-// select so the rendered field auto-links via remarkBookRefs.
+// and exposes a small menu state + keyboard handler. Inserts an explicit
+// markdown link `[#NNN](spine-book:NNN)` on select so the rendered field
+// resolves it via the proseMarkdown `a` override + BookRef. Picker-only
+// is intentional: bare `#NNN` autolinking false-positives heavily on
+// Amazon/Goodreads blurbs ("the #1 New York Times bestseller …").
 export function useBookMentions(textareaRef, value, onValue) {
   const [menu, setMenu] = useState(null); // { query, matchStart, selectedIdx }
   const [results, setResults] = useState([]);
@@ -76,7 +79,7 @@ export function useBookMentions(textareaRef, value, onValue) {
     const pos = ta.selectionStart;
     const before = value.slice(0, menu.matchStart);
     const after = value.slice(pos);
-    const insert = `#${book.id} `;
+    const insert = `[#${book.id}](spine-book:${book.id}) `;
     onValue(before + insert + after);
     setMenu(null);
     requestAnimationFrame(() => {

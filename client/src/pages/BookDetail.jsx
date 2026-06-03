@@ -13,7 +13,6 @@ import MetadataList from '../components/bookDetail/MetadataList.jsx';
 import EditionsSection from '../components/bookDetail/EditionsSection.jsx';
 import ReadingLog from '../components/bookDetail/ReadingLog.jsx';
 import BookRef from '../components/bookDetail/BookRef.jsx';
-import remarkBookRefs from '../components/bookDetail/remarkBookRefs.js';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useLatest } from '../hooks/useLatest.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
@@ -535,18 +534,15 @@ export default function BookDetail() {
     origin:   navState ?? null,
   }), [book?.title, id, navState]);
 
-  // Description / review / notes share the same markdown config — the
-  // remarkBookRefs plugin rewrites `#123` into a `spine-book:123` link
-  // node, which the custom `a` renderer then swaps for BookRef. Real
-  // markdown links (anything not starting with `spine-book:`) pass
-  // through to the default <a>.
+  // Description / review / notes share the same markdown config. Links
+  // to `spine-book:NNN` (inserted by the @ picker as
+  // `[#NNN](spine-book:NNN)`) get swapped for a BookRef that resolves
+  // the current title; real http(s) markdown links pass through
+  // untouched. The custom urlTransform is required because
+  // react-markdown's default sanitiser strips any scheme outside the
+  // http(s)/mailto/xmpp/irc(s) allow-list, which would leave an empty
+  // href that reloads the page on click.
   const proseMarkdown = useMemo(() => ({
-    remarkPlugins: [remarkBookRefs],
-    // react-markdown's default URL sanitiser strips any scheme outside
-    // the http(s)/mailto/xmpp/irc(s) allow-list — including our internal
-    // `spine-book:` — leaving the href empty so an `<a href="">` reloads
-    // the current page. Allow the custom scheme through; fall back to
-    // the default for everything else.
     urlTransform: (url) => url.startsWith('spine-book:') ? url : defaultUrlTransform(url),
     components: {
       a: ({ href, children, node: _node, ...props }) => {
