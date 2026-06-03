@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { createBrowserRouter, createRoutesFromElements, Route, RouterProvider } from 'react-router-dom';
+import { createBrowserRouter, createRoutesFromElements, Route, RouterProvider, Link } from 'react-router-dom';
+import { MOD_KEY } from './utils.js';
 import App from './App.jsx';
 import Library from './pages/Library.jsx';
 import BookDetail from './pages/BookDetail.jsx';
@@ -25,8 +26,27 @@ import ShelfView from './pages/ShelfView.jsx';
 import RouteError from './components/RouteError.jsx';
 import './index.css';
 
+// Renders when the URL doesn't match any of the routes below (path="*").
+// Mirrors RouteError's calm-recovery shape — heading + recovery copy +
+// text-link affordances — so the 404 reads as a managed surface instead
+// of a stray bit of body text on an otherwise-styled chrome.
 function NotFound() {
-  return <div className="text-center py-32 text-neutral-600 text-sm">Page not found.</div>;
+  return (
+    <div className="max-w-3xl py-6">
+      <h1 className="text-xl text-neutral-300 mb-2">Page not found.</h1>
+      <p className="text-sm text-neutral-500 mb-6">
+        The URL you followed doesn't match any page in Spine. The library is the safest place to start over from.
+      </p>
+      <div className="flex items-center gap-4 text-sm">
+        <Link to="/" className="text-neutral-400 hover:text-neutral-200 focus-visible:text-neutral-200 focus-visible:underline underline-offset-2 focus-visible:outline-none transition-colors">
+          ← Back to Library
+        </Link>
+        <span className="text-neutral-700">
+          or press <kbd className="font-sans text-[11px] text-neutral-500 border border-neutral-700 rounded px-1.5 py-0.5">{MOD_KEY}+K</kbd> to search
+        </span>
+      </div>
+    </div>
+  );
 }
 
 // Data router (vs. <BrowserRouter>) so BookForm and any future page can use
