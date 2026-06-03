@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { useActionGuard } from '../hooks/useActionGuard.js';
-import { realTagNames, initialsFor } from '../utils.js';
+import { realTagNames, initialsFor, fmtHM } from '../utils.js';
 import { getModeKey, initialProgressMode, computeProgressPatch, syncProgressInputs, progressDerived, clampMinutes } from './progressMode.js';
 import MoreMenu from './MoreMenu.jsx';
 
@@ -203,9 +203,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
   // pct and render "null%". Fall back to absolute progress in those cases:
   // h/m elapsed for audiobooks, "p. N" for paper.
   const audioMins = book.current_minutes;
-  const audioElapsed = audioMins != null
-    ? (audioMins >= 60 ? `${Math.floor(audioMins / 60)}h ${audioMins % 60}m` : `${audioMins}m`)
-    : null;
+  const audioElapsed = audioMins != null ? fmtHM(audioMins) : null;
   const progressLabel = isAudiobook
     ? (audioMins != null ? (hasPct ? `${pct}%` : audioElapsed) : null)
     : (book.current_page != null ? (hasPct ? `${pct}%` : `p. ${book.current_page}`) : null);

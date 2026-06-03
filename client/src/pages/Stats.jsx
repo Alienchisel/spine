@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { api } from '../api.js';
-import { fmtShortDate, fmtShortMonth, fmtIsoWeekMonday, formatYear, plural, initialsFor, formatPartialDate } from '../utils.js';
+import { fmtShortDate, fmtShortMonth, fmtIsoWeekMonday, formatYear, plural, initialsFor, formatPartialDate, FORMAT_LABEL } from '../utils.js';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import ErrorBanner from '../components/ErrorBanner.jsx';
@@ -283,8 +283,6 @@ function formatHours(minutes) {
   const m = minutes % 60;
   return m > 0 ? `${h.toLocaleString()}h ${m}m` : `${h.toLocaleString()}h`;
 }
-
-const FORMAT_LABEL = { physical: 'Physical', ebook: 'Digital', audiobook: 'Audiobook' };
 
 function GoalCard({ label, current, goal, onSave, onEditStart, color = 'bg-oak' }) {
   const [editing, setEditing] = useState(false);

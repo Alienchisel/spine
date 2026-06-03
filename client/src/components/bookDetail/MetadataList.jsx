@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { formatPartialDate } from '../../utils.js';
-import { formatYear, pluralWord } from '../../utils.js';
+import { formatYear, pluralWord, fmtHM } from '../../utils.js';
 
 function Row({ label, children }) {
   return (
@@ -75,7 +75,7 @@ export default function MetadataList({ book, location, linkState }) {
       )}
       {book.format === 'audiobook' && book.duration_minutes > 0 && (
         <Row label="Length">
-          {(() => { const h = Math.floor(book.duration_minutes / 60), m = book.duration_minutes % 60; return h > 0 ? `${h}h ${m}m` : `${m}m`; })()}
+          {fmtHM(book.duration_minutes)}
         </Row>
       )}
       {book.format !== 'audiobook' && book.page_count > 0 && (

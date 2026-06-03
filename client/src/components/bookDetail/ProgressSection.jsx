@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../api.js';
 import { useActionGuard } from '../../hooks/useActionGuard.js';
+import { fmtHM } from '../../utils.js';
 import { computeEta } from './eta.js';
 import { getModeKey, initialProgressMode, computeProgressPatch, syncProgressInputs, progressDerived, clampMinutes } from '../progressMode.js';
 
@@ -90,8 +91,8 @@ export default function ProgressSection({ book, onChange, log }) {
   const progressText = isAudiobook
     ? (book.current_minutes != null
         ? hasPct
-          ? `${Math.floor(book.current_minutes / 60)}h ${book.current_minutes % 60}m of ${Math.floor(book.duration_minutes / 60)}h ${book.duration_minutes % 60}m · ${pct}%`
-          : `${Math.floor(book.current_minutes / 60)}h ${book.current_minutes % 60}m`
+          ? `${fmtHM(book.current_minutes)} of ${fmtHM(book.duration_minutes)} · ${pct}%`
+          : fmtHM(book.current_minutes)
         : 'No progress recorded yet')
     : (book.current_page
         ? hasPct

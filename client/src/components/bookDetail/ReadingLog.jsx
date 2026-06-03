@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { formatDate } from '../../utils.js';
+import { formatDate, fmtHM } from '../../utils.js';
 
 const COLLAPSED_LIMIT = 10;
 
@@ -15,20 +15,19 @@ export default function ReadingLog({ log, isAudiobook, status, pageCount }) {
   const since = formatDate(log[log.length - 1].date);
   const pagesSum   = log.reduce((s, e) => s + (e.pages_read   || 0), 0);
   const minutesSum = log.reduce((s, e) => s + (e.minutes_read || 0), 0);
-  const formatTime = (m) => `${Math.floor(m / 60)}h ${m % 60}m`;
   // Cascading total. Audiobooks naturally use time. Non-audiobooks prefer
   // pages, with three fallbacks: a finished ebook with a known page_count
   // shows the book's length (the natural total even when per-day pages
   // weren't tracked); otherwise positive minutes are shown for in-progress
   // ebooks backfilled from session data; otherwise the total is dropped.
   const total = isAudiobook
-    ? formatTime(minutesSum)
+    ? fmtHM(minutesSum)
     : pagesSum > 0
       ? `${pagesSum} pages`
       : (status === 'finished' && pageCount > 0)
         ? `${pageCount} pages`
         : minutesSum > 0
-          ? formatTime(minutesSum)
+          ? fmtHM(minutesSum)
           : null;
 
   const overLimit = log.length > COLLAPSED_LIMIT;
@@ -44,7 +43,7 @@ export default function ReadingLog({ log, isAudiobook, status, pageCount }) {
             <span>{formatDate(entry.date)}</span>
             <span className="text-neutral-600">
               {isAudiobook
-                ? entry.minutes_read ? `${Math.floor(entry.minutes_read / 60)}h ${entry.minutes_read % 60}m` : null
+                ? entry.minutes_read ? fmtHM(entry.minutes_read) : null
                 : entry.pages_read ? `${entry.pages_read} p.` : null}
             </span>
           </div>

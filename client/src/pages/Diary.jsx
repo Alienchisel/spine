@@ -1,7 +1,7 @@
 import { Fragment, useState, useEffect, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
-import { formatAuthors, fmtShortDate, plural, pluralWord, initialsFor } from '../utils.js';
+import { formatAuthors, fmtShortDate, plural, pluralWord, initialsFor, fmtHM } from '../utils.js';
 import { useConfirm } from '../components/ConfirmModal.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
@@ -44,17 +44,10 @@ const HEATMAP_LEVEL_CLASS = [
   'bg-oak',             // 4
 ];
 
-function formatMinutes(min) {
-  if (!min) return '';
-  const h = Math.floor(min / 60);
-  const m = min % 60;
-  return h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m}m`;
-}
-
 function formatTotal({ pages, minutes }) {
   const parts = [];
   if (pages > 0)   parts.push(`${pages.toLocaleString()} ${pluralWord(pages, 'page')}`);
-  if (minutes > 0) parts.push(formatMinutes(minutes));
+  if (minutes > 0) parts.push(fmtHM(minutes));
   return parts.join(' · ') || '—';
 }
 
@@ -593,7 +586,7 @@ export default function Diary() {
                         const m = day.minutes_total;
                         const parts = [];
                         if (p > 0) parts.push(plural(p, 'page'));
-                        if (m > 0) parts.push(`${Math.floor(m / 60)}h ${m % 60}m`);
+                        if (m > 0) parts.push(fmtHM(m));
                         return parts.join(' · ');
                       })()}
                     </span>

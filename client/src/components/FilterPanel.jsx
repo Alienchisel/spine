@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { VIRTUAL_TAG_NAMES } from '../../../shared/bookFields.js';
+import { FORMAT_LABEL } from '../utils.js';
 
 // Ordered by semantic cluster (identity → bibliographic → size →
 // descriptive → ownership). When adding a new pill, slot it into the
@@ -33,7 +34,6 @@ const MISSING_FIELDS = [
   { key: 'acquired',    label: 'Acquired', title: 'Owned, non-custom books missing acquisition date.' },
 ];
 
-const FORMAT_LABEL = { physical: 'Physical', ebook: 'Digital', audiobook: 'Audiobook' };
 
 function pill(active, variant = 'default') {
   const base = 'text-xs px-2.5 py-1 rounded-full border cursor-pointer transition-[transform,background-color,color,border-color] ease-out duration-150 motion-safe:active:scale-[0.98]';

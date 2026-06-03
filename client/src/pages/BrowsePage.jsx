@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
-import { plural } from '../utils.js';
+import { plural, FORMAT_LABEL } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
 import CoverSizeSlider from '../components/CoverSizeSlider.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
@@ -22,7 +22,6 @@ const AUTHOR_GENDER_LABEL = {
   male: 'Male', female: 'Female', other: 'Other', unassigned: 'Unassigned',
 };
 
-const FORMAT_LABEL = { physical: 'Physical', ebook: 'Digital', audiobook: 'Audiobook' };
 
 function starsLabel(r) {
   const full = Math.floor(r);

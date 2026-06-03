@@ -115,6 +115,28 @@ export function formatPartialDate(val) {
   return `${day} ${monthLabel} ${yearLabel}`;
 }
 
+// Render a minute count as hours-and-minutes, smart: skips the hour
+// segment when it would be "0h", skips the minute segment when it
+// would be "0m". So 90 → "1h 30m", 120 → "2h", 45 → "45m". Used
+// everywhere a duration / elapsed-time is displayed (ProgressSection,
+// ReadingLog, MetadataList, BookCard, Diary day-headers + tooltips) —
+// previously each site reinvented this with slight variations, some
+// of which printed awkward "0h 30m" or "2h 0m" outputs.
+export function fmtHM(min) {
+  if (min == null) return '';
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
+
+// Human labels for the three format enum values stored on books. Shared
+// across BrowsePage, Stats, FilterPanel (and any future surface that
+// needs a non-LC display string) so adding a fourth format means
+// touching exactly one place.
+export const FORMAT_LABEL = { physical: 'Physical', ebook: 'Digital', audiobook: 'Audiobook' };
+
 // Display labels for Library tabs. Mirrors the TABS table in
 // pages/Library.jsx — kept here so libraryLabelForUrl can read it
 // without importing a page component (cyclic-import risk).
