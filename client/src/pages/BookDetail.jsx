@@ -560,7 +560,7 @@ export default function BookDetail() {
 
   return (
     <div className="max-w-7xl">
-      <Link to={backPath} className="text-sm text-neutral-600 hover:text-neutral-300 mb-8 inline-block transition-colors">
+      <Link to={backPath} className="text-sm text-neutral-600 hover:text-neutral-300 focus-visible:text-neutral-300 focus-visible:underline underline-offset-2 focus-visible:outline-none mb-8 inline-block transition-colors">
         ← {backLabel}
       </Link>
 

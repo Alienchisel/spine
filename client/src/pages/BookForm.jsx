@@ -232,7 +232,9 @@ export default function BookForm() {
     if (blocker.state !== 'blocked') return;
     let cancelled = false;
     confirm({
-      message: 'Discard unsaved changes?',
+      message: form.title?.trim()
+        ? `Discard unsaved changes to "${form.title.trim()}"?`
+        : 'Discard unsaved changes?',
       confirmLabel: 'Discard',
     }).then(ok => {
       if (cancelled) return;

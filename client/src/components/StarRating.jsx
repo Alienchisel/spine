@@ -79,11 +79,13 @@ export default function StarRating({ value, onChange, readOnly = false, size = '
                 className="absolute inset-0 w-1/2"
                 onMouseEnter={() => setHover(n - 0.5)}
                 onClick={() => handleClick(n - 0.5)}
+                title={`${n - 0.5} of 5`}
               />
               <div
                 className="absolute top-0 bottom-0 left-1/2 right-0"
                 onMouseEnter={() => setHover(n)}
                 onClick={() => handleClick(n)}
+                title={`${n} of 5`}
               />
             </>
           )}

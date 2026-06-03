@@ -296,7 +296,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
             // is visible. Hidden in edit-mode contexts (hideActions=true)
             // where the drag handle is the only intended affordance and
             // these buttons would compete with it for the same anchor.
-            <div className="absolute inset-x-3 bottom-3 flex justify-center items-center gap-4 px-3 py-1.5 bg-black/65 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+            <div className="absolute inset-x-3 bottom-3 flex justify-center items-center gap-4 px-3 py-1.5 bg-black/80 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
               <button
                 type="button"
                 onClick={toggleReadlist}
@@ -379,6 +379,9 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
             </p>
           )}
 
+          {open && error && (
+            <p role="alert" className="mt-1.5 text-xs text-warn">{error}</p>
+          )}
           {open && (
             <form onSubmit={handleSubmit} className="mt-1.5 flex gap-1 items-center flex-wrap">
               <select
@@ -449,7 +452,6 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
               >
                 ✕
               </button>
-              {error && <p role="alert" className="w-full text-xs text-warn mt-0.5">{error}</p>}
             </form>
           )}
         </div>

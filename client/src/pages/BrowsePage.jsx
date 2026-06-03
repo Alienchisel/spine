@@ -306,7 +306,7 @@ export default function BrowsePage() {
               onChange={(e) => setShowUnowned(e.target.checked)}
               className="accent-oak"
             />
-            <span>Show unowned ({unownedCount})</span>
+            <span>Include unowned ({unownedCount})</span>
           </label>
         </div>
       )}
