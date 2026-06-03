@@ -38,16 +38,17 @@ export function realTagNames(tags) {
   return (tags ?? []).filter(t => !t.virtual).map(t => t.name);
 }
 
-// Formats a YYYY-MM-DD into "12 Apr" (same year) or "12 Apr 2024" (otherwise).
+// Formats a YYYY-MM-DD into "Apr 12" (same year) or "Apr 12, 2024" (otherwise).
 // Used by Diary tooltip and Stats streak captions; noon offsets the parsed
-// Date so DST/TZ rounding doesn't bump the day either way.
+// Date so DST/TZ rounding doesn't bump the day either way. en-US order is
+// canonical across the app — see also formatDate / formatPartialDate.
 export function fmtShortDate(dateStr) {
   if (!dateStr) return '';
   const d = new Date(`${dateStr}T12:00:00`);
   const sameYear = d.getFullYear() === new Date().getFullYear();
-  return d.toLocaleDateString('en-GB', {
-    day: 'numeric',
+  return d.toLocaleDateString('en-US', {
     month: 'short',
+    day: 'numeric',
     ...(sameYear ? {} : { year: 'numeric' }),
   });
 }
@@ -56,7 +57,7 @@ export function fmtShortDate(dateStr) {
 export function fmtShortMonth(yearMonthStr) {
   if (!yearMonthStr) return '';
   const [y, m] = yearMonthStr.split('-').map(Number);
-  return new Date(y, m - 1, 1).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
+  return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 }
 
 // Converts an ISO-week identifier ("2026-W17") to the Monday-of-that-week
@@ -83,18 +84,19 @@ export const MOD_KEY = (() => {
   return /Mac|iPhone|iPad|iPod/.test(navigator.platform) ? '⌘' : 'Ctrl';
 })();
 
-// Render a full ISO YYYY-MM-DD date as "18 July 1938". Anchors at noon
-// so any UTC-vs-local boundary doesn't drift to the prior day.
+// Render a full ISO YYYY-MM-DD date as "July 18, 1938". Anchors at noon
+// so any UTC-vs-local boundary doesn't drift to the prior day. en-US
+// order is canonical across the app.
 export function formatDate(dateStr) {
-  return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-GB', {
-    day: 'numeric', month: 'long', year: 'numeric',
+  return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', {
+    month: 'long', day: 'numeric', year: 'numeric',
   });
 }
 
 // Format a partial date — YYYY / YYYY-MM / YYYY-MM-DD — as a human
-// label: "1938" / "July 1938" / "18 July 1938". Returns null for empty.
+// label: "1938" / "July 1938" / "July 18, 1938". Returns null for empty.
 // Handles BCE years (leading '-' → "65 BCE" / "December 65 BCE" /
-// "8 December 65 BCE"); Date() can't construct negative years natively,
+// "December 8, 65 BCE"); Date() can't construct negative years natively,
 // so we parse and compose manually for all cases — keeps positive and
 // BCE branches consistent.
 const PARTIAL_DATE_MONTHS = [
@@ -112,7 +114,7 @@ export function formatPartialDate(val) {
   if (!month) return yearLabel;
   const monthLabel = PARTIAL_DATE_MONTHS[month - 1] ?? '';
   if (!day) return `${monthLabel} ${yearLabel}`;
-  return `${day} ${monthLabel} ${yearLabel}`;
+  return `${monthLabel} ${day}, ${yearLabel}`;
 }
 
 // Render a minute count as hours-and-minutes, smart: skips the hour

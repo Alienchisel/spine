@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useLocation, Link } from 'react-router-dom';
 import { api } from '../api.js';
-import { plural, initialsFor, MOD_KEY } from '../utils.js';
+import { plural, initialsFor, MOD_KEY, formatPartialDate } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
 import { GridSkeleton } from '../components/Skeleton.jsx';
 import { useTextOverflow } from '../hooks/useTextOverflow.js';
@@ -39,28 +39,12 @@ function GenderPicker({ value, onChange }) {
   );
 }
 
-// Render a stored date string ("1938" / "1938-07-18" / "-428") as a
-// human-readable label. BCE years drop the leading "-" and append BCE.
-// Year-only stays bare. Full dates render as "July 18, 1938".
-const MONTH_LABELS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-function formatDate(dateStr) {
-  if (!dateStr) return null;
-  const m = String(dateStr).match(/^(-?\d{1,4})(?:-(\d{2}))?(?:-(\d{2}))?$/);
-  if (!m) return String(dateStr);
-  const year  = parseInt(m[1], 10);
-  const month = m[2] ? parseInt(m[2], 10) : null;
-  const day   = m[3] ? parseInt(m[3], 10) : null;
-  const yearLabel = year < 0 ? `${-year} BCE` : String(year);
-  if (!month) return yearLabel;
-  const monthLabel = MONTH_LABELS[month - 1] ?? '';
-  if (!day) return `${monthLabel} ${yearLabel}`;
-  return `${monthLabel} ${day}, ${yearLabel}`;
-}
-
-// "Jul 18, 1938 – 2007" / "1938 –" (living author) / "– 2007" / null.
+// "July 18, 1938 – 2007" / "1938 –" (living author) / "– 2007" / null.
+// formatPartialDate handles YYYY / YYYY-MM / YYYY-MM-DD + BCE; en-US
+// month-day-year order is canonical across the app.
 function lifespan(birth, death) {
-  const b = formatDate(birth);
-  const d = formatDate(death);
+  const b = formatPartialDate(birth);
+  const d = formatPartialDate(death);
   if (!b && !d) return null;
   if (b && d)   return `${b} – ${d}`;
   if (b)        return `${b} –`;
