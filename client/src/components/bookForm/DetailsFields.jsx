@@ -1,5 +1,6 @@
 import { useId } from 'react';
 import ChipInput from './ChipInput.jsx';
+import MentionTextarea from './MentionTextarea.jsx';
 import { input, label, MARKDOWN_HINT, submitOnModEnter } from './styles.js';
 
 // year_edition's meaning shifts by format (see MetadataList.editionLabel):
@@ -123,10 +124,10 @@ export default function DetailsFields({ form, set, ic, pastLanguages, pastTransl
           <label htmlFor={idFor('description')} className={label} style={{marginBottom:0}}>Description</label>
           <span className="text-xs text-neutral-600 cursor-help underline decoration-dotted decoration-neutral-700 underline-offset-2" title={MARKDOWN_HINT}>Markdown supported</span>
         </div>
-        <textarea id={idFor('description')} className={`${ic('description')} resize-none`} rows={6}
-          value={form.description} onChange={(e) => set('description', e.target.value)}
+        <MentionTextarea id={idFor('description')} className={`${ic('description')} resize-none`} rows={6}
+          value={form.description} onValue={(v) => set('description', v)}
           onKeyDown={submitOnModEnter}
-          placeholder="Back-cover description…" />
+          placeholder="Back-cover description…  (@ to link a book)" />
       </div>
     </div>
   );

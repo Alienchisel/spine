@@ -1,5 +1,6 @@
 import StarRating from '../StarRating.jsx';
 import ChipInput from './ChipInput.jsx';
+import MentionTextarea from './MentionTextarea.jsx';
 import { input, label, MARKDOWN_HINT, submitOnModEnter } from './styles.js';
 
 export default function PersonalFields({ form, set, pastTags, tagInput, setTagInput }) {
@@ -41,10 +42,10 @@ export default function PersonalFields({ form, set, pastTags, tagInput, setTagIn
           <label htmlFor="book-notes" className={label} style={{marginBottom:0}}>Notes</label>
           <span className="text-xs text-neutral-600 cursor-help underline decoration-dotted decoration-neutral-700 underline-offset-2" title={MARKDOWN_HINT}>Markdown supported</span>
         </div>
-        <textarea id="book-notes" className={`${input} resize-none`} rows={6}
-          value={form.notes} onChange={(e) => set('notes', e.target.value)}
+        <MentionTextarea id="book-notes" className={`${input} resize-none`} rows={6}
+          value={form.notes} onValue={(v) => set('notes', v)}
           onKeyDown={submitOnModEnter}
-          placeholder="Your thoughts…" />
+          placeholder="Your thoughts…  (@ to link a book)" />
       </div>
 
       {(form.status === 'finished' || form.read_count > 0) && (
@@ -53,10 +54,10 @@ export default function PersonalFields({ form, set, pastTags, tagInput, setTagIn
             <label htmlFor="book-review" className={label} style={{marginBottom:0}}>Review</label>
             <span className="text-xs text-neutral-600 cursor-help underline decoration-dotted decoration-neutral-700 underline-offset-2" title={MARKDOWN_HINT}>Markdown supported</span>
           </div>
-          <textarea id="book-review" className={`${input} resize-none`} rows={8}
-            value={form.review} onChange={(e) => set('review', e.target.value)}
+          <MentionTextarea id="book-review" className={`${input} resize-none`} rows={8}
+            value={form.review} onValue={(v) => set('review', v)}
             onKeyDown={submitOnModEnter}
-            placeholder="Your review…" />
+            placeholder="Your review…  (@ to link a book)" />
         </div>
       )}
     </div>
