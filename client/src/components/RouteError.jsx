@@ -26,11 +26,11 @@ export default function RouteError() {
         <button
           type="button"
           onClick={() => window.location.reload()}
-          className="text-neutral-400 hover:text-neutral-200 transition-colors"
+          className="text-neutral-400 hover:text-neutral-200 focus-visible:text-neutral-200 focus-visible:underline underline-offset-2 focus-visible:outline-none transition-colors"
         >
           ↻ Reload
         </button>
-        <Link to="/" className="text-neutral-400 hover:text-neutral-200 transition-colors">
+        <Link to="/" className="text-neutral-400 hover:text-neutral-200 focus-visible:text-neutral-200 focus-visible:underline underline-offset-2 focus-visible:outline-none transition-colors">
           ← Back to Library
         </Link>
       </div>

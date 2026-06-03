@@ -131,7 +131,7 @@ export function ConfirmModalProvider({ children }) {
                 type="button"
                 ref={cancelRef}
                 onClick={() => close(false)}
-                className="px-3 py-1.5 text-sm rounded-md text-neutral-400 hover:text-neutral-200 transition-colors"
+                className="px-3 py-1.5 text-sm rounded-md text-neutral-400 hover:text-neutral-200 transition-colors focus:outline-none focus:ring-2 focus:ring-oak/50"
               >
                 {state.cancelLabel || 'Cancel'}
               </button>
@@ -139,7 +139,7 @@ export function ConfirmModalProvider({ children }) {
                 type="button"
                 ref={confirmRef}
                 onClick={() => close(true)}
-                className="px-3 py-1.5 text-sm rounded-md bg-warn/15 text-warn hover:bg-warn/25 transition-colors"
+                className="px-3 py-1.5 text-sm rounded-md bg-warn/15 text-warn hover:bg-warn/25 transition-colors focus:outline-none focus:ring-2 focus:ring-warn/50"
               >
                 {state.confirmLabel || 'Delete'}
               </button>

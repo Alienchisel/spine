@@ -10,7 +10,7 @@ export default function IncomingBackLink() {
   return (
     <Link
       to={state.fromPath ?? '/'}
-      className="text-sm text-neutral-600 hover:text-neutral-300 mb-4 inline-block transition-colors"
+      className="text-sm text-neutral-600 hover:text-neutral-300 focus-visible:text-neutral-300 focus-visible:underline underline-offset-2 focus-visible:outline-none mb-4 inline-block transition-colors"
     >
       ← {state.from}
     </Link>
