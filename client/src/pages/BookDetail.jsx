@@ -12,6 +12,8 @@ import StoriesSection from '../components/bookDetail/StoriesSection.jsx';
 import MetadataList from '../components/bookDetail/MetadataList.jsx';
 import EditionsSection from '../components/bookDetail/EditionsSection.jsx';
 import ReadingLog from '../components/bookDetail/ReadingLog.jsx';
+import BookRef from '../components/bookDetail/BookRef.jsx';
+import remarkBookRefs from '../components/bookDetail/remarkBookRefs.js';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useLatest } from '../hooks/useLatest.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
@@ -533,6 +535,24 @@ export default function BookDetail() {
     origin:   navState ?? null,
   }), [book?.title, id, navState]);
 
+  // Description / review / notes share the same markdown config — the
+  // remarkBookRefs plugin rewrites `#123` into a `spine-book:123` link
+  // node, which the custom `a` renderer then swaps for BookRef. Real
+  // markdown links (anything not starting with `spine-book:`) pass
+  // through to the default <a>.
+  const proseMarkdown = useMemo(() => ({
+    remarkPlugins: [remarkBookRefs],
+    components: {
+      a: ({ href, children, node: _node, ...props }) => {
+        if (href?.startsWith('spine-book:')) {
+          const refId = Number(href.slice(11));
+          if (Number.isFinite(refId)) return <BookRef id={refId} fromState={bookFromState} />;
+        }
+        return <a href={href} {...props}>{children}</a>;
+      },
+    },
+  }), [bookFromState]);
+
   if (loading) return <div role="status" className="text-neutral-700 text-sm">Loading…</div>;
   if (!book) return <div className="text-neutral-600 text-sm">{loadError ? 'Failed to load book.' : 'Book not found.'}</div>;
 
@@ -944,7 +964,7 @@ export default function BookDetail() {
                 <div className={`text-neutral-400 text-sm leading-relaxed prose-sm prose-invert prose-neutral max-w-none
                   [&_strong]:text-neutral-300 [&_em]:text-neutral-400 [&_p]:mb-2 [&_p:last-child]:mb-0
                   ${long && !descExpanded ? 'line-clamp-4' : ''}`}>
-                  <ReactMarkdown>{book.description}</ReactMarkdown>
+                  <ReactMarkdown {...proseMarkdown}>{book.description}</ReactMarkdown>
                 </div>
                 {long && (
                   <button
@@ -1070,7 +1090,7 @@ export default function BookDetail() {
               <p className="font-slab text-xs text-neutral-500 uppercase tracking-wider mb-3">Review</p>
               <div className="text-neutral-300 text-sm leading-relaxed prose-sm prose-invert prose-neutral max-w-none
                 [&_strong]:text-neutral-200 [&_em]:text-neutral-400 [&_p]:mb-2 [&_p:last-child]:mb-0">
-                <ReactMarkdown>{book.review}</ReactMarkdown>
+                <ReactMarkdown {...proseMarkdown}>{book.review}</ReactMarkdown>
               </div>
             </div>
           )}
@@ -1080,7 +1100,7 @@ export default function BookDetail() {
               <p className="font-slab text-xs text-neutral-500 uppercase tracking-wider mb-3">Notes</p>
               <div className="text-neutral-400 text-sm leading-relaxed prose-sm prose-invert prose-neutral max-w-none
                 [&_strong]:text-neutral-300 [&_em]:text-neutral-400 [&_p]:mb-2 [&_p:last-child]:mb-0">
-                <ReactMarkdown>{book.notes}</ReactMarkdown>
+                <ReactMarkdown {...proseMarkdown}>{book.notes}</ReactMarkdown>
               </div>
             </div>
           )}
