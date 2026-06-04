@@ -122,10 +122,20 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
     const menuWidth = 224;
     const idealLeft = rect.right - menuWidth;
     const left = Math.min(Math.max(idealLeft, 8), window.innerWidth - menuWidth - 8);
+    // Anchor-relative max-height — see the equivalent computation in
+    // ListPicker for the rationale: 80vh is viewport-relative, not
+    // anchor-relative, so the natural bottom of the dropdown could land
+    // past the viewport edge and the sticky-footer NewListInput would
+    // be pinned off-screen.
+    const VIEWPORT_PADDING = 12;
+    const availableBelow = window.innerHeight - rect.bottom - 4 - VIEWPORT_PADDING;
+    const availableAbove = rect.top - 4 - VIEWPORT_PADDING;
+    const maxHeight = Math.max(160, dropUp ? availableAbove : availableBelow);
     setPos({
       top:    dropUp ? undefined : rect.bottom + 4,
       bottom: dropUp ? window.innerHeight - rect.top + 4 : undefined,
       left,
+      maxHeight,
     });
     setOpen(true);
     setSubPrompt(null);
@@ -300,8 +310,8 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
       ref={dropdownRef}
       role="menu"
       aria-label={subPrompt === 'add-to-lists' ? `Add ${book.title} to list` : `Actions for ${book.title}`}
-      style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left }}
-      className="z-[9999] w-56 max-h-[80vh] flex flex-col bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl"
+      style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, maxHeight: pos.maxHeight }}
+      className="z-[9999] w-56 flex flex-col bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl"
     >
       {/* Scrollable region — wraps both the root menu and the add-to-
           lists sub-prompt so the dropdown caps at 80vh in either state.

@@ -51,10 +51,22 @@ export default function ListPicker({ bookId, bookTitle, dropUp = false, iconClas
     const dropdownWidth = 208;
     const idealLeft = rect.right - dropdownWidth;
     const left = Math.min(Math.max(idealLeft, 8), window.innerWidth - dropdownWidth - 8);
+    // Available space between the dropdown's top edge and the viewport
+    // bottom (or top edge and dropUp's anchor). The 80vh cap was
+    // viewport-relative, not anchor-relative — so on a viewport where
+    // the dropdown opened low, the dropdown's natural bottom (and
+    // therefore the sticky-footer NewListInput) ended up past the
+    // visible region. Compute the real available height and cap to
+    // it; 12px allows a small gap from the viewport edge.
+    const VIEWPORT_PADDING = 12;
+    const availableBelow = window.innerHeight - rect.bottom - 4 - VIEWPORT_PADDING;
+    const availableAbove = rect.top - 4 - VIEWPORT_PADDING;
+    const maxHeight = Math.max(160, dropUp ? availableAbove : availableBelow);
     setPos({
       top: dropUp ? undefined : rect.bottom + 4,
       bottom: dropUp ? window.innerHeight - rect.top + 4 : undefined,
       left,
+      maxHeight,
     });
 
     setOpen(true);
@@ -74,8 +86,8 @@ export default function ListPicker({ bookId, bookTitle, dropUp = false, iconClas
       ref={dropdownRef}
       role="menu"
       aria-label={triggerLabel}
-      style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left }}
-      className="z-[9999] w-52 max-h-[80vh] flex flex-col bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl"
+      style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, maxHeight: pos.maxHeight }}
+      className="z-[9999] w-52 flex flex-col bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl"
     >
       {/* Scrollable region for the list rows. NewListInput sits OUTSIDE
           this region as a sticky footer, so a tall list that hits the
