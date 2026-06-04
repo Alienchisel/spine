@@ -120,36 +120,87 @@ export default function Readlist() {
       .map(([name, count]) => ({ name, count }));
   }, [books]);
 
-  // Books matching the picker constraints. Length filter is best-effort
-  // — books without page_count or duration_minutes can't be bucketed,
-  // so a non-Any length filter drops them entirely (a deliberate trade-
-  // off: a 'short evening' query shouldn't surface a book whose length
-  // is unknown).
-  const pickerCandidates = useMemo(() => {
-    const bucket = TIME_BUCKETS.find(b => b.key === pickTime);
-    const fmtChoice = FORMAT_PICKER.find(f => f.key === pickFormat);
-    return books.filter(b => {
-      if (fmtChoice.fmt && b.format !== fmtChoice.fmt) return false;
-      if (bucket.key !== 'any') {
-        if (b.format === 'audiobook') {
-          const m = b.duration_minutes || 0;
-          if (m === 0) return false;
-          if (bucket.audioMinMin != null && m <= bucket.audioMinMin) return false;
-          if (bucket.audioMinMax != null && m >  bucket.audioMinMax) return false;
-        } else {
-          const p = b.page_count || 0;
-          if (p === 0) return false;
-          if (bucket.pageMin != null && p <= bucket.pageMin) return false;
-          if (bucket.pageMax != null && p >  bucket.pageMax) return false;
-        }
+  // Shared filter predicate — extracted so the per-pill availability
+  // counts below can reuse it without duplicating the bucket-bounds
+  // and tag-intersection logic. Length filter is best-effort: books
+  // without page_count or duration_minutes can't be bucketed and drop
+  // out of any non-Any length filter (deliberate — a 'short evening'
+  // query shouldn't surface a book of unknown length). Status
+  // exclusion: books marked 'reading' or 'finished' are silently
+  // dropped — the user can't 'pick' a book they're already reading or
+  // already finished, even though the on_readlist flag may still be
+  // sticky on those rows.
+  function matchesFilter(b, timeKey, formatKey, tagSet) {
+    if (b.status && b.status !== 'unread') return false;
+    const bucket = TIME_BUCKETS.find(x => x.key === timeKey);
+    const fmtChoice = FORMAT_PICKER.find(x => x.key === formatKey);
+    if (fmtChoice.fmt && b.format !== fmtChoice.fmt) return false;
+    if (bucket.key !== 'any') {
+      if (b.format === 'audiobook') {
+        const m = b.duration_minutes || 0;
+        if (m === 0) return false;
+        if (bucket.audioMinMin != null && m <= bucket.audioMinMin) return false;
+        if (bucket.audioMinMax != null && m >  bucket.audioMinMax) return false;
+      } else {
+        const p = b.page_count || 0;
+        if (p === 0) return false;
+        if (bucket.pageMin != null && p <= bucket.pageMin) return false;
+        if (bucket.pageMax != null && p >  bucket.pageMax) return false;
       }
-      if (pickTags.size > 0) {
-        const tags = new Set((b.tags || []).filter(t => !t.virtual).map(t => t.name));
-        for (const name of pickTags) if (!tags.has(name)) return false;
+    }
+    if (tagSet.size > 0) {
+      const bookTags = new Set((b.tags || []).filter(t => !t.virtual).map(t => t.name));
+      for (const name of tagSet) if (!bookTags.has(name)) return false;
+    }
+    return true;
+  }
+
+  const pickerCandidates = useMemo(
+    () => books.filter(b => matchesFilter(b, pickTime, pickFormat, pickTags)),
+    [books, pickTime, pickFormat, pickTags],
+  );
+
+  // Per-pill availability: for each option in each group, count books
+  // that would match IF that option were selected (with the other
+  // groups' current selections held). The pill is dimmed when its
+  // count is 0 AND it's not the currently-active option — clicking it
+  // would yield zero picks, so the UI signals dead-end ahead of time.
+  // Selected pills always render bright (the user has actively chosen
+  // them and shouldn't see their own choice greyed out).
+  const lengthCounts = useMemo(() => {
+    const counts = {};
+    for (const bucket of TIME_BUCKETS) {
+      counts[bucket.key] = books.filter(b => matchesFilter(b, bucket.key, pickFormat, pickTags)).length;
+    }
+    return counts;
+  }, [books, pickFormat, pickTags]);
+
+  const formatCounts = useMemo(() => {
+    const counts = {};
+    for (const f of FORMAT_PICKER) {
+      counts[f.key] = books.filter(b => matchesFilter(b, pickTime, f.key, pickTags)).length;
+    }
+    return counts;
+  }, [books, pickTime, pickTags]);
+
+  // For tags the count question is "what would happen if I added this
+  // tag to the current set" (multi-select). Already-selected tags
+  // would shrink to a different cohort if removed — we don't dim those
+  // (removing should always work), so the count we render for them is
+  // the current candidate count itself, which is always nonzero (the
+  // pill is shown only because at least one book has it).
+  const tagAvailability = useMemo(() => {
+    const out = new Map();
+    for (const t of topReadlistTags) {
+      if (pickTags.has(t.name)) {
+        out.set(t.name, pickerCandidates.length);
+      } else {
+        const trial = new Set([...pickTags, t.name]);
+        out.set(t.name, books.filter(b => matchesFilter(b, pickTime, pickFormat, trial)).length);
       }
-      return true;
-    });
-  }, [books, pickTime, pickFormat, pickTags]);
+    }
+    return out;
+  }, [books, pickTime, pickFormat, pickTags, topReadlistTags, pickerCandidates.length]);
 
   // Final picks: shuffle deterministically with shuffleSeed (so
   // 'Reshuffle' is reproducible across renders within a click), take
@@ -199,55 +250,85 @@ export default function Readlist() {
 
           <div className="flex flex-wrap items-center gap-1.5 mb-2">
             <span className="text-[11px] text-neutral-600 mr-1 w-14 flex-shrink-0">Length</span>
-            {TIME_BUCKETS.map(b => (
-              <button
-                key={b.key}
-                type="button"
-                onClick={() => setPickTime(b.key)}
-                aria-pressed={pickTime === b.key}
-                className={`text-[11px] px-2.5 py-1 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-oak/40 ${
-                  pickTime === b.key ? 'bg-oak/30 text-parchment' : 'bg-neutral-800 text-neutral-500 hover:bg-neutral-700 hover:text-neutral-300'
-                }`}
-              >
-                {b.label}
-              </button>
-            ))}
+            {TIME_BUCKETS.map(b => {
+              const selected = pickTime === b.key;
+              const dead = lengthCounts[b.key] === 0 && !selected;
+              return (
+                <button
+                  key={b.key}
+                  type="button"
+                  onClick={() => setPickTime(b.key)}
+                  aria-pressed={selected}
+                  aria-disabled={dead}
+                  disabled={dead}
+                  className={`text-[11px] px-2.5 py-1 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-oak/40 ${
+                    selected
+                      ? 'bg-oak/30 text-parchment'
+                      : dead
+                        ? 'bg-neutral-900 text-neutral-700 opacity-60 cursor-not-allowed'
+                        : 'bg-neutral-800 text-neutral-500 hover:bg-neutral-700 hover:text-neutral-300'
+                  }`}
+                >
+                  {b.label}
+                </button>
+              );
+            })}
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5 mb-2">
             <span className="text-[11px] text-neutral-600 mr-1 w-14 flex-shrink-0">Format</span>
-            {FORMAT_PICKER.map(f => (
-              <button
-                key={f.key}
-                type="button"
-                onClick={() => setPickFormat(f.key)}
-                aria-pressed={pickFormat === f.key}
-                className={`text-[11px] px-2.5 py-1 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-oak/40 ${
-                  pickFormat === f.key ? 'bg-oak/30 text-parchment' : 'bg-neutral-800 text-neutral-500 hover:bg-neutral-700 hover:text-neutral-300'
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
+            {FORMAT_PICKER.map(f => {
+              const selected = pickFormat === f.key;
+              const dead = formatCounts[f.key] === 0 && !selected;
+              return (
+                <button
+                  key={f.key}
+                  type="button"
+                  onClick={() => setPickFormat(f.key)}
+                  aria-pressed={selected}
+                  aria-disabled={dead}
+                  disabled={dead}
+                  className={`text-[11px] px-2.5 py-1 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-oak/40 ${
+                    selected
+                      ? 'bg-oak/30 text-parchment'
+                      : dead
+                        ? 'bg-neutral-900 text-neutral-700 opacity-60 cursor-not-allowed'
+                        : 'bg-neutral-800 text-neutral-500 hover:bg-neutral-700 hover:text-neutral-300'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              );
+            })}
           </div>
 
           {topReadlistTags.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5 mb-4">
               <span className="text-[11px] text-neutral-600 mr-1 w-14 flex-shrink-0">Topic</span>
-              {topReadlistTags.map(t => (
-                <button
-                  key={t.name}
-                  type="button"
-                  onClick={() => togglePickTag(t.name)}
-                  aria-pressed={pickTags.has(t.name)}
-                  className={`text-[11px] px-2.5 py-1 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-oak/40 ${
-                    pickTags.has(t.name) ? 'bg-oak/30 text-parchment' : 'bg-neutral-800 text-neutral-500 hover:bg-neutral-700 hover:text-neutral-300'
-                  }`}
-                >
-                  {t.name}
-                  <span className="text-neutral-700 ml-1">{t.count}</span>
-                </button>
-              ))}
+              {topReadlistTags.map(t => {
+                const selected = pickTags.has(t.name);
+                const dead = tagAvailability.get(t.name) === 0 && !selected;
+                return (
+                  <button
+                    key={t.name}
+                    type="button"
+                    onClick={() => togglePickTag(t.name)}
+                    aria-pressed={selected}
+                    aria-disabled={dead}
+                    disabled={dead}
+                    className={`text-[11px] px-2.5 py-1 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-oak/40 ${
+                      selected
+                        ? 'bg-oak/30 text-parchment'
+                        : dead
+                          ? 'bg-neutral-900 text-neutral-700 opacity-60 cursor-not-allowed'
+                          : 'bg-neutral-800 text-neutral-500 hover:bg-neutral-700 hover:text-neutral-300'
+                    }`}
+                  >
+                    {t.name}
+                    <span className={`ml-1 ${selected ? 'text-parchment/60' : 'text-neutral-700'}`}>{t.count}</span>
+                  </button>
+                );
+              })}
             </div>
           )}
 
