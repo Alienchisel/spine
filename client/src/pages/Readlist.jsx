@@ -50,13 +50,13 @@ function seededShuffle(arr, seed) {
 }
 
 // Length label shown on a pick card — pages for non-audio, h/m for
-// audio, dash when neither is known so the row reads cleanly instead
-// of carrying a misleading 0.
+// audio, empty string when neither is known so .filter(Boolean) in the
+// caller drops it (renders "Author" alone, not "Author · —").
 function lengthLabel(book) {
   if (book.format === 'audiobook') {
-    return book.duration_minutes ? fmtHM(book.duration_minutes) : '—';
+    return book.duration_minutes ? fmtHM(book.duration_minutes) : '';
   }
-  return book.page_count ? `${book.page_count} ${pluralWord(book.page_count, 'page')}` : '—';
+  return book.page_count ? `${book.page_count} ${pluralWord(book.page_count, 'page')}` : '';
 }
 
 function PickCard({ book }) {
@@ -209,13 +209,40 @@ export default function Readlist() {
     return out;
   }, [books, pickTime, pickFormat, pickTags, topReadlistTags, pickerCandidates.length]);
 
-  // Final picks: shuffle deterministically with shuffleSeed (so
-  // 'Reshuffle' is reproducible across renders within a click), take
-  // the first PICK_COUNT.
-  const picks = useMemo(
-    () => seededShuffle(pickerCandidates, shuffleSeed).slice(0, PICK_COUNT),
-    [pickerCandidates, shuffleSeed],
-  );
+  // Final picks: kept as an ID list in state so book mutations (most
+  // notably ✕-removals from the housekeeping list below) don't trigger
+  // a reshuffle of the visible covers — a derived useMemo on
+  // pickerCandidates would re-roll all 10 every time one row went away,
+  // which is disorienting when the user only meant to prune one row.
+  //
+  // The two effects keep this honest:
+  //   - Pool-change effect: when pickerCandidates shifts (refetch,
+  //     ✕-remove, refresh tick), only reshuffle if zero current picks
+  //     survived the change. Otherwise the surviving picks stay in
+  //     place and the dropped one simply disappears.
+  //   - Filter/seed effect: pickTime/pickFormat/pickTags or shuffleSeed
+  //     changes are *explicit* user intent — always reshuffle.
+  const [pickedIds, setPickedIds] = useState([]);
+
+  useEffect(() => {
+    setPickedIds(prev => {
+      const candidateIds = new Set(pickerCandidates.map(b => b.id));
+      const liveCount = prev.filter(id => candidateIds.has(id)).length;
+      if (liveCount > 0) return prev;
+      return seededShuffle(pickerCandidates, shuffleSeed).slice(0, PICK_COUNT).map(b => b.id);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pickerCandidates]);
+
+  useEffect(() => {
+    setPickedIds(seededShuffle(pickerCandidates, shuffleSeed).slice(0, PICK_COUNT).map(b => b.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shuffleSeed, pickTime, pickFormat, pickTags]);
+
+  const picks = useMemo(() => {
+    const byId = new Map(pickerCandidates.map(b => [b.id, b]));
+    return pickedIds.map(id => byId.get(id)).filter(Boolean);
+  }, [pickedIds, pickerCandidates]);
 
   function togglePickTag(name) {
     setPickTags(prev => {
@@ -226,21 +253,20 @@ export default function Readlist() {
   }
 
   // Remove a stale readlist flag without leaving the page. Optimistic:
-  // drop locally so the picker re-rolls immediately, then PATCH. On
-  // failure restore from snapshot and surface the error — the housekeeping
-  // section silently dropping rows that didn't actually clear would be a
-  // worse failure mode than a banner.
+  // drop locally so the picker reflects the prune immediately, then PATCH.
+  // On failure refetch the readlist as the recovery path — a closure
+  // snapshot would undo any concurrent ✕-removals that succeeded in the
+  // meantime, replacing them on screen.
   async function handleRemove(id) {
     if (removingIds.has(id)) return;
     setRemovingIds(s => new Set([...s, id]));
-    const snapshot = books;
     setBooks(curr => curr.filter(b => b.id !== id));
     setError(null);
     try {
       await api.patchBook(id, { on_readlist: 0 });
     } catch {
-      setBooks(snapshot);
       setError('Failed to remove from readlist.');
+      api.getReadlist().then(b => setBooks(b)).catch(() => {});
     } finally {
       setRemovingIds(s => { const n = new Set(s); n.delete(id); return n; });
     }
@@ -262,7 +288,7 @@ export default function Readlist() {
       {loading ? (
         <div role="status" className="text-neutral-700 text-sm">Loading…</div>
       ) : error ? (
-        <div role="alert" className="text-red-500 text-sm">{error}</div>
+        <div role="alert" className="text-warn text-sm">{error}</div>
       ) : wholeListEmpty ? (
         <div className="text-center py-32">
           <p className="text-neutral-600 mb-3">No books on your readlist yet.</p>
