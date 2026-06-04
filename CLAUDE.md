@@ -10,9 +10,44 @@ Three cron-driven scripts under repo root, all logging to `backups/backup.log`:
 
 | Script | Cadence | Retention | What it captures |
 |---|---|---|---|
-| `backup.sh` | daily, 00:00 | 30 days | full DB (`sqlite3 .backup`) + `uploads/` directory, as one tarball |
-| `backup-hourly.sh` | hourly, :00 | 48 h | DB only (`sqlite3 .backup`), files prefixed `hourly-spine-` so they don't collide with any `spine-*.db` glob |
+| `backup.sh` | daily, 00:00 | 30 days | full DB + `uploads/` as a tarball (local); plus a dated DB-only snapshot in `backups/daily-db/` (mirrored to B2) |
+| `backup-hourly.sh` | hourly, :05 | 48 h | DB only (`sqlite3 .backup`), files prefixed `hourly-spine-` so they don't collide with any `spine-*.db` glob |
 | `backup-transcripts.sh` | weekly, Sun 00:30 | 3 weeks | `~/.claude/projects/.../*.jsonl` — Claude Code transcripts that proved decisive in the 2026-05-09 recovery |
+
+### Off-VM sync (Backblaze B2)
+
+`backup.sh` ends with an `rclone sync` to the B2 bucket via the
+`spine-b2:` remote (configured locally via `rclone config`, see
+`~/.rclone.conf`). It pushes two things:
+
+- `backups/daily-db/` → `spine-b2:spine-backups/db/` — one ~3 MB DB
+  snapshot per day, mirroring the local 30-day retention.
+- `uploads/` → `spine-b2:spine-backups/uploads/` — per-file incremental
+  mirror. Only changed/added files upload each night.
+
+The **daily tarballs are not pushed**. They're ~1 GB each and 95%+
+redundant day-over-day (uploads/ dominates and barely changes); pushing
+them would balloon B2 storage by ~30 GB without buying any recoverable
+state we don't already have from the DB-snapshot + uploads-mirror pair.
+The tarballs stay local for fast atomic-snapshot recovery within the VM.
+
+Configure a B2 bucket **lifecycle rule** (Backblaze console → bucket
+settings → Lifecycle) to "delete hidden files after N days" — pick a
+window (e.g. 30 days) that matches your desired off-VM recovery horizon
+for accidentally-deleted covers. Without it, hidden versions accumulate
+indefinitely and B2 storage grows monotonically.
+
+Restoring from B2 in a total-VM-loss scenario:
+
+```bash
+git clone git@github.com:Alienchisel/spine.git
+cd spine
+# Pull the DB snapshot for the day you want to restore to
+rclone copy spine-b2:spine-backups/db/spine-2026-MM-DD.db ./spine.db
+# Mirror the covers/photos
+rclone sync spine-b2:spine-backups/uploads ./uploads
+npm run setup && npm start
+```
 
 Cron entries live in the user's crontab. If a contributor sets up a
 new dev machine, those need re-adding manually:
