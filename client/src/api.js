@@ -91,7 +91,6 @@ export const api = {
   },
   fetchCover: (url) => request('/upload/fetch', { method: 'POST', body: JSON.stringify({ url }) }),
   getReadlist: () => request('/readlist'),
-  reorderReadlist: (ids) => request('/readlist/order', { method: 'PUT', body: JSON.stringify({ ids }) }),
   setDesireOrder: (ids) => request('/books/desire-order', { method: 'PUT', body: JSON.stringify({ ids }) }),
   getDiary: (year) => request(`/diary${year ? `?year=${year}` : ''}`),
   deleteDiaryEntry: (id) => request(`/diary/${id}`, { method: 'DELETE' }),
