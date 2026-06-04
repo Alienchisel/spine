@@ -249,7 +249,7 @@ export default function Readlist() {
   const wholeListEmpty = !loading && !error && books.length === 0;
 
   return (
-    <div>
+    <div className="max-w-5xl mx-auto">
       <div className="flex items-baseline justify-between mb-6">
         <h1 className="font-slab text-3xl text-parchment">Readlist</h1>
         {books.length > 0 && (
@@ -272,7 +272,7 @@ export default function Readlist() {
         </div>
       ) : (
         <>
-        <section aria-labelledby="readlist-picker-heading" className="max-w-5xl">
+        <section aria-labelledby="readlist-picker-heading">
           <h2 id="readlist-picker-heading" className="font-slab text-xs text-neutral-500 uppercase tracking-wider mb-3">
             Pick something to read
           </h2>
@@ -389,7 +389,7 @@ export default function Readlist() {
           )}
         </section>
 
-        <section aria-labelledby="readlist-all-heading" className="mt-12 max-w-5xl">
+        <section aria-labelledby="readlist-all-heading" className="mt-12">
           <h2 id="readlist-all-heading" className="font-slab text-xs text-neutral-500 uppercase tracking-wider mb-3">
             All on readlist
           </h2>
