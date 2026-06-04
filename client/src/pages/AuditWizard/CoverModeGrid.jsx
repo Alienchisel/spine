@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { MOD_KEY } from '../../utils.js';
 
 // Cover-mode wizard: refine-query input + grid of candidate thumbnails
 // pulled per card via the wizard's source-specific search function
@@ -9,6 +10,14 @@ import { useEffect, useRef, useState } from 'react';
 // Candidate normalisation happens in the wizard config's searchCandidates:
 // each candidate is { thumbnail_url, label, source_url } regardless of
 // source, so this component stays source-agnostic.
+//
+// Paste-anywhere shortcut: a clipboard image (Cmd/Ctrl+V from a
+// screenshot, an image copied off the web, etc.) goes straight through
+// the wizard's commitCandidate as a polymorphic `source_file` candidate,
+// skipping the OL-search-pick flow entirely. Mirrors BookDetail's
+// paste-to-upload-cover behaviour. The listener is gated to skip text
+// fields (the refine-query input above the grid) so typing isn't
+// hijacked.
 export default function CoverModeGrid({ cfg, current, busy, onPick, onSkip }) {
   const [candidates, setCandidates] = useState([]);
   const [candidatesLoading, setCandidatesLoading] = useState(false);
@@ -45,6 +54,33 @@ export default function CoverModeGrid({ cfg, current, busy, onPick, onSkip }) {
       .finally(() => { if (!cancelled) setCandidatesLoading(false); });
     return () => { cancelled = true; };
   }, [cfg, current?.id]);
+
+  // Paste-anywhere: clipboard image → synthetic source_file candidate
+  // that the wizard config's commitCandidate uploads + patches. Skips
+  // the OL-search-pick flow entirely. Gated to ignore pastes into text
+  // fields so the refine-query input stays normal.
+  useEffect(() => {
+    function onPaste(e) {
+      const tag = e.target.tagName;
+      const isTextField = (tag === 'INPUT' && e.target.type !== 'file') || tag === 'TEXTAREA' || tag === 'SELECT';
+      if (isTextField) return;
+      if (busy) return;
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          if (file) {
+            e.preventDefault();
+            onPick({ source_file: file, label: file.name || 'Pasted image' });
+            return;
+          }
+        }
+      }
+    }
+    document.addEventListener('paste', onPaste);
+    return () => document.removeEventListener('paste', onPaste);
+  }, [busy, onPick]);
 
   async function rerunCoverSearch() {
     if (!coverQuery.trim()) return;
@@ -90,6 +126,11 @@ export default function CoverModeGrid({ cfg, current, busy, onPick, onSkip }) {
           Search
         </button>
       </form>
+      {/* Paste hint — low-emphasis, just enough to surface the shortcut
+          to users who don't know it exists. */}
+      <p className="text-[11px] text-neutral-700 -mt-1">
+        …or paste an image (<kbd className="font-sans border border-neutral-800 rounded px-1 py-px text-neutral-600">{MOD_KEY}+V</kbd>) to set the cover directly.
+      </p>
 
       {candidatesLoading && <p role="status" className="text-xs text-neutral-500">Searching…</p>}
       {candidatesError && <p role="alert" className="text-xs text-warn">{candidatesError}</p>}

@@ -341,12 +341,23 @@ export const WIZARDS = {
           source_url:    r.cover_url,
         }));
     },
-    // Server-side combined: fetches the URL, saves under /uploads/, and
-    // updates cover_path in one call. The two-step client flow used to
-    // leave orphan files on disk when the PATCH failed after the fetch
-    // succeeded (transient network blip, browser nav); the new endpoint
-    // closes that gap and cleans up the file if the DB update fails.
-    commitCandidate: (book, candidate) => api.setBookCoverFromUrl(book.id, candidate.source_url),
+    // Polymorphic candidate:
+    //   source_url  → server-side fetch + save (the grid's "pick a
+    //                 candidate from OL" path). Closes the orphan-file
+    //                 gap the two-step client flow used to leave.
+    //   source_file → client-uploaded clipboard image (the wizard's
+    //                 paste-anywhere shortcut, mirroring BookDetail's
+    //                 paste-to-upload feature). Two-step here is fine —
+    //                 the upload + patch both flow through the same
+    //                 client tab so a network blip aborts both, no
+    //                 orphan path on disk.
+    commitCandidate: async (book, candidate) => {
+      if (candidate.source_file) {
+        const result = await api.uploadCover(candidate.source_file);
+        return api.patchBook(book.id, { cover_path: result.path });
+      }
+      return api.setBookCoverFromUrl(book.id, candidate.source_url);
+    },
     // Undo: clear cover_path; server deletes the just-uploaded file.
     clearCandidate: (book) => api.patchBook(book.id, { cover_path: null }),
     getName: r => r.title,
