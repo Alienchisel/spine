@@ -367,10 +367,10 @@ export default function Readlist() {
             </p>
           ) : (
             <>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-6 items-start">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-6 items-start max-w-4xl">
                 {picks.map(book => <PickCard key={book.id} book={book} />)}
               </div>
-              <div className="mt-4 flex items-center justify-between text-xs text-neutral-600">
+              <div className="mt-4 flex items-center justify-between text-xs text-neutral-600 max-w-4xl">
                 <span>
                   {pickerCandidates.length > PICK_COUNT
                     ? <>Showing {PICK_COUNT} of {pickerCandidates.length} matches.</>
