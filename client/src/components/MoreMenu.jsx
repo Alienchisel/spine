@@ -8,6 +8,7 @@ import StarRating from './StarRating.jsx';
 import { useClickOutside } from '../hooks/useClickOutside.js';
 import { useEscapeKey } from '../hooks/useEscapeKey.js';
 import { useListMembership } from '../hooks/useListMembership.js';
+import NewListInput from './NewListInput.jsx';
 import { dispatchSpineEvent } from '../hooks/useSpineEvent.js';
 
 // Letterboxd-style 'more actions' button for BookCard's hover-tray
@@ -78,7 +79,7 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
   const navigate = useNavigate();
   const { pathname, search } = useLocation();
   const confirm = useConfirm();
-  const { lists, memberIds, busyIds, loading: loadingLists, error, load, toggle, clearError } = useListMembership(book.id, {
+  const { lists, memberIds, busyIds, loading: loadingLists, error, creating, createError, load, toggle, createListAndAdd, clearError, clearCreateError } = useListMembership(book.id, {
     onToggled: () => {
       // Successful toggle clears any stale badge — list toggles keep
       // the picker open, so the auto-clear on menu reopen doesn't fire.
@@ -321,37 +322,41 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
             <div role="none">
               <p role="status" className="text-xs text-neutral-600 px-3 py-2">Loading…</p>
             </div>
-          ) : lists.length === 0 ? (
-            <div role="none" className="px-3 py-2">
-              <p role="none" className="text-xs text-neutral-600 mb-1">No lists yet.</p>
-              <Link to="/lists" role="menuitem" onClick={() => setOpen(false)} className="text-xs text-oak hover:text-leather">
-                Create a list →
-              </Link>
-            </div>
           ) : (
-            lists.map(list => {
-              const checked = memberIds.has(list.id);
-              return (
-                <button
-                  key={list.id}
-                  type="button"
-                  onClick={(e) => toggleList(e, list.id)}
-                  disabled={busyIds.has(list.id)}
-                  role="menuitemcheckbox"
-                  aria-checked={checked}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-neutral-800 transition-colors disabled:opacity-60"
-                >
-                  <span className={`w-3.5 h-3.5 flex-shrink-0 rounded border flex items-center justify-center ${checked ? 'bg-sky-500 border-sky-500' : 'border-neutral-600'}`}>
-                    {checked && (
-                      <svg viewBox="0 0 10 8" fill="none" className="w-2.5 h-2.5">
-                        <path d="M1 4l2.5 2.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    )}
-                  </span>
-                  <span className={`truncate ${checked ? 'text-neutral-200' : 'text-neutral-400'}`} title={list.name}>{list.name}</span>
-                </button>
-              );
-            })
+            <>
+              {lists.length === 0 && (
+                <p role="none" className="text-xs text-neutral-600 px-3 py-2">No lists yet. Create one below.</p>
+              )}
+              {lists.map(list => {
+                const checked = memberIds.has(list.id);
+                return (
+                  <button
+                    key={list.id}
+                    type="button"
+                    onClick={(e) => toggleList(e, list.id)}
+                    disabled={busyIds.has(list.id)}
+                    role="menuitemcheckbox"
+                    aria-checked={checked}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-neutral-800 transition-colors disabled:opacity-60"
+                  >
+                    <span className={`w-3.5 h-3.5 flex-shrink-0 rounded border flex items-center justify-center ${checked ? 'bg-sky-500 border-sky-500' : 'border-neutral-600'}`}>
+                      {checked && (
+                        <svg viewBox="0 0 10 8" fill="none" className="w-2.5 h-2.5">
+                          <path d="M1 4l2.5 2.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      )}
+                    </span>
+                    <span className={`truncate ${checked ? 'text-neutral-200' : 'text-neutral-400'}`} title={list.name}>{list.name}</span>
+                  </button>
+                );
+              })}
+              <NewListInput
+                onCreate={createListAndAdd}
+                creating={creating}
+                createError={createError}
+                clearCreateError={clearCreateError}
+              />
+            </>
           )}
         </>
       ) : (

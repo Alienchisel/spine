@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Link } from 'react-router-dom';
 import { useClickOutside } from '../hooks/useClickOutside.js';
 import { useEscapeKey } from '../hooks/useEscapeKey.js';
 import { useListMembership } from '../hooks/useListMembership.js';
+import NewListInput from './NewListInput.jsx';
 
 function ListsIcon({ className }) {
   return (
@@ -19,7 +19,7 @@ export default function ListPicker({ bookId, bookTitle, dropUp = false, iconClas
   const [pos, setPos] = useState(null);
   const buttonRef = useRef(null);
   const dropdownRef = useRef(null);
-  const { lists, memberIds, busyIds, loading, error, load, toggle } = useListMembership(bookId);
+  const { lists, memberIds, busyIds, loading, error, creating, createError, load, toggle, createListAndAdd, clearCreateError } = useListMembership(bookId);
 
   useClickOutside([buttonRef, dropdownRef], () => setOpen(false), open);
   // Escape closes the popover without losing focus on the trigger, which
@@ -87,14 +87,14 @@ export default function ListPicker({ bookId, bookTitle, dropUp = false, iconClas
         <div role="none">
           <p role="alert" className="text-xs text-warn px-3 py-2">{error}</p>
         </div>
-      ) : lists.length === 0 ? (
-        <div role="none" className="px-3 py-2">
-          <p role="none" className="text-xs text-neutral-600 mb-1">No lists yet.</p>
-          <Link to="/lists" role="menuitem" className="text-xs text-oak hover:text-leather" onClick={() => setOpen(false)}>
-            Create a list →
-          </Link>
-        </div>
       ) : (<>
+        {/* Empty state lives inline with the new-list affordance —
+            "no lists yet" is just the case where the picker has nothing
+            to check, and the user's next action is the same as it would
+            be otherwise: create one. */}
+        {lists.length === 0 && (
+          <p role="none" className="text-xs text-neutral-600 px-3 py-2">No lists yet. Create one below.</p>
+        )}
         {/* Toggle failed but lists are loaded — surface the error above
             the list buttons so the user knows their click didn't take. */}
         {error && (
@@ -125,6 +125,12 @@ export default function ListPicker({ bookId, bookTitle, dropUp = false, iconClas
             </button>
           );
         })}
+        <NewListInput
+          onCreate={createListAndAdd}
+          creating={creating}
+          createError={createError}
+          clearCreateError={clearCreateError}
+        />
       </>)}
     </div>,
     document.body

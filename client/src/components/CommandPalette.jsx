@@ -1019,6 +1019,38 @@ export default function CommandPalette() {
             }
           },
         }));
+      // Create-new affordance: when the user has typed a name that
+      // doesn't exactly match any existing list, offer to create it
+      // and add the book in one shot. Compresses the "exit palette,
+      // open /lists, create, navigate back, reopen palette" detour.
+      // Exact-match check (case-insensitive trim) so the user isn't
+      // offered "Create 'Philosophy'" when 'Philosophy' already exists
+      // and is one keypress away in the matched results.
+      const trimmed = query.trim();
+      const exactExists = trimmed && lists.some(l => l.name.trim().toLowerCase() === trimmed.toLowerCase());
+      if (trimmed && !exactExists) {
+        matched.push({
+          id: 'pick-list.create',
+          kind: 'list',
+          label: `Create "${trimmed}"`,
+          hint: 'and add this book',
+          confirmVerb: `Created and added to ${trimmed}`,
+          perform: async () => {
+            setSubPromptError(null);
+            try {
+              const created = await api.createList(trimmed);
+              await api.addToList(created.id, subPrompt.bookId);
+              // Append to local lists so a subsequent palette open
+              // sees the new list without refetching.
+              setLists(curr => [...curr, created]);
+              dispatchSpineEvent('spine:book-mutated', { id: subPrompt.bookId });
+            } catch (err) {
+              setSubPromptError(`Failed to create "${trimmed}". Name may already be taken.`);
+              throw err;
+            }
+          },
+        });
+      }
       _sections = [
         { kind: 'pick', label: `Add "${subPrompt.bookTitle}" to…`, entries: matched },
       ];

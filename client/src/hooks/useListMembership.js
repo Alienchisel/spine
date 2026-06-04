@@ -24,6 +24,11 @@ export function useListMembership(bookId, { onToggled, onError } = {}) {
   const [loading, setLoading]     = useState(false);
   const [busyIds, setBusyIds]     = useState(new Set());
   const [error, setError]         = useState(null);
+  // Create-list state is tracked separately from toggle state so the
+  // two can fail / spin independently — a duplicate-name reject on
+  // create shouldn't clear a stale failed-toggle banner, and vice versa.
+  const [creating, setCreating]   = useState(false);
+  const [createError, setCreateError] = useState(null);
   const loadGuard = useStaleGuard();
   // `busyIds` (React state) drives the disabled UI but doesn't commit
   // until the next render — so two same-tick toggle clicks both see the
@@ -100,7 +105,50 @@ export function useListMembership(bookId, { onToggled, onError } = {}) {
     }
   }
 
-  function clearError() { setError(null); }
+  // Create a new list and immediately add the current book to it.
+  // Compresses the "navigate away to /lists, create, navigate back,
+  // re-open picker, check it" detour into one in-context action.
+  // Optimistically appends the new list to the lists array and marks
+  // it as a member so the picker UI updates without a refetch.
+  // Returns the created list on success, throws on failure (caller can
+  // inspect createError state).
+  async function createListAndAdd(name) {
+    const trimmed = (name ?? '').trim();
+    if (!trimmed) {
+      setCreateError('List name is required');
+      throw new Error('List name is required');
+    }
+    setCreating(true);
+    setCreateError(null);
+    try {
+      const created = await api.createList(trimmed);
+      // Server may return additional fields (book_count, etc.); fall
+      // through with whatever shape it sends so the picker UI matches
+      // what subsequent refetches will produce.
+      await api.addToList(created.id, bookId);
+      setLists(curr => [...curr, created]);
+      setMemberIds(s => new Set([...s, created.id]));
+      onToggled?.();
+      return created;
+    } catch (err) {
+      // Most likely cause: duplicate name (server returns 4xx). The
+      // generic message keeps the UI honest without parsing the
+      // server's error shape.
+      setCreateError('Could not create list. Name may already be taken.');
+      onError?.();
+      throw err;
+    } finally {
+      setCreating(false);
+    }
+  }
 
-  return { lists, memberIds, busyIds, loading, error, load, toggle, clearError };
+  function clearError() { setError(null); }
+  function clearCreateError() { setCreateError(null); }
+
+  return {
+    lists, memberIds, busyIds, loading, error,
+    creating, createError,
+    load, toggle, createListAndAdd,
+    clearError, clearCreateError,
+  };
 }
