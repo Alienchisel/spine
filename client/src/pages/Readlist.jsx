@@ -272,7 +272,7 @@ export default function Readlist() {
         </div>
       ) : (
         <>
-        <section aria-labelledby="readlist-picker-heading">
+        <section aria-labelledby="readlist-picker-heading" className="max-w-5xl">
           <h2 id="readlist-picker-heading" className="font-slab text-xs text-neutral-500 uppercase tracking-wider mb-3">
             Pick something to read
           </h2>
@@ -354,7 +354,6 @@ export default function Readlist() {
                     }`}
                   >
                     {t.name}
-                    <span className={`ml-1 ${selected ? 'text-parchment/60' : 'text-neutral-700'}`}>{t.count}</span>
                   </button>
                 );
               })}
@@ -367,10 +366,10 @@ export default function Readlist() {
             </p>
           ) : (
             <>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-4 gap-y-6 items-start max-w-5xl mx-auto">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-4 gap-y-6 items-start">
                 {picks.map(book => <PickCard key={book.id} book={book} />)}
               </div>
-              <div className="mt-4 flex items-center justify-between text-xs text-neutral-600 max-w-5xl mx-auto">
+              <div className="mt-4 flex items-center justify-between text-xs text-neutral-600">
                 <span>
                   {pickerCandidates.length > PICK_COUNT
                     ? <>Showing {PICK_COUNT} of {pickerCandidates.length} matches.</>
@@ -390,9 +389,9 @@ export default function Readlist() {
           )}
         </section>
 
-        <section aria-labelledby="readlist-all-heading" className="mt-12">
+        <section aria-labelledby="readlist-all-heading" className="mt-12 max-w-5xl">
           <h2 id="readlist-all-heading" className="font-slab text-xs text-neutral-500 uppercase tracking-wider mb-3">
-            All on readlist <span className="text-neutral-700 normal-case tracking-normal ml-1">({books.length})</span>
+            All on readlist
           </h2>
           <ul className="divide-y divide-binding/15">
             {(showAllQueue ? books : books.slice(0, QUEUE_PREVIEW)).map(b => {
