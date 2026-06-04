@@ -19,9 +19,14 @@ new dev machine, those need re-adding manually:
 
 ```
 0 0 * * *  /path/to/spine/backup.sh             >> .../backups/backup.log 2>&1
-0 * * * *  /path/to/spine/backup-hourly.sh      >> .../backups/backup.log 2>&1
+5 * * * *  /path/to/spine/backup-hourly.sh      >> .../backups/backup.log 2>&1
 30 0 * * 0 /path/to/spine/backup-transcripts.sh >> .../backups/backup.log 2>&1
 ```
+
+The hourly fires at `:05` rather than `:00` so it doesn't race the daily
+backup at midnight — both invoke `sqlite3 .backup` and the daily then
+tarballs `uploads/` (slow). Staggering by 5 minutes keeps them from
+contending for the SQLite write lock and disk.
 
 ## Migration runner safeguards
 

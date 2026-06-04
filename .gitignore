@@ -9,3 +9,4 @@ backups/
 .tools/
 npm-cache/
 .claude/
+.env
