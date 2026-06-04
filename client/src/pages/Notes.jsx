@@ -78,11 +78,13 @@ function highlight(text, matchStart, matchLen) {
   );
 }
 
-// Pick which field's text to preview, based on which one contains the
-// active query (so the preview surfaces the matched passage instead of
-// the canonical "review wins" fallback). When there's no query, prefer
-// review (more formal) over notes.
-function selectPrimary(book, q) {
+// Pick which field's text to preview. Priority:
+//   1. Query: if active, prefer whichever field contains the match so
+//      the snippet shows the matched passage.
+//   2. Kind filter: on the Notes tab show notes even when the book has
+//      a review; on the Reviews tab show review.
+//   3. Default: review wins (more formal, longer-lived).
+function selectPrimary(book, q, kindFilter) {
   const hasReview = book.review && book.review.trim();
   const hasNotes  = book.notes  && book.notes.trim();
   if (q) {
@@ -94,9 +96,26 @@ function selectPrimary(book, q) {
       return { text: book.notes, kind: 'Notes', alsoOther: hasReview };
     }
   }
+  if (kindFilter === 'notes' && hasNotes) {
+    return { text: book.notes, kind: 'Notes', alsoOther: hasReview };
+  }
+  if (kindFilter === 'reviews' && hasReview) {
+    return { text: book.review, kind: 'Review', alsoOther: hasNotes };
+  }
   if (hasReview) return { text: book.review, kind: 'Review', alsoOther: hasNotes };
   return { text: book.notes, kind: 'Notes', alsoOther: false };
 }
+
+// Kind filter tabs — All shows everything with writing, Reviews narrows
+// to books with a non-empty review, Notes narrows to books with a non-
+// empty note. Reviews and Notes overlap (a book with both appears in
+// both) — by design, "filter to anything that has X" reads more
+// naturally than "filter to only-X."
+const KIND_TABS = [
+  { key: 'all',     label: 'All',     noun: 'book' },
+  { key: 'reviews', label: 'Reviews', noun: 'review' },
+  { key: 'notes',   label: 'Notes',   noun: 'note' },
+];
 
 // Row-level tag pill — visible as a button so the user can click any
 // tag on any row to add it to the active filter. The pill style mirrors
@@ -129,6 +148,7 @@ export default function Notes() {
   const [error, setError] = useState(null);
   const [query, setQuery] = useState('');
   const [activeTags, setActiveTags] = useState(() => new Set());
+  const [kindFilter, setKindFilter] = useState('all');
   const searchRef = useRef(null);
 
   useEffect(() => {
@@ -157,11 +177,21 @@ export default function Notes() {
   // Virtual tags (Antique/Vintage/Long/Tome) are excluded from the
   // filterable set — they're derived properties, not user-curated
   // topics, and would muddy the "browse by topic" intent.
+  // Pre-narrow by kind so the per-tab cohort count is cheap to read off
+  // the result of `kindCohort.filter(...)` downstream. The kind filter
+  // is orthogonal to query + tags (AND-combined): a Reviews-tab search
+  // is "within reviews."
+  const kindCohort = useMemo(() => {
+    if (kindFilter === 'reviews') return books.filter(b => b.review && b.review.trim());
+    if (kindFilter === 'notes')   return books.filter(b => b.notes  && b.notes.trim());
+    return books;
+  }, [books, kindFilter]);
+
   const filtered = useMemo(() => {
     const q = query.trim();
     const ql = q.toLowerCase();
     const tagsToMatch = activeTags;
-    return books.filter(b => {
+    return kindCohort.filter(b => {
       if (q) {
         const hit = (b.notes  && b.notes.toLowerCase().includes(ql))
                  || (b.review && b.review.toLowerCase().includes(ql));
@@ -173,10 +203,11 @@ export default function Notes() {
       }
       return true;
     });
-  }, [books, query, activeTags]);
+  }, [kindCohort, query, activeTags]);
 
   const activeQuery = query.trim();
   const anyFilter = activeQuery !== '' || activeTags.size > 0;
+  const kindNoun = KIND_TABS.find(t => t.key === kindFilter).noun;
 
   return (
     <div className="max-w-5xl">
@@ -186,17 +217,40 @@ export default function Notes() {
       </p>
 
       {!loading && !error && books.length > 0 && (
-        <div className="relative mb-3">
-          <input
-            ref={searchRef}
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search within your notes…"
-            aria-label="Search notes"
-            className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2 text-sm text-parchment placeholder-neutral-500 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 transition-colors [&::-webkit-search-cancel-button]:appearance-none"
-          />
-        </div>
+        <>
+          {/* Kind tabs — All / Reviews / Notes. Lightweight segmented
+              row above the search input so the cohort is the first
+              choice the user makes on the page. */}
+          <div role="tablist" aria-label="Filter by kind" className="mb-3 flex items-center gap-1 text-xs">
+            {KIND_TABS.map(({ key, label }) => (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={kindFilter === key}
+                onClick={() => setKindFilter(key)}
+                className={`px-2.5 py-1 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-oak/40 ${
+                  kindFilter === key
+                    ? 'bg-neutral-800 text-parchment'
+                    : 'text-neutral-500 hover:text-neutral-300'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="relative mb-3">
+            <input
+              ref={searchRef}
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search within your notes…"
+              aria-label="Search notes"
+              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2 text-sm text-parchment placeholder-neutral-500 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 transition-colors [&::-webkit-search-cancel-button]:appearance-none"
+            />
+          </div>
+        </>
       )}
 
       {/* Active filter chip row — shown only when at least one tag is
@@ -237,15 +291,17 @@ export default function Notes() {
         <>
           <p className="text-xs text-neutral-600 mb-3">
             {anyFilter
-              ? <>{filtered.length} of {books.length} {pluralWord(books.length, 'book')}</>
-              : <>{plural(books.length, 'book')} with writing</>}
+              ? <>{filtered.length} of {kindCohort.length} {pluralWord(kindCohort.length, kindNoun)}</>
+              : kindFilter === 'all'
+                ? <>{plural(kindCohort.length, kindNoun)} with writing</>
+                : <>{plural(kindCohort.length, kindNoun)}</>}
           </p>
           {filtered.length === 0 ? (
             <p className="text-neutral-600 py-8">No matches.</p>
           ) : (
             <ul className="divide-y divide-neutral-800">
               {filtered.map(book => {
-                const primary = selectPrimary(book, activeQuery);
+                const primary = selectPrimary(book, activeQuery, kindFilter);
                 const snip = snippet(primary.text, activeQuery);
                 const authorByline = (book.authors || []).map(a => a.name).join(', ');
                 const realTags = (book.tags || []).filter(t => !t.virtual);
