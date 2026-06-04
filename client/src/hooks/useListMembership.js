@@ -126,7 +126,12 @@ export function useListMembership(bookId, { onToggled, onError } = {}) {
       // through with whatever shape it sends so the picker UI matches
       // what subsequent refetches will produce.
       await api.addToList(created.id, bookId);
-      setLists(curr => [...curr, created]);
+      // Insert in alphabetical position rather than appending — matches
+      // the server's ORDER BY name ASC, so the just-created list sits
+      // where the user expects to find it (a subsequent open / refetch
+      // would put it there anyway, and the check-mark already provides
+      // the "just created" feedback signal).
+      setLists(curr => [...curr, created].sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
       setMemberIds(s => new Set([...s, created.id]));
       onToggled?.();
       return created;

@@ -1040,9 +1040,10 @@ export default function CommandPalette() {
             try {
               const created = await api.createList(trimmed);
               await api.addToList(created.id, subPrompt.bookId);
-              // Append to local lists so a subsequent palette open
-              // sees the new list without refetching.
-              setLists(curr => [...curr, created]);
+              // Splice into alphabetical position so a subsequent palette
+              // open sees the new list where it'd land on a refetch
+              // (server returns lists ORDER BY name ASC).
+              setLists(curr => [...curr, created].sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
               dispatchSpineEvent('spine:book-mutated', { id: subPrompt.bookId });
             } catch (err) {
               setSubPromptError(`Failed to create "${trimmed}". Name may already be taken.`);
