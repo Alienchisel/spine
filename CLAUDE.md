@@ -31,13 +31,46 @@ them would balloon B2 storage by ~30 GB without buying any recoverable
 state we don't already have from the DB-snapshot + uploads-mirror pair.
 The tarballs stay local for fast atomic-snapshot recovery within the VM.
 
-Configure a B2 bucket **lifecycle rule** (Backblaze console → bucket
-settings → Lifecycle) to "delete hidden files after N days" — pick a
-window (e.g. 30 days) that matches your desired off-VM recovery horizon
-for accidentally-deleted covers. Without it, hidden versions accumulate
-indefinitely and B2 storage grows monotonically.
+**Bucket setup:**
 
-Restoring from B2 in a total-VM-loss scenario:
+- Bucket name: `spine-backups` (Backblaze account)
+- Region: **CA-East** (Montreal — data stays on Canadian soil; lower
+  latency than US-East for the VM at the cost of being a slightly
+  newer region than US-West)
+- Encryption: SSE-B2 (server-managed, free)
+- Visibility: Private
+- Object Lock: off
+- Lifecycle rule: **30 days** from hide → delete. Set in the
+  Backblaze console → bucket settings → Lifecycle. Without this,
+  hidden versions accumulate indefinitely; with it, B2 storage stays
+  bounded at "current local mirror + ~30 days of deleted-file safety
+  net."
+
+**Cost / free tier:** B2 Cloud Storage gives 10 GB storage and 1 GB/day
+download free permanently. Current steady-state footprint is ~1.5–2 GB
+(DB snapshots ~90 MB + uploads/ mirror ~1.3 GB + lifecycle-retained
+hidden versions). Well under the free ceiling; if the library grows
+past ~8 GB of uploads we'll cross into paid territory (~$0.005/GB/mo
+on top of the 10 GB free).
+
+**Fresh-VM rclone setup recipe:**
+
+```bash
+sudo apt install rclone
+rclone config
+# n (new remote) → name "spine-b2" → storage type "b2"
+# account: <keyID — the 25-char hex one starting with 005/006>
+# key:     <applicationKey — the K-prefixed ~31-char base64-ish one>
+# endpoint: <blank — auto-detected from keyID>
+# advanced: n   keep remote: y   quit: q
+rclone lsd spine-b2:spine-backups   # sanity check, should auth & list
+```
+
+Key pair lives in 1Password (or your password manager of choice). They
+are *not* in this repo. The applicationKey is shown exactly once at
+creation — if you lose it, you have to rotate.
+
+**Restoring from B2 in a total-VM-loss scenario:**
 
 ```bash
 git clone git@github.com:Alienchisel/spine.git
@@ -47,6 +80,26 @@ rclone copy spine-b2:spine-backups/db/spine-2026-MM-DD.db ./spine.db
 # Mirror the covers/photos
 rclone sync spine-b2:spine-backups/uploads ./uploads
 npm run setup && npm start
+```
+
+**Key rotation:**
+
+Rotate the rclone application key annually, and immediately if it's
+ever exposed (pasted to chat, written to a non-encrypted note,
+suspected breach). The procedure:
+
+1. Backblaze console → Application Keys → "Add a New Application Key"
+   with the same restrictions (bucket: `spine-backups`, Read+Write,
+   no list-all).
+2. `rclone config` → `e` → `spine-b2` → paste the new keyID/applicationKey.
+3. Test: `rclone lsd spine-b2:spine-backups`.
+4. Delete the old key in the Backblaze console.
+
+To inspect the config without exposing the live secret (e.g. when
+sharing logs):
+
+```bash
+rclone config show spine-b2 | sed 's/^key.*/key = [REDACTED]/'
 ```
 
 Cron entries live in the user's crontab. If a contributor sets up a
