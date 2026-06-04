@@ -90,6 +90,7 @@ export default function Readlist() {
   const [pickFormat, setPickFormat] = useState('any');
   const [pickTags, setPickTags] = useState(() => new Set());
   const [shuffleSeed, setShuffleSeed] = useState(() => Math.floor(Math.random() * 1_000_000));
+  const [removingIds, setRemovingIds] = useState(() => new Set());
   const guard = useStaleGuard();
   const refreshTick = useRefreshTick();
 
@@ -218,6 +219,27 @@ export default function Readlist() {
     });
   }
 
+  // Remove a stale readlist flag without leaving the page. Optimistic:
+  // drop locally so the picker re-rolls immediately, then PATCH. On
+  // failure restore from snapshot and surface the error — the housekeeping
+  // section silently dropping rows that didn't actually clear would be a
+  // worse failure mode than a banner.
+  async function handleRemove(id) {
+    if (removingIds.has(id)) return;
+    setRemovingIds(s => new Set([...s, id]));
+    const snapshot = books;
+    setBooks(curr => curr.filter(b => b.id !== id));
+    setError(null);
+    try {
+      await api.patchBook(id, { on_readlist: 0 });
+    } catch {
+      setBooks(snapshot);
+      setError('Failed to remove from readlist.');
+    } finally {
+      setRemovingIds(s => { const n = new Set(s); n.delete(id); return n; });
+    }
+  }
+
   const wholeListEmpty = !loading && !error && books.length === 0;
 
   return (
@@ -243,6 +265,7 @@ export default function Readlist() {
           </Link>
         </div>
       ) : (
+        <>
         <section aria-labelledby="readlist-picker-heading">
           <h2 id="readlist-picker-heading" className="font-slab text-xs text-neutral-500 uppercase tracking-wider mb-3">
             Pick something to read
@@ -360,6 +383,53 @@ export default function Readlist() {
             </>
           )}
         </section>
+
+        <section aria-labelledby="readlist-all-heading" className="mt-12">
+          <h2 id="readlist-all-heading" className="font-slab text-xs text-neutral-500 uppercase tracking-wider mb-3">
+            All on readlist <span className="text-neutral-700 normal-case tracking-normal ml-1">({books.length})</span>
+          </h2>
+          <ul className="divide-y divide-binding/15">
+            {books.map(b => {
+              const removing = removingIds.has(b.id);
+              return (
+                <li key={b.id} className="group flex items-center gap-3 py-2">
+                  <Link
+                    to={`/books/${b.id}`}
+                    state={FROM_READLIST}
+                    className="flex items-center gap-3 flex-1 min-w-0 focus:outline-none focus-visible:underline underline-offset-2"
+                  >
+                    <div className="w-8 h-12 flex-shrink-0 bg-neutral-800 rounded overflow-hidden ring-1 ring-binding/25">
+                      {b.cover_path ? (
+                        <img src={b.cover_path} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-[10px] text-neutral-500">
+                          {initialsFor(b.title)}
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm text-parchment group-hover:text-leather transition-colors truncate">{b.title}</p>
+                      <p className="text-xs text-neutral-500 truncate">
+                        {[formatAuthors(b.authors), lengthLabel(b)].filter(Boolean).join(' · ')}
+                      </p>
+                    </div>
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => handleRemove(b.id)}
+                    disabled={removing}
+                    aria-label={`Remove ${b.title} from readlist`}
+                    title="Remove from readlist"
+                    className="text-neutral-700 hover:text-warn focus:text-warn focus:outline-none transition-colors disabled:opacity-30 flex-shrink-0 px-2 py-1 text-sm"
+                  >
+                    ✕
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+        </>
       )}
     </div>
   );
