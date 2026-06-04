@@ -22,7 +22,7 @@ const FORMAT_PICKER = [
   { key: 'ebook',     label: 'Digital',   fmt: 'ebook' },
   { key: 'audiobook', label: 'Audio',     fmt: 'audiobook' },
 ];
-const PICK_COUNT = 8;
+const PICK_COUNT = 6;
 // Rows shown by default in the housekeeping list before the "Show all"
 // disclosure kicks in. Server orders by readlist_position ASC (oldest
 // added first), so the visible preview is exactly the staleness cohort
@@ -367,10 +367,10 @@ export default function Readlist() {
             </p>
           ) : (
             <>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-6 items-start max-w-4xl">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-6 items-start max-w-3xl">
                 {picks.map(book => <PickCard key={book.id} book={book} />)}
               </div>
-              <div className="mt-4 flex items-center justify-between text-xs text-neutral-600 max-w-4xl">
+              <div className="mt-4 flex items-center justify-between text-xs text-neutral-600 max-w-3xl">
                 <span>
                   {pickerCandidates.length > PICK_COUNT
                     ? <>Showing {PICK_COUNT} of {pickerCandidates.length} matches.</>
