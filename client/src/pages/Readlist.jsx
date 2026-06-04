@@ -23,6 +23,11 @@ const FORMAT_PICKER = [
   { key: 'audiobook', label: 'Audio',     fmt: 'audiobook' },
 ];
 const PICK_COUNT = 6;
+// Rows shown by default in the housekeeping list before the "Show all"
+// disclosure kicks in. Server orders by readlist_position ASC (oldest
+// added first), so the visible preview is exactly the staleness cohort
+// — what someone in pruning mode wants to see first.
+const QUEUE_PREVIEW = 10;
 // Mulberry32 — small seeded PRNG so 'Reshuffle' gives a deterministic
 // but different ordering each time, without depending on Math.random
 // which would change every render.
@@ -91,6 +96,7 @@ export default function Readlist() {
   const [pickTags, setPickTags] = useState(() => new Set());
   const [shuffleSeed, setShuffleSeed] = useState(() => Math.floor(Math.random() * 1_000_000));
   const [removingIds, setRemovingIds] = useState(() => new Set());
+  const [showAllQueue, setShowAllQueue] = useState(false);
   const guard = useStaleGuard();
   const refreshTick = useRefreshTick();
 
@@ -389,7 +395,7 @@ export default function Readlist() {
             All on readlist <span className="text-neutral-700 normal-case tracking-normal ml-1">({books.length})</span>
           </h2>
           <ul className="divide-y divide-binding/15">
-            {books.map(b => {
+            {(showAllQueue ? books : books.slice(0, QUEUE_PREVIEW)).map(b => {
               const removing = removingIds.has(b.id);
               return (
                 <li key={b.id} className="group flex items-center gap-3 py-2">
@@ -428,6 +434,20 @@ export default function Readlist() {
               );
             })}
           </ul>
+          {books.length > QUEUE_PREVIEW && (
+            <div className="mt-3 text-xs">
+              <button
+                type="button"
+                onClick={() => setShowAllQueue(v => !v)}
+                aria-expanded={showAllQueue}
+                className="text-neutral-500 hover:text-parchment transition-colors focus:outline-none focus-visible:text-parchment focus-visible:underline underline-offset-2"
+              >
+                {showAllQueue
+                  ? `Show fewer ↑`
+                  : `Show all ${books.length} →`}
+              </button>
+            </div>
+          )}
         </section>
         </>
       )}
