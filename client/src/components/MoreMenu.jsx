@@ -301,8 +301,15 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
       role="menu"
       aria-label={subPrompt === 'add-to-lists' ? `Add ${book.title} to list` : `Actions for ${book.title}`}
       style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left }}
-      className="z-[9999] w-56 max-h-[80vh] overflow-y-auto bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl py-1"
+      className="z-[9999] w-56 max-h-[80vh] flex flex-col bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl"
     >
+      {/* Scrollable region — wraps both the root menu and the add-to-
+          lists sub-prompt so the dropdown caps at 80vh in either state.
+          NewListInput sits OUTSIDE this region as a sticky footer in
+          sub-prompt mode so a long list of lists doesn't push the
+          create affordance off-screen. min-h-0 lets this flex child
+          shrink below content size. */}
+      <div className="min-h-0 overflow-y-auto py-1">
       {subPrompt === 'add-to-lists' ? (
         <>
           <button
@@ -350,12 +357,6 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
                   </button>
                 );
               })}
-              <NewListInput
-                onCreate={createListAndAdd}
-                creating={creating}
-                createError={createError}
-                clearCreateError={clearCreateError}
-              />
             </>
           )}
         </>
@@ -421,6 +422,20 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
             Delete book…
           </button>
         </>
+      )}
+      </div>
+      {/* Sticky create-list footer — only in the add-to-lists sub-prompt,
+          and only once the initial load has resolved (so the input
+          doesn't appear next to a "Loading…" line in the scroll area). */}
+      {subPrompt === 'add-to-lists' && !loadingLists && (
+        <div className="flex-shrink-0">
+          <NewListInput
+            onCreate={createListAndAdd}
+            creating={creating}
+            createError={createError}
+            clearCreateError={clearCreateError}
+          />
+        </div>
       )}
     </div>,
     document.body

@@ -75,8 +75,15 @@ export default function ListPicker({ bookId, bookTitle, dropUp = false, iconClas
       role="menu"
       aria-label={triggerLabel}
       style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left }}
-      className="z-[9999] w-52 max-h-[80vh] overflow-y-auto bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl py-1"
+      className="z-[9999] w-52 max-h-[80vh] flex flex-col bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl"
     >
+      {/* Scrollable region for the list rows. NewListInput sits OUTSIDE
+          this region as a sticky footer, so a tall list that hits the
+          80vh cap doesn't push the create affordance off-screen. The
+          min-h-0 allows this flex child to shrink below its content
+          size; without it, the default min-height: auto would force the
+          parent to grow past 80vh and break the overall cap. */}
+      <div className="min-h-0 overflow-y-auto py-1">
       {loading ? (
         <div role="none">
           <p role="status" className="text-xs text-neutral-600 px-3 py-2">Loading…</p>
@@ -125,13 +132,16 @@ export default function ListPicker({ bookId, bookTitle, dropUp = false, iconClas
             </button>
           );
         })}
+      </>)}
+      </div>
+      <div className="flex-shrink-0">
         <NewListInput
           onCreate={createListAndAdd}
           creating={creating}
           createError={createError}
           clearCreateError={clearCreateError}
         />
-      </>)}
+      </div>
     </div>,
     document.body
   );
