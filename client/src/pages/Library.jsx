@@ -343,6 +343,10 @@ export default function Library() {
   // of which render's function instance gets invoked.
   const tabRef  = useLatest(tab);
   const sortRef = useLatest(sort);
+  // Read inside the load effect's prefetch loop without listing coverCols
+  // and expandedSeries as deps — a resize or series-expand would otherwise
+  // force a full refetch.
+  const densityCtxRef = useLatest({ coverCols, expandedSeries });
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -524,6 +528,16 @@ export default function Library() {
         const collected = [];
         let serverTotal = 0;
         const target = Math.max(PAGE_SIZE, prevDepth);
+        // Density floor: a bulk-add of N≥PAGE_SIZE books sharing a series
+        // collapses into a single SeriesCard, leaving the grid visually
+        // empty even though page 1 loaded fully. After hitting the
+        // book-count target, keep fetching until at least one full grid
+        // row of display items would render — or the server runs out.
+        // Custom sort bypasses grouping so the density check is a no-op
+        // there. Read densityCols off the latest-ref so a resize doesn't
+        // force a full refetch through the effect deps.
+        const densityCols = sort === 'custom' ? 0 : Math.max(densityCtxRef.current.coverCols, 1);
+        const expSeries = densityCtxRef.current.expandedSeries;
         while (guard.isFresh(epoch)) {
           const params = buildApiParams(tab, sort, filters, query, collected.length, randomSeed);
           const { books: b, total: t } = await api.getBooks(params);
@@ -531,7 +545,11 @@ export default function Library() {
           collected.push(...b);
           serverTotal = t;
           if (b.length === 0) break;
-          if (collected.length >= Math.min(target, serverTotal)) break;
+          if (collected.length >= serverTotal) break;
+          if (collected.length >= target) {
+            const visible = sort === 'custom' ? collected.length : buildDisplayItems(collected, expSeries).length;
+            if (visible >= densityCols) break;
+          }
         }
         if (!guard.isFresh(epoch)) return;
         setBooks(collected);
