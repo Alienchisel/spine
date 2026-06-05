@@ -1080,7 +1080,12 @@ describe('books', () => {
         { col: 'previously_owned',            val: 1, expect: 1 },
         { col: 'loved',                       val: 1, expect: 1 },
         { col: 'fiction',                     val: 0, expect: 0 },
-        { col: 'is_stub',                     val: 1, expect: 1 },
+        // is_stub is intentionally NOT in this loop. The cases run in
+        // sequence on a single book and the `owned: 1` case above already
+        // marked it owned — the wishlist/owned coupling means PATCH
+        // is_stub=1 on an owned row coerces back to 0. Round-trip coverage
+        // for is_stub lives in the dedicated wishlist-placeholder tests
+        // at the bottom of this describe block, which use unowned rows.
         { col: 'year_approximate',            val: 1, expect: 1 },
         { col: 'year_published_approximate',  val: 1, expect: 1 },
         { col: 'abridged',                    val: 1, expect: 1 },
@@ -1325,6 +1330,35 @@ describe('books', () => {
       assert.equal(owned.is_stub, 0);
       const { body: unowned } = await req('PATCH', `/api/books/${owned.id}`, { owned: 0 });
       assert.equal(unowned.is_stub, 0, 'un-owning a book should not promote it to wishlist');
+    });
+
+    it('POST with is_stub=true and owned=1 clears is_stub at creation', async () => {
+      // Invariant: owned=1 and is_stub=1 cannot coexist. createBook must
+      // mirror the updateBook coupling so a malformed POST can't seed a
+      // stale row that the UI badge would then have to defensively mask.
+      const { body } = await req('POST', '/api/books', {
+        title: 'Already Owned PKD', authors: ['Philip K. Dick'],
+        owned: 1, is_stub: true,
+      });
+      assert.equal(body.owned, 1);
+      assert.equal(body.is_stub, 0, 'POST with owned=true must clear is_stub at creation');
+    });
+
+    it('POST with is_stub=true and is_custom=true clears is_stub (is_custom forces owned)', async () => {
+      const { body } = await req('POST', '/api/books', {
+        title: 'Custom Wishlist (nonsensical)', authors: ['Author'],
+        is_custom: true, is_stub: true,
+      });
+      assert.equal(body.is_stub, 0, 'is_custom forces owned, so is_stub must clear');
+    });
+
+    it('PATCH is_stub=true on an already-owned row coerces to 0 (no owned in patch)', async () => {
+      const { body: owned } = await req('POST', '/api/books', {
+        title: 'Owned Already', authors: ['Author'], owned: 1,
+      });
+      const { body: patched } = await req('PATCH', `/api/books/${owned.id}`, { is_stub: true });
+      assert.equal(patched.owned, 1);
+      assert.equal(patched.is_stub, 0, 'cannot mark an owned row as wishlist without un-owning it');
     });
   });
 

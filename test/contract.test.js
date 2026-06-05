@@ -11,7 +11,8 @@
  *   - owned/previously_owned mutual exclusivity (owned wins on POST)
  *   - fiction boolean → 0/1/null
  *   - year_approximate boolean → 0/1
- *   - is_stub auto-cleared to 0 when title + authors both present on PUT
+ *   - is_stub ("wishlist placeholder") auto-cleared to 0 on any path to
+ *     owned=1 (explicit owned, is_custom, or PATCH transition)
  *   - shelf_id set → building_id/room_id/unit_id stored as null
  *   - unit_id only (no shelf_id, no room_id) → unit_id stored
  *   - cover_path /uploads/{file} round-trips correctly
@@ -70,7 +71,7 @@ describe('book contract: full field round-trip', () => {
       owned:             true,
       previously_owned:  false,               // owned wins on conflict anyway
       is_custom:         false,
-      is_stub:           true,                // POST stores as-is; PUT auto-clears
+      is_stub:           true,                // auto-cleared: owned=true forces graduation → 0
       loved:             false,
       fiction:           true,                // → 1
       // source_type is omitted here because the API rejects it on
@@ -125,7 +126,7 @@ describe('book contract: full field round-trip', () => {
     assert.equal(body.owned, 1);
     assert.equal(body.previously_owned, 0);
     assert.equal(body.is_custom, 0);
-    assert.equal(body.is_stub, 1);            // POST stores as-is
+    assert.equal(body.is_stub, 0);            // auto-cleared: owned=true forces graduation
     assert.equal(body.loved, 0);
     assert.equal(body.fiction, 1);
     assert.equal(body.year_approximate, 0);
@@ -188,7 +189,7 @@ describe('book contract: full field round-trip', () => {
     assert.equal(body.asin, 'B002RI9IY6');
     assert.equal(body.owned, 1);
     assert.equal(body.fiction, 1);
-    assert.equal(body.is_stub, 1);
+    assert.equal(body.is_stub, 0);            // graduated by owned=1
     assert.equal(body.year_approximate, 0);
     assert.equal(body.shelf_id, shelfId);
     assert.equal(body.building_id, null);
