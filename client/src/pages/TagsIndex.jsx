@@ -50,7 +50,8 @@ export default function TagsIndex() {
     const next = pickValidParams(params);
     let changed = Array.from(params.keys()).some(k => !VALID_PARAMS.has(k));
     if (!next.has('sort')) {
-      const stored = localStorage.getItem(LS_SORT_KEY);
+      let stored = null;
+      try { stored = localStorage.getItem(LS_SORT_KEY); } catch {}
       if (stored && stored !== 'name' && VALID_SORTS.has(stored)) {
         next.set('sort', stored);
         changed = true;
@@ -62,7 +63,7 @@ export default function TagsIndex() {
 
   // Persist the resolved sort to localStorage on every change.
   useEffect(() => {
-    localStorage.setItem(LS_SORT_KEY, sort);
+    try { localStorage.setItem(LS_SORT_KEY, sort); } catch {}
   }, [sort]);
 
   function updateParam(key, value) {

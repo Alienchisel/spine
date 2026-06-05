@@ -95,7 +95,9 @@ export default function AuthorsIndex() {
     const next = pickValidParams(params);
     let changed = Array.from(params.keys()).some(k => !VALID_PARAMS.has(k));
     if (!next.has('sort')) {
-      const stored = localStorage.getItem(LS_SORT_KEY);
+      // Safari private mode throws on storage access; treat as no memory.
+      let stored = null;
+      try { stored = localStorage.getItem(LS_SORT_KEY); } catch {}
       // Only seed when the stored value is a real non-default sort —
       // 'name' is the implicit default and lives as an absent param.
       if (stored && stored !== 'name' && VALID_SORTS.has(stored)) {
@@ -112,7 +114,7 @@ export default function AuthorsIndex() {
   // so a user who explicitly picks Name after picking Books still has
   // their choice remembered as the new sticky default.
   useEffect(() => {
-    localStorage.setItem(LS_SORT_KEY, sort);
+    try { localStorage.setItem(LS_SORT_KEY, sort); } catch {}
   }, [sort]);
 
   function updateParam(key, value) {

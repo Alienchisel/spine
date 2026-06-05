@@ -348,6 +348,14 @@ export default function ListDetail() {
           const offset = merged ? merged.books.length : 0;
           const data = await api.getList(id, { sort, limit: PAGE_SIZE, offset });
           if (!guard.isFresh(epoch)) return;
+          // Same first-visit adoption as the 'added' branch: if the server
+          // has a non-current default_sort and the user hasn't chosen yet,
+          // switch to it. The load effect re-runs with the new sort and
+          // discards the in-flight merge below.
+          if (offset === 0 && data.default_sort && data.default_sort !== sort && !userChangedSortRef.current) {
+            setSort(data.default_sort);
+            return;
+          }
           serverTotal = data.total;
           merged = merged ? { ...merged, ...data, books: [...merged.books, ...data.books] } : data;
           if (data.books.length === 0) break;
