@@ -51,3 +51,16 @@ if command -v rclone >/dev/null 2>&1; then
 else
   echo "rclone not installed; skipping B2 off-VM sync"
 fi
+
+# Trim backup.log to its last 5000 lines (~6 months at the current
+# nightly + hourly cadence). Truncate-and-overwrite via shell redirect
+# rather than `mv` so cron's already-open stdout descriptor keeps
+# pointing at the same inode — `mv` would unlink the old inode and any
+# further script output would land in an orphaned file and be lost.
+LOG="$BACKUP_DIR/backup.log"
+if [ -f "$LOG" ]; then
+  TMP_LOG="$(mktemp)"
+  tail -n 5000 "$LOG" > "$TMP_LOG"
+  cat "$TMP_LOG" > "$LOG"
+  rm "$TMP_LOG"
+fi

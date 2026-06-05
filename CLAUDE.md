@@ -6,7 +6,9 @@ is just operations.
 
 ## Backup pipeline
 
-Three cron-driven scripts under repo root, all logging to `backups/backup.log`:
+Three cron-driven scripts under repo root, all logging to `backups/backup.log`.
+`backup.sh` self-trims the log to its last 5000 lines at the end of every
+nightly run (truncate-and-overwrite, not `mv` — preserves cron's open fd).
 
 | Script | Cadence | Retention | What it captures |
 |---|---|---|---|
