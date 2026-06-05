@@ -447,6 +447,92 @@ describe('authors — Open Library refresh', () => {
   });
 });
 
+describe('authors — per-author default_sort', () => {
+  let url;
+  let close;
+  before(async () => { const s = await createTestServer(); url = s.url; close = s.close; });
+  after(() => close());
+  async function req(method, path, body) {
+    const res = await fetch(`${url}${path}`, {
+      method, headers: { 'Content-Type': 'application/json' },
+      body: body != null ? JSON.stringify(body) : undefined,
+    });
+    const data = res.status === 204 ? null : await res.json();
+    return { status: res.status, body: data };
+  }
+  async function authorByline(name) {
+    await req('POST', '/api/books', { title: `book by ${name} ${Math.random()}`, authors: [name] });
+    const { body } = await req('GET', `/api/authors?q=${encodeURIComponent(name)}`);
+    return body.find(a => a.name === name)?.id;
+  }
+
+  it('default_sort is null on a new author', async () => {
+    const aid = await authorByline('Sort Author A');
+    const { body } = await req('GET', `/api/authors/${aid}`);
+    assert.equal(body.default_sort, null);
+  });
+
+  it('PATCH stores default_sort and round-trips on GET', async () => {
+    const aid = await authorByline('Sort Author B');
+    const { status, body } = await req('PATCH', `/api/authors/${aid}`, { default_sort: 'rating' });
+    assert.equal(status, 200);
+    assert.equal(body.default_sort, 'rating');
+    const { body: after } = await req('GET', `/api/authors/${aid}`);
+    assert.equal(after.default_sort, 'rating');
+  });
+
+  it('PATCH default_sort: null clears the memory', async () => {
+    const aid = await authorByline('Sort Author C');
+    await req('PATCH', `/api/authors/${aid}`, { default_sort: 'title' });
+    const { body } = await req('PATCH', `/api/authors/${aid}`, { default_sort: null });
+    assert.equal(body.default_sort, null);
+  });
+
+  it('PATCH rejects invalid default_sort', async () => {
+    const aid = await authorByline('Sort Author D');
+    const { status } = await req('PATCH', `/api/authors/${aid}`, { default_sort: 'nonsense' });
+    assert.equal(status, 400);
+  });
+
+  it('PATCH rejects "random" (index-only sort, not a detail-page choice)', async () => {
+    const aid = await authorByline('Sort Author E');
+    const { status } = await req('PATCH', `/api/authors/${aid}`, { default_sort: 'random' });
+    assert.equal(status, 400);
+  });
+
+  it('GET /api/authors/:id without ?sort= uses stored default_sort', async () => {
+    const stem = 'Sort-FX-' + Math.random().toString(36).slice(2, 6);
+    await req('POST', '/api/books', { title: `${stem} early`, authors: [`${stem} author`], year_published: 1900 });
+    await req('POST', '/api/books', { title: `${stem} late`,  authors: [`${stem} author`], year_published: 2000 });
+    const { body: idx } = await req('GET', `/api/authors?q=${encodeURIComponent(stem)}`);
+    const aid = idx.find(a => a.name === `${stem} author`).id;
+    // Set default_sort to title — would give early then late alphabetically.
+    await req('PATCH', `/api/authors/${aid}`, { default_sort: 'title' });
+    const { body } = await req('GET', `/api/authors/${aid}`);
+    assert.equal(body.books[0].title, `${stem} early`);
+    assert.equal(body.books[1].title, `${stem} late`);
+    // Now switch default to reverse chronological; same books should flip.
+    await req('PATCH', `/api/authors/${aid}`, { default_sort: 'year_published_desc' });
+    const { body: after } = await req('GET', `/api/authors/${aid}`);
+    assert.equal(after.books[0].year_published, 2000);
+    assert.equal(after.books[1].year_published, 1900);
+  });
+
+  it('explicit ?sort= query overrides stored default_sort', async () => {
+    const stem = 'Sort-Override-' + Math.random().toString(36).slice(2, 6);
+    await req('POST', '/api/books', { title: `${stem} aaa`, authors: [`${stem} author`], year_published: 2000 });
+    await req('POST', '/api/books', { title: `${stem} zzz`, authors: [`${stem} author`], year_published: 1900 });
+    const { body: idx } = await req('GET', `/api/authors?q=${encodeURIComponent(stem)}`);
+    const aid = idx.find(a => a.name === `${stem} author`).id;
+    await req('PATCH', `/api/authors/${aid}`, { default_sort: 'year_published' });
+    // Stored default would sort year_published asc → zzz (1900) before aaa (2000).
+    // Explicit ?sort=title flips it: aaa before zzz.
+    const { body } = await req('GET', `/api/authors/${aid}?sort=title`);
+    assert.equal(body.books[0].title, `${stem} aaa`);
+    assert.equal(body.books[1].title, `${stem} zzz`);
+  });
+});
+
 describe('authors — index', () => {
   let url;
   let close;

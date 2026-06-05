@@ -25,7 +25,16 @@ const photoUpload = multer({
   },
 });
 
-const AUTHOR_COLUMNS = 'id, name, gender, alias_group_id, bio, birth_date, death_date, photo_path, ol_key, bio_fetched_at';
+const AUTHOR_COLUMNS = 'id, name, gender, alias_group_id, bio, birth_date, death_date, photo_path, ol_key, bio_fetched_at, default_sort';
+
+// Sort values accepted by the Author detail page's "Sort" dropdown and
+// the GET /:id `?sort=` query. Mirrors the LIST_ORDER_BY vocabulary in
+// routes/lists.js where it overlaps (year_published, title, rating,
+// added). 'random' is excluded — it's used by GET /authors (the index)
+// not by the detail page, so it shouldn't be persisted as a default.
+const ALLOWED_DEFAULT_SORTS = new Set([
+  'year_published', 'year_published_desc', 'title', 'rating', 'added',
+]);
 
 function loadAuthor(id) {
   return db.prepare(`SELECT ${AUTHOR_COLUMNS} FROM authors WHERE id = ?`).get(id);
@@ -217,7 +226,12 @@ router.get('/:id', (req, res) => {
   const aliases = author.alias_group_id != null
     ? db.prepare('SELECT id, name FROM authors WHERE alias_group_id = ? AND id != ? ORDER BY name').all(author.alias_group_id, id)
     : [];
-  const sort = req.query.sort || 'year_published';
+  // Sort precedence: explicit ?sort= query → stored author.default_sort
+  // → 'year_published'. Mirrors the per-list default_sort precedence.
+  // The query param wins so a URL like /authors/42?sort=title can preview
+  // a different sort without rewriting the per-author memory.
+  const sort = req.query.sort
+    || (ALLOWED_DEFAULT_SORTS.has(author.default_sort) ? author.default_sort : 'year_published');
   // Author bibliographies are history-style — archived books are part
   // of the author's catalog and should show up. Without the override,
   // listBooks's default-hide-archived would exclude an author's only
@@ -284,11 +298,12 @@ router.patch('/:id', (req, res) => {
   const author = db.prepare('SELECT id FROM authors WHERE id = ?').get(id);
   if (!author) return res.status(404).json({ error: 'Author not found' });
   const body = req.body ?? {};
-  const hasGender = 'gender'     in body;
-  const hasBio    = 'bio'        in body;
-  const hasBirth  = 'birth_date' in body;
-  const hasDeath  = 'death_date' in body;
-  if (!hasGender && !hasBio && !hasBirth && !hasDeath) {
+  const hasGender = 'gender'       in body;
+  const hasBio    = 'bio'          in body;
+  const hasBirth  = 'birth_date'   in body;
+  const hasDeath  = 'death_date'   in body;
+  const hasSort   = 'default_sort' in body;
+  if (!hasGender && !hasBio && !hasBirth && !hasDeath && !hasSort) {
     return res.status(400).json({ error: 'No supported fields to update' });
   }
   const sets = [];
@@ -323,6 +338,16 @@ router.patch('/:id', (req, res) => {
     if (r.error) return res.status(400).json({ error: r.error });
     sets.push('death_date = ?');
     params.push(r.value);
+  }
+  if (hasSort) {
+    const raw = body.default_sort;
+    // null clears the per-author memory; otherwise the value must be
+    // one of the sort keys the Author page actually offers.
+    if (raw !== null && !ALLOWED_DEFAULT_SORTS.has(raw)) {
+      return res.status(400).json({ error: 'Invalid default_sort' });
+    }
+    sets.push('default_sort = ?');
+    params.push(raw);
   }
   db.prepare(`UPDATE authors SET ${sets.join(', ')} WHERE id = ?`).run(...params, id);
   res.json(loadAuthor(id));

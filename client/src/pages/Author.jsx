@@ -157,6 +157,13 @@ export default function Author() {
   // failed — please retry".
   const [errorKind, setErrorKind] = useState(null);
   const [sort, setSort] = useState('year_published');
+  // Per-author sort memory parity with the per-list one. After the first
+  // GET of an author, if the server-stored default_sort differs from our
+  // current sort state, adopt it (setSort triggers refetch). The ref
+  // distinguishes that one-time adoption from user-driven changes via
+  // the dropdown, and resets on id change so each author visit re-syncs.
+  const userChangedSortRef = useRef(false);
+  useEffect(() => { userChangedSortRef.current = false; }, [id]);
   const [bioExpanded, setBioExpanded] = useState(false);
   // Measured overflow replaces the previous `author.bio.length > 280`
   // proxy — the character count couldn't tell a wide-typeset short bio
@@ -192,7 +199,18 @@ export default function Author() {
     setLoading(true);
     setErrorKind(null);
     api.getAuthor(id, { sort })
-      .then(data => { if (!cancelled) setAuthor(data); })
+      .then(data => {
+        if (cancelled) return;
+        // First-visit adoption of the server-stored default_sort. If the
+        // author has a saved preference and the user hasn't explicitly
+        // chosen during this visit, switch to it — setSort fires the
+        // load effect again with the correct sort.
+        if (data.default_sort && data.default_sort !== sort && !userChangedSortRef.current) {
+          setSort(data.default_sort);
+          return;
+        }
+        setAuthor(data);
+      })
       .catch(err => {
         if (cancelled) return;
         const notFound = err?.status === 404;
@@ -569,7 +587,15 @@ export default function Author() {
                     <span>Sort:</span>
                     <select
                       value={sort}
-                      onChange={(e) => setSort(e.target.value)}
+                      onChange={(e) => {
+                        const newSort = e.target.value;
+                        userChangedSortRef.current = true;
+                        setSort(newSort);
+                        // Persist as the author's default_sort so the next
+                        // visit lands on this sort. Fire-and-forget — a
+                        // failed PATCH only costs cross-session memory.
+                        api.updateAuthor(id, { default_sort: newSort }).catch(() => {});
+                      }}
                       className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-xs text-neutral-300 hover:text-neutral-100 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 cursor-pointer transition-colors"
                       aria-label="Sort author's books"
                     >
