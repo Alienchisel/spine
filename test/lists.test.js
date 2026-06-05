@@ -63,6 +63,25 @@ describe('lists', () => {
       const { status } = await req('POST', '/api/lists', { name: 'x'.repeat(201) });
       assert.equal(status, 400);
     });
+
+    it('accepts an optional description', async () => {
+      const { status, body } = await req('POST', '/api/lists', {
+        name: 'Described List',
+        description: 'Books I plan to give as gifts.',
+      });
+      assert.equal(status, 201);
+      assert.equal(body.description, 'Books I plan to give as gifts.');
+    });
+
+    it('stores empty description as null (not "")', async () => {
+      const { body } = await req('POST', '/api/lists', { name: 'Empty Desc', description: '   ' });
+      assert.equal(body.description, null);
+    });
+
+    it('rejects description over 2000 chars', async () => {
+      const { status } = await req('POST', '/api/lists', { name: 'Long Desc', description: 'x'.repeat(2001) });
+      assert.equal(status, 400);
+    });
   });
 
   describe('GET /api/lists/:id', () => {
@@ -128,6 +147,35 @@ describe('lists', () => {
       const list = await createList('Self Rename');
       const { status } = await req('PUT', `/api/lists/${list.id}`, { name: 'Self Rename' });
       assert.equal(status, 200);
+    });
+
+    it('updates description independently of name', async () => {
+      const list = await createList('Desc Only');
+      const { status, body } = await req('PUT', `/api/lists/${list.id}`, {
+        description: 'Updated purpose statement.',
+      });
+      assert.equal(status, 200);
+      assert.equal(body.name, 'Desc Only');
+      assert.equal(body.description, 'Updated purpose statement.');
+    });
+
+    it('clears description when sent as empty string', async () => {
+      const { body: created } = await req('POST', '/api/lists', {
+        name: 'Clearable Desc',
+        description: 'will be cleared',
+      });
+      const { body } = await req('PUT', `/api/lists/${created.id}`, { description: '' });
+      assert.equal(body.description, null);
+    });
+
+    it('leaves description unchanged when key absent from PUT', async () => {
+      const { body: created } = await req('POST', '/api/lists', {
+        name: 'Preserve Desc',
+        description: 'should survive a rename-only update',
+      });
+      const { body } = await req('PUT', `/api/lists/${created.id}`, { name: 'Renamed Preserve Desc' });
+      assert.equal(body.name, 'Renamed Preserve Desc');
+      assert.equal(body.description, 'should survive a rename-only update');
     });
   });
 

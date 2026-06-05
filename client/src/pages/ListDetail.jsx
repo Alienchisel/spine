@@ -1,5 +1,8 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import ReactMarkdown from 'react-markdown';
+import { submitOnModEnter } from '../components/bookForm/styles.js';
+import { MOD_KEY } from '../utils.js';
 import {
   DndContext,
   closestCenter,
@@ -208,6 +211,12 @@ export default function ListDetail() {
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
   const [renameError, setRenameError] = useState(null);
+  // Description edit state mirrors the rename pattern — separate from
+  // rename so a failed save on one doesn't clear the other's banner, and
+  // both can be reset together on a real navigation (see isRealChange).
+  const [editingDesc, setEditingDesc] = useState(false);
+  const [descValue, setDescValue] = useState('');
+  const [descError, setDescError] = useState(null);
   // Edit mode toggles drag handles + remove buttons on each card. When off,
   // the list renders identical BookCards to Library/Browse — no drag, no
   // remove, just covers and their normal per-card buttons (loved, readlist,
@@ -241,6 +250,11 @@ export default function ListDetail() {
   // second handleRename whose `renameValue === name` check still passes
   // (list.name is still the old name), and a duplicate PUT lands.
   const renamingInFlightRef = useRef(false);
+  // Same in-flight guard rationale as renamingInFlightRef — the textarea
+  // has both onSubmit (Ctrl/Cmd+Enter via submitOnModEnter) and onBlur
+  // handlers, and a blur immediately after a submit could fire a second
+  // PUT before the first resolves.
+  const descInFlightRef = useRef(false);
   // Tracks the last id|sort the load effect ran for so refresh-tick
   // refetches at the same key don't flash the loading state or cancel an
   // in-progress rename. Mirrors Library.lastFetchKeyRef.
@@ -276,6 +290,9 @@ export default function ListDetail() {
       setRenaming(false);
       setRenameError(null);
       setRenameValue('');
+      setEditingDesc(false);
+      setDescError(null);
+      setDescValue('');
     }
     // Action banner and pagination flags clear on every fire — they're
     // transient state that shouldn't persist across any refetch (the
@@ -437,6 +454,28 @@ export default function ListDetail() {
     }
   }
 
+  async function handleDescriptionSave(e) {
+    e?.preventDefault?.();
+    if (descInFlightRef.current) return;
+    const description = descValue.trim();
+    const current = list.description ?? '';
+    if (description === current) { setEditingDesc(false); return; }
+    setDescError(null);
+    const epoch = guard.current();
+    descInFlightRef.current = true;
+    try {
+      const updated = await api.updateList(id, { description });
+      if (!guard.isFresh(epoch)) return;
+      setList(l => ({ ...l, description: updated.description }));
+      setEditingDesc(false);
+    } catch (err) {
+      if (!guard.isFresh(epoch)) return;
+      setDescError(err?.message || 'Failed to save description.');
+    } finally {
+      descInFlightRef.current = false;
+    }
+  }
+
   async function handleRename(e) {
     e.preventDefault();
     if (renamingInFlightRef.current) return;
@@ -449,7 +488,7 @@ export default function ListDetail() {
     const epoch = guard.current();
     renamingInFlightRef.current = true;
     try {
-      const updated = await api.renameList(id, name);
+      const updated = await api.updateList(id, { name });
       if (!guard.isFresh(epoch)) return;
       setList(l => ({ ...l, name: updated.name }));
       setRenaming(false);
@@ -528,6 +567,45 @@ export default function ListDetail() {
         )}
         <span className="text-xs text-neutral-600 mt-0.5">{plural(total, 'book')}</span>
       </div>
+
+      {/* Description: italic-muted prose explaining the list's purpose. Click
+          to edit; Ctrl/Cmd+Enter or blur to save; Esc cancels. When absent,
+          a faint "+ Add a description" affordance takes its place. */}
+      {editingDesc ? (
+        <form onSubmit={handleDescriptionSave} className="mb-6 max-w-2xl">
+          <textarea
+            autoFocus
+            value={descValue}
+            onChange={e => setDescValue(e.target.value)}
+            onBlur={handleDescriptionSave}
+            onKeyDown={e => {
+              if (e.key === 'Escape') { setEditingDesc(false); setDescError(null); }
+              submitOnModEnter(e);
+            }}
+            placeholder="What's this list for? (Markdown supported)"
+            rows={3}
+            className="w-full bg-neutral-800 border border-neutral-700 rounded px-3 py-2 text-sm text-neutral-300 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 transition-colors"
+          />
+          {descError && <p role="alert" className="text-xs text-warn mt-1">{descError}</p>}
+          <p className="text-[11px] text-neutral-600 mt-1">{MOD_KEY}+Enter to save · Esc to cancel</p>
+        </form>
+      ) : list.description ? (
+        <div
+          className="mb-6 max-w-2xl text-sm italic text-neutral-400 hover:text-neutral-300 cursor-pointer transition-colors prose prose-invert prose-sm prose-p:my-2 prose-headings:my-2"
+          title="Click to edit"
+          onClick={() => { setDescError(null); setDescValue(list.description || ''); setEditingDesc(true); }}
+        >
+          <ReactMarkdown>{list.description}</ReactMarkdown>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => { setDescError(null); setDescValue(''); setEditingDesc(true); }}
+          className="mb-6 text-xs text-neutral-600 hover:text-neutral-400 transition-colors focus:outline-none focus-visible:underline underline-offset-2"
+        >
+          + Add a description
+        </button>
+      )}
 
       {total > 0 && (
         <div className="grid grid-cols-2 gap-3 mb-6 max-w-md">

@@ -142,9 +142,16 @@ export default function Lists() {
               className="flex items-center gap-4 px-4 py-3 rounded-lg bg-neutral-900 border border-neutral-800 hover:border-neutral-700 transition-colors group"
             >
               <Link to={`/lists/${list.id}`} className="flex-1 min-w-0">
-                <span className="text-sm font-medium text-neutral-200 group-hover:text-white transition-colors">
-                  {list.name}
-                </span>
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium text-neutral-200 group-hover:text-white transition-colors">
+                    {list.name}
+                  </span>
+                  {list.description ? (
+                    <span className="text-xs italic text-neutral-500 truncate" title={list.description}>
+                      {list.description}
+                    </span>
+                  ) : null}
+                </div>
               </Link>
               <span className="text-xs text-neutral-600 flex-shrink-0">
                 {plural(list.book_count, 'book')}

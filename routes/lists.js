@@ -84,14 +84,29 @@ router.get('/', (_req, res) => {
   res.json(lists);
 });
 
+const DESCRIPTION_MAX = 2000;
+
+// Trim a free-text field; empty string collapses to null so the column
+// stores absence consistently (not a mix of '' and NULL the UI would
+// have to disambiguate). Mirrors lib/books/normalization.js `t()`.
+function trimToNull(val) {
+  if (val == null) return null;
+  const s = String(val).trim();
+  return s || null;
+}
+
 // POST /api/lists — create a list
 router.post('/', (req, res) => {
   const name = req.body.name?.trim();
   if (!name) return res.status(400).json({ error: 'Name is required' });
   if (name.length > 200) return res.status(400).json({ error: 'Name too long' });
+  const description = trimToNull(req.body.description);
+  if (description && description.length > DESCRIPTION_MAX) {
+    return res.status(400).json({ error: 'Description too long' });
+  }
   const existing = db.prepare('SELECT id FROM lists WHERE name = ? COLLATE NOCASE').get(name);
   if (existing) return res.status(409).json({ error: 'A list with that name already exists' });
-  const result = db.prepare("INSERT INTO lists (name, created_at, updated_at) VALUES (?, datetime('now', 'localtime'), datetime('now', 'localtime'))").run(name);
+  const result = db.prepare("INSERT INTO lists (name, description, created_at, updated_at) VALUES (?, ?, datetime('now', 'localtime'), datetime('now', 'localtime'))").run(name, description);
   res.status(201).json(db.prepare('SELECT * FROM lists WHERE id = ?').get(result.lastInsertRowid));
 });
 
@@ -108,18 +123,46 @@ router.get('/:id', (req, res) => {
   res.json({ ...list, books, total, owned_count, finished_count });
 });
 
-// PUT /api/lists/:id — rename
+// PUT /api/lists/:id — update name and/or description. Both fields are
+// individually optional: send `{ name }` to rename, `{ description }`
+// to edit the description, or both at once. Absent keys leave the
+// stored value untouched (vs. sending `description: ""` which clears
+// it — trimToNull collapses empty to null in storage).
 router.put('/:id', (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid list id' });
   const list = getListOrFail(res, id);
   if (!list) return;
-  const name = req.body.name?.trim();
-  if (!name) return res.status(400).json({ error: 'Name is required' });
-  if (name.length > 200) return res.status(400).json({ error: 'Name too long' });
-  const conflict = db.prepare('SELECT id FROM lists WHERE name = ? COLLATE NOCASE AND id != ?').get(name, id);
-  if (conflict) return res.status(409).json({ error: 'A list with that name already exists' });
-  db.prepare('UPDATE lists SET name = ?, updated_at = datetime(\'now\', \'localtime\') WHERE id = ?').run(name, id);
+
+  const fields = [];
+  const params = [];
+
+  if (req.body.name !== undefined) {
+    const name = req.body.name?.trim();
+    if (!name) return res.status(400).json({ error: 'Name is required' });
+    if (name.length > 200) return res.status(400).json({ error: 'Name too long' });
+    const conflict = db.prepare('SELECT id FROM lists WHERE name = ? COLLATE NOCASE AND id != ?').get(name, id);
+    if (conflict) return res.status(409).json({ error: 'A list with that name already exists' });
+    fields.push('name = ?');
+    params.push(name);
+  }
+
+  if (req.body.description !== undefined) {
+    const description = trimToNull(req.body.description);
+    if (description && description.length > DESCRIPTION_MAX) {
+      return res.status(400).json({ error: 'Description too long' });
+    }
+    fields.push('description = ?');
+    params.push(description);
+  }
+
+  if (fields.length === 0) {
+    return res.json(list);
+  }
+
+  fields.push("updated_at = datetime('now', 'localtime')");
+  params.push(id);
+  db.prepare(`UPDATE lists SET ${fields.join(', ')} WHERE id = ?`).run(...params);
   res.json(db.prepare('SELECT * FROM lists WHERE id = ?').get(id));
 });
 
