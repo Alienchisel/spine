@@ -242,6 +242,13 @@ export default function ListDetail() {
   // resolves — that's the only window where local state still contains
   // the book, so the in-state guard inside handleRemove can't catch it.
   const removingIdsRef = useRef(new Set());
+  // Per-list "default sort memory" sync. After the first GET of a list,
+  // if the server-stored `default_sort` differs from our current sort
+  // state, we setSort to it (triggers refetch with the correct sort).
+  // Resets on id change so each list visit re-syncs. The ref distinguishes
+  // user-driven sort changes (don't re-sync, the user just chose) from
+  // the initial server-default adoption (sync once).
+  const userChangedSortRef = useRef(false);
   // Synchronous in-flight guard for the rename PUT. The form has both
   // onSubmit={handleRename} and onBlur={handleRename}; the early-return on
   // `name === list.name` only protects after the rename has *committed*
@@ -273,6 +280,14 @@ export default function ListDetail() {
     if (!editMode && sort !== 'added') setSort('added');
     setEditMode(m => !m);
   }
+
+  // Reset the auto-sync-default-sort guard on every list navigation.
+  // Without this, navigating from list A (where the user changed sort,
+  // setting the ref to true) to list B would prevent B's default_sort
+  // from being adopted on first load.
+  useEffect(() => {
+    userChangedSortRef.current = false;
+  }, [id]);
 
   useEffect(() => {
     const epoch = guard.next();
@@ -312,6 +327,15 @@ export default function ListDetail() {
         if (sort === 'added') {
           const data = await api.getList(id, { sort });
           if (!guard.isFresh(epoch)) return;
+          // First-visit auto-sync to the per-list default_sort memory.
+          // If the server has a non-'added' default and the user hasn't
+          // changed sort yet during this visit, adopt it — setSort fires
+          // the load effect again with the correct sort. Skip when the
+          // user has already chosen explicitly.
+          if (data.default_sort && data.default_sort !== sort && !userChangedSortRef.current) {
+            setSort(data.default_sort);
+            return;
+          }
           setList(data);
           setTotal(data.total);
           loadedRef.current = data.books.length;
@@ -639,7 +663,16 @@ export default function ListDetail() {
             </button>
             <select
               value={sort}
-              onChange={e => setSort(e.target.value)}
+              onChange={e => {
+                const newSort = e.target.value;
+                userChangedSortRef.current = true;
+                setSort(newSort);
+                // Persist the choice as the list's new default_sort so the
+                // next visit lands on the same sort. Fire-and-forget — a
+                // failed PATCH only costs us memory across sessions; the
+                // sort still works for this one.
+                api.updateList(id, { default_sort: newSort }).catch(() => {});
+              }}
               disabled={editMode}
               title={editMode ? 'Sorting is locked to Custom order while editing' : ''}
               className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-sm text-neutral-300 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 transition-colors disabled:opacity-60"

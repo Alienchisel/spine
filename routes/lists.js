@@ -95,6 +95,14 @@ function trimToNull(val) {
   return s || null;
 }
 
+// default_sort is one of the LIST_ORDER_BY keys (the same vocabulary the
+// `sort` query param accepts) or null. Validated at the route boundary so
+// a typo from a direct API call can't seed a value the GET path doesn't
+// recognise.
+function validDefaultSort(val) {
+  return val == null || Object.prototype.hasOwnProperty.call(LIST_ORDER_BY, val);
+}
+
 // POST /api/lists — create a list
 router.post('/', (req, res) => {
   const name = req.body.name?.trim();
@@ -104,9 +112,13 @@ router.post('/', (req, res) => {
   if (description && description.length > DESCRIPTION_MAX) {
     return res.status(400).json({ error: 'Description too long' });
   }
+  const default_sort = req.body.default_sort ?? null;
+  if (!validDefaultSort(default_sort)) {
+    return res.status(400).json({ error: 'Invalid default_sort' });
+  }
   const existing = db.prepare('SELECT id FROM lists WHERE name = ? COLLATE NOCASE').get(name);
   if (existing) return res.status(409).json({ error: 'A list with that name already exists' });
-  const result = db.prepare("INSERT INTO lists (name, description, created_at, updated_at) VALUES (?, ?, datetime('now', 'localtime'), datetime('now', 'localtime'))").run(name, description);
+  const result = db.prepare("INSERT INTO lists (name, description, default_sort, created_at, updated_at) VALUES (?, ?, ?, datetime('now', 'localtime'), datetime('now', 'localtime'))").run(name, description, default_sort);
   res.status(201).json(db.prepare('SELECT * FROM lists WHERE id = ?').get(result.lastInsertRowid));
 });
 
@@ -116,18 +128,24 @@ router.get('/:id', (req, res) => {
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid list id' });
   const list = getListOrFail(res, id);
   if (!list) return;
-  const sort   = LIST_ORDER_BY[req.query.sort] ? req.query.sort : 'added';
+  // Sort precedence: explicit `?sort=` query → stored `default_sort` →
+  // 'added'. The query param wins so users can preview a different sort
+  // (or share a URL with one) without overwriting the per-list memory.
+  const sort = LIST_ORDER_BY[req.query.sort]
+    ? req.query.sort
+    : (LIST_ORDER_BY[list.default_sort] ? list.default_sort : 'added');
   const limit  = req.query.limit  ? Math.min(Math.max(1, parseInt(req.query.limit)  || PAGE_SIZE), 500) : null;
   const offset = req.query.offset ? Math.max(0, parseInt(req.query.offset) || 0) : 0;
   const { books, total, owned_count, finished_count } = booksForList(id, { sort, limit, offset });
   res.json({ ...list, books, total, owned_count, finished_count });
 });
 
-// PUT /api/lists/:id — update name and/or description. Both fields are
-// individually optional: send `{ name }` to rename, `{ description }`
-// to edit the description, or both at once. Absent keys leave the
-// stored value untouched (vs. sending `description: ""` which clears
-// it — trimToNull collapses empty to null in storage).
+// PUT /api/lists/:id — update name, description, and/or default_sort.
+// Each field is individually optional: send `{ name }` to rename,
+// `{ description }` to edit the description, `{ default_sort }` to
+// change the per-list sort memory, or any combination at once. Absent
+// keys leave the stored value untouched (vs. sending `description: ""`
+// or `default_sort: null` which clear).
 router.put('/:id', (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid list id' });
@@ -154,6 +172,15 @@ router.put('/:id', (req, res) => {
     }
     fields.push('description = ?');
     params.push(description);
+  }
+
+  if (req.body.default_sort !== undefined) {
+    const ds = req.body.default_sort;
+    if (!validDefaultSort(ds)) {
+      return res.status(400).json({ error: 'Invalid default_sort' });
+    }
+    fields.push('default_sort = ?');
+    params.push(ds);
   }
 
   if (fields.length === 0) {

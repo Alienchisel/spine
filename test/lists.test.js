@@ -177,6 +177,83 @@ describe('lists', () => {
       assert.equal(body.name, 'Renamed Preserve Desc');
       assert.equal(body.description, 'should survive a rename-only update');
     });
+
+    // default_sort — per-list sort memory.
+    it('POST accepts default_sort and stores it', async () => {
+      const { status, body } = await req('POST', '/api/lists', {
+        name: 'Chrono List',
+        default_sort: 'year_published',
+      });
+      assert.equal(status, 201);
+      assert.equal(body.default_sort, 'year_published');
+    });
+
+    it('POST rejects invalid default_sort', async () => {
+      const { status } = await req('POST', '/api/lists', {
+        name: 'Bad Sort',
+        default_sort: 'cromulent',
+      });
+      assert.equal(status, 400);
+    });
+
+    it('PUT updates default_sort independently of name/description', async () => {
+      const list = await createList('Sort Memory');
+      const { body } = await req('PUT', `/api/lists/${list.id}`, { default_sort: 'title' });
+      assert.equal(body.default_sort, 'title');
+      assert.equal(body.name, 'Sort Memory');
+    });
+
+    it('PUT clears default_sort when sent as null', async () => {
+      const { body: created } = await req('POST', '/api/lists', {
+        name: 'Clear Sort', default_sort: 'rating',
+      });
+      const { body } = await req('PUT', `/api/lists/${created.id}`, { default_sort: null });
+      assert.equal(body.default_sort, null);
+    });
+
+    it('PUT rejects invalid default_sort', async () => {
+      const list = await createList('Strict Sort');
+      const { status } = await req('PUT', `/api/lists/${list.id}`, { default_sort: 'banana' });
+      assert.equal(status, 400);
+    });
+  });
+
+  describe('GET /api/lists/:id sort precedence', () => {
+    it('uses stored default_sort when no ?sort= query is present', async () => {
+      const { body: created } = await req('POST', '/api/lists', {
+        name: 'Default Year Sort', default_sort: 'year_published',
+      });
+      // Create three books with different years and add them in non-chrono
+      // order so the difference between 'added' (insert order) and
+      // 'year_published' (chronological) is observable.
+      const { body: a } = await req('POST', '/api/books', { title: 'Sort A', year_published: 2010 });
+      const { body: b } = await req('POST', '/api/books', { title: 'Sort B', year_published: 1980 });
+      const { body: c } = await req('POST', '/api/books', { title: 'Sort C', year_published: 2000 });
+      await req('POST', `/api/lists/${created.id}/books`, { book_id: a.id });
+      await req('POST', `/api/lists/${created.id}/books`, { book_id: b.id });
+      await req('POST', `/api/lists/${created.id}/books`, { book_id: c.id });
+
+      // No ?sort= → server falls through to default_sort (year_published asc).
+      const { body } = await req('GET', `/api/lists/${created.id}`);
+      const years = body.books.map(bk => bk.year_published);
+      assert.deepEqual(years, [1980, 2000, 2010], 'default_sort=year_published should order by year asc');
+    });
+
+    it('explicit ?sort= query overrides default_sort', async () => {
+      const { body: created } = await req('POST', '/api/lists', {
+        name: 'Override Sort', default_sort: 'year_published',
+      });
+      const { body: a } = await req('POST', '/api/books', { title: 'X-aaa', year_published: 2010 });
+      const { body: b } = await req('POST', '/api/books', { title: 'X-zzz', year_published: 1980 });
+      await req('POST', `/api/lists/${created.id}/books`, { book_id: a.id });
+      await req('POST', `/api/lists/${created.id}/books`, { book_id: b.id });
+
+      const { body } = await req('GET', `/api/lists/${created.id}?sort=title`);
+      // 'X-aaa' (2010) should come before 'X-zzz' (1980) because explicit title
+      // sort beats the stored year-published default.
+      assert.equal(body.books[0].title, 'X-aaa');
+      assert.equal(body.books[1].title, 'X-zzz');
+    });
   });
 
   describe('DELETE /api/lists/:id', () => {
