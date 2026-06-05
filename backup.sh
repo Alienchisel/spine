@@ -6,7 +6,7 @@ DB="$SPINE_DIR/spine.db"
 UPLOADS="$SPINE_DIR/uploads"
 BACKUP_DIR="$SPINE_DIR/backups"
 DAILY_DB_DIR="$BACKUP_DIR/daily-db"
-KEEP=30
+KEEP=14
 RCLONE_REMOTE="spine-b2:spine-backups"
 
 mkdir -p "$BACKUP_DIR" "$DAILY_DB_DIR"
