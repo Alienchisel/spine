@@ -237,6 +237,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
     book.title,
     book.authors?.map(a => a.name).join(', '),
     isAudiobook && book.narrators?.length > 0 ? `read by ${book.narrators.map(n => n.name).join(', ')}` : null,
+    book.is_stub ? '(wishlist placeholder)' : null,
   ].filter(Boolean).join(' — ');
   return (
     <div onKeyDown={handleKeyDown} className={`transition-[background-color] ease-out duration-150 ${compact ? '' : 'bg-card rounded-lg p-1.5'} ${dimming}`}>

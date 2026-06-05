@@ -212,7 +212,7 @@ describe('book contract: full field round-trip', () => {
       owned:             false,               // is_custom gate forces → 1
       previously_owned:  true,                // is_custom gate forces → 0
       is_custom:         true,
-      is_stub:           true,                // auto-cleared: title + authors present → 0
+      is_stub:           true,                // auto-cleared: is_custom forces owned → wishlist graduates → 0
       loved:             true,
       fiction:           false,               // → 0 (was 1)
       source_type:       'secondary',

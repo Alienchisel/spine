@@ -583,6 +583,11 @@ export default function BookDetail() {
                 Archived
               </span>
             ) : null}
+            {book.is_stub ? (
+              <span className="ml-2 align-middle text-[10px] uppercase tracking-wider text-emerald-400/80 font-normal border border-emerald-400/30 rounded px-1.5 py-0.5" title="A wishlist placeholder — edition details TBD. Will graduate automatically when marked owned.">
+                Wishlist
+              </span>
+            ) : null}
           </h1>
           {/* Meta cluster docks against the title's baseline so short titles
               don't leave it floating off in space. flex-wrap lets it drop

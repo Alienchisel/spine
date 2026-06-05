@@ -13,13 +13,13 @@ export function bookToFormState(book) {
     room_id: book.room_id ?? null,
     unit_id: book.unit_id ?? null,
     is_custom: Boolean(book.is_custom),
-    // Booleans that have no UI control in BookForm but live in
-    // BOOK_TABLE_COLUMNS — they MUST round-trip through form state, otherwise
-    // editing a book's other fields and saving silently wipes them via the
-    // `payload.X ? 1 : 0` write path. is_stub auto-clears on PUT when title
-    // and authors are present, so it's usually a no-op; loved and archived
-    // have no such cushion. (Pre-1.20 bug: loved was silently wiped on every
-    // form save; archived would have had the same problem from day one.)
+    // Booleans that must round-trip through form state so editing a book's
+    // other fields and saving doesn't silently wipe them via the
+    // `payload.X ? 1 : 0` write path. (Pre-1.20 bug: loved was silently
+    // wiped on every form save; archived would have had the same problem
+    // from day one.) is_stub now has a checkbox in AcquisitionFields
+    // ("Wishlist placeholder") so it's user-controlled; the server also
+    // auto-clears it on owned→1 transition.
     loved: Boolean(book.loved),
     archived: Boolean(book.archived),
     is_stub: Boolean(book.is_stub),

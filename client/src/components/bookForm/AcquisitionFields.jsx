@@ -31,6 +31,17 @@ export default function AcquisitionFields({ form, setForm, set, pastSources, she
             </span>
           </label>
         )}
+        {!form.is_custom && !form.owned && (
+          <label className="flex items-center gap-3 cursor-pointer select-none">
+            <input type="checkbox" checked={form.is_stub}
+              onChange={(e) => set('is_stub', e.target.checked)}
+              className="w-4 h-4 rounded border-neutral-700 bg-neutral-900 text-oak focus:ring-0 focus:ring-offset-0" />
+            <span className="text-sm text-neutral-300">
+              Wishlist placeholder
+              <span className="text-neutral-600 ml-1.5">— edition I want but don't have yet (auto-clears on acquisition)</span>
+            </span>
+          </label>
+        )}
         <label className="flex items-center gap-3 cursor-pointer select-none">
           <input type="checkbox" checked={form.is_custom}
             onChange={(e) => {

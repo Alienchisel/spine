@@ -1295,6 +1295,37 @@ describe('books', () => {
       assert.equal(second.current_page, 50);
       assert.equal(second.updated_at, first.updated_at);
     });
+
+    // Wishlist-placeholder semantics: is_stub is user-controlled and
+    // graduates automatically when the row transitions to owned=1.
+    it('is_stub persists when owned=0 (no auto-clear by title/authors)', async () => {
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Some PKD Paperback I Want', authors: ['Philip K. Dick'],
+        format: 'physical', binding: 'paperback', owned: 0, is_stub: true,
+      });
+      assert.equal(created.is_stub, 1, 'wishlist flag should persist on POST despite full title+authors');
+      const { body: fetched } = await req('GET', `/api/books/${created.id}`);
+      assert.equal(fetched.is_stub, 1, 'wishlist flag should round-trip on GET');
+    });
+
+    it('owned→1 transition auto-clears is_stub (PATCH)', async () => {
+      const { body: stub } = await req('POST', '/api/books', {
+        title: 'Ubik (wishlist)', authors: ['Philip K. Dick'], owned: 0, is_stub: true,
+      });
+      assert.equal(stub.is_stub, 1);
+      const { body: acquired } = await req('PATCH', `/api/books/${stub.id}`, { owned: 1 });
+      assert.equal(acquired.is_stub, 0, 'acquisition should auto-graduate the wishlist placeholder');
+      assert.equal(acquired.owned, 1);
+    });
+
+    it('owned→0 does NOT toggle is_stub on (only graduation is automatic)', async () => {
+      const { body: owned } = await req('POST', '/api/books', {
+        title: 'Owned Book', authors: ['Some Author'], owned: 1,
+      });
+      assert.equal(owned.is_stub, 0);
+      const { body: unowned } = await req('PATCH', `/api/books/${owned.id}`, { owned: 0 });
+      assert.equal(unowned.is_stub, 0, 'un-owning a book should not promote it to wishlist');
+    });
   });
 
   describe('DELETE /api/books/:id', () => {
