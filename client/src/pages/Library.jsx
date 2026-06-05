@@ -522,7 +522,14 @@ export default function Library() {
     // visible list was already wiped above, so prevDepth=0 and the
     // loop fetches just the first page like the original behaviour.
     const prevDepth = isSameState ? loadedRef.current : 0;
-    loadedRef.current = 0;
+    // Only zero loadedRef on a real state change. On a same-state
+    // refresh, leaving it at the previous depth keeps `hasMore` and the
+    // "Load more · N remaining" label correct while the new fetch is
+    // in flight — clearing it here used to flip hasMore true mid-refetch
+    // and surface a phantom Load more / Load all pair under the
+    // already-visible Load-all'd grid (the "Load all got undone" bug).
+    // The IIFE below resets loadedRef to `collected.length` on success.
+    if (!isSameState) loadedRef.current = 0;
     (async () => {
       try {
         const collected = [];
