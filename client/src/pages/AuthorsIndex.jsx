@@ -25,6 +25,11 @@ const VALID_SORTS = new Set(SORTS.map(s => s.key));
 // unrelated query params from sticking around when this page replaces
 // them on update.
 const VALID_PARAMS = new Set(['q', 'sort']);
+// localStorage key for the page-level sort preference. Persists the
+// most-recent non-default sort across cold-start navigations (clicking
+// the top-nav "Authors" link, opening a fresh tab) where the URL has no
+// `?sort=` to carry the choice. Mirror of Library's per-tab sortByTab.
+const LS_SORT_KEY = 'spine.authorsIndexSort';
 function pickValidParams(src) {
   const out = new URLSearchParams();
   for (const [k, v] of src.entries()) {
@@ -78,15 +83,37 @@ export default function AuthorsIndex() {
   const query = params.get('q') ?? '';
   const sort  = VALID_SORTS.has(params.get('sort')) ? params.get('sort') : 'name';
 
-  // Drop any unknown query params on mount so a stale bookmark from a
-  // prior version doesn't sit there cluttering the URL. Pass `state`
-  // through so a Stats-arrived '← Stats' back link survives the replace.
+  // On mount: (1) drop any unknown query params so a stale bookmark from
+  // a prior version doesn't sit there cluttering the URL; (2) if no
+  // ?sort= is in the URL, seed it from localStorage so the user's last
+  // chosen sort persists across cold-start navigations (top-nav clicks,
+  // fresh tabs). URL still wins over localStorage when it carries a
+  // sort, so bookmarked audit views (?sort=stale_tense) behave as
+  // expected. Pass `state` through so a Stats-arrived '← Stats' back
+  // link survives the replace.
   useEffect(() => {
-    if (Array.from(params.keys()).some(k => !VALID_PARAMS.has(k))) {
-      setParams(pickValidParams(params), { replace: true, state });
+    const next = pickValidParams(params);
+    let changed = Array.from(params.keys()).some(k => !VALID_PARAMS.has(k));
+    if (!next.has('sort')) {
+      const stored = localStorage.getItem(LS_SORT_KEY);
+      // Only seed when the stored value is a real non-default sort —
+      // 'name' is the implicit default and lives as an absent param.
+      if (stored && stored !== 'name' && VALID_SORTS.has(stored)) {
+        next.set('sort', stored);
+        changed = true;
+      }
     }
+    if (changed) setParams(next, { replace: true, state });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Persist the resolved sort to localStorage on every change so the
+  // page-level memory tracks the URL. Writes 'name' (the default) too,
+  // so a user who explicitly picks Name after picking Books still has
+  // their choice remembered as the new sticky default.
+  useEffect(() => {
+    localStorage.setItem(LS_SORT_KEY, sort);
+  }, [sort]);
 
   function updateParam(key, value) {
     const next = pickValidParams(params);

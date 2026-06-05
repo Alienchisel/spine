@@ -19,6 +19,10 @@ const VALID_SORTS = new Set(SORTS.map(s => s.key));
 // URL whitelist — same pattern as Authors / Collage so stale params
 // from old bookmarks don't haunt new versions.
 const VALID_PARAMS = new Set(['q', 'sort']);
+// localStorage key for the page-level sort preference. Mirrors
+// AuthorsIndex's LS_SORT_KEY pattern — the URL still wins when present
+// (so bookmarks behave), but cold-start nav restores the last choice.
+const LS_SORT_KEY = 'spine.tagsIndexSort';
 function pickValidParams(src) {
   const out = new URLSearchParams();
   for (const [k, v] of src.entries()) {
@@ -39,14 +43,27 @@ export default function TagsIndex() {
   const query = params.get('q') ?? '';
   const sort  = VALID_SORTS.has(params.get('sort')) ? params.get('sort') : 'name';
 
-  // Drop any unknown query params on mount so a stale bookmark from a
-  // prior version doesn't sit there cluttering the URL.
+  // On mount: drop unknown params AND seed sort from localStorage when
+  // URL has no ?sort=. Same pattern as AuthorsIndex — URL wins, but the
+  // last picked sort persists across cold-start navigations.
   useEffect(() => {
-    if (Array.from(params.keys()).some(k => !VALID_PARAMS.has(k))) {
-      setParams(pickValidParams(params), { replace: true, state });
+    const next = pickValidParams(params);
+    let changed = Array.from(params.keys()).some(k => !VALID_PARAMS.has(k));
+    if (!next.has('sort')) {
+      const stored = localStorage.getItem(LS_SORT_KEY);
+      if (stored && stored !== 'name' && VALID_SORTS.has(stored)) {
+        next.set('sort', stored);
+        changed = true;
+      }
     }
+    if (changed) setParams(next, { replace: true, state });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Persist the resolved sort to localStorage on every change.
+  useEffect(() => {
+    localStorage.setItem(LS_SORT_KEY, sort);
+  }, [sort]);
 
   function updateParam(key, value) {
     const next = pickValidParams(params);
