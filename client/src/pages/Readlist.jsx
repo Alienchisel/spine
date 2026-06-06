@@ -401,7 +401,7 @@ export default function Readlist() {
                     ? <>Showing {PICK_COUNT} of {pickerCandidates.length} matches.</>
                     : <>{plural(pickerCandidates.length, 'match', 'matches')}.</>}
                 </span>
-                {pickerCandidates.length > PICK_COUNT && (
+                {pickerCandidates.length > 1 && (
                   <button
                     type="button"
                     onClick={() => setShuffleSeed(s => (s + 1) | 0)}
