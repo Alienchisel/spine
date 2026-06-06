@@ -193,6 +193,43 @@ describe('books', () => {
       assert.ok(body.tags.some(t => t.name === 'classic'));
     });
 
+    it('strips matched wrapping quotes from identifier-like fields', async () => {
+      // Defends against ingest scripts that paste a literal Python repr()
+      // into a free-text field. The 2026-06-06 incident put three books
+      // under authors stored as "'Simplicius'" which sorted ahead of
+      // "Aeneas" because ' (0x27) is below letters in ASCII.
+      const { status, body } = await req('POST', '/api/books', {
+        title:    "'Quoted Title'",
+        publisher:'"Quoted Publisher"',
+        series:   "'Quoted Series'",
+        authors:  ["'Wrapped Author'"],
+        tags:     ['"Wrapped Tag"'],
+      });
+      assert.equal(status, 201);
+      assert.equal(body.title, 'Quoted Title');
+      assert.equal(body.publisher, 'Quoted Publisher');
+      assert.equal(body.series, 'Quoted Series');
+      assert.equal(body.authors[0].name, 'Wrapped Author');
+      assert.equal(body.tags[0].name, 'Wrapped Tag');
+    });
+
+    it('leaves mid-string quotes and prose-body quotes alone', async () => {
+      // Mid-string: s[0] !== s[s.length-1] so stripWrap is a no-op.
+      // Prose fields (description/notes/review) skip stripWrap so a
+      // legitimately-quoted opening phrase isn't silently truncated.
+      const { status, body } = await req('POST', '/api/books', {
+        title:       '"Stonewall" Jackson Reads',
+        description: '"A great book." — the publisher',
+        review:      '"meh."',
+        authors:     ['"Stonewall" Jackson'],
+      });
+      assert.equal(status, 201);
+      assert.equal(body.title, '"Stonewall" Jackson Reads');
+      assert.equal(body.description, '"A great book." — the publisher');
+      assert.equal(body.review, '"meh."');
+      assert.equal(body.authors[0].name, '"Stonewall" Jackson');
+    });
+
     it('rejects missing title', async () => {
       const { status, body } = await req('POST', '/api/books', { author: 'Someone' });
       assert.equal(status, 400);
