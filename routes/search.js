@@ -44,7 +44,13 @@ router.get('/', async (req, res) => {
     const isIsbn = /^\d{13}$|^\d{9}[\dX]$/.test(stripped);
     const olQuery = isIsbn ? `isbn:${stripped}` : q;
     const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(olQuery)}&fields=key,title,author_name,number_of_pages_median,publisher,cover_i,isbn&limit=10`;
-    const response = await fetchWithTimeout(url);
+    // OL's /search.json is a multi-token query against the full index and
+    // routinely takes 1–3s, with frequent spikes past 5s under load. The
+    // shared 5s default trips often enough to surface "Search failed" in
+    // the cover-audit wizard on otherwise valid queries — give it room.
+    // /description (key lookup, ~200ms) keeps the 5s default; no need to
+    // wait longer on the fast path.
+    const response = await fetchWithTimeout(url, 15000);
     if (!response.ok) return res.status(502).json({ error: 'Open Library unavailable' });
 
     const data = await response.json();
