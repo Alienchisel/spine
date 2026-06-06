@@ -653,6 +653,38 @@ export default function BookDetail() {
           <p role="alert" className="text-xs text-warn mb-3">{seriesError}</p>
         )}
         {(() => {
+          // Cohort nav wins when the user arrived from a list — series-sibling
+          // order is arbitrary when most rows are unnumbered, and the user
+          // expects prev/next to thread through the list they were just
+          // scanning. Fall through to series-based nav otherwise. The
+          // {id, title} cohort is set by ListDetail's fromState and
+          // forwarded across hops via detailReturnState (which is just
+          // navState passed through unchanged).
+          const cohort = Array.isArray(navState?.cohort) ? navState.cohort : null;
+          if (cohort && cohort.length >= 2) {
+            const idx = cohort.findIndex(c => c.id === book.id);
+            if (idx >= 0) {
+              const prev = idx > 0 ? cohort[idx - 1] : null;
+              const next = idx < cohort.length - 1 ? cohort[idx + 1] : null;
+              if (!prev && !next) return null;
+              return (
+                <div className="flex items-center justify-between text-xs text-neutral-600 mt-3 mb-3">
+                  {prev ? (
+                    <Link to={`/books/${prev.id}`} state={detailReturnState} title={prev.title} className="hover:text-neutral-400 transition-colors flex items-center gap-1 min-w-0">
+                      <span className="flex-shrink-0">←</span>
+                      <span className="truncate">{prev.title}</span>
+                    </Link>
+                  ) : <span />}
+                  {next && (
+                    <Link to={`/books/${next.id}`} state={detailReturnState} title={next.title} className="hover:text-neutral-400 transition-colors flex items-center gap-1 min-w-0 ml-4">
+                      <span className="truncate text-right">{next.title}</span>
+                      <span className="flex-shrink-0">→</span>
+                    </Link>
+                  )}
+                </div>
+              );
+            }
+          }
           if (seriesSiblings.length < 2) return null;
           // Series nav means "next volume", not "next sibling row." When two
           // books share the same series_number (e.g. M&C in two narrator

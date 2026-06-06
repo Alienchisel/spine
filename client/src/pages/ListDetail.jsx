@@ -192,9 +192,21 @@ export default function ListDetail() {
   // labels). 'List' is the fallback for the brief window before the
   // fetch lands, though book cards aren't rendered until `loading`
   // flips false — so the fallback rarely fires in practice.
+  // cohort threads the current list's ordered {id, title} pairs into
+  // BookDetail's navState so the destination can render a list-aware
+  // prev/next nav strip instead of falling back to series-sibling order
+  // (which is arbitrary when series_number is null on most books in the
+  // series). The cohort respects the user's current sort + load-depth,
+  // so what shows under "next" matches what's literally to the right in
+  // the list grid right now. Passed forward unchanged on each prev/next
+  // hop so the context persists across navigation chains.
   const fromState = useMemo(
-    () => ({ from: list?.name ?? 'List', fromPath: `/lists/${id}` }),
-    [id, list?.name],
+    () => ({
+      from: list?.name ?? 'List',
+      fromPath: `/lists/${id}`,
+      cohort: (list?.books || []).map(b => ({ id: b.id, title: b.title })),
+    }),
+    [id, list?.name, list?.books],
   );
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
