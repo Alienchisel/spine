@@ -1,9 +1,15 @@
 // Enum-mode wizard: a button per cfg.options value plus Skip. Number-row
 // keyboard shortcuts (1..N) live in the orchestrator's window-level
 // listener — this component renders only.
+//
+// Default grid is 2 cols on mobile / 4 cols on desktop — fits up to 7
+// buttons (6 options + Skip) in two rows. Configs with more options can
+// override via cfg.gridCols (e.g. rating's 10 options + Skip uses a
+// denser grid so Skip stays in view).
 export default function EnumModeButtons({ cfg, current, busy, onPick, onSkip }) {
+  const gridCols = cfg.gridCols ?? 'grid-cols-2 sm:grid-cols-4';
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+    <div className={`grid ${gridCols} gap-2`}>
       {cfg.options.map((opt, i) => (
         <button
           key={String(opt.value)}

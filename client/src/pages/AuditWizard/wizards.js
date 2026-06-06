@@ -120,6 +120,10 @@ export const WIZARDS = {
     patch: (id, value) => api.patchBook(id, { rating: value }),
     getName: r => r.title,
     getLink: r => `/books/${r.id}`,
+    // 10 options + Skip = 11 buttons. Denser grid (4 mobile / 6 desktop)
+    // keeps Skip in view: 11/6 = 2 rows at sm+, 11/4 = 3 rows below sm
+    // (the default 2/4-col grid would put it at 6 rows / 3 rows).
+    gridCols: 'grid-cols-4 sm:grid-cols-6',
     // 10-step scale (0.5 → 5 in 0.5 increments). Labels mirror the
     // existing rating-pill rendering in FilterPanel (floor stars +
     // optional half), so a 4½★ here matches the chip elsewhere.
