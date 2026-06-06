@@ -364,9 +364,16 @@ export default function BrowsePage() {
         // Guard: keep at least one full row so a small load doesn't render empty.
         const trim = hasMore && gridCols > 0 && books.length > gridCols ? books.length % gridCols : 0;
         const visible = trim > 0 ? books.slice(0, -trim) : books;
+        // cohort = the loaded set (not just the trimmed-visible slice) so
+        // prev/next on BookDetail can step into a card that's hidden by
+        // the trailing-partial-row trim. Mirrors Library / Author / List.
+        const linkStateWithCohort = {
+          ...fromState,
+          cohort: books.map(b => ({ id: b.id, title: b.title })),
+        };
         return (
           <div className={gridClassName} style={gridStyle}>
-            {visible.map(book => <BookCard key={book.id} book={book} compact={compact} linkState={fromState} />)}
+            {visible.map(book => <BookCard key={book.id} book={book} compact={compact} linkState={linkStateWithCohort} />)}
           </div>
         );
       })()}

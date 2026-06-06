@@ -754,10 +754,19 @@ export default function Library() {
   // filtered view they came from rather than the default Library root.
   // Memoised so every BookCard in the grid receives the same reference
   // until the URL actually changes.
+  // cohort threads the currently-loaded books (in current sort order) into
+  // BookDetail's navState so prev/next there walks the same view the user
+  // was scanning. Flat — series-grouping is a display concern, not a
+  // navigation one. Cohort spans only the loaded set; the user can hit
+  // back and Load more to extend it.
   const fromState = useMemo(() => {
     const qs = searchParams.toString();
-    return { from: 'Library', fromPath: qs ? `/?${qs}` : '/' };
-  }, [searchParams]);
+    return {
+      from: 'Library',
+      fromPath: qs ? `/?${qs}` : '/',
+      cohort: books.map(b => ({ id: b.id, title: b.title })),
+    };
+  }, [searchParams, books]);
   const gridCols        = coverCols;
   const hasMore         = loadedRef.current < total;
 

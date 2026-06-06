@@ -661,7 +661,16 @@ export default function Author() {
                   )
                 ) : (
                   <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-3 gap-y-5 items-start">
-                    {visibleBooks.map(book => <BookCard key={book.id} book={book} linkState={fromState} />)}
+                    {/* cohort tracks the currently-visible cohort (post archived/
+                        unowned toggles) so BookDetail's prev/next walks the same
+                        view, not the raw author.books list. */}
+                    {(() => {
+                      const linkStateWithCohort = {
+                        ...fromState,
+                        cohort: visibleBooks.map(b => ({ id: b.id, title: b.title })),
+                      };
+                      return visibleBooks.map(book => <BookCard key={book.id} book={book} linkState={linkStateWithCohort} />);
+                    })()}
                   </div>
                 )}
               </>
