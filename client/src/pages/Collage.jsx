@@ -6,6 +6,7 @@ import { initialsFor } from '../utils.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import { useActionGuard } from '../hooks/useActionGuard.js';
 import ErrorBanner from '../components/ErrorBanner.jsx';
+import { GridSkeleton } from '../components/Skeleton.jsx';
 
 const STORAGE_KEY = 'spine.collage.lastConfig';
 
@@ -349,7 +350,7 @@ export default function Collage() {
       <ErrorBanner message={error} onDismiss={() => setError(null)} />
 
       {loading ? (
-        <div role="status" className="text-neutral-700 text-sm">Loading…</div>
+        <GridSkeleton count={size * size} compact gridStyle={gridStyle} gridClassName="grid gap-2" />
       ) : tiles.length === 0 ? (
         <p className="text-sm text-neutral-600">
           {needsYear ? `No books finished in ${year}.`

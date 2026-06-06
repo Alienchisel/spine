@@ -4,6 +4,7 @@ import { api } from '../api.js';
 import { formatAuthors, initialsFor, fmtHM, plural, pluralWord } from '../utils.js';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
+import { GridSkeleton } from '../components/Skeleton.jsx';
 
 const FROM_READLIST = { from: 'Readlist', fromPath: '/readlist' };
 
@@ -286,7 +287,7 @@ export default function Readlist() {
       </div>
 
       {loading ? (
-        <div role="status" className="text-neutral-700 text-sm">Loading…</div>
+        <GridSkeleton count={10} gridClassName="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-4 gap-y-6 items-start" />
       ) : error ? (
         <div role="alert" className="text-warn text-sm">{error}</div>
       ) : wholeListEmpty ? (

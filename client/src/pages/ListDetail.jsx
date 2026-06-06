@@ -23,6 +23,7 @@ import { api } from '../api.js';
 import { plural } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
 import CompletionIndicator from '../components/CompletionIndicator.jsx';
+import { GridSkeleton } from '../components/Skeleton.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useLatest } from '../hooks/useLatest.js';
 import { useActionGuard } from '../hooks/useActionGuard.js';
@@ -612,13 +613,13 @@ export default function ListDetail() {
     });
   }
 
-  if (loading) return <div role="status" className="text-neutral-700 text-sm">Loading…</div>;
+  if (loading) return <GridSkeleton count={18} gridClassName="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-x-3 gap-y-5 items-start" />;
   if (error)   return <div role="alert" className="text-red-500 text-sm">{error}</div>;
   // Defensive: cover any future code path that lands here with list still
   // null (the in-effect adoption flag should prevent this, but the render
   // sites below dereference list.name / list.books / list.description
   // directly — a null slip would crash the whole page).
-  if (!list)   return <div role="status" className="text-neutral-700 text-sm">Loading…</div>;
+  if (!list)   return <GridSkeleton count={18} gridClassName="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-x-3 gap-y-5 items-start" />;
 
   const draggable = sort === 'added';
 

@@ -5,6 +5,7 @@ import { api } from '../api.js';
 import BookCard from '../components/BookCard.jsx';
 import CoverSizeSlider from '../components/CoverSizeSlider.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
+import { GridSkeleton } from '../components/Skeleton.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useCoverSize } from '../hooks/useCoverSize.js';
 
@@ -57,7 +58,7 @@ export default function Loved() {
       )}
 
       {loading ? (
-        <div role="status" className="text-neutral-700 text-sm">Loading…</div>
+        <GridSkeleton count={15} compact={compact} gridStyle={gridStyle} gridClassName={gridClassName} />
       ) : books.length === 0 && error ? (
         <div role="alert" className="text-red-500 text-sm">{error}</div>
       ) : books.length === 0 ? (
