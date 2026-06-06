@@ -322,6 +322,13 @@ export default function ListDetail() {
     // the whole list), so depth restoration is a no-op there.
     const prevDepth = isRealChange ? 0 : loadedRef.current;
     loadedRef.current = 0;
+    // Track whether the IIFE exited via the default_sort adoption path —
+    // when it did, leaving loading=false here renders a `list=null,
+    // loading=false` frame before the re-fired effect's setLoading(true)
+    // commits, and the JSX crashes on `list.name`. The second effect will
+    // re-set loading=true; finally only clears loading when we actually
+    // settled on data.
+    let adopted = false;
     (async () => {
       try {
         if (sort === 'added') {
@@ -333,6 +340,7 @@ export default function ListDetail() {
           // the load effect again with the correct sort. Skip when the
           // user has already chosen explicitly.
           if (data.default_sort && data.default_sort !== sort && !userChangedSortRef.current) {
+            adopted = true;
             setSort(data.default_sort);
             return;
           }
@@ -353,6 +361,7 @@ export default function ListDetail() {
           // switch to it. The load effect re-runs with the new sort and
           // discards the in-flight merge below.
           if (offset === 0 && data.default_sort && data.default_sort !== sort && !userChangedSortRef.current) {
+            adopted = true;
             setSort(data.default_sort);
             return;
           }
@@ -368,7 +377,7 @@ export default function ListDetail() {
       } catch {
         if (guard.isFresh(epoch)) setError('Failed to load list.');
       } finally {
-        if (guard.isFresh(epoch)) setLoading(false);
+        if (guard.isFresh(epoch) && !adopted) setLoading(false);
       }
     })();
   }, [id, sort, refreshTick]);
@@ -565,6 +574,11 @@ export default function ListDetail() {
 
   if (loading) return <div role="status" className="text-neutral-700 text-sm">Loading…</div>;
   if (error)   return <div role="alert" className="text-red-500 text-sm">{error}</div>;
+  // Defensive: cover any future code path that lands here with list still
+  // null (the in-effect adoption flag should prevent this, but the render
+  // sites below dereference list.name / list.books / list.description
+  // directly — a null slip would crash the whole page).
+  if (!list)   return <div role="status" className="text-neutral-700 text-sm">Loading…</div>;
 
   const draggable = sort === 'added';
 

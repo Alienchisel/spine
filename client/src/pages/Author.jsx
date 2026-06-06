@@ -198,6 +198,12 @@ export default function Author() {
     let cancelled = false;
     setLoading(true);
     setErrorKind(null);
+    // Track whether the adoption path was taken so finally doesn't clear
+    // loading mid-handoff — same bug shape as ListDetail (where the
+    // leaked loading=false crashed the page) but here the defensive
+    // `author?.name` only masks it as a single-frame "Author not found"
+    // flash before the re-fired effect's setLoading(true) re-paints.
+    let adopted = false;
     api.getAuthor(id, { sort })
       .then(data => {
         if (cancelled) return;
@@ -206,6 +212,7 @@ export default function Author() {
         // chosen during this visit, switch to it — setSort fires the
         // load effect again with the correct sort.
         if (data.default_sort && data.default_sort !== sort && !userChangedSortRef.current) {
+          adopted = true;
           setSort(data.default_sort);
           return;
         }
@@ -222,7 +229,7 @@ export default function Author() {
         // prune from a last-book delete, direct API delete, anything.
         if (notFound) dispatchSpineEvent('spine:author-deleted', { id: Number(id) });
       })
-      .finally(() => { if (!cancelled) setLoading(false); });
+      .finally(() => { if (!cancelled && !adopted) setLoading(false); });
     return () => { cancelled = true; };
   }, [id, sort]);
 
