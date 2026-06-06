@@ -85,8 +85,8 @@ export function pruneFilters(filters, facets) {
   };
 }
 
-export function buildApiParams(tab, sort, filters, q, offset, seed) {
-  const p = { tab, sort, limit: PAGE_SIZE, offset };
+export function buildApiParams(tab, sort, filters, q, offset, seed, limit = PAGE_SIZE) {
+  const p = { tab, sort, limit, offset };
   // Random sort needs a seed so pagination + refetches stay in sync — the
   // backend hashes (id, seed) into a stable order. Other sorts ignore it.
   if (sort === 'random' && seed != null) p.seed = String(seed);

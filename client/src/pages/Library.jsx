@@ -247,6 +247,12 @@ export default function Library() {
   const [queryRaw, setQueryRaw] = useState(query);
 
   const [books,       setBooks]       = useState([]);
+  // Cohort fetch is independent of the paginated visible-books fetch so
+  // BookDetail's prev/next can walk the current filter+sort view past the
+  // first 48 books. Server caps at 200; libraries / filtered views larger
+  // than that truncate the cohort there. Refreshes on the same triggers
+  // as the main load (tab/sort/filters/query/randomSeed/refreshTick).
+  const [cohort,      setCohort]      = useState([]);
   const [total,       setTotal]       = useState(0);
   const [loading,     setLoading]     = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -570,6 +576,21 @@ export default function Library() {
     })();
   }, [tab, sort, filters, query, refreshTick, randomSeed]);
 
+  // Parallel cohort fetch — see [cohort] declaration above for rationale.
+  // Cleared on every fire so a stale slow response can't stamp the new
+  // view's cohort.
+  useEffect(() => {
+    setCohort([]);
+    let cancelled = false;
+    api.getBooks(buildApiParams(tab, sort, filters, query, 0, randomSeed, 200))
+      .then(({ books: b }) => {
+        if (cancelled) return;
+        setCohort(b.map(x => ({ id: x.id, title: x.title })));
+      })
+      .catch(() => { /* fall back to the visible-books shape in fromState */ });
+    return () => { cancelled = true; };
+  }, [tab, sort, filters, query, refreshTick, randomSeed]);
+
   function handleLoadMore() {
     // Mirror the disabled button. React batches state updates, so two
     // rapid clicks before the next render both see loadingMore=false and
@@ -754,19 +775,20 @@ export default function Library() {
   // filtered view they came from rather than the default Library root.
   // Memoised so every BookCard in the grid receives the same reference
   // until the URL actually changes.
-  // cohort threads the currently-loaded books (in current sort order) into
-  // BookDetail's navState so prev/next there walks the same view the user
-  // was scanning. Flat — series-grouping is a display concern, not a
-  // navigation one. Cohort spans only the loaded set; the user can hit
-  // back and Load more to extend it.
+  // cohort threads the current filter+sort view into BookDetail's navState
+  // so prev/next walks the same view the user was scanning. Prefers the
+  // separate cohort fetch (full view up to the 200 server cap); falls
+  // back to the visible-books slice during the brief first-paint window
+  // before the cohort lands. Flat — series-grouping is a display concern,
+  // not a navigation one.
   const fromState = useMemo(() => {
     const qs = searchParams.toString();
     return {
       from: 'Library',
       fromPath: qs ? `/?${qs}` : '/',
-      cohort: books.map(b => ({ id: b.id, title: b.title })),
+      cohort: cohort.length > 0 ? cohort : books.map(b => ({ id: b.id, title: b.title })),
     };
-  }, [searchParams, books]);
+  }, [searchParams, books, cohort]);
   const gridCols        = coverCols;
   const hasMore         = loadedRef.current < total;
 

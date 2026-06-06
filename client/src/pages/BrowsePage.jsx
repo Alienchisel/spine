@@ -110,6 +110,10 @@ export default function BrowsePage() {
   );
 
   const [books,       setBooks]       = useState([]);
+  // Cohort fetch — independent of the paginated visible-books fetch so
+  // BookDetail's prev/next can walk past the first PAGE_SIZE books in
+  // this browse view. Server caps at 200; oversize views truncate there.
+  const [cohort,      setCohort]      = useState([]);
   const [total,       setTotal]       = useState(0);
   const [loading,     setLoading]     = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -221,6 +225,21 @@ export default function BrowsePage() {
       }
     })();
   }, [field, decoded, ownedTab, usesOwnedToggle, refreshTick]);
+
+  // Parallel cohort fetch — see [cohort] declaration above for rationale.
+  useEffect(() => {
+    setCohort([]);
+    let cancelled = false;
+    api.getBooks({
+      field, value: decoded, tab: ownedTab, sort: browseSort(field), limit: 200,
+    })
+      .then(({ books: b }) => {
+        if (cancelled) return;
+        setCohort(b.map(x => ({ id: x.id, title: x.title })));
+      })
+      .catch(() => { /* fall back to the visible-books shape in linkState */ });
+    return () => { cancelled = true; };
+  }, [field, decoded, ownedTab, refreshTick]);
 
   function handleLoadMore() {
     if (pagingRef.current || loadingMore || loadingAll) return;
@@ -364,12 +383,13 @@ export default function BrowsePage() {
         // Guard: keep at least one full row so a small load doesn't render empty.
         const trim = hasMore && gridCols > 0 && books.length > gridCols ? books.length % gridCols : 0;
         const visible = trim > 0 ? books.slice(0, -trim) : books;
-        // cohort = the loaded set (not just the trimmed-visible slice) so
-        // prev/next on BookDetail can step into a card that's hidden by
-        // the trailing-partial-row trim. Mirrors Library / Author / List.
+        // Prefer the separate cohort fetch (up to the 200 server cap) so
+        // prev/next walks past the first PAGE_SIZE books in this browse
+        // view. Falls back to the visible-loaded set if the cohort fetch
+        // hasn't landed yet.
         const linkStateWithCohort = {
           ...fromState,
-          cohort: books.map(b => ({ id: b.id, title: b.title })),
+          cohort: cohort.length > 0 ? cohort : books.map(b => ({ id: b.id, title: b.title })),
         };
         return (
           <div className={gridClassName} style={gridStyle}>

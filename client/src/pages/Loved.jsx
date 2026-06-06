@@ -17,7 +17,11 @@ export default function Loved() {
 
   useEffect(() => {
     let stale = false;
-    api.getBooks({ tab: 'loved' })
+    // limit=200 is the /api/books cap. Without this, the server default of
+    // 50 truncates the cohort that flows into BookDetail's prev/next; a
+    // user with >50 loved books couldn't sequence through them all. >200
+    // would truncate; rare and acceptable.
+    api.getBooks({ tab: 'loved', limit: 200 })
       .then(({ books }) => { if (!stale) { setBooks(books); setError(null); } })
       .catch(() => { if (!stale) setError('Failed to load loved books.'); })
       .finally(() => { if (!stale) setLoading(false); });
@@ -65,8 +69,8 @@ export default function Loved() {
         </div>
       ) : (
         <div className={gridClassName} style={gridStyle}>
-          {/* cohort = currently-shown loved books in their sort order so
-              BookDetail's prev/next walks the Loved view. */}
+          {/* cohort = the full loved set (server-capped at 200) so prev/next
+              on BookDetail walks the whole Loved view. */}
           {(() => {
             const linkState = {
               from: 'Loved',
