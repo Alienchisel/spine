@@ -2033,6 +2033,75 @@ describe('books', () => {
       assert.deepEqual(defaulted.authors, []);
     });
 
+    it('missing= edition-specific filters exclude wishlist stubs', async () => {
+      // The audit wizards back these `missing=` queries. Stubs are
+      // wishlist placeholders where edition details are TBD by definition
+      // (binding / publisher / isbn / page_count / duration / narrator /
+      // translator). Surfacing them in those wizards asks the wrong
+      // question. Work-level missing= filters (author, description,
+      // language, series_number) still include stubs because those facts
+      // are typically known at placeholder-creation.
+      const stem = 'stubaudit' + Math.random().toString(36).slice(2, 6);
+      // Stub: physical, paperback-eligible, no binding/publisher/isbn/page.
+      const { body: stub } = await req('POST', '/api/books', {
+        title: `${stem}-stub`,
+        authors: ['Stub Author'],
+        format: 'physical',
+        is_stub: true,
+      });
+      // Stub audiobook, no narrator / duration.
+      const { body: stubAudio } = await req('POST', '/api/books', {
+        title: `${stem}-stub-audio`,
+        authors: ['Stub Author'],
+        format: 'audiobook',
+        is_stub: true,
+      });
+      // Owned counterpart for contrast — same shape, should still surface.
+      const { body: owned } = await req('POST', '/api/books', {
+        title: `${stem}-owned`,
+        authors: ['Stub Author'],
+        format: 'physical',
+        owned: 1,
+      });
+      // Stub w/ translators set + no original_language → original_language
+      // surface IS reasonable (translator implies translation). Stub-only
+      // tagged.
+      const { body: stubTrans } = await req('POST', '/api/books', {
+        title: `${stem}-stub-trans`,
+        authors: ['Stub Author'],
+        format: 'physical',
+        is_stub: true,
+        translators: ['Some Translator'],
+        original_language: 'French',
+      });
+
+      try {
+        // The seven edition-specific wizards should NOT see the stubs.
+        for (const m of ['binding', 'publisher', 'isbn', 'page_count', 'pages', 'duration', 'narrator', 'translator']) {
+          const { body } = await req('GET', `/api/books?missing=${m}&q=${stem}&limit=200`);
+          const ids = new Set(body.books.map(b => b.id));
+          assert.ok(!ids.has(stub.id),      `missing=${m} should exclude is_stub=1 row`);
+          assert.ok(!ids.has(stubAudio.id), `missing=${m} should exclude is_stub=1 audiobook row`);
+          assert.ok(!ids.has(stubTrans.id), `missing=${m} should exclude is_stub=1 translator-bearing row`);
+        }
+        // Owned counterpart still shows up on missing=binding (the canonical
+        // case) so the guard isn't accidentally over-broad.
+        const { body: bindingList } = await req('GET', `/api/books?missing=binding&q=${stem}&limit=200`);
+        assert.ok(new Set(bindingList.books.map(b => b.id)).has(owned.id), 'owned physical without binding still surfaces');
+
+        // Work-level wizards still include stubs — author/description are
+        // facts the user typically knows at placeholder creation.
+        // (Sanity: stub HAS an author, so missing=author shouldn't include it
+        // anyway; we just verify a stub-targeted work-level filter still works.)
+        const { body: descList } = await req('GET', `/api/books?missing=description&q=${stem}&limit=200`);
+        assert.ok(new Set(descList.books.map(b => b.id)).has(stub.id), 'missing=description still includes stubs (work-level fact)');
+      } finally {
+        for (const id of [stub.id, stubAudio.id, owned.id, stubTrans.id]) {
+          await req('DELETE', `/api/books/${id}`);
+        }
+      }
+    });
+
     it('missing=binding surfaces physical books with no binding (audiobook / ebook excluded)', async () => {
       const stem = 'bindfilter' + Math.random().toString(36).slice(2, 6);
       // Physical, no binding — should appear.
