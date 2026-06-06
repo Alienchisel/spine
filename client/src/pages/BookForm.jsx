@@ -489,15 +489,24 @@ export default function BookForm() {
   // pointing at the same page the user just landed on.
   const backTo    = isEdit ? `/books/${id}` : (navState?.fromPath ?? '/');
   const backState = isEdit ? navState : null;
+  // Back-link label parallels every other detail page's "← {context}"
+  // pattern. Edit mode → the title the user is working on (so the link
+  // reads as a clear hop back to the book itself); New-book mode → the
+  // page they came from, defaulting to Library when navState is absent
+  // (cold deep link to /add).
+  const backLabel = isEdit
+    ? (form.title?.trim() || 'Book')
+    : (navState?.from ?? 'Library');
 
   return (
     <div className="max-w-2xl">
       <Link
         to={backTo}
         state={backState}
-        className="text-sm text-neutral-600 hover:text-neutral-300 mb-8 inline-block transition-colors"
+        title={backLabel}
+        className="text-sm text-neutral-600 hover:text-neutral-300 mb-8 inline-block transition-colors max-w-md truncate"
       >
-        ← Back
+        ← {backLabel}
       </Link>
       <h1 className="text-xl font-bold text-white mb-8">
         {isEdit ? 'Edit book' : 'Add book'}

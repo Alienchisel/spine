@@ -304,7 +304,7 @@ export default function Notes() {
                 : <>{plural(kindCohort.length, kindNoun)}</>}
           </p>
           {filtered.length === 0 ? (
-            <p className="text-neutral-600 py-8">No matches.</p>
+            <p className="text-neutral-600 py-8">No matches for the current filters.</p>
           ) : (
             <ul className="divide-y divide-neutral-800">
               {filtered.map(book => {

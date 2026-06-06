@@ -168,7 +168,7 @@ export default function SeriesIndex() {
         </table>
       )}
       {!loading && !error && filtered.length === 0 && (
-        <p className="text-sm text-neutral-500 mt-4">No series match the filter.</p>
+        <p className="text-sm text-neutral-500 mt-4">No series match the current filters.</p>
       )}
     </div>
   );
