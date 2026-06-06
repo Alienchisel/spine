@@ -431,6 +431,26 @@ describe('books', () => {
       const { status } = await req('GET', '/api/books/random?field=tag&value=__no_such_tag_zzz__');
       assert.equal(status, 404);
     });
+
+    it('excludes wishlist stubs from the random pool', async () => {
+      // Construct a corpus of only stubs under a distinctive author and
+      // confirm the unfiltered random pick within that author returns 404
+      // — wishlists aren't useful "read this next" suggestions.
+      const stem = 'stubrand' + Math.random().toString(36).slice(2, 6);
+      const stubs = [];
+      for (let i = 0; i < 3; i++) {
+        const { body } = await req('POST', '/api/books', {
+          title: `${stem}-${i}`, authors: [`${stem}-Author`], owned: 0, is_stub: true,
+        });
+        stubs.push(body.id);
+      }
+      try {
+        const { status } = await req('GET', `/api/books/random?q=${stem}`);
+        assert.equal(status, 404, 'random pick from a stub-only pool should return 404');
+      } finally {
+        for (const id of stubs) await req('DELETE', `/api/books/${id}`);
+      }
+    });
   });
 
   describe('PUT /api/books/:id', () => {
@@ -1397,6 +1417,33 @@ describe('books', () => {
       assert.equal(patched.owned, 1);
       assert.equal(patched.is_stub, 0, 'cannot mark an owned row as wishlist without un-owning it');
     });
+
+    it("status='reading' on a stub clears is_stub (active engagement implies access)", async () => {
+      const { body: stub } = await req('POST', '/api/books', {
+        title: 'Stub Reading Test', authors: ['Author'], owned: 0, is_stub: true,
+      });
+      assert.equal(stub.is_stub, 1);
+      const { body: reading } = await req('PATCH', `/api/books/${stub.id}`, { status: 'reading' });
+      assert.equal(reading.status, 'reading');
+      assert.equal(reading.is_stub, 0, 'starting a stub coerces it out of placeholder state');
+    });
+
+    it("status='finished' on a stub clears is_stub", async () => {
+      const { body: stub } = await req('POST', '/api/books', {
+        title: 'Stub Finished Test', authors: ['Author'], owned: 0, is_stub: true,
+      });
+      const { body: finished } = await req('PATCH', `/api/books/${stub.id}`, { status: 'finished' });
+      assert.equal(finished.status, 'finished');
+      assert.equal(finished.is_stub, 0, 'finishing a stub coerces it out of placeholder state');
+    });
+
+    it('POST with is_stub=true and status=reading clears is_stub at creation', async () => {
+      const { body } = await req('POST', '/api/books', {
+        title: 'Stub Created Reading', authors: ['Author'],
+        owned: 0, is_stub: true, status: 'reading',
+      });
+      assert.equal(body.is_stub, 0, 'active status at POST forecloses wishlist placeholder');
+    });
   });
 
   describe('DELETE /api/books/:id', () => {
@@ -2031,6 +2078,25 @@ describe('books', () => {
       assert.equal(adapted.authors[0].name, 'Original Writer');
       const defaulted = full.stories.find(s => s.title === 'Default attribution');
       assert.deepEqual(defaulted.authors, []);
+    });
+
+    it("tab=unread excludes wishlist stubs (literally status='unread' but not actionable as reads)", async () => {
+      const stem = 'stubunread' + Math.random().toString(36).slice(2, 6);
+      const { body: stub } = await req('POST', '/api/books', {
+        title: `${stem}-stub`, authors: ['Stub'], owned: 0, is_stub: true,
+      });
+      const { body: owned } = await req('POST', '/api/books', {
+        title: `${stem}-owned`, authors: ['Stub'], owned: 1,
+      });
+      try {
+        const { body } = await req('GET', `/api/books?tab=unread&q=${stem}&limit=200`);
+        const ids = new Set(body.books.map(b => b.id));
+        assert.ok( ids.has(owned.id), 'owned unread book should appear in Unread tab');
+        assert.ok(!ids.has(stub.id),  'wishlist stub should not appear in Unread tab');
+      } finally {
+        await req('DELETE', `/api/books/${stub.id}`);
+        await req('DELETE', `/api/books/${owned.id}`);
+      }
     });
 
     it('missing= edition-specific filters exclude wishlist stubs', async () => {

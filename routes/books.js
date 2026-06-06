@@ -48,7 +48,11 @@ router.put('/desire-order', (req, res) => {
 // in; archived='any' includes both).
 router.get('/random', (req, res) => {
   const { conditions, params } = buildFilterConditions(req.query);
-  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  // Random pick is "show me a book from my library" — a wishlist
+  // placeholder isn't readable yet, so it's not a useful suggestion.
+  // Always exclude, regardless of the filter view the caller is on.
+  conditions.push("COALESCE(is_stub,0) = 0");
+  const where = `WHERE ${conditions.join(' AND ')}`;
   const row = db.prepare(`SELECT id FROM books ${where} ORDER BY RANDOM() LIMIT 1`).get(...params);
   if (!row) return res.status(404).json({ error: 'No matching books' });
   res.json({ id: row.id });
