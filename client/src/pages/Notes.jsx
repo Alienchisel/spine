@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { initialsFor, plural, pluralWord } from '../utils.js';
+import { useRefreshTick } from '../hooks/useRefreshTick.js';
+import { useStaleGuard } from '../hooks/useStaleGuard.js';
 
 // Surfaces the reflective layer — user-authored prose (review + notes)
 // across the library — as a first-class destination, instead of leaving
@@ -150,15 +152,20 @@ export default function Notes() {
   const [activeTags, setActiveTags] = useState(() => new Set());
   const [kindFilter, setKindFilter] = useState('all');
   const searchRef = useRef(null);
+  // Alt-tab refetch — mirrors every other list-style page (Library, Diary,
+  // Loved, …). Without this, edits made elsewhere (a review tweaked on
+  // BookDetail, a tag toggled in BookForm) don't show in Notes until full
+  // page reload.
+  const refreshTick = useRefreshTick();
+  const guard       = useStaleGuard();
 
   useEffect(() => {
-    let cancelled = false;
+    const epoch = guard.next();
     api.getBooks({ has_writing: 1, sort: 'updated', limit: 200 })
-      .then(d => { if (!cancelled) setBooks(d.books || []); })
-      .catch(() => { if (!cancelled) setError('Failed to load notes.'); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, []);
+      .then(d => { if (guard.isFresh(epoch)) { setBooks(d.books || []); setError(null); } })
+      .catch(() => { if (guard.isFresh(epoch)) setError('Failed to load notes.'); })
+      .finally(() => { if (guard.isFresh(epoch)) setLoading(false); });
+  }, [refreshTick]);
 
   // Toggle a tag in the active-filter set. Empty → adds; present →
   // removes. Stable identity for the Pill onClick prop via useCallback

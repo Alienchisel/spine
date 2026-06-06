@@ -16,8 +16,8 @@ function formatDate(dateStr) {
   const yesterday = y.toLocaleDateString('en-CA');
   if (dateStr === today) return 'Today';
   if (dateStr === yesterday) return 'Yesterday';
-  return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-GB', {
-    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
   });
 }
 
@@ -90,11 +90,11 @@ function ReadingCalendar({ days, selectedYear, totals, onDayClick }) {
     const dow    = today.getDay() || 7;
     const monday = new Date(today); monday.setDate(today.getDate() - (dow - 1));
     const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
-    const dayMo  = { day: 'numeric', month: 'short' };
-    const dayMoY = { day: 'numeric', month: 'short', year: 'numeric' };
+    const dayMo  = { month: 'short', day: 'numeric' };
+    const dayMoY = { month: 'short', day: 'numeric', year: 'numeric' };
     return {
-      week:  `${monday.toLocaleDateString('en-GB', dayMo)} – ${sunday.toLocaleDateString('en-GB', dayMoY)}`,
-      month: today.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
+      week:  `${monday.toLocaleDateString('en-US', dayMo)} – ${sunday.toLocaleDateString('en-US', dayMoY)}`,
+      month: today.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
       year:  String(today.getFullYear()),
     };
   }, []);
@@ -103,7 +103,7 @@ function ReadingCalendar({ days, selectedYear, totals, onDayClick }) {
   const startOffset = (firstDow + 6) % 7;
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const totalCells  = Math.ceil((startOffset + daysInMonth) / 7) * 7;
-  const monthLabel  = new Date(viewYear, viewMonth).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  const monthLabel  = new Date(viewYear, viewMonth).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
   const atStart = viewYear === selectedYear && viewMonth === 0;
   const atEnd   = selectedYear === currentYear

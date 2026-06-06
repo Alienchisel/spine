@@ -119,7 +119,7 @@ export default function ProgressSection({ book, onChange, log }) {
       {eta ? (
         <p className="text-xs text-neutral-500 mb-3">
           ~{eta.sessions} {isAudiobook ? 'listening session' : 'reading day'}{eta.sessions !== 1 ? 's' : ''} remaining
-          {eta.finishDate && <> · est. {eta.finishDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</>}
+          {eta.finishDate && <> · est. {eta.finishDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</>}
         </p>
       ) : (
         <div className="mb-3" />

@@ -738,7 +738,7 @@ export default function Stats() {
           <div className="space-y-2.5">
             {byMonth.map(m => {
               const [y, mo] = m.month.split('-').map(Number);
-              const label = new Date(y, mo - 1, 1).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
+              const label = new Date(y, mo - 1, 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
               return (
                 <Bar
                   key={m.month}
