@@ -29,6 +29,20 @@ export default function CoverModeGrid({ cfg, current, busy, onPick, onSkip }) {
   // photos 404 cleanly) and broken thumbnails don't take up space.
   const [failedThumbs, setFailedThumbs] = useState(() => new Set());
   const inputRef = useRef(null);
+  // Tracks Tailwind's `sm` breakpoint (640px) — drives the cap on visible
+  // candidates so the Skip button stays in view regardless of breakpoint.
+  // Grid is grid-cols-3 below sm, grid-cols-4 at sm+, so 6 vs 8 = 2 rows.
+  const [isSmUp, setIsSmUp] = useState(() =>
+    typeof window === 'undefined' ? true : window.matchMedia('(min-width: 640px)').matches
+  );
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(min-width: 640px)');
+    const onChange = (e) => setIsSmUp(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  const maxTiles = isSmUp ? 8 : 6;
 
   // Auto-search per card. Initial query comes from cfg.initialQuery(record).
   useEffect(() => {
@@ -141,7 +155,8 @@ export default function CoverModeGrid({ cfg, current, busy, onPick, onSkip }) {
       {candidates.length > 0 && (() => {
         const visible = candidates
           .map((c, i) => ({ c, i }))
-          .filter(({ i }) => !failedThumbs.has(i));
+          .filter(({ i }) => !failedThumbs.has(i))
+          .slice(0, maxTiles);
         if (visible.length === 0) {
           return <p className="text-xs text-neutral-500">No real images returned. Try refining the query or skip.</p>;
         }
