@@ -436,7 +436,14 @@ router.post('/:id/photo/url', async (req, res) => {
     db.prepare('UPDATE authors SET photo_path = ? WHERE id = ?').run(photo_path, id);
     res.json(loadAuthor(id));
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch photo', detail: String(err.message || err) });
+    // networkFailure (TCP refusal / abort on both attempts) → the OL→
+    // archive.org backend is unreachable. Surface that specifically so
+    // the user knows it's an upstream issue, not Spine misbehaving —
+    // mirrors the cover route's archive.org messaging.
+    const msg = err?.networkFailure
+      ? 'Open Library image backend (archive.org) unreachable — try again'
+      : 'Failed to fetch photo';
+    res.status(502).json({ error: msg });
   }
 });
 

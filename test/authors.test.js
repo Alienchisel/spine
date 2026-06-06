@@ -445,6 +445,60 @@ describe('authors — Open Library refresh', () => {
     const { body: after } = await req('GET', `/api/authors/${aid}`);
     assert.equal(after.bio_fetched_at, null);
   });
+
+  it('photo/url retries once on a transient TypeError and succeeds on the second attempt', async () => {
+    const { body: book } = await req('POST', '/api/books', {
+      title: 'Retry Photo Book', authors: ['Retry Photo Author'], fiction: true,
+    });
+    const aid = book.authors[0].id;
+
+    // Tiny valid JPEG, >1 KB so the placeholder filter doesn't apply.
+    const jpegHeader = Buffer.from([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00]);
+    const jpegPadding = Buffer.alloc(2048, 0);
+    const jpegEOI = Buffer.from([0xFF, 0xD9]);
+    const jpeg = Buffer.concat([jpegHeader, jpegPadding, jpegEOI]);
+
+    let calls = 0;
+    stubFetch([
+      {
+        match: (u) => u.startsWith('https://covers.openlibrary.org/'),
+        respond: () => {
+          calls += 1;
+          if (calls === 1) throw new TypeError('fetch failed');
+          return new Response(jpeg, { status: 200, headers: { 'Content-Type': 'image/jpeg' } });
+        },
+      },
+    ]);
+
+    const r = await req('POST', `/api/authors/${aid}/photo/url`, {
+      url: 'https://covers.openlibrary.org/a/olid/OL1A-M.jpg?default=false',
+    });
+    assert.equal(r.status, 200);
+    assert.ok(r.body.photo_path?.startsWith('/uploads/authors/'));
+    assert.equal(calls, 2);
+  });
+
+  it('photo/url surfaces the archive.org-specific message when both attempts hit a network failure', async () => {
+    const { body: book } = await req('POST', '/api/books', {
+      title: 'Dead Photo Book', authors: ['Dead Photo Author'], fiction: true,
+    });
+    const aid = book.authors[0].id;
+
+    let calls = 0;
+    stubFetch([
+      {
+        match: (u) => u.startsWith('https://covers.openlibrary.org/'),
+        respond: () => { calls += 1; throw new TypeError('fetch failed'); },
+      },
+    ]);
+
+    const r = await req('POST', `/api/authors/${aid}/photo/url`, {
+      url: 'https://covers.openlibrary.org/a/olid/OL1A-M.jpg?default=false',
+    });
+    assert.equal(r.status, 502);
+    assert.match(r.body.error, /archive\.org/);
+    assert.equal(calls, 2);
+  });
 });
 
 describe('authors — per-author default_sort', () => {
