@@ -8,8 +8,6 @@ import ErrorBanner from '../components/ErrorBanner.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useCoverSize } from '../hooks/useCoverSize.js';
 
-const FROM_LOVED = { from: 'Loved', fromPath: '/loved' };
-
 export default function Loved() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -67,9 +65,18 @@ export default function Loved() {
         </div>
       ) : (
         <div className={gridClassName} style={gridStyle}>
-          {books.map(book => (
-            <BookCard key={book.id} book={book} onProgressUpdate={handleUpdate} compact={compact} linkState={FROM_LOVED} />
-          ))}
+          {/* cohort = currently-shown loved books in their sort order so
+              BookDetail's prev/next walks the Loved view. */}
+          {(() => {
+            const linkState = {
+              from: 'Loved',
+              fromPath: '/loved',
+              cohort: books.map(b => ({ id: b.id, title: b.title })),
+            };
+            return books.map(book => (
+              <BookCard key={book.id} book={book} onProgressUpdate={handleUpdate} compact={compact} linkState={linkState} />
+            ));
+          })()}
         </div>
       )}
     </div>

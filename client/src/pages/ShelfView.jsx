@@ -246,6 +246,15 @@ export default function ShelfView() {
     const qs = params.toString();
     return { from: 'Shelves', fromPath: qs ? `/shelf-view?${qs}` : '/shelf-view' };
   }, [params]);
+  // Per-grid cohort builder. Each rendering surface in this page has its
+  // own scope (a shelf, a per-room or per-unit group, the unfiled bucket,
+  // etc.) so prev/next on BookDetail should walk that surface's books, not
+  // the whole page's mixed contents. Cheap object spread; called inline
+  // at each render site so the cohort matches the books that grid is
+  // about to lay out.
+  function cohortLinkState(cohortBooks) {
+    return { ...fromState, cohort: cohortBooks.map(b => ({ id: b.id, title: b.title })) };
+  }
 
   // Memoised so the books-fetch effect can depend on the boolean instead of
   // the whole `tree` array. A refresh-tick refetch produces a new tree
@@ -515,9 +524,12 @@ export default function ShelfView() {
                   No location assigned · {unshelfed.length}
                 </h2>
                 <div className={gridClassName} style={gridStyle}>
-                  {unshelfed.map(book => (
-                    <BookCard key={book.id} book={book} compact={compact} linkState={fromState} />
-                  ))}
+                  {(() => {
+                    const ls = cohortLinkState(unshelfed);
+                    return unshelfed.map(book => (
+                      <BookCard key={book.id} book={book} compact={compact} linkState={ls} />
+                    ));
+                  })()}
                 </div>
               </div>
             )}
@@ -570,7 +582,10 @@ export default function ShelfView() {
                     {g.name} <span className="text-neutral-700">· {plural(g.books.length, 'book')}</span>
                   </p>
                   <div className={gridClassName} style={gridStyle}>
-                    {g.books.map(book => <BookCard key={book.id} book={book} compact={compact} linkState={fromState} />)}
+                    {(() => {
+                      const ls = cohortLinkState(g.books);
+                      return g.books.map(book => <BookCard key={book.id} book={book} compact={compact} linkState={ls} />);
+                    })()}
                   </div>
                 </div>
               ))}
@@ -626,7 +641,10 @@ export default function ShelfView() {
                     {g.name} <span className="text-neutral-700">· {plural(g.books.length, 'book')}</span>
                   </p>
                   <div className={gridClassName} style={gridStyle}>
-                    {g.books.map(book => <BookCard key={book.id} book={book} compact={compact} linkState={fromState} />)}
+                    {(() => {
+                      const ls = cohortLinkState(g.books);
+                      return g.books.map(book => <BookCard key={book.id} book={book} compact={compact} linkState={ls} />);
+                    })()}
                   </div>
                 </div>
               ))}
@@ -657,19 +675,24 @@ export default function ShelfView() {
                   <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-4">Not on a shelf</h2>
                 )}
                 <div className={gridClassName} style={gridStyle}>
-                  {unitOnly.map(book => <BookCard key={book.id} book={book} compact={compact} linkState={fromState} />)}
+                  {(() => {
+                    const ls = cohortLinkState(unitOnly);
+                    return unitOnly.map(book => <BookCard key={book.id} book={book} compact={compact} linkState={ls} />);
+                  })()}
                 </div>
               </div>
             );
           })()}
           {shelves.length > 0 && (
             <div className="-mx-4 sm:-mx-6 lg:-mx-8">
-              {shelves.map(s => (
+              {shelves.map(s => {
+                const shelfBooks = books.filter(b => b.shelf_id === s.id);
+                return (
                 <ShelfRow
                   key={s.id}
                   shelf={s}
-                  books={books.filter(b => b.shelf_id === s.id)}
-                  linkState={fromState}
+                  books={shelfBooks}
+                  linkState={cohortLinkState(shelfBooks)}
                   onLabelClick={() => nav({ b: buildingId, r: roomId, u: unitId, s: s.id })}
                   onReorder={(shelfId, reordered) => {
                     setBooks(prev => {
@@ -696,7 +719,8 @@ export default function ShelfView() {
                       });
                   }}
                 />
-              ))}
+                );
+              })}
             </div>
           )}
           {shelves.length === 0 && books.length === 0 && (
@@ -719,14 +743,17 @@ export default function ShelfView() {
                     cover bottoms visibly cover the plank's top edge — that's
                     what makes them read as "standing on" the surface. */}
                 <div className="relative z-10 flex gap-4 overflow-x-auto pb-7 px-4 sm:px-6 lg:px-8 [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-track]:bg-neutral-800 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-neutral-600 [&::-webkit-scrollbar-thumb]:rounded-full">
-                  {books.map(book => (
-                    <SortableShelfCover
-                      key={book.id}
-                      book={book}
-                      linkState={fromState}
-                      focused={showFocusRing && String(book.id) === focusId}
-                    />
-                  ))}
+                  {(() => {
+                    const ls = cohortLinkState(books);
+                    return books.map(book => (
+                      <SortableShelfCover
+                        key={book.id}
+                        book={book}
+                        linkState={ls}
+                        focused={showFocusRing && String(book.id) === focusId}
+                      />
+                    ));
+                  })()}
                 </div>
                 {/* Skeuomorphic wood plank — disabled while we evaluate whether
                     the bookish surface earns its visual weight. To re-enable,

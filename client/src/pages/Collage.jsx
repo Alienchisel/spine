@@ -239,9 +239,17 @@ export default function Collage() {
   // Tile links carry this state so the Book/Author page back-button
   // returns to the same Collage view the user came from (including the
   // selected mode / period / size, encoded in the URL).
+  // cohort threads the ordered book tiles into BookDetail's navState so
+  // prev/next there walks the same collage layout. Filtered to book
+  // tiles only — Author.jsx doesn't read cohort, but in top_authors
+  // mode all tiles are authors so the cohort would be empty and
+  // harmless either way.
   const fromState = {
     from: 'Collage',
     fromPath: `/collage${params.toString() ? `?${params.toString()}` : ''}`,
+    cohort: tiles
+      .filter(t => t.href?.startsWith('/books/'))
+      .map(t => ({ id: Number(t.href.slice('/books/'.length)), title: t.label })),
   };
 
   return (
