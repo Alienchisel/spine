@@ -200,13 +200,24 @@ export default function ListDetail() {
   // so what shows under "next" matches what's literally to the right in
   // the list grid right now. Passed forward unchanged on each prev/next
   // hop so the context persists across navigation chains.
+  // cohortIds holds the FULL ordered {id, title} list at the current
+  // sort, independent of the paginated visible-books fetch. The
+  // visible-books slice tops out at PAGE_SIZE (=48) on non-'added'
+  // sorts, so without a separate fetch the cohort that ships to
+  // BookDetail's prev/next would truncate at item 48 — fine for short
+  // lists, breaks navigation on anything longer. Falls back to the
+  // visible-books shape until the cohort fetch lands so the cohort is
+  // present from the first paint, just possibly short.
+  const [cohort, setCohort] = useState([]);
   const fromState = useMemo(
     () => ({
       from: list?.name ?? 'List',
       fromPath: `/lists/${id}`,
-      cohort: (list?.books || []).map(b => ({ id: b.id, title: b.title })),
+      cohort: cohort.length > 0
+        ? cohort
+        : (list?.books || []).map(b => ({ id: b.id, title: b.title })),
     }),
-    [id, list?.name, list?.books],
+    [id, list?.name, list?.books, cohort],
   );
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -300,6 +311,23 @@ export default function ListDetail() {
   useEffect(() => {
     userChangedSortRef.current = false;
   }, [id]);
+
+  // Full-cohort fetch — independent of the paginated visible-books fetch.
+  // limit=500 is the server's cap; for lists larger than that, prev/next
+  // truncates at the cap (acceptable tradeoff vs streaming or a separate
+  // ids-only endpoint). Cleared on id/sort change so the previous list's
+  // cohort doesn't leak into the new view's first paint.
+  useEffect(() => {
+    setCohort([]);
+    let cancelled = false;
+    api.getList(id, { sort, limit: 500 })
+      .then(data => {
+        if (cancelled) return;
+        setCohort((data.books || []).map(b => ({ id: b.id, title: b.title })));
+      })
+      .catch(() => { /* fall back to the visible-books cohort */ });
+    return () => { cancelled = true; };
+  }, [id, sort, refreshTick]);
 
   useEffect(() => {
     const epoch = guard.next();
