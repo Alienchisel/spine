@@ -215,6 +215,60 @@ describe('POST /api/upload/fetch', () => {
     }
   });
 
+  it('retries once on a transient TypeError (network failure) and succeeds', async () => {
+    // Mocks the upstream fetch to throw TypeError on the first attempt
+    // (TCP failure shape) and return a valid JPEG on the second. The
+    // route should silently absorb the flake and return 200.
+    const jpeg = new Uint8Array(64);
+    jpeg[0] = 0xFF; jpeg[1] = 0xD8; jpeg[2] = 0xFF; jpeg[3] = 0xE0;
+    const arrBuf = jpeg.buffer.slice(0);
+    const writeMock = mock.method(fs.promises, 'writeFile', async () => {});
+    const originalFetch = globalThis.fetch;
+    let calls = 0;
+    const fetchMock = mock.method(globalThis, 'fetch', async (target, init) => {
+      const targetStr = typeof target === 'string' ? target : String(target);
+      if (targetStr.startsWith(url)) return originalFetch(target, init);
+      calls += 1;
+      if (calls === 1) throw new TypeError('fetch failed');
+      return {
+        ok: true,
+        headers: { get: (h) => h.toLowerCase() === 'content-type' ? 'image/jpeg' : null },
+        arrayBuffer: async () => arrBuf,
+      };
+    });
+    try {
+      const { status, body } = await req({ url: 'https://example.test/flake.jpg' });
+      assert.equal(status, 200);
+      assert.match(body.path, /^\/uploads\/\d+-[a-z0-9]+\.jpg$/i);
+      assert.equal(calls, 2);
+    } finally {
+      writeMock.mock.restore();
+      fetchMock.mock.restore();
+    }
+  });
+
+  it('surfaces archive.org-specific message when both attempts hit a network failure', async () => {
+    // Both attempts throw TypeError → genuine upstream unreachability
+    // (the archive.org-flake case). The retry message identifies the OL
+    // image backend so the user knows it isn't Spine.
+    const originalFetch = globalThis.fetch;
+    let calls = 0;
+    const fetchMock = mock.method(globalThis, 'fetch', async (target, init) => {
+      const targetStr = typeof target === 'string' ? target : String(target);
+      if (targetStr.startsWith(url)) return originalFetch(target, init);
+      calls += 1;
+      throw new TypeError('fetch failed');
+    });
+    try {
+      const { status, body } = await req({ url: 'https://example.test/dead.jpg' });
+      assert.equal(status, 502);
+      assert.match(body.error, /archive\.org/);
+      assert.equal(calls, 2);
+    } finally {
+      fetchMock.mock.restore();
+    }
+  });
+
   it('returns 400 when the fetched URL has a non-image content-type', async () => {
     // Mock fetch so the outbound request gets a text/plain response. Localhost
     // calls (this test's own request to the in-process server) must still hit
