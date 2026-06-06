@@ -8,6 +8,7 @@ import { FORMAT_LABEL } from '../utils.js';
 const MISSING_FIELDS = [
   // Identity & people
   { key: 'cover',       label: 'Cover' },
+  { key: 'hi_res_cover', label: 'Hi-res cover', title: 'Books with a cover file under ~40 KB — usually low resolution, worth replacing with a better image.' },
   { key: 'author',      label: 'Author' },
   { key: 'narrator',    label: 'Narrator' },
   { key: 'translator',  label: 'Translator' },

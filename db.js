@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { runMigrations } from './lib/migrations/runner.js';
+import { measureCoverBytes } from './lib/books/covers.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dbPath = process.env.DB_PATH || path.join(__dirname, 'spine.db');
@@ -25,6 +26,26 @@ runMigrations({
   isInMemory:    isInMemoryDb,
   retainDays:    90,
 });
+
+// One-shot backfill for the cover_bytes column added in migration 065.
+// Pure SQL migrations can't fs.statSync, so the fill happens here at
+// startup. Idempotent — only touches rows that still have a NULL
+// cover_bytes despite a non-empty cover_path. measureCoverBytes returns
+// null for missing/unreadable files, which is also written so we don't
+// re-scan a known-broken path on the next start.
+{
+  const unfilled = db.prepare(
+    "SELECT id, cover_path FROM books WHERE cover_path IS NOT NULL AND cover_path != '' AND cover_bytes IS NULL"
+  ).all();
+  if (unfilled.length > 0) {
+    const upd = db.prepare('UPDATE books SET cover_bytes = ? WHERE id = ?');
+    db.transaction(() => {
+      for (const { id, cover_path } of unfilled) {
+        upd.run(measureCoverBytes(cover_path), id);
+      }
+    })();
+  }
+}
 
 // nrm(text): lowercase + strip combining diacritics + fold a handful of
 // non-decomposing ligatures (æ→ae, œ→oe, ß→ss, ø→o, ð→d, þ→th, ł→l, đ→d).

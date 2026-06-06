@@ -2168,6 +2168,49 @@ describe('books', () => {
       }
     });
 
+    it('missing=hi_res_cover surfaces books with a low-byte cover file', async () => {
+      // End-to-end: write tiny + large files into uploads/, POST a book
+      // for each pointing at the saved filename, then check that the
+      // missing=hi_res_cover filter sees only the small one. Confirms
+      // the cover_bytes column is captured on POST and that the filter
+      // gates correctly on the 40KB threshold.
+      const fs   = await import('fs');
+      const path = await import('path');
+      const { fileURLToPath } = await import('url');
+      const here = path.dirname(fileURLToPath(import.meta.url));
+      const uploadsDir = path.join(here, '..', 'uploads');
+      // Ensure the dir exists (tests may run on a fresh clone).
+      try { fs.mkdirSync(uploadsDir, { recursive: true }); } catch {}
+
+      const stem = 'hires' + Math.random().toString(36).slice(2, 6);
+      const smallName = `${Date.now()}-${stem}small.jpg`;
+      const largeName = `${Date.now()}-${stem}large.jpg`;
+      const smallPath = path.join(uploadsDir, smallName);
+      const largePath = path.join(uploadsDir, largeName);
+      // 1KB tiny vs 60KB big — straddles the 40_000 threshold.
+      fs.writeFileSync(smallPath, Buffer.alloc(1024));
+      fs.writeFileSync(largePath, Buffer.alloc(60_000));
+
+      const { body: small } = await req('POST', '/api/books', {
+        title: `${stem}-small`, owned: 1, cover_path: `/uploads/${smallName}`,
+      });
+      const { body: large } = await req('POST', '/api/books', {
+        title: `${stem}-large`, owned: 1, cover_path: `/uploads/${largeName}`,
+      });
+
+      try {
+        const { body } = await req('GET', `/api/books?missing=hi_res_cover&q=${stem}&limit=200`);
+        const ids = new Set(body.books.map(b => b.id));
+        assert.ok( ids.has(small.id), 'sub-threshold cover should surface as low-res');
+        assert.ok(!ids.has(large.id), 'above-threshold cover should NOT surface');
+      } finally {
+        await req('DELETE', `/api/books/${small.id}`);
+        await req('DELETE', `/api/books/${large.id}`);
+        try { fs.unlinkSync(smallPath); } catch {}
+        try { fs.unlinkSync(largePath); } catch {}
+      }
+    });
+
     it('missing=binding surfaces physical books with no binding (audiobook / ebook excluded)', async () => {
       const stem = 'bindfilter' + Math.random().toString(36).slice(2, 6);
       // Physical, no binding — should appear.
