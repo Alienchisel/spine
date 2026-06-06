@@ -566,9 +566,71 @@ export default function BookDetail() {
 
   return (
     <div className="max-w-7xl">
-      <Link to={backPath} className="text-sm text-neutral-600 hover:text-neutral-300 focus-visible:text-neutral-300 focus-visible:underline underline-offset-2 focus-visible:outline-none mb-8 inline-block transition-colors">
+      <Link to={backPath} className="text-sm text-neutral-600 hover:text-neutral-300 focus-visible:text-neutral-300 focus-visible:underline underline-offset-2 focus-visible:outline-none mb-3 inline-block transition-colors">
         ← {backLabel}
       </Link>
+
+      {/* Prev/next strip lives above the title so its vertical position is
+          invariant of title length — a user click-walking through a list
+          can hit the same screen coordinate every time without watching
+          the cursor. Cohort nav wins when navState carries one; series
+          fallback otherwise. Both branches render the same shape: two
+          flex-1 columns with truncated titles, so the next-link's
+          horizontal position is stable too, regardless of title length. */}
+      {(() => {
+        const cohort = Array.isArray(navState?.cohort) ? navState.cohort : null;
+        let prev = null, next = null, prevLabel = '', nextLabel = '';
+        if (cohort && cohort.length >= 2) {
+          const idx = cohort.findIndex(c => c.id === book.id);
+          if (idx >= 0) {
+            prev = idx > 0 ? cohort[idx - 1] : null;
+            next = idx < cohort.length - 1 ? cohort[idx + 1] : null;
+            if (prev) prevLabel = prev.title;
+            if (next) nextLabel = next.title;
+          }
+        }
+        if (!prev && !next && seriesSiblings.length >= 2) {
+          // Series-based fallback when no cohort. Same volume-aware logic
+          // as before: prefer series_number ordering, fall back to array
+          // index when the current row is unnumbered.
+          const cur = book.series_number;
+          if (cur != null) {
+            const numbered = seriesSiblings.filter(b => b.series_number != null);
+            const lower  = numbered.filter(b => b.series_number < cur);
+            const higher = numbered.filter(b => b.series_number > cur);
+            const cmpAsc  = (a, b) => a.series_number - b.series_number || a.id - b.id;
+            const cmpDesc = (a, b) => b.series_number - a.series_number || a.id - b.id;
+            prev = lower.sort(cmpDesc)[0]  ?? null;
+            next = higher.sort(cmpAsc)[0]  ?? null;
+          } else {
+            const idx = seriesSiblings.findIndex(b => b.id === book.id);
+            prev = idx > 0 ? seriesSiblings[idx - 1] : null;
+            next = idx >= 0 && idx < seriesSiblings.length - 1 ? seriesSiblings[idx + 1] : null;
+          }
+          if (prev) prevLabel = `${prev.series_number != null ? `#${prev.series_number} ` : ''}${prev.title}`;
+          if (next) nextLabel = `${next.series_number != null ? `#${next.series_number} ` : ''}${next.title}`;
+        }
+        if (!prev && !next) return null;
+        return (
+          <div className="flex items-center justify-between text-xs text-neutral-600 mb-6 gap-4">
+            {prev ? (
+              <Link to={`/books/${prev.id}`} state={detailReturnState} title={prevLabel} className="hover:text-neutral-400 transition-colors flex items-center gap-1 min-w-0 flex-1">
+                <span className="flex-shrink-0">←</span>
+                <span className="truncate">{prevLabel}</span>
+              </Link>
+            ) : <span className="flex-1" />}
+            {next ? (
+              <Link to={`/books/${next.id}`} state={detailReturnState} title={nextLabel} className="hover:text-neutral-400 transition-colors flex items-center justify-end gap-1 min-w-0 flex-1">
+                <span className="truncate text-right">{nextLabel}</span>
+                <span className="flex-shrink-0">→</span>
+              </Link>
+            ) : <span className="flex-1" />}
+          </div>
+        );
+      })()}
+      {seriesError && (
+        <p role="alert" className="text-xs text-warn mb-3">{seriesError}</p>
+      )}
 
       {/* Hero band — title + identity carry the top of the page, spanning
           the full width above the 3-column body so the title isn't
@@ -646,97 +708,6 @@ export default function BookDetail() {
                 </p>
               )}
             </>
-          );
-        })()}
-
-        {seriesError && (
-          <p role="alert" className="text-xs text-warn mb-3">{seriesError}</p>
-        )}
-        {(() => {
-          // Cohort nav wins when the user arrived from a list — series-sibling
-          // order is arbitrary when most rows are unnumbered, and the user
-          // expects prev/next to thread through the list they were just
-          // scanning. Fall through to series-based nav otherwise. The
-          // {id, title} cohort is set by ListDetail's fromState and
-          // forwarded across hops via detailReturnState (which is just
-          // navState passed through unchanged).
-          const cohort = Array.isArray(navState?.cohort) ? navState.cohort : null;
-          if (cohort && cohort.length >= 2) {
-            const idx = cohort.findIndex(c => c.id === book.id);
-            if (idx >= 0) {
-              const prev = idx > 0 ? cohort[idx - 1] : null;
-              const next = idx < cohort.length - 1 ? cohort[idx + 1] : null;
-              if (!prev && !next) return null;
-              return (
-                <div className="flex items-center justify-between text-xs text-neutral-600 mt-3 mb-3">
-                  {prev ? (
-                    <Link to={`/books/${prev.id}`} state={detailReturnState} title={prev.title} className="hover:text-neutral-400 transition-colors flex items-center gap-1 min-w-0">
-                      <span className="flex-shrink-0">←</span>
-                      <span className="truncate">{prev.title}</span>
-                    </Link>
-                  ) : <span />}
-                  {next && (
-                    <Link to={`/books/${next.id}`} state={detailReturnState} title={next.title} className="hover:text-neutral-400 transition-colors flex items-center gap-1 min-w-0 ml-4">
-                      <span className="truncate text-right">{next.title}</span>
-                      <span className="flex-shrink-0">→</span>
-                    </Link>
-                  )}
-                </div>
-              );
-            }
-          }
-          if (seriesSiblings.length < 2) return null;
-          // Series nav means "next volume", not "next sibling row." When two
-          // books share the same series_number (e.g. M&C in two narrator
-          // recordings) the array-index approach would point "next" at the
-          // duplicate edition instead of advancing to volume N+1. Compute
-          // prev/next directly from series_number, skipping any sibling at
-          // the same volume slot. Cross-edition switching belongs in the
-          // EditionsSection below, not in this nav.
-          const cur = book.series_number;
-          let prev = null, next = null;
-          if (cur != null) {
-            const numbered = seriesSiblings.filter(b => b.series_number != null);
-            const lower  = numbered.filter(b => b.series_number < cur);
-            const higher = numbered.filter(b => b.series_number > cur);
-            // Tie-break ties at the same series_number by lower id so the
-            // chosen sibling is stable across reloads regardless of fetch
-            // order.
-            const cmpAsc  = (a, b) => a.series_number - b.series_number || a.id - b.id;
-            const cmpDesc = (a, b) => b.series_number - a.series_number || a.id - b.id;
-            prev = lower.sort(cmpDesc)[0]  ?? null;
-            next = higher.sort(cmpAsc)[0]  ?? null;
-          } else {
-            // Unnumbered current book: fall back to the original
-            // array-index nav so we still surface SOME prev/next instead
-            // of nothing. Order is whatever the backend's series query
-            // returned (no clean canonical order without numbers).
-            const idx = seriesSiblings.findIndex(b => b.id === book.id);
-            prev = idx > 0 ? seriesSiblings[idx - 1] : null;
-            next = idx >= 0 && idx < seriesSiblings.length - 1 ? seriesSiblings[idx + 1] : null;
-          }
-          if (!prev && !next) return null;
-          return (
-            <div className="flex items-center justify-between text-xs text-neutral-600 mt-3 mb-3">
-              {prev ? (() => {
-                const prevLabel = `${prev.series_number != null ? `#${prev.series_number} ` : ''}${prev.title}`;
-                return (
-                  <Link to={`/books/${prev.id}`} state={detailReturnState} title={prevLabel} className="hover:text-neutral-400 transition-colors flex items-center gap-1 min-w-0">
-                    <span className="flex-shrink-0">←</span>
-                    <span className="truncate">{prevLabel}</span>
-                  </Link>
-                );
-              })() : <span />}
-              {next && (() => {
-                const nextLabel = `${next.series_number != null ? `#${next.series_number} ` : ''}${next.title}`;
-                return (
-                  <Link to={`/books/${next.id}`} state={detailReturnState} title={nextLabel} className="hover:text-neutral-400 transition-colors flex items-center gap-1 min-w-0 ml-4">
-                    <span className="truncate text-right">{nextLabel}</span>
-                    <span className="flex-shrink-0">→</span>
-                  </Link>
-                );
-              })()}
-            </div>
           );
         })()}
 
