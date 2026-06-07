@@ -499,6 +499,32 @@ describe('authors — Open Library refresh', () => {
     assert.match(r.body.error, /archive\.org/);
     assert.equal(calls, 2);
   });
+
+  it('search-ol retries once on a transient TypeError and surfaces the second attempt', async () => {
+    // Mirrors the photo/url retry test — same shape applies to the JSON
+    // fetch path used by searchAuthorsMulti. Without retry, the portrait
+    // wizard surfaces a spurious 'Search failed' on flaky OL responses
+    // (Jane Jacobs in particular intermittently 502s mid-session).
+    let calls = 0;
+    stubFetch([
+      {
+        match: (u) => u.startsWith('https://openlibrary.org/search/authors.json'),
+        respond: () => {
+          calls += 1;
+          if (calls === 1) throw new TypeError('fetch failed');
+          return jsonResponse({ docs: [
+            { key: 'OL29371A', name: 'Jane Jacobs', birth_date: '4 May 1916', death_date: '25 April 2006' },
+          ]});
+        },
+      },
+    ]);
+
+    const r = await req('GET', '/api/authors/search-ol?q=Jane+Jacobs');
+    assert.equal(r.status, 200);
+    assert.equal(r.body.length, 1);
+    assert.equal(r.body[0].name, 'Jane Jacobs');
+    assert.equal(calls, 2);
+  });
 });
 
 describe('authors — per-author default_sort', () => {
