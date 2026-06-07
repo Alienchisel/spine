@@ -186,8 +186,10 @@ function Slot({ book, rank, canMoveLeft, canMoveRight, onMoveLeft, onMoveRight, 
         )}
         {/* Rank chip — always visible, top-left. Pure number, no label,
             to stay consistent with the no-on-cover-text convention used
-            on the rest of the grids. */}
-        <div className="absolute top-2 left-2 bg-black/75 text-leather text-sm font-bold px-2 py-0.5 rounded backdrop-blur-sm leading-none">
+            on the rest of the grids. select-none so a Cmd+A on the page
+            doesn't pollute the clipboard with "1 2 3 4 5" alongside the
+            five titles. */}
+        <div className="absolute top-2 left-2 bg-black/75 text-leather text-sm font-bold px-2 py-0.5 rounded backdrop-blur-sm leading-none select-none">
           {rank}
         </div>
         <div className="pointer-events-none absolute inset-0 ring-2 ring-inset ring-binding/25 group-hover:ring-[#ffffff99] transition-[box-shadow] duration-200 rounded" />

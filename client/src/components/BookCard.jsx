@@ -263,8 +263,11 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
               <span className="text-xs text-neutral-500 font-medium leading-tight line-clamp-3 text-center">{book.title}</span>
             </div>
           )}
+          {/* Provenance glyphs are cosmetic overlays — select-none so a
+              Cmd+A on Library doesn't pollute the clipboard with ✦ / ↓
+              characters intermixed with the surrounding text. */}
           {Boolean(book.is_custom) && (
-            <div className="absolute top-1.5 left-1.5 bg-black/75 text-leather text-xs font-bold px-1.5 py-0.5 rounded backdrop-blur-sm leading-none opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+            <div className="absolute top-1.5 left-1.5 bg-black/75 text-leather text-xs font-bold px-1.5 py-0.5 rounded backdrop-blur-sm leading-none opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity select-none">
               ✦
             </div>
           )}
@@ -275,7 +278,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
             // it doesn't collide if a book is both custom and Internet.
             <div
               title="Internet-sourced"
-              className="absolute top-1.5 right-1.5 bg-black/75 text-neutral-300 text-xs font-bold px-1.5 py-0.5 rounded backdrop-blur-sm leading-none opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity"
+              className="absolute top-1.5 right-1.5 bg-black/75 text-neutral-300 text-xs font-bold px-1.5 py-0.5 rounded backdrop-blur-sm leading-none opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity select-none"
             >
               ↓
             </div>
