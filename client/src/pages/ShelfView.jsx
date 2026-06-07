@@ -248,7 +248,10 @@ function AddBookHere({ targetPatch, targetLabel, resolveLocation, onAdded }) {
           ) : (
             matches.map(b => {
               const priorLabel = resolveLocation(b);
-              const authorsLabel = b.authors_display || '';
+              // /api/books list rows carry the authors array, not the
+              // pre-joined string. Same shape as ListDetail's QuickAdd
+              // dropdown — render via inline join.
+              const authorsLabel = (b.authors || []).map(a => a.name).join(', ');
               return (
                 <button
                   key={b.id}
@@ -585,17 +588,29 @@ export default function ShelfView() {
     return bits.length ? bits.join(' · ') : null;
   }, [tree]);
 
-  // Optimistically splice / re-place the moved book into the current
-  // location's books list, then bump the location-books guard so a
-  // pending in-flight fetch can't restore the prior state. The full
-  // refetch on the next refresh-tick will reconcile order with the
-  // server's stored shelf_position.
-  function handleAddedToLocation(updatedBook) {
-    booksGuard.next();
-    setBooks(prev => {
-      const without = prev.filter(b => b.id !== updatedBook.id);
-      return [...without, updatedBook];
-    });
+  // Re-fetch the current location's books after a placement so the new
+  // book lands at its server-assigned shelf_position (the optimistic
+  // append-to-end is wrong if the server placed it elsewhere — which
+  // happens for any shelf/unit with existing books) and any books that
+  // were previously at this location but got moved elsewhere by the
+  // PATCH drop out of view. booksGuard.next() bumps the epoch so a
+  // pending in-flight fetch from before the PATCH can't repopulate
+  // with the prior state.
+  async function handleAddedToLocation() {
+    const epoch = booksGuard.next();
+    const fetch = shelfId    ? api.getShelfBooks(shelfId)
+                : unitId     ? api.getUnitBooks(unitId)
+                : roomId     ? api.getRoomBooks(roomId)
+                :              api.getBuildingBooks(buildingId);
+    try {
+      const fresh = await fetch;
+      if (!booksGuard.isFresh(epoch)) return;
+      setBooks(fresh);
+    } catch {
+      // Silent: the next refresh-tick will retry. The PATCH itself
+      // already succeeded, so the placement is on disk; only the
+      // local view is briefly stale.
+    }
   }
 
   function nav(updates) {

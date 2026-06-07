@@ -29,18 +29,43 @@ export default function Showcase() {
     return () => { stale = true; };
   }, [refreshTick]);
 
+  // Refetch from the server — used to recover from a partial write so the
+  // local view always reflects what's actually on disk.
+  async function syncFromServer() {
+    try {
+      const { books: fresh } = await api.getBooks({ showcase: 1, sort: 'showcase', limit: MAX_SLOTS });
+      setBooks(fresh);
+    } catch {
+      // If even the recovery fetch fails the user is offline / the server
+      // is down — leave the optimistic state and let the next refreshTick
+      // try again. The error banner already carries the failure signal.
+    }
+  }
+
   // Reorder writes a fresh dense 1..N sequence so we never leak the prior
-  // gaps to disk. Cheap (at most five PATCHes) and keeps positions honest
-  // for the next add.
+  // gaps to disk. PATCHes run sequentially (not Promise.all) so a failure
+  // in the middle bails immediately instead of half-writing the row: any
+  // PATCHes that already succeeded plus the failing one are reconciled
+  // by an immediate refetch, so the local state matches disk on the way
+  // out. Cheap (at most five sequential round-trips).
   async function persist(next) {
     setBusy(true);
+    const prior = books;
+    const renumbered = next.map((b, i) => ({ ...b, showcase_position: i + 1 }));
+    setBooks(renumbered);
     try {
-      const renumbered = next.map((b, i) => ({ ...b, showcase_position: i + 1 }));
-      setBooks(renumbered);
-      await Promise.all(renumbered.map(b => api.patchBook(b.id, { showcase_position: b.showcase_position })));
+      for (const b of renumbered) {
+        await api.patchBook(b.id, { showcase_position: b.showcase_position });
+      }
       setError(null);
     } catch {
-      setError('Failed to save changes — refresh to see the current state.');
+      setError('Failed to save changes — restored to the last saved order.');
+      // Refetch so the local view matches disk (which might be partially
+      // written — the books whose PATCH succeeded before the failure are
+      // already at their new ranks server-side). The prior local snapshot
+      // is the fallback if the recovery fetch also fails.
+      setBooks(prior);
+      await syncFromServer();
     } finally {
       setBusy(false);
     }
@@ -62,17 +87,23 @@ export default function Showcase() {
 
   async function remove(book) {
     setBusy(true);
+    const prior = books;
+    const next = books.filter(b => b.id !== book.id);
+    const renumbered = next.map((b, i) => ({ ...b, showcase_position: i + 1 }));
+    setBooks(renumbered);
     try {
-      const next = books.filter(b => b.id !== book.id);
-      const renumbered = next.map((b, i) => ({ ...b, showcase_position: i + 1 }));
-      setBooks(renumbered);
+      // Clear the slot first; renumber the rest sequentially. Same bail-
+      // and-refetch shape as persist() so a partial write doesn't leak
+      // gap-vs-dense inconsistency onto disk.
       await api.patchBook(book.id, { showcase_position: null });
-      // Reflow remaining picks so positions stay dense — same write the
-      // BookDetail action expects to find when picking the next empty slot.
-      await Promise.all(renumbered.map(b => api.patchBook(b.id, { showcase_position: b.showcase_position })));
+      for (const b of renumbered) {
+        await api.patchBook(b.id, { showcase_position: b.showcase_position });
+      }
       setError(null);
     } catch {
-      setError('Failed to remove — refresh to see the current state.');
+      setError('Failed to remove — restored to the last saved order.');
+      setBooks(prior);
+      await syncFromServer();
     } finally {
       setBusy(false);
     }

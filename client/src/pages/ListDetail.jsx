@@ -261,7 +261,11 @@ function QuickAdd({ listId, listBookIds, onAdded }) {
           ) : (
             matches.map(b => {
               const alreadyIn = listBookIds.has(b.id);
-              const authorsLabel = b.authors_display || '';
+              // /api/books list rows carry the authors array, not the
+              // pre-joined authors_display string — that's only on the
+              // single-book GET. Join inline so the dropdown labels
+              // don't render blank for every match.
+              const authorsLabel = (b.authors || []).map(a => a.name).join(', ');
               return (
                 <button
                   key={b.id}
