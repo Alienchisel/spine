@@ -24,6 +24,7 @@ import ErrorBanner from '../components/ErrorBanner.jsx';
 import { useCoverSize } from '../hooks/useCoverSize.js';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
+import { useActionGuard } from '../hooks/useActionGuard.js';
 
 function SortableShelfCover({ book, linkState, focused }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: book.id });
@@ -158,6 +159,119 @@ function ShelfRow({ shelf, books, onReorder, onLabelClick, linkState }) {
             </div>
           </SortableContext>
         </DndContext>
+      )}
+    </div>
+  );
+}
+
+// Search-and-place existing books at the current location. Mirrors
+// ListDetail's QuickAdd shape (debounced /api/books search → click a
+// row to commit), but scoped to owned physical books since only those
+// are shelvable per repository.js's isShelvable gate. Adding a book
+// that's currently placed somewhere else surfaces the move ("from
+// {prior location} → {target}") so a misclick can't silently relocate
+// a book the user wasn't thinking about.
+function AddBookHere({ targetPatch, targetLabel, resolveLocation, onAdded }) {
+  const [q, setQ] = useState('');
+  const [matches, setMatches] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [error, setError] = useState(null);
+  const searchGuard = useStaleGuard();
+  const pickGuard = useActionGuard();
+  const debounce = useRef(null);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    clearTimeout(debounce.current);
+    const term = q.trim();
+    if (!term) {
+      searchGuard.next();
+      setMatches([]);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    const epoch = searchGuard.next();
+    debounce.current = setTimeout(async () => {
+      try {
+        // tab=owned + formats=physical = the shelvable cohort. Server
+        // would silently NULL the location for any other format so
+        // filtering here keeps the dropdown honest.
+        const { books } = await api.getBooks({ q: term, tab: 'owned', formats: 'physical', limit: 6 });
+        if (!searchGuard.isFresh(epoch)) return;
+        setMatches(books || []);
+      } catch {
+        if (!searchGuard.isFresh(epoch)) return;
+        setMatches([]);
+      } finally {
+        if (searchGuard.isFresh(epoch)) setSearching(false);
+      }
+    }, 200);
+    return () => clearTimeout(debounce.current);
+  }, [q]);
+
+  async function pick(book) {
+    if (!pickGuard.begin()) return;
+    setError(null);
+    try {
+      const updated = await api.patchBook(book.id, targetPatch);
+      onAdded(updated);
+      setQ('');
+      setMatches([]);
+      inputRef.current?.focus();
+    } catch (err) {
+      setError(err?.message || 'Failed to place book.');
+    } finally {
+      pickGuard.end();
+    }
+  }
+
+  return (
+    <div className="mb-6 relative">
+      <div className="flex items-center gap-2">
+        <input
+          ref={inputRef}
+          type="text"
+          value={q}
+          onChange={e => setQ(e.target.value)}
+          placeholder={`Add a book to ${targetLabel} — search the library…`}
+          aria-label={`Add a book to ${targetLabel}`}
+          className="bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2 text-sm text-parchment placeholder-neutral-500 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 transition-colors flex-1"
+        />
+        {error && <span role="alert" className="text-xs text-red-400">{error}</span>}
+      </div>
+
+      {q.trim() && (matches.length > 0 || searching) && (
+        <div className="absolute z-30 top-full left-0 right-0 mt-1.5 bg-neutral-900 border border-neutral-800 rounded-lg shadow-lg max-h-80 overflow-y-auto">
+          {searching && matches.length === 0 ? (
+            <div className="px-3 py-3 text-xs text-neutral-500">Searching the library…</div>
+          ) : (
+            matches.map(b => {
+              const priorLabel = resolveLocation(b);
+              const authorsLabel = b.authors_display || '';
+              return (
+                <button
+                  key={b.id}
+                  type="button"
+                  onClick={() => pick(b)}
+                  disabled={pickGuard.busy}
+                  className="w-full flex items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-neutral-800 disabled:cursor-default"
+                >
+                  <div className="w-8 h-12 flex-shrink-0 bg-neutral-800 rounded-sm overflow-hidden">
+                    {b.cover_path && <img src={b.cover_path} alt="" className="w-full h-full object-cover" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm text-parchment truncate">{b.title}</div>
+                    {authorsLabel && <div className="text-xs text-neutral-500 truncate">{authorsLabel}</div>}
+                  </div>
+                  <span className="text-[11px] text-neutral-500 whitespace-nowrap">
+                    {priorLabel ? `Move from ${priorLabel}` : `+ Place here`}
+                  </span>
+                </button>
+              );
+            })
+          )}
+        </div>
       )}
     </div>
   );
@@ -443,6 +557,47 @@ export default function ShelfView() {
   const shelves  = unit?.shelves ?? [];
   const shelf    = shelves.find(s => s.id === shelfId);
 
+  // AddBookHere wiring: target patch (the most-specific non-null id
+  // takes the placement, mirroring normalizeBookLocation server-side),
+  // a human label for the input placeholder, and a resolver that turns
+  // a candidate book's location-id chain into a short breadcrumb
+  // ("Grey 2 · Shelf 3") for the "Move from X" suffix on matched rows.
+  // Only active inside a specific location — the root view shows the
+  // building grid and has no single placement target.
+  const addTarget = useMemo(() => {
+    if (shelfId)    return { patch: { shelf_id: shelfId },       label: shelf?.label ?? 'this shelf' };
+    if (unitId)    return { patch: { unit_id: unitId },         label: unit?.name   ?? 'this unit'  };
+    if (roomId)    return { patch: { room_id: roomId },         label: room?.name   ?? 'this room'  };
+    if (buildingId) return { patch: { building_id: buildingId }, label: building?.name ?? 'this building' };
+    return null;
+  }, [shelfId, unitId, roomId, buildingId, shelf?.label, unit?.name, room?.name, building?.name]);
+
+  const resolveLocation = useMemo(() => (book) => {
+    const bits = [];
+    const b = tree.find(x => x.id === book.building_id);
+    const r = b?.rooms.find(x => x.id === book.room_id);
+    const u = r?.units.find(x => x.id === book.unit_id);
+    const s = u?.shelves.find(x => x.id === book.shelf_id);
+    if (b) bits.push(b.name);
+    if (r) bits.push(r.name);
+    if (u) bits.push(u.name);
+    if (s) bits.push(s.label);
+    return bits.length ? bits.join(' · ') : null;
+  }, [tree]);
+
+  // Optimistically splice / re-place the moved book into the current
+  // location's books list, then bump the location-books guard so a
+  // pending in-flight fetch can't restore the prior state. The full
+  // refetch on the next refresh-tick will reconcile order with the
+  // server's stored shelf_position.
+  function handleAddedToLocation(updatedBook) {
+    booksGuard.next();
+    setBooks(prev => {
+      const without = prev.filter(b => b.id !== updatedBook.id);
+      return [...without, updatedBook];
+    });
+  }
+
   function nav(updates) {
     const next = {};
     if (updates.b != null) next.b = updates.b;
@@ -490,6 +645,15 @@ export default function ShelfView() {
           </Link>
         </div>
       </div>
+
+      {addTarget && (
+        <AddBookHere
+          targetPatch={addTarget.patch}
+          targetLabel={addTarget.label}
+          resolveLocation={resolveLocation}
+          onAdded={handleAddedToLocation}
+        />
+      )}
 
       {/* Buildings */}
       {!buildingId && (
