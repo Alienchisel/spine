@@ -102,11 +102,21 @@ function SortableBookCard({ book, onRemove, draggable, linkState }) {
   );
 }
 
-function QuickAdd({ listId, onAdded }) {
+function QuickAdd({ listId, listBookIds, onAdded }) {
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
   const [expanded, setExpanded] = useState(false);
+  const [matches, setMatches] = useState([]);
+  const [searching, setSearching] = useState(false);
   const saveGuard = useActionGuard();
+  // Synchronous in-flight guard on row clicks. Without it, a fast double-
+  // click on the same row would fire two addToList POSTs and (more
+  // importantly) two onAdded calls — and the parent splices into l.books
+  // optimistically, so the row would appear twice in the local view until
+  // the next refetch.
+  const pickGuard = useActionGuard();
+  const searchGuard = useStaleGuard();
+  const debounce = useRef(null);
   const [error, setError] = useState(null);
   const titleRef = useRef(null);
   // Track the current listId so a submission whose awaits resolve after the
@@ -117,6 +127,57 @@ function QuickAdd({ listId, onAdded }) {
   // The form-state clears are gated too: they'd otherwise blank out fresh
   // text the user has started typing on List B's quick-add.
   const listIdRef = useLatest(listId);
+
+  // Debounced library search. Mirrors LookupPanel's stale-guard pattern so
+  // a slow response from an earlier keystroke can't repopulate the dropdown
+  // after the user has typed past it.
+  useEffect(() => {
+    clearTimeout(debounce.current);
+    const q = title.trim();
+    if (!q) {
+      searchGuard.next();
+      setMatches([]);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    const epoch = searchGuard.next();
+    debounce.current = setTimeout(async () => {
+      try {
+        const { books } = await api.getBooks({ q, limit: 6 });
+        if (!searchGuard.isFresh(epoch)) return;
+        setMatches(books || []);
+      } catch {
+        if (!searchGuard.isFresh(epoch)) return;
+        setMatches([]);
+      } finally {
+        // Spinner only flips off for the LATEST request (matches LookupPanel).
+        if (searchGuard.isFresh(epoch)) setSearching(false);
+      }
+    }, 200);
+    return () => clearTimeout(debounce.current);
+  }, [title]);
+
+  async function pickExisting(book) {
+    if (!pickGuard.begin()) return;
+    const submittedListId = listId;
+    setError(null);
+    try {
+      await api.addToList(submittedListId, book.id);
+      if (listIdRef.current !== submittedListId) return;
+      onAdded(book, submittedListId);
+      setTitle('');
+      setAuthor('');
+      setMatches([]);
+      setExpanded(false);
+      titleRef.current?.focus();
+    } catch (err) {
+      if (listIdRef.current !== submittedListId) return;
+      setError(err?.message || 'Failed to add book.');
+    } finally {
+      pickGuard.end();
+    }
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -141,6 +202,7 @@ function QuickAdd({ listId, onAdded }) {
       onAdded(book, submittedListId);
       setTitle('');
       setAuthor('');
+      setMatches([]);
       setExpanded(false);
       titleRef.current?.focus();
     } catch (err) {
@@ -151,37 +213,80 @@ function QuickAdd({ listId, onAdded }) {
     }
   }
 
+  const busy = saveGuard.busy || pickGuard.busy;
+
   return (
-    <form onSubmit={handleSubmit} className="flex items-center gap-2 mb-6">
-      <input
-        ref={titleRef}
-        type="text"
-        value={title}
-        onChange={e => setTitle(e.target.value)}
-        onFocus={() => setExpanded(true)}
-        placeholder="Quick-add a book by title…"
-        aria-label="Book title to add"
-        className="bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2 text-sm text-parchment placeholder-neutral-500 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 transition-colors flex-1"
-      />
-      {expanded && (
+    <div className="mb-6 relative">
+      <form onSubmit={handleSubmit} className="flex items-center gap-2">
         <input
+          ref={titleRef}
           type="text"
-          value={author}
-          onChange={e => setAuthor(e.target.value)}
-          placeholder="Author (optional)"
-          aria-label="Book author (optional)"
-          className="bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2 text-sm text-parchment placeholder-neutral-500 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 transition-colors w-48"
+          value={title}
+          onChange={e => setTitle(e.target.value)}
+          onFocus={() => setExpanded(true)}
+          placeholder="Add a book — search by title…"
+          aria-label="Book title to add"
+          className="bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2 text-sm text-parchment placeholder-neutral-500 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 transition-colors flex-1"
         />
+        {expanded && (
+          <input
+            type="text"
+            value={author}
+            onChange={e => setAuthor(e.target.value)}
+            placeholder="Author (optional, only used for new stubs)"
+            aria-label="Book author (optional, only used for new stubs)"
+            className="bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2 text-sm text-parchment placeholder-neutral-500 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 transition-colors w-72"
+          />
+        )}
+        <button
+          type="submit"
+          disabled={busy || !title.trim()}
+          title="Create a wishlist stub with this title and add it to the list"
+          className="text-sm font-medium bg-oak hover:bg-leather disabled:opacity-60 motion-safe:active:scale-[0.98] text-neutral-950 px-4 py-2 rounded-lg transition-[transform,background-color] ease-out duration-150 whitespace-nowrap"
+        >
+          + Stub
+        </button>
+        {error && <span role="alert" className="text-xs text-red-400">{error}</span>}
+      </form>
+
+      {/* Existing-library matches. Click a row to add the actual library
+          book to this list; "already added" rows are surfaced (not
+          hidden) so the user understands the duplicate they'd otherwise
+          try to stub. The "+ Stub" button stays available throughout for
+          the no-match / wishlist case. */}
+      {title.trim() && (matches.length > 0 || searching) && (
+        <div className="absolute z-30 top-full left-0 right-0 mt-1.5 bg-neutral-900 border border-neutral-800 rounded-lg shadow-lg max-h-80 overflow-y-auto">
+          {searching && matches.length === 0 ? (
+            <div className="px-3 py-3 text-xs text-neutral-500">Searching the library…</div>
+          ) : (
+            matches.map(b => {
+              const alreadyIn = listBookIds.has(b.id);
+              const authorsLabel = b.authors_display || '';
+              return (
+                <button
+                  key={b.id}
+                  type="button"
+                  onClick={() => !alreadyIn && pickExisting(b)}
+                  disabled={busy || alreadyIn}
+                  className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${alreadyIn ? 'cursor-default opacity-50' : 'hover:bg-neutral-800'} disabled:cursor-default`}
+                >
+                  <div className="w-8 h-12 flex-shrink-0 bg-neutral-800 rounded-sm overflow-hidden">
+                    {b.cover_path && <img src={b.cover_path} alt="" className="w-full h-full object-cover" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm text-parchment truncate">{b.title}</div>
+                    {authorsLabel && <div className="text-xs text-neutral-500 truncate">{authorsLabel}</div>}
+                  </div>
+                  <span className="text-[11px] text-neutral-500 whitespace-nowrap">
+                    {alreadyIn ? 'Already in list' : '+ Add to list'}
+                  </span>
+                </button>
+              );
+            })
+          )}
+        </div>
       )}
-      <button
-        type="submit"
-        disabled={saveGuard.busy || !title.trim()}
-        className="text-sm font-medium bg-oak hover:bg-leather disabled:opacity-60 motion-safe:active:scale-[0.98] text-neutral-950 px-4 py-2 rounded-lg transition-[transform,background-color] ease-out duration-150 whitespace-nowrap"
-      >
-        Add
-      </button>
-      {error && <span role="alert" className="text-xs text-red-400">{error}</span>}
-    </form>
+    </div>
   );
 }
 
@@ -220,6 +325,17 @@ export default function ListDetail() {
     }),
     [id, list?.name, list?.books, cohort],
   );
+  // ID set of books already on this list — flows into QuickAdd so the
+  // existing-library matches dropdown can mark duplicates instead of
+  // letting the user click a row that the server would silently
+  // INSERT OR IGNORE. Sourced from the cohort fetch when available
+  // (full list up to its cap) so the dedup signal is accurate beyond
+  // the visible page; falls back to the visible-books shape during the
+  // brief window before the cohort lands.
+  const listBookIds = useMemo(() => {
+    const src = cohort.length > 0 ? cohort : (list?.books || []);
+    return new Set(src.map(b => b.id));
+  }, [cohort, list?.books]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -704,7 +820,7 @@ export default function ListDetail() {
       {/* key={id} forces a fresh QuickAdd on every list switch so any
           half-typed title/author, the expanded state, and any error
           message don't leak from list A's view onto list B's view. */}
-      <QuickAdd key={id} listId={id} onAdded={handleAdded} />
+      <QuickAdd key={id} listId={id} listBookIds={listBookIds} onAdded={handleAdded} />
 
       {total === 0 ? (
         <div className="text-center py-24">
