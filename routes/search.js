@@ -17,6 +17,44 @@ function fetchWithTimeout(url, ms = 5000) {
   }).finally(() => clearTimeout(timer));
 }
 
+// One OL fetch attempt with transient-failure classification — matches
+// the pattern in lib/authors/openLibrary.js. AbortError + TypeError =
+// network transient, 5xx + 429 = HTTP transient, 4xx = permanent.
+// Used by the cover-wizard search path; /description doesn't need it
+// because that route already swallows failures into { description: null }.
+async function fetchOLOnce(url, ms) {
+  let res;
+  try {
+    res = await fetchWithTimeout(url, ms);
+  } catch (err) {
+    const transient = err?.name === 'AbortError' || err instanceof TypeError;
+    const e = new Error(err?.message || 'Network error');
+    e.transient = transient;
+    throw e;
+  }
+  if (!res.ok) {
+    const e = new Error(`OL ${res.status}`);
+    e.transient = res.status === 429 || (res.status >= 500 && res.status < 600);
+    e.status = res.status;
+    throw e;
+  }
+  return res;
+}
+
+// Retry-once wrapper for the OL search path. Same shape as the author
+// search-ol retry; without it, transient OL flakes (Jane Jacobs-style
+// 502 at 10s followed by clean 200 a second later) surface as a
+// 'Search failed' banner in the cover wizard.
+async function fetchOLWithRetry(url, ms) {
+  try {
+    return await fetchOLOnce(url, ms);
+  } catch (err) {
+    if (!err.transient) throw err;
+    await new Promise(r => setTimeout(r, 300));
+    return fetchOLOnce(url, ms);
+  }
+}
+
 router.get('/description', async (req, res) => {
   const { key } = req.query;
   if (!key?.startsWith('/works/')) return res.status(400).json({ error: 'Invalid key' });
@@ -50,9 +88,9 @@ router.get('/', async (req, res) => {
     // the cover-audit wizard on otherwise valid queries — give it room.
     // /description (key lookup, ~200ms) keeps the 5s default; no need to
     // wait longer on the fast path.
-    const response = await fetchWithTimeout(url, 15000);
-    if (!response.ok) return res.status(502).json({ error: 'Open Library unavailable' });
-
+    // Retry absorbs the transient flake shape (502 on first hit, clean
+    // 200 ~1s later) that surfaces a spurious 'Search failed' otherwise.
+    const response = await fetchOLWithRetry(url, 15000);
     const data = await response.json();
     const docs = data.docs || [];
 

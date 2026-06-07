@@ -53,17 +53,52 @@ describe('search', () => {
     }
   });
 
-  it('GET /api/search returns 502 when Open Library responds with !ok', async () => {
+  it('GET /api/search retries once on a transient !ok and returns 502 if both fail', async () => {
+    // 503 is transient (5xx), so the retry-once helper fires a second
+    // attempt before surfacing the failure. Both attempts here return
+    // 503; the route returns 502 with the consolidated error message.
     const originalFetch = globalThis.fetch;
+    let calls = 0;
     const fetchMock = mock.method(globalThis, 'fetch', async (target, init) => {
       const targetStr = typeof target === 'string' ? target : String(target);
       if (targetStr.startsWith(url)) return originalFetch(target, init);
+      calls += 1;
       return { ok: false, status: 503 };
     });
     try {
       const { status, body } = await req('/api/search?q=anything');
       assert.equal(status, 502);
-      assert.equal(body.error, 'Open Library unavailable');
+      assert.equal(body.error, 'Failed to reach Open Library');
+      assert.equal(calls, 2, 'should retry once before surfacing the failure');
+    } finally {
+      fetchMock.mock.restore();
+    }
+  });
+
+  it('GET /api/search retries once on a transient TypeError and succeeds on the second attempt', async () => {
+    // Same flake shape that bit the portrait wizard: first attempt
+    // throws (TypeError = TCP-level OL flake), second returns clean
+    // JSON. The route should silently absorb the first miss.
+    const originalFetch = globalThis.fetch;
+    let calls = 0;
+    const fetchMock = mock.method(globalThis, 'fetch', async (target, init) => {
+      const targetStr = typeof target === 'string' ? target : String(target);
+      if (targetStr.startsWith(url)) return originalFetch(target, init);
+      calls += 1;
+      if (calls === 1) throw new TypeError('fetch failed');
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ docs: [{ key: '/works/OL1W', title: 'Recovered', author_name: ['A'] }] }),
+      };
+    });
+    try {
+      const { status, body } = await req('/api/search?q=anything');
+      assert.equal(status, 200);
+      assert.equal(Array.isArray(body), true);
+      assert.equal(body.length, 1);
+      assert.equal(body[0].title, 'Recovered');
+      assert.equal(calls, 2);
     } finally {
       fetchMock.mock.restore();
     }
