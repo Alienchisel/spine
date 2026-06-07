@@ -13,6 +13,7 @@ import TagsIndex from './pages/TagsIndex.jsx';
 import SeriesIndex from './pages/SeriesIndex.jsx';
 import Readlist from './pages/Readlist.jsx';
 import Loved from './pages/Loved.jsx';
+import Showcase from './pages/Showcase.jsx';
 import Lists from './pages/Lists.jsx';
 import ListDetail from './pages/ListDetail.jsx';
 import Diary from './pages/Diary.jsx';
@@ -76,6 +77,7 @@ const router = createBrowserRouter(
         <Route path="series"                element={<SeriesIndex />} />
         <Route path="readlist"              element={<Readlist />} />
         <Route path="loved"                 element={<Loved />} />
+        <Route path="showcase"              element={<Showcase />} />
         <Route path="lists"                 element={<Lists />} />
         <Route path="lists/:id"             element={<ListDetail />} />
         <Route path="diary"                 element={<Diary />} />

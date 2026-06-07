@@ -104,6 +104,7 @@ export default function BookDetail() {
   const archiveGuard  = useActionGuard();
   const finishGuard   = useActionGuard();
   const deleteGuard   = useActionGuard();
+  const showcaseGuard = useActionGuard();
   const [finishError, setFinishError] = useState(null);
   const [loadError, setLoadError] = useState(false);
   // Click-to-zoom on the cover. Opens a full-screen lightbox over a dim
@@ -136,6 +137,11 @@ export default function BookDetail() {
   // just hides the nav — small but tells the user why a book in a known
   // series shows no prev/next strip.
   const [seriesError, setSeriesError] = useState(null);
+  // Holds the current showcase picks (up to 5) so the action button can
+  // distinguish "+ Add", "Showcase full", and "In Showcase #N — remove"
+  // without firing the PATCH first. Refetched on book change so the
+  // count reflects the latest state if the user just edited the row.
+  const [showcasePicks, setShowcasePicks] = useState([]);
   // getShelfLocation failure used to set location=null, which is the same
   // state as "book genuinely has no shelf assignment" — indistinguishable
   // failure mode. This separates them.
@@ -245,6 +251,13 @@ export default function BookDetail() {
       .then(l => { if (idGuard.isFresh(epoch)) setLog(l); })
       .catch(() => { if (idGuard.isFresh(epoch)) setLogError('Failed to load reading log.'); });
     loadReads();
+    // Showcase picks side-fetch — used by the action button to decide
+    // between "+ Add to Showcase", "Showcase full", and the remove path.
+    // Failure is silent: the button stays in its disabled-add state, which
+    // degrades to a navigate-to-/showcase fallback when the user clicks.
+    api.getBooks({ showcase: 1, sort: 'showcase', limit: 5 })
+      .then(({ books: b }) => { if (idGuard.isFresh(epoch)) setShowcasePicks(b); })
+      .catch(() => { /* silent */ });
   }, [id, refreshTick]);
 
   // Paste-to-upload-cover: while on BookDetail, a clipboard image (Cmd/
@@ -374,6 +387,49 @@ export default function BookDetail() {
       setActionError('Failed to update loved');
     } finally {
       loveGuard.end();
+    }
+  }
+
+  async function toggleShowcase() {
+    if (!showcaseGuard.begin()) return;
+    const reqId = book.id;
+    clearActionErrors();
+    try {
+      let nextPosition;
+      if (book.showcase_position) {
+        // Already a pick — clear the slot. Renumbering of the remaining
+        // picks happens on the /showcase page (dense reflow on visit);
+        // leaving a gap here is fine since the page sorts by position.
+        nextPosition = null;
+      } else {
+        // Find the lowest empty slot 1–5. picks comes back in rank order
+        // from the /api/books?showcase=1&sort=showcase fetch, so the
+        // first integer not present is the next slot.
+        const taken = new Set(showcasePicks.map(p => p.showcase_position));
+        nextPosition = [1, 2, 3, 4, 5].find(n => !taken.has(n));
+        if (nextPosition == null) {
+          // Row is full — route the user to /showcase to swap something
+          // out instead of silently no-opping or replacing arbitrarily.
+          navigate('/showcase', { state: { from: book.title, fromPath: `/books/${book.id}` } });
+          return;
+        }
+      }
+      const updated = await api.patchBook(reqId, { showcase_position: nextPosition });
+      if (!isStillCurrent(reqId)) return;
+      setBook(updated);
+      // Keep the local picks list in sync so a second toggle sees the
+      // right state without waiting on a refetch.
+      setShowcasePicks(prev => {
+        const without = prev.filter(p => p.id !== reqId);
+        if (nextPosition == null) return without;
+        return [...without, { id: reqId, title: updated.title, showcase_position: nextPosition }]
+          .sort((a, b) => a.showcase_position - b.showcase_position);
+      });
+    } catch {
+      if (!isStillCurrent(reqId)) return;
+      setActionError('Failed to update showcase');
+    } finally {
+      showcaseGuard.end();
     }
   }
 
@@ -826,6 +882,33 @@ export default function BookDetail() {
                   <path d="M2 2.75A2.75 2.75 0 0 1 4.75 0h6.5A2.75 2.75 0 0 1 14 2.75v12.5a.75.75 0 0 1-1.18.617L8 12.21l-4.82 3.657A.75.75 0 0 1 2 15.25V2.75Z" />
                 </svg>
               </button>
+              {/* Showcase pick — five-slot row on /showcase. Filled star
+                  when this book occupies a slot (tooltip shows rank);
+                  outlined when empty. When the row is full and this
+                  book isn't on it, the click routes to /showcase to
+                  swap something out (handled by toggleShowcase). */}
+              {(() => {
+                const isPick    = !!book.showcase_position;
+                const rowFull   = !isPick && showcasePicks.length >= 5;
+                const title     = isPick
+                  ? `In Showcase — rank #${book.showcase_position}. Click to remove.`
+                  : rowFull
+                    ? 'Showcase full — manage'
+                    : 'Add to Showcase';
+                return (
+                  <button
+                    type="button"
+                    onClick={toggleShowcase}
+                    disabled={showcaseGuard.busy}
+                    className={`p-1.5 transition-colors disabled:opacity-60 ${isPick ? 'text-indigo-400' : 'text-neutral-600 hover:text-neutral-300'}`}
+                    title={title}
+                    aria-label={`${title}: ${book.title}`}
+                    aria-pressed={isPick}
+                  >
+                    <span className="text-2xl leading-none">{isPick ? '★' : '☆'}</span>
+                  </button>
+                );
+              })()}
               <div className="p-1.5 text-neutral-600">
                 <ListPicker bookId={book.id} bookTitle={book.title} iconClassName="w-5 h-5" />
               </div>

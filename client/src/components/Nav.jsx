@@ -9,6 +9,7 @@ export default function Nav() {
   // get the same one-tap-away affordance.
   const onReadlist = pathname === '/readlist';
   const onLoved = pathname === '/loved';
+  const onShowcase = pathname === '/showcase';
   const onLists = pathname === '/lists' || pathname.startsWith('/lists/');
   const onDiary = pathname === '/diary';
   const onNotes = pathname === '/notes';
@@ -53,6 +54,7 @@ export default function Nav() {
             {navLink('/readlist',   'Readlist', onReadlist,  'text-sky-400',     'hover:text-sky-300')}
             {navLink('/lists',      'Lists',    onLists,     'text-emerald-400', 'hover:text-emerald-300')}
             {navLink('/loved',      'Loved',    onLoved,     'text-rose-400',    'hover:text-rose-300')}
+            {navLink('/showcase',   'Showcase', onShowcase,  'text-indigo-400',  'hover:text-indigo-300')}
             {navLink('/diary',      'Diary',    onDiary,     'text-amber-400',   'hover:text-amber-300')}
             {navLink('/notes',      'Notes',    onNotes,     'text-leather',     'hover:text-parchment')}
             {navLink('/stats',      'Stats',    onStats,     'text-violet-400',  'hover:text-violet-300')}

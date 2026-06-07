@@ -54,6 +54,10 @@ export const FORM_DEFAULTS = Object.freeze({
 
   // Cover path.
   cover_path: null,
+
+  // Showcase rank (1–5) — null = not showcased. Set by the BookDetail
+  // "Add to Showcase" action, not the form.
+  showcase_position: null,
 });
 
 // Virtual tags computed from book fields (never stored). The frontend uses
@@ -90,4 +94,5 @@ export const BOOK_TABLE_COLUMNS = Object.freeze([
   'abridged',
   'archived',
   'shelf_id', 'building_id', 'room_id', 'unit_id',
+  'showcase_position',
 ]);

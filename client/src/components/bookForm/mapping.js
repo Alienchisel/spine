@@ -56,6 +56,11 @@ export function bookToFormState(book) {
     read_count: book.read_count || 0,
     tags: realTagNames(book.tags),
     cover_path: book.cover_path || null,
+    // Showcase slot (1–5) round-trips through form state so a Save on the
+    // BookForm doesn't silently wipe a pick set via the BookDetail action.
+    // Same gap-detector lock that originally caught the `loved` and
+    // `archived` wipe bugs covers this.
+    showcase_position: book.showcase_position ?? null,
   };
 }
 
