@@ -696,13 +696,16 @@ export default function BookDetail() {
         <div className="flex items-baseline gap-3 flex-wrap mb-2">
           <h1 className="font-slab text-4xl text-parchment leading-[1.1] tracking-tight">
             {book.title}
+            {/* select-none on the badges so a drag across "title + badge"
+                copies only the title — without it the clipboard ends up
+                with e.g. "The Marble FaunWishlist" stuck together. */}
             {book.archived ? (
-              <span className="ml-2 align-middle text-[10px] uppercase tracking-wider text-amber-500/80 font-normal border border-amber-500/30 rounded px-1.5 py-0.5">
+              <span className="ml-2 align-middle text-[10px] uppercase tracking-wider text-amber-500/80 font-normal border border-amber-500/30 rounded px-1.5 py-0.5 select-none">
                 Archived
               </span>
             ) : null}
             {book.is_stub && !book.owned ? (
-              <span className="ml-2 align-middle text-[10px] uppercase tracking-wider text-emerald-400/80 font-normal border border-emerald-400/30 rounded px-1.5 py-0.5" title="A wishlist placeholder — edition details TBD. Will graduate automatically when marked owned.">
+              <span className="ml-2 align-middle text-[10px] uppercase tracking-wider text-emerald-400/80 font-normal border border-emerald-400/30 rounded px-1.5 py-0.5 select-none" title="A wishlist placeholder — edition details TBD. Will graduate automatically when marked owned.">
                 Wishlist
               </span>
             ) : null}
