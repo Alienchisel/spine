@@ -2185,11 +2185,14 @@ describe('books', () => {
       const stem = 'hires' + Math.random().toString(36).slice(2, 6);
       const smallName = `${Date.now()}-${stem}small.jpg`;
       const largeName = `${Date.now()}-${stem}large.jpg`;
+      const stubName  = `${Date.now()}-${stem}stub.jpg`;
       const smallPath = path.join(uploadsDir, smallName);
       const largePath = path.join(uploadsDir, largeName);
+      const stubPath  = path.join(uploadsDir, stubName);
       // 1KB tiny vs 60KB big — straddles the 40_000 threshold.
       fs.writeFileSync(smallPath, Buffer.alloc(1024));
       fs.writeFileSync(largePath, Buffer.alloc(60_000));
+      fs.writeFileSync(stubPath,  Buffer.alloc(1024));
 
       const { body: small } = await req('POST', '/api/books', {
         title: `${stem}-small`, owned: 1, cover_path: `/uploads/${smallName}`,
@@ -2197,17 +2200,26 @@ describe('books', () => {
       const { body: large } = await req('POST', '/api/books', {
         title: `${stem}-large`, owned: 1, cover_path: `/uploads/${largeName}`,
       });
+      // Wishlist stub with a low-byte cover — must NOT surface, since the
+      // audit's intent is "owned copies worth replacing." Mirrors the same
+      // is_stub guard the other edition-specific missing= filters carry.
+      const { body: stub } = await req('POST', '/api/books', {
+        title: `${stem}-stub`, owned: 0, is_stub: 1, cover_path: `/uploads/${stubName}`,
+      });
 
       try {
         const { body } = await req('GET', `/api/books?missing=hi_res_cover&q=${stem}&limit=200`);
         const ids = new Set(body.books.map(b => b.id));
         assert.ok( ids.has(small.id), 'sub-threshold cover should surface as low-res');
         assert.ok(!ids.has(large.id), 'above-threshold cover should NOT surface');
+        assert.ok(!ids.has(stub.id),  'wishlist stub should not surface even with a sub-threshold cover');
       } finally {
         await req('DELETE', `/api/books/${small.id}`);
         await req('DELETE', `/api/books/${large.id}`);
+        await req('DELETE', `/api/books/${stub.id}`);
         try { fs.unlinkSync(smallPath); } catch {}
         try { fs.unlinkSync(largePath); } catch {}
+        try { fs.unlinkSync(stubPath);  } catch {}
       }
     });
 
