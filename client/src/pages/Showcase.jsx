@@ -206,7 +206,10 @@ function Slot({ item, rank, canMoveLeft, canMoveRight, onMoveLeft, onMoveRight, 
         className="block relative aspect-[2/3] bg-neutral-800 rounded overflow-hidden shadow-lg"
       >
         {item.image_path ? (
-          <img src={item.image_path} alt="" className="w-full h-full object-cover" />
+          // object-top so author portraits crop to keep the head visible
+          // instead of center-cropping it; book covers are uploaded at
+          // 2:3 so the position is a no-op for them.
+          <img src={item.image_path} alt="" className="w-full h-full object-cover object-top" />
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center p-3 bg-gradient-to-br from-neutral-700 to-neutral-900 gap-2">
             <span className="text-5xl font-bold text-neutral-500 select-none leading-none tracking-wide">

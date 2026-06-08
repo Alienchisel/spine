@@ -94,7 +94,10 @@ export default function SwapShowcaseModal({ open, picks, incomingTitle, onPick, 
                   </span>
                   <div className="w-8 h-12 flex-shrink-0 bg-neutral-800 rounded-sm overflow-hidden">
                     {p.image_path ? (
-                      <img src={p.image_path} alt="" className="w-full h-full object-cover" />
+                      // object-top so author portraits keep the head
+                      // visible in the narrow thumbnail; books are 2:3
+                      // already so this is a no-op for them.
+                      <img src={p.image_path} alt="" className="w-full h-full object-cover object-top" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-neutral-700 to-neutral-900">
                         <span className="text-[10px] font-bold text-neutral-500 select-none">{initialsFor(p.label)}</span>
