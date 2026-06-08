@@ -487,6 +487,18 @@ router.patch('/:id', (req, res) => {
       req.body[col] = n;
     }
   }
+  // showcase_position is 1-5 or null/empty (clear). Validation has to live
+  // here on the PATCH path because the column-level coercer in
+  // repository.js silently returns null for out-of-range values — fine as
+  // a final guard, but without an explicit 400 the API contract diverges
+  // from POST (which validateBook rejects). Empty/null clears the slot.
+  if (req.body.showcase_position !== undefined && req.body.showcase_position !== null && req.body.showcase_position !== '') {
+    const n = Number(req.body.showcase_position);
+    if (!Number.isInteger(n) || n < 1 || n > 5) {
+      return res.status(400).json({ error: 'showcase_position must be an integer 1–5' });
+    }
+    req.body.showcase_position = n;
+  }
   for (const col of ['page_count', 'duration_minutes']) {
     if (req.body[col] !== undefined && req.body[col] !== null && req.body[col] !== '') {
       const n = Number(req.body[col]);

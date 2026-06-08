@@ -148,6 +148,13 @@ export default function BookDetail() {
   // the five existing slots to replace, both PATCHes run sequentially,
   // and the modal closes without leaving BookDetail.
   const [swapModalOpen, setSwapModalOpen] = useState(false);
+  // Close the swap modal whenever the rendered book changes (prev/next
+  // cohort nav, or a deep-link to a different book mid-modal). Without
+  // this the modal would stay open with the previous book's title
+  // pinned in `incomingTitle` while the parent's `book` has already
+  // moved on — visually misleading, even though the PATCH targets the
+  // (now stale) book.id captured at click time.
+  useEffect(() => { setSwapModalOpen(false); }, [id]);
   // getShelfLocation failure used to set location=null, which is the same
   // state as "book genuinely has no shelf assignment" — indistinguishable
   // failure mode. This separates them.

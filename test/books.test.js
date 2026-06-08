@@ -2240,10 +2240,18 @@ describe('books', () => {
         assert.deepEqual(ids, [a.id, b.id, c.id], 'showcased books in rank order');
         assert.ok(!ids.includes(d.id), 'non-showcased book absent');
 
-        // Out-of-range guard.
-        const { status, body: err } = await req('POST', '/api/books', { title: `${stem}-bad`, showcase_position: 6 });
-        assert.equal(status, 400);
-        assert.match(JSON.stringify(err), /showcase_position/);
+        // Out-of-range guard — POST and PATCH must agree. The column-level
+        // coercer in repository.js silently nulls out-of-range values; without
+        // explicit validation on the PATCH route an API caller would see POST
+        // {showcase_position: 6} returning 400 but the same PATCH succeed and
+        // silently store NULL — the bug the 2026-06-07 sweep flagged.
+        const { status: postStatus, body: postErr } = await req('POST', '/api/books', { title: `${stem}-bad`, showcase_position: 6 });
+        assert.equal(postStatus, 400);
+        assert.match(JSON.stringify(postErr), /showcase_position/);
+
+        const { status: patchStatus, body: patchErr } = await req('PATCH', `/api/books/${a.id}`, { showcase_position: 6 });
+        assert.equal(patchStatus, 400, 'PATCH must reject out-of-range, not silently coerce');
+        assert.match(JSON.stringify(patchErr), /showcase_position/);
 
         // PATCH clears the slot.
         await req('PATCH', `/api/books/${a.id}`, { showcase_position: null });
