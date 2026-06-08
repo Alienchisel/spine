@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import IncomingBackLink from '../components/IncomingBackLink.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
+import ShowcaseAddPicker from '../components/ShowcaseAddPicker.jsx';
 import { api } from '../api.js';
 import { initialsFor } from '../utils.js';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
@@ -50,6 +51,61 @@ export default function Showcase() {
   };
   const authorReturnState = { from: 'Showcase', fromPath: pathname + search };
 
+  // Series search pool — the index endpoint returns every series in the
+  // library with showcase_position joined in, so we fetch once on mount
+  // (and on refreshTick) and filter client-side. The list is small
+  // enough that a server-side q parameter would be overkill.
+  const [allSeries, setAllSeries] = useState([]);
+  useEffect(() => {
+    api.getSeries()
+      .then(rows => setAllSeries(Array.isArray(rows) ? rows : []))
+      .catch(() => { /* silent */ });
+  }, [refreshTick]);
+
+  // Per-section search adapters. Each returns up to 6 results in the
+  // shape ShowcaseAddPicker renders. alreadyIn is computed against the
+  // current row's items so the dedup signal is accurate even between
+  // refreshTicks. Wrapped in useCallback so the picker's effect doesn't
+  // re-run on every parent render (its dep array includes `search`).
+  const showcasedBookIds = useMemo(() => new Set(books.items.map(b => b.id)), [books.items]);
+  const searchBooks = useCallback(async (q) => {
+    const { books: matches } = await api.getBooks({ q, limit: 6, sort: 'updated' });
+    return matches.map(b => ({
+      id: b.id,
+      label: b.title,
+      image_path: b.cover_path,
+      hint: (b.authors || []).map(a => a.name).join(', '),
+      alreadyIn: showcasedBookIds.has(b.id) || !!b.showcase_position,
+    }));
+  }, [showcasedBookIds]);
+
+  const showcasedAuthorIds = useMemo(() => new Set(authors.items.map(a => a.id)), [authors.items]);
+  const searchAuthors = useCallback(async (q) => {
+    const matches = await api.getAuthors({ q });
+    return (Array.isArray(matches) ? matches : []).slice(0, 6).map(a => ({
+      id: a.id,
+      label: a.name,
+      image_path: null, // search endpoint doesn't return photo_path
+      hint: a.book_count ? `${a.book_count} ${a.book_count === 1 ? 'book' : 'books'}` : null,
+      alreadyIn: showcasedAuthorIds.has(a.id),
+    }));
+  }, [showcasedAuthorIds]);
+
+  const showcasedSeriesNames = useMemo(() => new Set(seriesRow.items.map(s => s.name)), [seriesRow.items]);
+  const searchSeries = useCallback(async (q) => {
+    const needle = q.toLowerCase();
+    return allSeries
+      .filter(s => s.name.toLowerCase().includes(needle))
+      .slice(0, 6)
+      .map(s => ({
+        id: s.name,
+        label: s.name,
+        image_path: null,
+        hint: s.book_count ? `${s.book_count} ${s.book_count === 1 ? 'book' : 'books'}` : null,
+        alreadyIn: showcasedSeriesNames.has(s.name),
+      }));
+  }, [allSeries, showcasedSeriesNames]);
+
   return (
     <div>
       <IncomingBackLink />
@@ -67,9 +123,17 @@ export default function Showcase() {
         })}
         linkState={bookReturnState}
         emptyHint={
-          <>No picks yet. Open a book and click <span className="text-neutral-400">+ Add to Showcase</span> to put it on the row.</>
+          <>No picks yet — search below to add one, or click <span className="text-neutral-400">+ Add to Showcase</span> from any book&apos;s detail page.</>
         }
-      />
+      >
+        <ShowcaseAddPicker
+          placeholder="Add a book — search by title…"
+          search={searchBooks}
+          onAdd={(item) => books.add(item.id)}
+          disabled={books.items.length >= MAX_SLOTS}
+          disabledHint="Showcase row is full — ✕ a pick to add another."
+        />
+      </ShowcaseSection>
 
       <div className="mt-12">
         <ShowcaseSection
@@ -81,9 +145,17 @@ export default function Showcase() {
           })}
           linkState={authorReturnState}
           emptyHint={
-            <>No picks yet. Open an author and click <span className="text-neutral-400">+ Add to Showcase</span> to put them on the row.</>
+            <>No picks yet — search below to add one, or click <span className="text-neutral-400">+ Add to Showcase</span> from any author&apos;s page.</>
           }
-        />
+        >
+          <ShowcaseAddPicker
+            placeholder="Add an author — search by name…"
+            search={searchAuthors}
+            onAdd={(item) => authors.add(item.id)}
+            disabled={authors.items.length >= MAX_SLOTS}
+            disabledHint="Showcase row is full — ✕ a pick to add another."
+          />
+        </ShowcaseSection>
       </div>
 
       <div className="mt-12">
@@ -98,9 +170,17 @@ export default function Showcase() {
           })}
           linkState={{ from: 'Showcase', fromPath: pathname + search }}
           emptyHint={
-            <>No picks yet. Star a series from the <Link to="/series" className="text-neutral-400 hover:text-parchment transition-colors underline-offset-2 hover:underline">Series</Link> index to put it on the row.</>
+            <>No picks yet — search below to add one, or star a series from the <Link to="/series" className="text-neutral-400 hover:text-parchment transition-colors underline-offset-2 hover:underline">Series</Link> index.</>
           }
-        />
+        >
+          <ShowcaseAddPicker
+            placeholder="Add a series — search by name…"
+            search={searchSeries}
+            onAdd={(item) => seriesRow.add(item.id)}
+            disabled={seriesRow.items.length >= MAX_SLOTS}
+            disabledHint="Showcase row is full — ✕ a pick to add another."
+          />
+        </ShowcaseSection>
       </div>
     </div>
   );
@@ -163,6 +243,28 @@ function useShowcaseRow({ fetch, patchOne, refreshTick, keyOf = (x) => x.id }) {
     persist(next);
   }
 
+  // Add an existing entity to the next empty slot. Used by the
+  // per-section AddPicker below the row. No-op when the row is full
+  // (the picker is disabled in that state, so a slow race could still
+  // get a click through — the guard here is the second line of defence).
+  async function add(itemKey) {
+    if (items.length >= MAX_SLOTS) return;
+    const taken = new Set(items.map(x => x.showcase_position));
+    const slot = [1, 2, 3, 4, 5].find(n => !taken.has(n));
+    if (slot == null) return;
+    setBusy(true);
+    try {
+      await patchOne(itemKey, slot);
+      await syncFromServer();
+      setError(null);
+    } catch {
+      setError('Failed to add — refresh to see the current state.');
+      await syncFromServer();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function remove(item) {
     setBusy(true);
     const prior = items;
@@ -183,10 +285,10 @@ function useShowcaseRow({ fetch, patchOne, refreshTick, keyOf = (x) => x.id }) {
     }
   }
 
-  return { items, loading, error, busy, moveLeft, moveRight, remove, dismissError: () => setError(null) };
+  return { items, loading, error, busy, moveLeft, moveRight, remove, add, dismissError: () => setError(null) };
 }
 
-function ShowcaseSection({ heading, row, toItem, linkState, emptyHint, keyOf = (x) => x.id }) {
+function ShowcaseSection({ heading, row, toItem, linkState, emptyHint, keyOf = (x) => x.id, children }) {
   return (
     <section>
       <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-4">{heading}</h2>
@@ -221,6 +323,10 @@ function ShowcaseSection({ heading, row, toItem, linkState, emptyHint, keyOf = (
           ))}
         </div>
       )}
+      {/* AddPicker slot — sits below the row (or the empty hint) so the
+          curation control stays adjacent to what it's curating without
+          competing with the covers for attention. */}
+      {!row.loading && children}
     </section>
   );
 }
