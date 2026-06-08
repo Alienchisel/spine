@@ -8,63 +8,113 @@ import { useRefreshTick } from '../hooks/useRefreshTick.js';
 
 const MAX_SLOTS = 5;
 
-// Hand-curated top-five favourites — a "bookshop window" row of oversized
-// covers, ranked 1–5 left-to-right. No on-cover text (consistent with the
-// cover-first design language across the rest of Spine); hover reveals the
-// rank + reorder/remove tray. Adding a pick happens on BookDetail.
+// Hand-curated favourites — sections of up to five hand-ranked picks, one
+// section per entity type. Books shipped first (1.202.0); Authors followed
+// (1.202.6) using the same shape — same column, same PATCH validator, same
+// /api/<entity>?showcase=1 endpoint — so the page is a vertical stack of
+// near-identical sections.
 export default function Showcase() {
   const { pathname, search } = useLocation();
-  const [books, setBooks] = useState([]);
+  const refreshTick = useRefreshTick();
+
+  const books = useShowcaseRow({
+    fetch:    () => api.getBooks({ showcase: 1, sort: 'showcase', limit: MAX_SLOTS }).then(({ books }) => books),
+    patchOne: (id, slot) => api.patchBook(id, { showcase_position: slot }),
+    refreshTick,
+  });
+
+  const authors = useShowcaseRow({
+    fetch:    () => api.getAuthors({ showcase: 1 }),
+    patchOne: (id, slot) => api.updateAuthor(id, { showcase_position: slot }),
+    refreshTick,
+  });
+
+  // detailReturnState carries the cohort so BookDetail's prev/next can hop
+  // through the row in rank order. Authors don't currently use a cohort
+  // shape on AuthorDetail, so we just thread a friendly back-link.
+  const bookReturnState = {
+    from: 'Showcase',
+    fromPath: pathname + search,
+    cohort: books.items.map(b => ({ id: b.id, title: b.title })),
+  };
+  const authorReturnState = { from: 'Showcase', fromPath: pathname + search };
+
+  return (
+    <div>
+      <IncomingBackLink />
+      <h1 className="text-xl font-bold text-white mb-2">Showcase</h1>
+      <p className="text-sm text-neutral-500 mb-10">
+        Your top {MAX_SLOTS} — hand-ranked. Add or replace from any book or author&apos;s page.
+      </p>
+
+      <ShowcaseSection
+        heading="Books"
+        row={books}
+        toItem={(b, rank) => ({
+          id: b.id, label: b.title, image_path: b.cover_path,
+          linkTo: `/books/${b.id}`, hover: `#${rank} — ${b.title}${b.authors_display ? ' — ' + b.authors_display : ''}`,
+        })}
+        linkState={bookReturnState}
+        emptyHint={
+          <>No picks yet. Open a book and click <span className="text-neutral-400">+ Add to Showcase</span> to put it on the row.</>
+        }
+      />
+
+      <div className="mt-12">
+        <ShowcaseSection
+          heading="Authors"
+          row={authors}
+          toItem={(a, rank) => ({
+            id: a.id, label: a.name, image_path: a.photo_path,
+            linkTo: `/authors/${a.id}`, hover: `#${rank} — ${a.name}`,
+          })}
+          linkState={authorReturnState}
+          emptyHint={
+            <>No picks yet. Open an author and click <span className="text-neutral-400">+ Add to Showcase</span> to put them on the row.</>
+          }
+        />
+      </div>
+    </div>
+  );
+}
+
+// Owns the picks list, busy state, and the persist/remove/move logic for
+// one section of the page. PATCHes run sequentially so a failure in the
+// middle of a renumber bails immediately rather than half-writing the
+// row — the prior snapshot is restored locally and a refetch reconciles
+// with what's actually on disk.
+function useShowcaseRow({ fetch, patchOne, refreshTick }) {
+  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
-  const refreshTick = useRefreshTick();
 
   useEffect(() => {
     let stale = false;
-    api.getBooks({ showcase: 1, sort: 'showcase', limit: MAX_SLOTS })
-      .then(({ books }) => { if (!stale) { setBooks(books); setError(null); } })
+    fetch()
+      .then(rows => { if (!stale) { setItems(Array.isArray(rows) ? rows : []); setError(null); } })
       .catch(() => { if (!stale) setError('Failed to load showcase.'); })
       .finally(() => { if (!stale) setLoading(false); });
     return () => { stale = true; };
+    // fetch identity changes per render but is logically stable per row.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshTick]);
 
-  // Refetch from the server — used to recover from a partial write so the
-  // local view always reflects what's actually on disk.
   async function syncFromServer() {
-    try {
-      const { books: fresh } = await api.getBooks({ showcase: 1, sort: 'showcase', limit: MAX_SLOTS });
-      setBooks(fresh);
-    } catch {
-      // If even the recovery fetch fails the user is offline / the server
-      // is down — leave the optimistic state and let the next refreshTick
-      // try again. The error banner already carries the failure signal.
-    }
+    try { setItems(await fetch().then(rows => Array.isArray(rows) ? rows : [])); } catch { /* silent */ }
   }
 
-  // Reorder writes a fresh dense 1..N sequence so we never leak the prior
-  // gaps to disk. PATCHes run sequentially (not Promise.all) so a failure
-  // in the middle bails immediately instead of half-writing the row: any
-  // PATCHes that already succeeded plus the failing one are reconciled
-  // by an immediate refetch, so the local state matches disk on the way
-  // out. Cheap (at most five sequential round-trips).
   async function persist(next) {
     setBusy(true);
-    const prior = books;
-    const renumbered = next.map((b, i) => ({ ...b, showcase_position: i + 1 }));
-    setBooks(renumbered);
+    const prior = items;
+    const renumbered = next.map((x, i) => ({ ...x, showcase_position: i + 1 }));
+    setItems(renumbered);
     try {
-      for (const b of renumbered) {
-        await api.patchBook(b.id, { showcase_position: b.showcase_position });
-      }
+      for (const x of renumbered) await patchOne(x.id, x.showcase_position);
       setError(null);
     } catch {
       setError('Failed to save changes — restored to the last saved order.');
-      // Refetch so the local view matches disk (which might be partially
-      // written — the books whose PATCH succeeded before the failure are
-      // already at their new ranks server-side). The prior local snapshot
-      // is the fallback if the recovery fetch also fails.
-      setBooks(prior);
+      setItems(prior);
       await syncFromServer();
     } finally {
       setBusy(false);
@@ -73,115 +123,96 @@ export default function Showcase() {
 
   function moveLeft(idx) {
     if (idx <= 0) return;
-    const next = [...books];
+    const next = [...items];
     [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
     persist(next);
   }
 
   function moveRight(idx) {
-    if (idx >= books.length - 1) return;
-    const next = [...books];
+    if (idx >= items.length - 1) return;
+    const next = [...items];
     [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
     persist(next);
   }
 
-  async function remove(book) {
+  async function remove(item) {
     setBusy(true);
-    const prior = books;
-    const next = books.filter(b => b.id !== book.id);
-    const renumbered = next.map((b, i) => ({ ...b, showcase_position: i + 1 }));
-    setBooks(renumbered);
+    const prior = items;
+    const next = items.filter(x => x.id !== item.id);
+    const renumbered = next.map((x, i) => ({ ...x, showcase_position: i + 1 }));
+    setItems(renumbered);
     try {
-      // Clear the slot first; renumber the rest sequentially. Same bail-
-      // and-refetch shape as persist() so a partial write doesn't leak
-      // gap-vs-dense inconsistency onto disk.
-      await api.patchBook(book.id, { showcase_position: null });
-      for (const b of renumbered) {
-        await api.patchBook(b.id, { showcase_position: b.showcase_position });
-      }
+      await patchOne(item.id, null);
+      for (const x of renumbered) await patchOne(x.id, x.showcase_position);
       setError(null);
     } catch {
       setError('Failed to remove — restored to the last saved order.');
-      setBooks(prior);
+      setItems(prior);
       await syncFromServer();
     } finally {
       setBusy(false);
     }
   }
 
-  // detailReturnState carries the cohort so BookDetail's prev/next can hop
-  // through the row in rank order (the same threading every other curated
-  // surface uses).
-  const detailReturnState = {
-    from: 'Showcase',
-    fromPath: pathname + search,
-    cohort: books.map(b => ({ id: b.id, title: b.title })),
-  };
+  return { items, loading, error, busy, moveLeft, moveRight, remove, dismissError: () => setError(null) };
+}
 
+function ShowcaseSection({ heading, row, toItem, linkState, emptyHint }) {
   return (
-    <div>
-      <IncomingBackLink />
-      <h1 className="text-xl font-bold text-white mb-2">Showcase</h1>
-      <p className="text-sm text-neutral-500 mb-8">
-        Your top {MAX_SLOTS} — hand-ranked. Add or replace from any book&apos;s detail page.
-      </p>
-
-      {books.length > 0 && (
-        <ErrorBanner message={error} onDismiss={() => setError(null)} className="mb-4" />
+    <section>
+      <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-4">{heading}</h2>
+      {row.items.length > 0 && (
+        <ErrorBanner message={row.error} onDismiss={row.dismissError} className="mb-4" />
       )}
-
-      {loading ? (
+      {row.loading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-6">
           {Array.from({ length: MAX_SLOTS }).map((_, i) => (
             <div key={i} className="aspect-[2/3] bg-neutral-900 rounded animate-pulse" />
           ))}
         </div>
-      ) : books.length === 0 && error ? (
-        <div role="alert" className="text-red-500 text-sm">{error}</div>
-      ) : books.length === 0 ? (
-        <p className="text-sm text-neutral-600">
-          No picks yet. Open a book and click <span className="text-neutral-400">+ Add to Showcase</span> to put it on the row.
-        </p>
+      ) : row.items.length === 0 && row.error ? (
+        <div role="alert" className="text-red-500 text-sm">{row.error}</div>
+      ) : row.items.length === 0 ? (
+        <p className="text-sm text-neutral-600">{emptyHint}</p>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-6">
-          {books.map((b, idx) => (
+          {row.items.map((x, idx) => (
             <Slot
-              key={b.id}
-              book={b}
+              key={x.id}
+              item={toItem(x, idx + 1)}
               rank={idx + 1}
               canMoveLeft={idx > 0}
-              canMoveRight={idx < books.length - 1}
-              onMoveLeft={() => moveLeft(idx)}
-              onMoveRight={() => moveRight(idx)}
-              onRemove={() => remove(b)}
-              linkState={detailReturnState}
-              disabled={busy}
+              canMoveRight={idx < row.items.length - 1}
+              onMoveLeft={() => row.moveLeft(idx)}
+              onMoveRight={() => row.moveRight(idx)}
+              onRemove={() => row.remove(x)}
+              linkState={linkState}
+              disabled={row.busy}
             />
           ))}
         </div>
       )}
-    </div>
+    </section>
   );
 }
 
-function Slot({ book, rank, canMoveLeft, canMoveRight, onMoveLeft, onMoveRight, onRemove, linkState, disabled }) {
-  const label = `#${rank} — ${book.title}${book.authors_display ? ' — ' + book.authors_display : ''}`;
+function Slot({ item, rank, canMoveLeft, canMoveRight, onMoveLeft, onMoveRight, onRemove, linkState, disabled }) {
   return (
     <div className="group relative">
       <Link
-        to={`/books/${book.id}`}
+        to={item.linkTo}
         state={linkState}
-        title={label}
+        title={item.hover}
         className="block relative aspect-[2/3] bg-neutral-800 rounded overflow-hidden shadow-lg"
       >
-        {book.cover_path ? (
-          <img src={book.cover_path} alt="" className="w-full h-full object-cover" />
+        {item.image_path ? (
+          <img src={item.image_path} alt="" className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center p-3 bg-gradient-to-br from-neutral-700 to-neutral-900 gap-2">
             <span className="text-5xl font-bold text-neutral-500 select-none leading-none tracking-wide">
-              {initialsFor(book.authors_display || book.title)}
+              {initialsFor(item.label)}
             </span>
-            <span className="text-xs text-neutral-500 font-medium leading-tight line-clamp-3 text-center">{book.title}</span>
+            <span className="text-xs text-neutral-500 font-medium leading-tight line-clamp-3 text-center">{item.label}</span>
           </div>
         )}
         {/* Rank chip — always visible, top-left. Pure number, no label,

@@ -1,18 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { initialsFor } from '../utils.js';
 
-// Pick-to-swap dialog. Opens from BookDetail's ★ when the user tries to
-// add a book and all five Showcase slots are full. Rendering the row
-// inline (cover + rank + title) lets the user pick a slot without
-// losing track of which book they're trying to put in; the alternative
-// (bounce to /showcase, remove a pick, come back, click ★ again) loses
-// the "I wanted to add THIS book" intent.
+// Pick-to-swap dialog. Opens from the BookDetail / Author page ★ when
+// the user tries to add an entity and all five Showcase slots in its
+// row are full. Rendering inline (image + rank + label) lets the user
+// pick a slot without losing track of which entity they're trying to
+// put in; the alternative (bounce to /showcase, remove a pick, come
+// back, click ★ again) loses the "I wanted to add THIS one" intent.
 //
 // The actual swap PATCHes live in the parent so this component stays a
-// pure renderer — onPick receives the chosen pick's id and the freed
-// slot number; the parent does (target → null) and (incoming → slot)
-// in sequence with the same rollback shape as the Showcase page's
-// reorder path.
+// pure renderer. Items are passed normalized with
+//   { id, label, image_path, showcase_position }
+// — books pass {label: title, image_path: cover_path}, authors pass
+// {label: name, image_path: photo_path}. onPick receives the full item.
 export default function SwapShowcaseModal({ open, picks, incomingTitle, onPick, onClose }) {
   // Per-row in-flight state so a fast double-click on the same row
   // can't fire two parallel swap calls before the modal closes.
@@ -93,15 +93,15 @@ export default function SwapShowcaseModal({ open, picks, incomingTitle, onPick, 
                     {p.showcase_position}
                   </span>
                   <div className="w-8 h-12 flex-shrink-0 bg-neutral-800 rounded-sm overflow-hidden">
-                    {p.cover_path ? (
-                      <img src={p.cover_path} alt="" className="w-full h-full object-cover" />
+                    {p.image_path ? (
+                      <img src={p.image_path} alt="" className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-neutral-700 to-neutral-900">
-                        <span className="text-[10px] font-bold text-neutral-500 select-none">{initialsFor(p.title)}</span>
+                        <span className="text-[10px] font-bold text-neutral-500 select-none">{initialsFor(p.label)}</span>
                       </div>
                     )}
                   </div>
-                  <span className="text-sm text-parchment truncate flex-1">{p.title}</span>
+                  <span className="text-sm text-parchment truncate flex-1">{p.label}</span>
                   <span className="text-[11px] text-neutral-500 whitespace-nowrap">
                     {isBusy ? 'Swapping…' : 'Replace'}
                   </span>

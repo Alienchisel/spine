@@ -25,7 +25,7 @@ const photoUpload = multer({
   },
 });
 
-const AUTHOR_COLUMNS = 'id, name, gender, alias_group_id, bio, birth_date, death_date, photo_path, ol_key, bio_fetched_at, default_sort';
+const AUTHOR_COLUMNS = 'id, name, gender, alias_group_id, bio, birth_date, death_date, photo_path, ol_key, bio_fetched_at, default_sort, showcase_position';
 
 // Sort values accepted by the Author detail page's "Sort" dropdown and
 // the GET /:id `?sort=` query. Mirrors the LIST_ORDER_BY vocabulary in
@@ -107,6 +107,36 @@ router.get('/', (req, res) => {
   // as the unfiltered listing minus has_stale_tense (the wizards don't
   // use it, and computing it would lock in the bio-tense audit's
   // structure here).
+  // Showcase row — the authors that occupy a slot 1–5 on /showcase.
+  // Returns the same column shape as the search path (name, gender,
+  // dates, has_photo/bio/ol_key) plus the showcase_position itself so
+  // the client renders them in rank order without a second roundtrip.
+  if (req.query.showcase === '1' || req.query.showcase === 'true') {
+    const rows = db.prepare(`
+      SELECT
+        a.id,
+        a.name,
+        a.gender,
+        a.birth_date,
+        a.death_date,
+        a.photo_path,
+        a.showcase_position,
+        (a.bio IS NOT NULL)         AS has_bio,
+        (a.photo_path IS NOT NULL)  AS has_photo,
+        (a.ol_key IS NOT NULL)      AS has_ol_key,
+        COUNT(DISTINCT ba.book_id)  AS book_count,
+        COUNT(DISTINCT sa.story_id) AS story_count
+      FROM authors a
+      LEFT JOIN book_authors  ba ON ba.author_id = a.id
+      LEFT JOIN story_authors sa ON sa.author_id = a.id
+      WHERE a.showcase_position IS NOT NULL
+      GROUP BY a.id
+      ORDER BY a.showcase_position ASC
+      LIMIT 5
+    `).all();
+    return res.json(rows);
+  }
+
   const missing = typeof req.query.missing === 'string' ? req.query.missing : '';
   if (missing) {
     const gap = MISSING_AUTHOR_FILTERS[missing];
@@ -298,12 +328,13 @@ router.patch('/:id', (req, res) => {
   const author = db.prepare('SELECT id FROM authors WHERE id = ?').get(id);
   if (!author) return res.status(404).json({ error: 'Author not found' });
   const body = req.body ?? {};
-  const hasGender = 'gender'       in body;
-  const hasBio    = 'bio'          in body;
-  const hasBirth  = 'birth_date'   in body;
-  const hasDeath  = 'death_date'   in body;
-  const hasSort   = 'default_sort' in body;
-  if (!hasGender && !hasBio && !hasBirth && !hasDeath && !hasSort) {
+  const hasGender   = 'gender'            in body;
+  const hasBio      = 'bio'               in body;
+  const hasBirth    = 'birth_date'        in body;
+  const hasDeath    = 'death_date'        in body;
+  const hasSort     = 'default_sort'      in body;
+  const hasShowcase = 'showcase_position' in body;
+  if (!hasGender && !hasBio && !hasBirth && !hasDeath && !hasSort && !hasShowcase) {
     return res.status(400).json({ error: 'No supported fields to update' });
   }
   const sets = [];
@@ -348,6 +379,23 @@ router.patch('/:id', (req, res) => {
     }
     sets.push('default_sort = ?');
     params.push(raw);
+  }
+  if (hasShowcase) {
+    // 1–5 or null/empty (clear). Mirrors the books-side guard exactly so
+    // the API contract on /showcase is the same shape regardless of
+    // which entity carries the slot.
+    const raw = body.showcase_position;
+    if (raw === null || raw === '' || raw === undefined) {
+      sets.push('showcase_position = ?');
+      params.push(null);
+    } else {
+      const n = Number(raw);
+      if (!Number.isInteger(n) || n < 1 || n > 5) {
+        return res.status(400).json({ error: 'showcase_position must be an integer 1–5' });
+      }
+      sets.push('showcase_position = ?');
+      params.push(n);
+    }
   }
   db.prepare(`UPDATE authors SET ${sets.join(', ')} WHERE id = ?`).run(...params, id);
   res.json(loadAuthor(id));

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import SwapShowcaseModal from '../components/SwapShowcaseModal.jsx';
 import { useParams, useLocation, Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { plural, initialsFor, MOD_KEY, formatPartialDate } from '../utils.js';
@@ -177,6 +178,15 @@ export default function Author() {
   const [refreshing, setRefreshing] = useState(false);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoError, setPhotoError] = useState(null);
+  // Showcase row of authors — fetched once per author load + on refresh,
+  // used by the ★ button to distinguish "+ Add", "Showcase full", and
+  // "In Showcase #N — remove" without a roundtrip on every click. Mirrors
+  // the books-side wiring in BookDetail.
+  const [showcasePicks, setShowcasePicks] = useState([]);
+  const [swapModalOpen, setSwapModalOpen] = useState(false);
+  const [showcaseBusy, setShowcaseBusy] = useState(false);
+  const [showcaseError, setShowcaseError] = useState(null);
+  useEffect(() => { setSwapModalOpen(false); }, [id]);
   // Archived books default-hide. Toggle shows them inline when the user
   // wants to see the full bibliography. Reset on author change so a
   // toggle stuck on for Author A doesn't carry over to Author B.
@@ -230,6 +240,13 @@ export default function Author() {
         if (notFound) dispatchSpineEvent('spine:author-deleted', { id: Number(id) });
       })
       .finally(() => { if (!cancelled && !adopted) setLoading(false); });
+    // Side-fetch the Showcase row so the ★ button can render the right
+    // state without firing a PATCH first. Failure is silent — the
+    // button falls back to its disabled-add appearance and a click
+    // routes to /showcase as the recovery path.
+    api.getAuthors({ showcase: 1 })
+      .then(rows => { if (!cancelled) setShowcasePicks(Array.isArray(rows) ? rows : []); })
+      .catch(() => { /* silent */ });
     return () => { cancelled = true; };
   }, [id, sort]);
 
@@ -242,6 +259,66 @@ export default function Author() {
     setBioDraft(author?.bio ?? '');
     setBioError(null);
     setBioEditing(true);
+  }
+
+  async function toggleShowcase() {
+    if (showcaseBusy) return;
+    setShowcaseBusy(true);
+    setShowcaseError(null);
+    try {
+      let nextPosition;
+      if (author?.showcase_position) {
+        nextPosition = null;
+      } else {
+        const taken = new Set(showcasePicks.map(p => p.showcase_position));
+        nextPosition = [1, 2, 3, 4, 5].find(n => !taken.has(n));
+        if (nextPosition == null) {
+          setSwapModalOpen(true);
+          setShowcaseBusy(false);
+          return;
+        }
+      }
+      const updated = await api.updateAuthor(author.id, { showcase_position: nextPosition });
+      setAuthor(a => ({ ...a, showcase_position: updated.showcase_position }));
+      setShowcasePicks(prev => {
+        const without = prev.filter(p => p.id !== author.id);
+        if (nextPosition == null) return without;
+        return [...without, {
+          id: author.id, name: author.name, photo_path: author.photo_path,
+          showcase_position: nextPosition,
+        }].sort((a, b) => a.showcase_position - b.showcase_position);
+      });
+    } catch {
+      setShowcaseError('Failed to update Showcase.');
+    } finally {
+      setShowcaseBusy(false);
+    }
+  }
+
+  async function swapShowcasePick(pickToReplace) {
+    const freedSlot = pickToReplace.showcase_position;
+    try {
+      await api.updateAuthor(pickToReplace.id, { showcase_position: null });
+      const updated = await api.updateAuthor(author.id, { showcase_position: freedSlot });
+      setAuthor(a => ({ ...a, showcase_position: updated.showcase_position }));
+      setShowcasePicks(prev => {
+        const without = prev.filter(p => p.id !== pickToReplace.id);
+        return [...without, {
+          id: author.id, name: author.name, photo_path: author.photo_path,
+          showcase_position: freedSlot,
+        }].sort((a, b) => a.showcase_position - b.showcase_position);
+      });
+      setSwapModalOpen(false);
+      setShowcaseError(null);
+    } catch {
+      setShowcaseError('Failed to swap Showcase pick.');
+      // Recovery — refetch the row so local state matches disk after a
+      // partial write.
+      try {
+        const rows = await api.getAuthors({ showcase: 1 });
+        setShowcasePicks(Array.isArray(rows) ? rows : []);
+      } catch { /* silent */ }
+    }
   }
 
   async function saveBio() {
@@ -456,7 +533,33 @@ export default function Author() {
                   }
                 }}
               />
+              <span className="text-neutral-700">·</span>
+              {(() => {
+                const isPick  = !!author.showcase_position;
+                const rowFull = !isPick && showcasePicks.length >= 5;
+                const title   = isPick
+                  ? `In Showcase — rank #${author.showcase_position}. Click to remove.`
+                  : rowFull
+                    ? 'Showcase full — click to swap in'
+                    : 'Add to Showcase';
+                return (
+                  <button
+                    type="button"
+                    onClick={toggleShowcase}
+                    disabled={showcaseBusy}
+                    className={`transition-colors disabled:opacity-60 ${isPick ? 'text-indigo-400' : 'text-neutral-600 hover:text-neutral-300'}`}
+                    title={title}
+                    aria-label={`${title}: ${author.name}`}
+                    aria-pressed={isPick}
+                  >
+                    <span className="text-lg leading-none">{isPick ? '★' : '☆'}</span>
+                  </button>
+                );
+              })()}
             </p>
+          )}
+          {showcaseError && (
+            <p role="alert" className="text-xs text-warn mt-1">{showcaseError}</p>
           )}
           {!loading && author && (
             <div className="mt-3 group">
@@ -700,6 +803,13 @@ export default function Author() {
           </>
         );
       })()}
+      <SwapShowcaseModal
+        open={swapModalOpen}
+        picks={showcasePicks.map(p => ({ id: p.id, label: p.name, image_path: p.photo_path, showcase_position: p.showcase_position }))}
+        incomingTitle={author?.name ?? ''}
+        onPick={(item) => swapShowcasePick(showcasePicks.find(p => p.id === item.id))}
+        onClose={() => setSwapModalOpen(false)}
+      />
     </div>
   );
 }

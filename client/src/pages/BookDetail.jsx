@@ -1294,9 +1294,9 @@ export default function BookDetail() {
       )}
       <SwapShowcaseModal
         open={swapModalOpen}
-        picks={showcasePicks}
+        picks={showcasePicks.map(p => ({ id: p.id, label: p.title, image_path: p.cover_path, showcase_position: p.showcase_position }))}
         incomingTitle={book.title}
-        onPick={swapShowcasePick}
+        onPick={(item) => swapShowcasePick(showcasePicks.find(p => p.id === item.id))}
         onClose={() => setSwapModalOpen(false)}
       />
     </div>
