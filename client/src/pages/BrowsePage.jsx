@@ -128,6 +128,38 @@ export default function BrowsePage() {
   const [showUnowned, setShowUnowned] = useState(
     () => typeof window !== 'undefined' && localStorage.getItem('spine-show-unowned') === 'true',
   );
+  // Series-only love toggle. The SeriesIndex page also exposes a heart
+  // column, but the natural place to love a series is on its browse
+  // view (where you're actually looking at the books). Fetched once
+  // when field === 'series' from the loved-series endpoint and checked
+  // for membership; null while loading so the button stays neutral.
+  const [seriesLoved, setSeriesLoved] = useState(null);
+  const [seriesLoveBusy, setSeriesLoveBusy] = useState(false);
+  const [seriesLoveError, setSeriesLoveError] = useState(null);
+  useEffect(() => {
+    if (field !== 'series') { setSeriesLoved(null); return; }
+    let stale = false;
+    api.getSeries({ loved: 1 })
+      .then(rows => { if (!stale) setSeriesLoved(Array.isArray(rows) && rows.some(r => r.name === decoded)); })
+      .catch(() => { /* silent — button defaults to unhearted, click will retry via PATCH */ });
+    return () => { stale = true; };
+  }, [field, decoded, refreshTick]);
+  async function toggleSeriesLoved() {
+    if (seriesLoveBusy) return;
+    setSeriesLoveBusy(true);
+    setSeriesLoveError(null);
+    const prev = !!seriesLoved;
+    const next = !prev;
+    setSeriesLoved(next);
+    try {
+      await api.patchSeriesLoved(decoded, next);
+    } catch {
+      setSeriesLoved(prev);
+      setSeriesLoveError('Failed to update loved.');
+    } finally {
+      setSeriesLoveBusy(false);
+    }
+  }
   useEffect(() => {
     localStorage.setItem('spine-show-unowned', showUnowned ? 'true' : 'false');
   }, [showUnowned]);
@@ -308,8 +340,30 @@ export default function BrowsePage() {
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
           {label && <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1">{label}</p>}
-          <h1 className="text-2xl font-bold text-white">{heading}</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-white">{heading}</h1>
+            {field === 'series' && (() => {
+              // null = still loading the membership check; render an
+              // outline that doesn't claim a state.
+              const isLoved = !!seriesLoved;
+              const ttl = seriesLoved == null ? 'Loved (loading…)' : isLoved ? 'Remove from loved' : 'Mark as loved';
+              return (
+                <button
+                  type="button"
+                  onClick={toggleSeriesLoved}
+                  disabled={seriesLoveBusy || seriesLoved == null}
+                  title={ttl}
+                  aria-label={`${ttl}: ${heading}`}
+                  aria-pressed={isLoved}
+                  className={`transition-colors disabled:opacity-60 ${isLoved ? 'text-red-400 hover:text-red-300' : 'text-neutral-700 hover:text-neutral-400'}`}
+                >
+                  <span className="text-2xl leading-none">{isLoved ? '♥' : '♡'}</span>
+                </button>
+              );
+            })()}
+          </div>
           {!loading && <p className="text-sm text-neutral-500 mt-1">{plural(total, 'book')}</p>}
+          {seriesLoveError && <p role="alert" className="text-xs text-warn mt-1">{seriesLoveError}</p>}
         </div>
         {!loading && books.length > 0 && (
           <CoverSizeSlider size={coverSize} onChange={setCoverSize} min={coverMin} max={coverMax} />
