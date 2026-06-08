@@ -29,6 +29,17 @@ export default function Showcase() {
     refreshTick,
   });
 
+  // Series picks key by name (the books.series free-text column), not a
+  // numeric id — the side-table series_showcase carries (series, rank).
+  // patchOne wraps the same patchSeriesShowcase call, so useShowcaseRow's
+  // generic reorder/remove flow works without per-entity branching.
+  const seriesRow = useShowcaseRow({
+    fetch:    () => api.getSeries({ showcase: 1 }),
+    patchOne: (name, slot) => api.patchSeriesShowcase(name, slot),
+    refreshTick,
+    keyOf:    (s) => s.name,
+  });
+
   // detailReturnState carries the cohort so BookDetail's prev/next can hop
   // through the row in rank order. Authors don't currently use a cohort
   // shape on AuthorDetail, so we just thread a friendly back-link.
@@ -74,6 +85,23 @@ export default function Showcase() {
           }
         />
       </div>
+
+      <div className="mt-12">
+        <ShowcaseSection
+          heading="Series"
+          row={seriesRow}
+          keyOf={(s) => s.name}
+          toItem={(s, rank) => ({
+            id: s.name, label: s.name, image_path: s.cover_path,
+            linkTo: `/browse/series/${encodeURIComponent(s.name)}`,
+            hover: `#${rank} — ${s.name}${s.book_count ? ` · ${s.book_count} books` : ''}`,
+          })}
+          linkState={{ from: 'Showcase', fromPath: pathname + search }}
+          emptyHint={
+            <>No picks yet. Star a series from the <Link to="/series" className="text-neutral-400 hover:text-parchment transition-colors underline-offset-2 hover:underline">Series</Link> index to put it on the row.</>
+          }
+        />
+      </div>
     </div>
   );
 }
@@ -83,7 +111,7 @@ export default function Showcase() {
 // middle of a renumber bails immediately rather than half-writing the
 // row — the prior snapshot is restored locally and a refetch reconciles
 // with what's actually on disk.
-function useShowcaseRow({ fetch, patchOne, refreshTick }) {
+function useShowcaseRow({ fetch, patchOne, refreshTick, keyOf = (x) => x.id }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -110,7 +138,7 @@ function useShowcaseRow({ fetch, patchOne, refreshTick }) {
     const renumbered = next.map((x, i) => ({ ...x, showcase_position: i + 1 }));
     setItems(renumbered);
     try {
-      for (const x of renumbered) await patchOne(x.id, x.showcase_position);
+      for (const x of renumbered) await patchOne(keyOf(x), x.showcase_position);
       setError(null);
     } catch {
       setError('Failed to save changes — restored to the last saved order.');
@@ -138,12 +166,13 @@ function useShowcaseRow({ fetch, patchOne, refreshTick }) {
   async function remove(item) {
     setBusy(true);
     const prior = items;
-    const next = items.filter(x => x.id !== item.id);
+    const itemKey = keyOf(item);
+    const next = items.filter(x => keyOf(x) !== itemKey);
     const renumbered = next.map((x, i) => ({ ...x, showcase_position: i + 1 }));
     setItems(renumbered);
     try {
-      await patchOne(item.id, null);
-      for (const x of renumbered) await patchOne(x.id, x.showcase_position);
+      await patchOne(itemKey, null);
+      for (const x of renumbered) await patchOne(keyOf(x), x.showcase_position);
       setError(null);
     } catch {
       setError('Failed to remove — restored to the last saved order.');
@@ -157,7 +186,7 @@ function useShowcaseRow({ fetch, patchOne, refreshTick }) {
   return { items, loading, error, busy, moveLeft, moveRight, remove, dismissError: () => setError(null) };
 }
 
-function ShowcaseSection({ heading, row, toItem, linkState, emptyHint }) {
+function ShowcaseSection({ heading, row, toItem, linkState, emptyHint, keyOf = (x) => x.id }) {
   return (
     <section>
       <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-4">{heading}</h2>
@@ -178,7 +207,7 @@ function ShowcaseSection({ heading, row, toItem, linkState, emptyHint }) {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-6">
           {row.items.map((x, idx) => (
             <Slot
-              key={x.id}
+              key={keyOf(x)}
               item={toItem(x, idx + 1)}
               rank={idx + 1}
               canMoveLeft={idx > 0}

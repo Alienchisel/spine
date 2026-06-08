@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
 import IncomingBackLink from '../components/IncomingBackLink.jsx';
+import SwapShowcaseModal from '../components/SwapShowcaseModal.jsx';
 
 // Sort modes for the Series index. Name is the default alphabetical
 // scan. Books desc shows the biggest series first (the natural overview
@@ -81,6 +82,92 @@ export default function SeriesIndex() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Showcase row of series — the up-to-five hand-ranked picks that
+  // surface on /showcase. Used by the ★ column to render the right
+  // state per row without firing a PATCH first. The list response
+  // already carries showcase_position per series, so this side-fetch
+  // exists only to inform the "next empty slot" computation and the
+  // swap modal's contents (which need cover_path, which the list path
+  // doesn't return). Failure is silent — the column falls back to its
+  // disabled-add appearance.
+  const [showcasePicks, setShowcasePicks] = useState([]);
+  const [showcaseBusy, setShowcaseBusy] = useState(false);
+  const [showcaseError, setShowcaseError] = useState(null);
+  const [swapModalOpen, setSwapModalOpen] = useState(false);
+  const [pendingSeries, setPendingSeries] = useState(null);
+
+  useEffect(() => {
+    api.getSeries({ showcase: 1 })
+      .then(rows => setShowcasePicks(Array.isArray(rows) ? rows : []))
+      .catch(() => { /* silent */ });
+  }, []);
+
+  function updateLocal(seriesName, nextSlot) {
+    setSeries(prev => prev.map(s => s.name === seriesName ? { ...s, showcase_position: nextSlot } : s));
+    setShowcasePicks(prev => {
+      const without = prev.filter(p => p.name !== seriesName);
+      if (nextSlot == null) return without;
+      const incoming = series.find(s => s.name === seriesName);
+      return [...without, {
+        name: seriesName,
+        showcase_position: nextSlot,
+        book_count: incoming?.book_count ?? 0,
+        cover_path: null, // refreshed on next refetch; null is fine for state computation
+      }].sort((a, b) => a.showcase_position - b.showcase_position);
+    });
+  }
+
+  async function toggleShowcase(s) {
+    if (showcaseBusy) return;
+    setShowcaseBusy(true);
+    setShowcaseError(null);
+    try {
+      let nextPosition;
+      if (s.showcase_position) {
+        nextPosition = null;
+      } else {
+        const taken = new Set(showcasePicks.map(p => p.showcase_position));
+        nextPosition = [1, 2, 3, 4, 5].find(n => !taken.has(n));
+        if (nextPosition == null) {
+          setPendingSeries(s.name);
+          setSwapModalOpen(true);
+          setShowcaseBusy(false);
+          return;
+        }
+      }
+      await api.patchSeriesShowcase(s.name, nextPosition);
+      updateLocal(s.name, nextPosition);
+    } catch {
+      setShowcaseError('Failed to update Showcase.');
+    } finally {
+      setShowcaseBusy(false);
+    }
+  }
+
+  async function swapShowcasePick(pickToReplace) {
+    const target = pendingSeries;
+    if (!target) return;
+    const freedSlot = pickToReplace.showcase_position;
+    try {
+      await api.patchSeriesShowcase(pickToReplace.name, null);
+      await api.patchSeriesShowcase(target, freedSlot);
+      updateLocal(pickToReplace.name, null);
+      updateLocal(target, freedSlot);
+      setSwapModalOpen(false);
+      setPendingSeries(null);
+      setShowcaseError(null);
+    } catch {
+      setShowcaseError('Failed to swap Showcase pick.');
+      // Recovery — refetch so local state matches disk after a partial write.
+      try {
+        const rows = await api.getSeries({ showcase: 1 });
+        setShowcasePicks(Array.isArray(rows) ? rows : []);
+        const list = await api.getSeries();
+        setSeries(Array.isArray(list) ? list : []);
+      } catch { /* silent */ }
+    }
+  }
+
   const totals = useMemo(() => ({
     total: series.length,
     books: series.reduce((acc, s) => acc + s.book_count, 0),
@@ -137,10 +224,15 @@ export default function SeriesIndex() {
       {loading && <p role="status" className="text-sm text-neutral-500">Loading…</p>}
       {error && <p role="alert" className="text-sm text-warn">{error}</p>}
 
+      {showcaseError && (
+        <p role="alert" className="text-xs text-warn mb-3">{showcaseError}</p>
+      )}
+
       {!loading && !error && filtered.length > 0 && (
         <table className="w-full text-sm">
           <thead className="text-xs uppercase tracking-wider text-neutral-600 border-b border-neutral-800/60">
             <tr>
+              <th className="text-center py-2 w-8" title="Showcase pick"></th>
               <th className="text-left  py-2 pr-3">Name</th>
               <th className="text-right py-2 px-3 w-20">Books</th>
               <th className="text-left  py-2 px-3 w-28" title="Range of series_number values across owned/known entries">#</th>
@@ -151,8 +243,28 @@ export default function SeriesIndex() {
             {filtered.map((s) => {
               const nrange = numberRange(s.min_number, s.max_number);
               const yrange = yearRange(s.first_year, s.last_year);
+              const isPick  = !!s.showcase_position;
+              const rowFull = !isPick && showcasePicks.length >= 5;
+              const starTitle = isPick
+                ? `In Showcase — rank #${s.showcase_position}. Click to remove.`
+                : rowFull
+                  ? 'Showcase full — click to swap in'
+                  : 'Add to Showcase';
               return (
                 <tr key={s.name} className="border-b border-neutral-900 hover:bg-neutral-900/50 transition-colors">
+                  <td className="text-center py-1.5">
+                    <button
+                      type="button"
+                      onClick={() => toggleShowcase(s)}
+                      disabled={showcaseBusy}
+                      title={starTitle}
+                      aria-label={`${starTitle}: ${s.name}`}
+                      aria-pressed={isPick}
+                      className={`transition-colors disabled:opacity-60 ${isPick ? 'text-indigo-400' : 'text-neutral-700 hover:text-neutral-400'}`}
+                    >
+                      <span className="leading-none">{isPick ? '★' : '☆'}</span>
+                    </button>
+                  </td>
                   <td className="py-1.5 pr-3">
                     <Link to={`/browse/series/${encodeURIComponent(s.name)}`} state={fromState} className="text-neutral-300 hover:text-parchment transition-colors">
                       {s.name}
@@ -167,6 +279,14 @@ export default function SeriesIndex() {
           </tbody>
         </table>
       )}
+
+      <SwapShowcaseModal
+        open={swapModalOpen}
+        picks={showcasePicks.map(p => ({ id: p.name, label: p.name, image_path: p.cover_path, showcase_position: p.showcase_position }))}
+        incomingTitle={pendingSeries ?? ''}
+        onPick={(item) => swapShowcasePick(showcasePicks.find(p => p.name === item.id))}
+        onClose={() => { setSwapModalOpen(false); setPendingSeries(null); }}
+      />
       {!loading && !error && filtered.length === 0 && (
         <p className="text-sm text-neutral-500 mt-4">No series match the current filters.</p>
       )}

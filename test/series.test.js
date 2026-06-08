@@ -87,4 +87,40 @@ describe('series — index', () => {
     assert.equal(vol1.owned, 1);
     assert.equal(vol2.owned, 0);
   });
+
+  it('PATCH /series/showcase + GET ?showcase=1 — rank order, EXISTS guard, range validation', async () => {
+    const stem = 'scser' + Math.random().toString(36).slice(2, 6);
+    const sA = `${stem} A`;
+    const sB = `${stem} B`;
+    const sGhost = `${stem} ghost`;
+    const { body: ba } = await req('POST', '/api/books', { title: `${stem}-A1`, series: sA });
+    const { body: bb } = await req('POST', '/api/books', { title: `${stem}-B1`, series: sB });
+    try {
+      // Slot A at rank 2, B at rank 1 — list comes back in ASC rank.
+      await req('PATCH', '/api/series/showcase', { series: sA, showcase_position: 2 });
+      await req('PATCH', '/api/series/showcase', { series: sB, showcase_position: 1 });
+      const { body: row } = await req('GET', '/api/series?showcase=1');
+      const ours = row.filter(r => r.name === sA || r.name === sB);
+      assert.deepEqual(ours.map(r => r.name), [sB, sA], 'rank-ordered ASC');
+
+      // Out-of-range and unknown-series guards mirror the books/authors PATCH parity.
+      const { status: bad } = await req('PATCH', '/api/series/showcase', { series: sA, showcase_position: 6 });
+      assert.equal(bad, 400);
+      const { status: ghost } = await req('PATCH', '/api/series/showcase', { series: sGhost, showcase_position: 1 });
+      assert.equal(ghost, 404, 'series with no books cannot be showcased');
+
+      // EXISTS guard — delete the only book in series B and confirm B drops
+      // from the showcase row even though its series_showcase row stays
+      // on disk (so a re-add restores the prior pick).
+      await req('DELETE', `/api/books/${bb.id}`);
+      const { body: after } = await req('GET', '/api/series?showcase=1');
+      assert.ok(!after.some(r => r.name === sB), 'orphaned series drops from showcase view');
+      assert.ok(after.some(r => r.name === sA), 'sibling stays');
+    } finally {
+      await req('DELETE', `/api/books/${ba.id}`).catch(() => {});
+      await req('DELETE', `/api/books/${bb.id}`).catch(() => {});
+      await req('PATCH', '/api/series/showcase', { series: sA, showcase_position: null }).catch(() => {});
+      await req('PATCH', '/api/series/showcase', { series: sB, showcase_position: null }).catch(() => {});
+    }
+  });
 });
