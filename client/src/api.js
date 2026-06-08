@@ -43,7 +43,7 @@ export const api = {
   getRandomAuthor: () => request('/authors/random'),
   getTags: () => request('/tags'),
   getSeries: (params = {}) => request(`/series${buildQuery(params)}`),
-  patchSeriesShowcase: (series, showcase_position) => request('/series/showcase', { method: 'PATCH', body: JSON.stringify({ series, showcase_position }) }),
+  patchSeriesLoved: (series, loved) => request('/series/loved', { method: 'PATCH', body: JSON.stringify({ series, loved }) }),
   getAuthor: (id, params = {}) => request(`/authors/${id}${buildQuery(params)}`),
   updateAuthor: (id, data) => request(`/authors/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   refreshAuthor: (id) => request(`/authors/${id}/refresh`, { method: 'POST' }),

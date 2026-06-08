@@ -2223,48 +2223,6 @@ describe('books', () => {
       }
     });
 
-    it('showcase=1 + sort=showcase returns picks in rank order; out-of-range positions are rejected', async () => {
-      // POST three books across slots 1/3/5 with a gap at 2 and 4. The
-      // filter should return only the three picks, ranked left-to-right
-      // (1 → 3 → 5). The validation case asserts 6 is rejected loudly so
-      // a stray API caller can't park a book past the row.
-      const stem = 'showcase' + Math.random().toString(36).slice(2, 6);
-      const { body: a } = await req('POST', '/api/books', { title: `${stem}-pick1`, showcase_position: 1 });
-      const { body: b } = await req('POST', '/api/books', { title: `${stem}-pick3`, showcase_position: 3 });
-      const { body: c } = await req('POST', '/api/books', { title: `${stem}-pick5`, showcase_position: 5 });
-      const { body: d } = await req('POST', '/api/books', { title: `${stem}-nopick` });
-
-      try {
-        const { body: list } = await req('GET', `/api/books?showcase=1&sort=showcase&q=${stem}&limit=200`);
-        const ids = list.books.map(b => b.id);
-        assert.deepEqual(ids, [a.id, b.id, c.id], 'showcased books in rank order');
-        assert.ok(!ids.includes(d.id), 'non-showcased book absent');
-
-        // Out-of-range guard — POST and PATCH must agree. The column-level
-        // coercer in repository.js silently nulls out-of-range values; without
-        // explicit validation on the PATCH route an API caller would see POST
-        // {showcase_position: 6} returning 400 but the same PATCH succeed and
-        // silently store NULL — the bug the 2026-06-07 sweep flagged.
-        const { status: postStatus, body: postErr } = await req('POST', '/api/books', { title: `${stem}-bad`, showcase_position: 6 });
-        assert.equal(postStatus, 400);
-        assert.match(JSON.stringify(postErr), /showcase_position/);
-
-        const { status: patchStatus, body: patchErr } = await req('PATCH', `/api/books/${a.id}`, { showcase_position: 6 });
-        assert.equal(patchStatus, 400, 'PATCH must reject out-of-range, not silently coerce');
-        assert.match(JSON.stringify(patchErr), /showcase_position/);
-
-        // PATCH clears the slot.
-        await req('PATCH', `/api/books/${a.id}`, { showcase_position: null });
-        const { body: after } = await req('GET', `/api/books?showcase=1&sort=showcase&q=${stem}&limit=200`);
-        assert.deepEqual(after.books.map(b => b.id), [b.id, c.id], 'cleared slot drops out of showcase');
-      } finally {
-        await req('DELETE', `/api/books/${a.id}`);
-        await req('DELETE', `/api/books/${b.id}`);
-        await req('DELETE', `/api/books/${c.id}`);
-        await req('DELETE', `/api/books/${d.id}`);
-      }
-    });
-
     it('missing=binding surfaces physical books with no binding (audiobook / ebook excluded)', async () => {
       const stem = 'bindfilter' + Math.random().toString(36).slice(2, 6);
       // Physical, no binding — should appear.

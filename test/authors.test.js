@@ -834,43 +834,24 @@ describe('authors — index', () => {
     assert.match(body.error, /Unknown missing filter/);
   });
 
-  it('showcase=1 returns picks in rank order; PATCH validates 1–5', async () => {
-    // POST a book to create an author, then PATCH the author into slots
-    // 2 / 3 / 1 to test both rank ordering and parity with the books-side
-    // PATCH validation (POST + PATCH must both reject out-of-range).
-    const stem = 'sc' + Math.random().toString(36).slice(2, 6);
+  it('loved=1 returns hearted authors; PATCH toggles + clears via false', async () => {
+    const stem = 'lov' + Math.random().toString(36).slice(2, 6);
     const { body: ba } = await req('POST', '/api/books', { title: `${stem}-A`, authors: [`${stem} A`] });
     const { body: bb } = await req('POST', '/api/books', { title: `${stem}-B`, authors: [`${stem} B`] });
-    const { body: bc } = await req('POST', '/api/books', { title: `${stem}-C`, authors: [`${stem} C`] });
     const aIdA = ba.authors[0].id;
     const aIdB = bb.authors[0].id;
-    const aIdC = bc.authors[0].id;
     try {
-      await req('PATCH', `/api/authors/${aIdA}`, { showcase_position: 2 });
-      await req('PATCH', `/api/authors/${aIdB}`, { showcase_position: 3 });
-      await req('PATCH', `/api/authors/${aIdC}`, { showcase_position: 1 });
+      await req('PATCH', `/api/authors/${aIdA}`, { loved: true });
+      const { body: row } = await req('GET', '/api/authors?loved=1');
+      const ours = row.filter(r => r.id === aIdA || r.id === aIdB);
+      assert.deepEqual(ours.map(r => r.id), [aIdA], 'only the hearted author surfaces');
 
-      const { body: list } = await req('GET', '/api/authors?showcase=1');
-      const ids = list.map(r => r.id);
-      assert.deepEqual(ids, [aIdC, aIdA, aIdB], 'showcased authors in rank order');
-
-      // Out-of-range guard — mirrors the books-side rule that POST and
-      // PATCH must agree, since the column otherwise silently accepts
-      // anything the row-level INSERT allows.
-      const { status, body: err } = await req('PATCH', `/api/authors/${aIdA}`, { showcase_position: 6 });
-      assert.equal(status, 400);
-      assert.match(JSON.stringify(err), /showcase_position/);
-
-      // Clearing the slot drops the author from the row.
-      await req('PATCH', `/api/authors/${aIdA}`, { showcase_position: null });
-      const { body: after } = await req('GET', '/api/authors?showcase=1');
-      assert.deepEqual(after.map(r => r.id), [aIdC, aIdB], 'cleared slot drops out of showcase');
+      await req('PATCH', `/api/authors/${aIdA}`, { loved: false });
+      const { body: after } = await req('GET', '/api/authors?loved=1');
+      assert.ok(!after.some(r => r.id === aIdA), 'unloving drops the author from the row');
     } finally {
-      // Cascade-deleting the books also tears down the per-author rows
-      // since these are bare authors with no other books.
       await req('DELETE', `/api/books/${ba.id}`);
       await req('DELETE', `/api/books/${bb.id}`);
-      await req('DELETE', `/api/books/${bc.id}`);
     }
   });
 });

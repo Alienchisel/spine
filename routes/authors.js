@@ -25,7 +25,7 @@ const photoUpload = multer({
   },
 });
 
-const AUTHOR_COLUMNS = 'id, name, gender, alias_group_id, bio, birth_date, death_date, photo_path, ol_key, bio_fetched_at, default_sort, showcase_position';
+const AUTHOR_COLUMNS = 'id, name, gender, alias_group_id, bio, birth_date, death_date, photo_path, ol_key, bio_fetched_at, default_sort, loved';
 
 // Sort values accepted by the Author detail page's "Sort" dropdown and
 // the GET /:id `?sort=` query. Mirrors the LIST_ORDER_BY vocabulary in
@@ -100,18 +100,11 @@ router.get('/', (req, res) => {
     `).all(like);
     return res.json(rows);
   }
-  // Wizard pool path. `?missing=<key>` filters to rows the audit row
-  // for that key would count. `limit` + `sort=random` mirror the book
-  // wizards (server-side cap so we don't ship 10k rows of metadata to
-  // the client for it to throw 99% away). Returns the same row shape
-  // as the unfiltered listing minus has_stale_tense (the wizards don't
-  // use it, and computing it would lock in the bio-tense audit's
-  // structure here).
-  // Showcase row — the authors that occupy a slot 1–5 on /showcase.
-  // Returns the same column shape as the search path (name, gender,
-  // dates, has_photo/bio/ol_key) plus the showcase_position itself so
-  // the client renders them in rank order without a second roundtrip.
-  if (req.query.showcase === '1' || req.query.showcase === 'true') {
+  // Loved row — every author the user has marked loved. Returns the
+  // standard search-result shape (name + dates + has_photo/bio/ol_key
+  // + book/story counts) plus photo_path for the /loved page's
+  // portrait grid. Mirrors the books-side `tab=loved` cohort.
+  if (req.query.loved === '1' || req.query.loved === 'true') {
     const rows = db.prepare(`
       SELECT
         a.id,
@@ -120,7 +113,6 @@ router.get('/', (req, res) => {
         a.birth_date,
         a.death_date,
         a.photo_path,
-        a.showcase_position,
         (a.bio IS NOT NULL)         AS has_bio,
         (a.photo_path IS NOT NULL)  AS has_photo,
         (a.ol_key IS NOT NULL)      AS has_ol_key,
@@ -129,14 +121,20 @@ router.get('/', (req, res) => {
       FROM authors a
       LEFT JOIN book_authors  ba ON ba.author_id = a.id
       LEFT JOIN story_authors sa ON sa.author_id = a.id
-      WHERE a.showcase_position IS NOT NULL
+      WHERE a.loved = 1
       GROUP BY a.id
-      ORDER BY a.showcase_position ASC
-      LIMIT 5
+      ORDER BY a.name COLLATE NOCASE
     `).all();
     return res.json(rows);
   }
 
+  // Wizard pool path. `?missing=<key>` filters to rows the audit row
+  // for that key would count. `limit` + `sort=random` mirror the book
+  // wizards (server-side cap so we don't ship 10k rows of metadata to
+  // the client for it to throw 99% away). Returns the same row shape
+  // as the unfiltered listing minus has_stale_tense (the wizards don't
+  // use it, and computing it would lock in the bio-tense audit's
+  // structure here).
   const missing = typeof req.query.missing === 'string' ? req.query.missing : '';
   if (missing) {
     const gap = MISSING_AUTHOR_FILTERS[missing];
@@ -328,13 +326,13 @@ router.patch('/:id', (req, res) => {
   const author = db.prepare('SELECT id FROM authors WHERE id = ?').get(id);
   if (!author) return res.status(404).json({ error: 'Author not found' });
   const body = req.body ?? {};
-  const hasGender   = 'gender'            in body;
-  const hasBio      = 'bio'               in body;
-  const hasBirth    = 'birth_date'        in body;
-  const hasDeath    = 'death_date'        in body;
-  const hasSort     = 'default_sort'      in body;
-  const hasShowcase = 'showcase_position' in body;
-  if (!hasGender && !hasBio && !hasBirth && !hasDeath && !hasSort && !hasShowcase) {
+  const hasGender = 'gender'       in body;
+  const hasBio    = 'bio'          in body;
+  const hasBirth  = 'birth_date'   in body;
+  const hasDeath  = 'death_date'   in body;
+  const hasSort   = 'default_sort' in body;
+  const hasLoved  = 'loved'        in body;
+  if (!hasGender && !hasBio && !hasBirth && !hasDeath && !hasSort && !hasLoved) {
     return res.status(400).json({ error: 'No supported fields to update' });
   }
   const sets = [];
@@ -380,22 +378,9 @@ router.patch('/:id', (req, res) => {
     sets.push('default_sort = ?');
     params.push(raw);
   }
-  if (hasShowcase) {
-    // 1–5 or null/empty (clear). Mirrors the books-side guard exactly so
-    // the API contract on /showcase is the same shape regardless of
-    // which entity carries the slot.
-    const raw = body.showcase_position;
-    if (raw === null || raw === '' || raw === undefined) {
-      sets.push('showcase_position = ?');
-      params.push(null);
-    } else {
-      const n = Number(raw);
-      if (!Number.isInteger(n) || n < 1 || n > 5) {
-        return res.status(400).json({ error: 'showcase_position must be an integer 1–5' });
-      }
-      sets.push('showcase_position = ?');
-      params.push(n);
-    }
+  if (hasLoved) {
+    sets.push('loved = ?');
+    params.push(body.loved ? 1 : 0);
   }
   db.prepare(`UPDATE authors SET ${sets.join(', ')} WHERE id = ?`).run(...params, id);
   res.json(loadAuthor(id));

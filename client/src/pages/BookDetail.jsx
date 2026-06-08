@@ -5,7 +5,6 @@ import { api } from '../api.js';
 import StarRating from '../components/StarRating.jsx';
 import ListPicker from '../components/ListPicker.jsx';
 import { useConfirm } from '../components/ConfirmModal.jsx';
-import SwapShowcaseModal from '../components/SwapShowcaseModal.jsx';
 import { realTagNames, initialsFor, libraryLabelForUrl } from '../utils.js';
 import ProgressSection from '../components/bookDetail/ProgressSection.jsx';
 import ReadsSection from '../components/bookDetail/ReadsSection.jsx';
@@ -105,7 +104,6 @@ export default function BookDetail() {
   const archiveGuard  = useActionGuard();
   const finishGuard   = useActionGuard();
   const deleteGuard   = useActionGuard();
-  const showcaseGuard = useActionGuard();
   const [finishError, setFinishError] = useState(null);
   const [loadError, setLoadError] = useState(false);
   // Click-to-zoom on the cover. Opens a full-screen lightbox over a dim
@@ -138,23 +136,6 @@ export default function BookDetail() {
   // just hides the nav — small but tells the user why a book in a known
   // series shows no prev/next strip.
   const [seriesError, setSeriesError] = useState(null);
-  // Holds the current showcase picks (up to 5) so the action button can
-  // distinguish "+ Add", "Showcase full", and "In Showcase #N — remove"
-  // without firing the PATCH first. Refetched on book change so the
-  // count reflects the latest state if the user just edited the row.
-  const [showcasePicks, setShowcasePicks] = useState([]);
-  // Swap-pick modal opens when the user clicks ★ on a book that isn't a
-  // pick and the showcase row is already full — the user picks one of
-  // the five existing slots to replace, both PATCHes run sequentially,
-  // and the modal closes without leaving BookDetail.
-  const [swapModalOpen, setSwapModalOpen] = useState(false);
-  // Close the swap modal whenever the rendered book changes (prev/next
-  // cohort nav, or a deep-link to a different book mid-modal). Without
-  // this the modal would stay open with the previous book's title
-  // pinned in `incomingTitle` while the parent's `book` has already
-  // moved on — visually misleading, even though the PATCH targets the
-  // (now stale) book.id captured at click time.
-  useEffect(() => { setSwapModalOpen(false); }, [id]);
   // getShelfLocation failure used to set location=null, which is the same
   // state as "book genuinely has no shelf assignment" — indistinguishable
   // failure mode. This separates them.
@@ -264,13 +245,6 @@ export default function BookDetail() {
       .then(l => { if (idGuard.isFresh(epoch)) setLog(l); })
       .catch(() => { if (idGuard.isFresh(epoch)) setLogError('Failed to load reading log.'); });
     loadReads();
-    // Showcase picks side-fetch — used by the action button to decide
-    // between "+ Add to Showcase", "Showcase full", and the remove path.
-    // Failure is silent: the button stays in its disabled-add state, which
-    // degrades to a navigate-to-/showcase fallback when the user clicks.
-    api.getBooks({ showcase: 1, sort: 'showcase', limit: 5 })
-      .then(({ books: b }) => { if (idGuard.isFresh(epoch)) setShowcasePicks(b); })
-      .catch(() => { /* silent */ });
   }, [id, refreshTick]);
 
   // Paste-to-upload-cover: while on BookDetail, a clipboard image (Cmd/
@@ -400,97 +374,6 @@ export default function BookDetail() {
       setActionError('Failed to update loved');
     } finally {
       loveGuard.end();
-    }
-  }
-
-  // Swap-modal handler. Frees the chosen pick's slot, then places the
-  // current book in it — sequential PATCHes (not Promise.all) so a
-  // failure on the second write doesn't strand the row in a half-written
-  // state where the slot is empty but the incoming book isn't on the
-  // row. On failure we refetch the picks list so the local view matches
-  // disk. Closes the modal on success.
-  async function swapShowcasePick(pickToReplace) {
-    const reqId = book.id;
-    const freedSlot = pickToReplace.showcase_position;
-    try {
-      await api.patchBook(pickToReplace.id, { showcase_position: null });
-      const updated = await api.patchBook(reqId, { showcase_position: freedSlot });
-      if (!isStillCurrent(reqId)) {
-        // The book changed mid-swap (very rare — would require
-        // prev/next navigation while the modal was open). Refetch
-        // picks so a future visit sees the right state.
-        try {
-          const { books: fresh } = await api.getBooks({ showcase: 1, sort: 'showcase', limit: 5 });
-          setShowcasePicks(fresh);
-        } catch { /* silent */ }
-        return;
-      }
-      setBook(updated);
-      // Replace pickToReplace with the incoming book at the same rank.
-      setShowcasePicks(prev => {
-        const without = prev.filter(p => p.id !== pickToReplace.id);
-        return [...without, { id: reqId, title: updated.title, cover_path: updated.cover_path, showcase_position: freedSlot }]
-          .sort((a, b) => a.showcase_position - b.showcase_position);
-      });
-      setSwapModalOpen(false);
-      setActionError(null);
-    } catch {
-      if (!isStillCurrent(reqId)) return;
-      setActionError('Failed to swap showcase pick.');
-      // Refetch so local state matches disk — the first PATCH may have
-      // already cleared the slot while the second failed, in which case
-      // the row now has a gap rather than a corrupt state.
-      try {
-        const { books: fresh } = await api.getBooks({ showcase: 1, sort: 'showcase', limit: 5 });
-        setShowcasePicks(fresh);
-      } catch { /* silent */ }
-    }
-  }
-
-  async function toggleShowcase() {
-    if (!showcaseGuard.begin()) return;
-    const reqId = book.id;
-    clearActionErrors();
-    try {
-      let nextPosition;
-      if (book.showcase_position) {
-        // Already a pick — clear the slot. Renumbering of the remaining
-        // picks happens on the /showcase page (dense reflow on visit);
-        // leaving a gap here is fine since the page sorts by position.
-        nextPosition = null;
-      } else {
-        // Find the lowest empty slot 1–5. picks comes back in rank order
-        // from the /api/books?showcase=1&sort=showcase fetch, so the
-        // first integer not present is the next slot.
-        const taken = new Set(showcasePicks.map(p => p.showcase_position));
-        nextPosition = [1, 2, 3, 4, 5].find(n => !taken.has(n));
-        if (nextPosition == null) {
-          // Row is full — open the swap modal so the user can pick which
-          // existing pick to replace without leaving the page. Releasing
-          // the action guard here so the modal's own per-row guard takes
-          // over for the actual PATCHes; without this the second toggle
-          // attempt after a cancel would no-op on the still-held guard.
-          showcaseGuard.end();
-          setSwapModalOpen(true);
-          return;
-        }
-      }
-      const updated = await api.patchBook(reqId, { showcase_position: nextPosition });
-      if (!isStillCurrent(reqId)) return;
-      setBook(updated);
-      // Keep the local picks list in sync so a second toggle sees the
-      // right state without waiting on a refetch.
-      setShowcasePicks(prev => {
-        const without = prev.filter(p => p.id !== reqId);
-        if (nextPosition == null) return without;
-        return [...without, { id: reqId, title: updated.title, showcase_position: nextPosition }]
-          .sort((a, b) => a.showcase_position - b.showcase_position);
-      });
-    } catch {
-      if (!isStillCurrent(reqId)) return;
-      setActionError('Failed to update showcase');
-    } finally {
-      showcaseGuard.end();
     }
   }
 
@@ -946,33 +829,6 @@ export default function BookDetail() {
                   <path d="M2 2.75A2.75 2.75 0 0 1 4.75 0h6.5A2.75 2.75 0 0 1 14 2.75v12.5a.75.75 0 0 1-1.18.617L8 12.21l-4.82 3.657A.75.75 0 0 1 2 15.25V2.75Z" />
                 </svg>
               </button>
-              {/* Showcase pick — five-slot row on /showcase. Filled star
-                  when this book occupies a slot (tooltip shows rank);
-                  outlined when empty. When the row is full and this
-                  book isn't on it, the click routes to /showcase to
-                  swap something out (handled by toggleShowcase). */}
-              {(() => {
-                const isPick    = !!book.showcase_position;
-                const rowFull   = !isPick && showcasePicks.length >= 5;
-                const title     = isPick
-                  ? `In Showcase — rank #${book.showcase_position}. Click to remove.`
-                  : rowFull
-                    ? 'Showcase full — click to swap in'
-                    : 'Add to Showcase';
-                return (
-                  <button
-                    type="button"
-                    onClick={toggleShowcase}
-                    disabled={showcaseGuard.busy}
-                    className={`p-1.5 transition-colors disabled:opacity-60 ${isPick ? 'text-indigo-400' : 'text-neutral-600 hover:text-neutral-300'}`}
-                    title={title}
-                    aria-label={`${title}: ${book.title}`}
-                    aria-pressed={isPick}
-                  >
-                    <span className="text-2xl leading-none">{isPick ? '★' : '☆'}</span>
-                  </button>
-                );
-              })()}
               <div className="p-1.5 text-neutral-600">
                 <ListPicker bookId={book.id} bookTitle={book.title} iconClassName="w-5 h-5" />
               </div>
@@ -1292,13 +1148,6 @@ export default function BookDetail() {
           />
         </div>
       )}
-      <SwapShowcaseModal
-        open={swapModalOpen}
-        picks={showcasePicks.map(p => ({ id: p.id, label: p.title, image_path: p.cover_path, showcase_position: p.showcase_position }))}
-        incomingTitle={book.title}
-        onPick={(item) => swapShowcasePick(showcasePicks.find(p => p.id === item.id))}
-        onClose={() => setSwapModalOpen(false)}
-      />
     </div>
   );
 }
