@@ -128,6 +128,20 @@ export default function Readlist() {
       .map(([name, count]) => ({ name, count }));
   }, [books]);
 
+  // Prune pickTags down to the chips actually rendered. Without this,
+  // removing the last book carrying a selected tag drops the chip from
+  // topReadlistTags (so the user can't see or unset it) but leaves the
+  // filter active — the picker silently returns zero matches with no
+  // visible cause. The size-check guards against an unnecessary state
+  // update when the set is already a subset.
+  useEffect(() => {
+    const valid = new Set(topReadlistTags.map(t => t.name));
+    setPickTags(prev => {
+      const next = new Set([...prev].filter(name => valid.has(name)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [topReadlistTags]);
+
   // Shared filter predicate — extracted so the per-pill availability
   // counts below can reuse it without duplicating the bucket-bounds
   // and tag-intersection logic. Length filter is best-effort: books
@@ -398,8 +412,13 @@ export default function Readlist() {
               </div>
               <div className="mt-4 flex items-center justify-between text-xs text-neutral-600">
                 <span>
+                  {/* Use picks.length, not PICK_COUNT, so the count
+                      tracks reality after a ✕-remove drops one of the
+                      visible picks (pool-change effect preserves the
+                      surviving picks rather than re-rolling, which can
+                      leave fewer than PICK_COUNT in `picks`). */}
                   {pickerCandidates.length > PICK_COUNT
-                    ? <>Showing {PICK_COUNT} of {pickerCandidates.length} matches.</>
+                    ? <>Showing {picks.length} of {pickerCandidates.length} matches.</>
                     : <>{plural(pickerCandidates.length, 'match', 'matches')}.</>}
                 </span>
                 {pickerCandidates.length > 1 && (
