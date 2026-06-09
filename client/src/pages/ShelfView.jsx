@@ -46,7 +46,7 @@ function SortableShelfCover({ book, linkState, focused }) {
               order). */}
           <div className={`relative w-[240px] ${book.format === 'audiobook' ? 'h-[240px]' : 'h-[360px]'} rounded overflow-hidden bg-neutral-800 shadow-lg`}>
             {book.cover_path
-              ? <img src={book.cover_path} alt={book.title} draggable={false} className="w-full h-full object-cover" />
+              ? <img src={book.cover_path} alt={book.title} draggable={false} loading="lazy" decoding="async" className="w-full h-full object-cover" />
               : <div className="w-full h-full flex flex-col items-center justify-center p-3 bg-gradient-to-br from-neutral-700 to-neutral-900 gap-2">
                   <span className="text-5xl font-bold text-neutral-500 leading-none tracking-wide">{initialsFor(book.title)}</span>
                   <span className="text-xs text-neutral-400 leading-tight line-clamp-4 text-center">{book.title}</span>

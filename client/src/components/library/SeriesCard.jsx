@@ -43,7 +43,7 @@ export default function SeriesCard({ seriesName, books, seriesTotal, expanded, o
           return (
             <div key={vol.id} className="absolute top-0 bottom-0 overflow-hidden" style={{ left: `${leftPct}%`, width }}>
               {vol.cover_path ? (
-                <img src={vol.cover_path} alt="" className="h-full w-full object-cover" />
+                <img src={vol.cover_path} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
               ) : (
                 <div className="h-full w-full bg-gradient-to-br from-neutral-700 to-neutral-900 flex items-end p-2">
                   {i === n - 1 && <span className="text-xs text-neutral-400 font-medium leading-tight line-clamp-4">{seriesName}</span>}

@@ -131,7 +131,7 @@ export default function Loved() {
                     >
                       <div className="aspect-[3/4] bg-neutral-800 rounded overflow-hidden shadow">
                         {a.photo_path ? (
-                          <img src={a.photo_path} alt="" className="w-full h-full object-cover object-top transition-opacity group-hover:opacity-90" />
+                          <img src={a.photo_path} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover object-top transition-opacity group-hover:opacity-90" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-neutral-700 to-neutral-900">
                             <span className="text-3xl font-bold text-neutral-500 select-none">{initialsFor(a.name)}</span>
@@ -167,7 +167,7 @@ export default function Loved() {
                     >
                       <div className="aspect-[2/3] bg-neutral-800 rounded overflow-hidden shadow">
                         {s.cover_path ? (
-                          <img src={s.cover_path} alt="" className="w-full h-full object-cover transition-opacity group-hover:opacity-90" />
+                          <img src={s.cover_path} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover transition-opacity group-hover:opacity-90" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-neutral-700 to-neutral-900 p-2">
                             <span className="text-2xl font-bold text-neutral-500 select-none text-center">{initialsFor(s.name)}</span>

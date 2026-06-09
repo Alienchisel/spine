@@ -253,6 +253,8 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
             <img
               src={book.cover_path}
               alt={book.title}
+              loading="lazy"
+              decoding="async"
               className="w-full h-full object-cover"
             />
           ) : (

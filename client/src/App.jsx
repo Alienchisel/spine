@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import Nav from './components/Nav.jsx';
 import { ConfirmModalProvider } from './components/ConfirmModal.jsx';
@@ -256,7 +256,14 @@ export default function App() {
         </a>
         <Nav />
         <main id="main" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-          <Outlet />
+          {/* Suspense boundary catches React.lazy()'d routes (Stats /
+              DataViz / Collage / AuditWizard) while their chunk is in
+              flight on first visit. Empty fallback so a fast load
+              doesn't flash placeholder copy; the page-level loading
+              state takes over within ~50ms of mount. */}
+          <Suspense fallback={null}>
+            <Outlet />
+          </Suspense>
         </main>
         <CommandPalette />
       </div>

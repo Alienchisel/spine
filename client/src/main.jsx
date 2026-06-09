@@ -16,13 +16,19 @@ import Loved from './pages/Loved.jsx';
 import Lists from './pages/Lists.jsx';
 import ListDetail from './pages/ListDetail.jsx';
 import Diary from './pages/Diary.jsx';
-import Stats from './pages/Stats.jsx';
 import Notes from './pages/Notes.jsx';
-import Collage from './pages/Collage.jsx';
 import Audit from './pages/Audit.jsx';
-import AuditWizard from './pages/AuditWizard/index.jsx';
-import DataViz from './pages/DataViz.jsx';
 import ShelfManager from './pages/ShelfManager.jsx';
+// Lazy-load the four heaviest pages: Stats pulls recharts (~70KB gzip),
+// DataViz + Collage pull html2canvas-pro (~50KB), AuditWizard is its own
+// fat tree of cover/portrait/enum mode grids. None is the user's first
+// landing surface, so deferring them shaves ~120KB off the initial
+// JS chunk and lets the Library + Loved + BookDetail surfaces paint
+// faster. Suspense boundary lives in App.jsx (around <Outlet/>).
+const Stats       = React.lazy(() => import('./pages/Stats.jsx'));
+const Collage     = React.lazy(() => import('./pages/Collage.jsx'));
+const AuditWizard = React.lazy(() => import('./pages/AuditWizard/index.jsx'));
+const DataViz     = React.lazy(() => import('./pages/DataViz.jsx'));
 import ShelfView from './pages/ShelfView.jsx';
 import RouteError from './components/RouteError.jsx';
 import './index.css';
