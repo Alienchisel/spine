@@ -90,7 +90,15 @@ export default function CoreFields({
         <select id={idFor('fiction')} className={input} value={form.fiction === null ? '' : String(form.fiction)}
           onChange={e => {
             const val = e.target.value === '' ? null : e.target.value === 'true';
-            setForm(f => ({ ...f, fiction: val, source_type: val === false ? f.source_type : '' }));
+            // Preserve source_type across the fiction toggle — the field is
+            // conditionally rendered (only when fiction === false), so the
+            // value is stashed off-screen and restored when the user toggles
+            // back. Without this, an accidental fiction-then-non-fiction
+            // round trip silently wipes the user's source choice. The
+            // payload mapper (mapping.js) nulls source_type when fiction
+            // isn't false, so the server-side validation contract still
+            // holds.
+            setForm(f => ({ ...f, fiction: val }));
           }}>
           <option value="">—</option>
           <option value="true">Fiction</option>

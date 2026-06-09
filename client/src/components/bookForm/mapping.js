@@ -105,5 +105,11 @@ export function formStateToPayload(form, { tagInput, narratorInput, authorInput,
   out.year_approximate           = form.year_edition   ? form.year_approximate           : false;
   out.year_published_approximate = form.year_published ? form.year_published_approximate : false;
 
+  // source_type round-trips through form state regardless of the fiction
+  // value (so toggling fiction off-then-on doesn't wipe the user's source
+  // pick), but the server rejects source_type when fiction !== false.
+  // Null it on the way out so the contract still holds.
+  if (form.fiction !== false) out.source_type = null;
+
   return out;
 }
