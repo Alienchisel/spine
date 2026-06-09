@@ -1352,6 +1352,17 @@ export default function CommandPalette() {
       aria-label="Command palette"
       className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh] p-4"
       onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}
+      onKeyDownCapture={(e) => {
+        // Tab trap — the palette is a fixed-overlay dialog, but without
+        // this a Tab press from inside the input (or from a clicked
+        // result row) walks focus into the page behind the backdrop.
+        // Arrow keys + Enter handle result navigation, so Tab just
+        // bounces back to the input — keyboard users can never lose
+        // focus from the dialog except via Esc.
+        if (e.key !== 'Tab') return;
+        e.preventDefault();
+        inputRef.current?.focus();
+      }}
     >
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm pointer-events-none" />
       <div className="relative w-full max-w-xl rounded-lg border border-neutral-700 bg-neutral-900 shadow-2xl overflow-hidden">

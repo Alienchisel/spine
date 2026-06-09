@@ -36,6 +36,17 @@ export default function Nav() {
     // sit only on the centred max-w-7xl band where the Nav contents live
     // and where page content scrolls under the sticky header.
     <header className="sticky top-0 z-50">
+      {/* Skip-to-content link — sr-only by default; the focus-visible
+          override pops it onto the page when a keyboard user lands on
+          it as the first tab stop. Targets <main id="main"> in App.jsx
+          so Enter jumps past the nav and "+ Add book" button straight
+          to the page content. */}
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:px-3 focus:py-1.5 focus:rounded-md focus:bg-oak focus:text-neutral-950 focus:text-sm focus:font-medium"
+      >
+        Skip to content
+      </a>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between border-b border-neutral-800/60 bg-neutral-950/90 backdrop-blur-sm">
         <div className="flex items-center gap-6">
           <Link
