@@ -18,6 +18,8 @@ Categories worth using: `[ux]`, `[perf]`, `[a11y]`, `[copy]`, `[edge]`,
 - `[ux]` 2026-06-09 — BookForm validation errors land in a single top-of-page banner; for long edits the user can't tell which field caused a 400 (e.g. source_type vs fiction conflict). Consider parsing the server's error message to highlight the offending field. (`client/src/pages/BookForm.jsx` save handler ~ line 463)
 - `[ux]` 2026-06-09 — BookForm save success has no toast or confirmation — silent navigate to BookDetail. Easy to wonder "did it save?" on a slow connection. Minor; only matters when network is laggy.
 - `[edge]` 2026-06-09 — `PartialDateInput` year input hardcodes `min="1800" max="2099"`. Fine for acquisition / reading dates today but won't survive 2100, and an acquisition pre-1800 (rare collector case) would be silently capped. (`client/src/components/PartialDateInput.jsx:51`)
+- `[a11y]` 2026-06-09 — BookDetail cover lightbox doesn't move focus on open and doesn't restore it to the cover thumbnail on Esc-dismiss. Esc keydown listener fires regardless of focus so dismiss works, but keyboard users land on body afterward. Add focus-trap + return-focus shape similar to ConfirmModal. (`client/src/pages/BookDetail.jsx` lightbox useEffect ~line 113)
+- `[edge]` 2026-06-09 — BookDetail final-session input initializes from `current_page` at open and doesn't track edits made in ProgressSection while the form is visible. Save logic compares against current `book.current_page` so no bad write, but the visual input shows stale value. Rare interleaving. (`client/src/pages/BookDetail.jsx` final-session draft state)
 
 ## Done
 

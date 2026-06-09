@@ -226,18 +226,7 @@ export default function BookDetail() {
         // on a surface that sticks. Only fire if we actually need a
         // rating; revisits of the same already-rated book stay quiet.
         if (navState?.justFinished && !b.rating) setRatingPrompt(true);
-        // Same trigger surfaces the final-session prompt — pages-based
-        // formats only (audiobook minute-tracking is a separate flow),
-        // and only when there's actual room between last logged page
-        // and the book's length. Skips if the user already filled
-        // current_page to the end before finishing.
-        if (navState?.justFinished
-            && b.format !== 'audiobook'
-            && b.page_count > 0
-            && (b.current_page ?? 0) < b.page_count) {
-          setFinalSessionVisible(true);
-          setFinalSessionDraft(String(b.current_page ?? 0));
-        }
+        if (navState?.justFinished) maybeShowFinalSession(b);
       })
       .catch(() => { if (idGuard.isFresh(epoch)) setLoadError(true); })
       .finally(() => { if (idGuard.isFresh(epoch)) setLoading(false); });
@@ -409,6 +398,22 @@ export default function BookDetail() {
     }
   }
 
+  // Pages-based final-session prompt — surfaces when a finish leaves
+  // current_page short of page_count, so the user can backfill the
+  // last session without leaving BookDetail. Audiobook minute-tracking
+  // is a separate flow. Three call sites share this: the cold-load
+  // justFinished branch (when Library's quick-edit auto-finishes), the
+  // explicit "Mark as finished" button below, and the StoriesSection
+  // last-story auto-roll. Without all three, finishing through the
+  // anthology contents or the BookDetail button would surface the
+  // rating prompt but silently skip the page-count gap.
+  function maybeShowFinalSession(b) {
+    if (b.format !== 'audiobook' && b.page_count > 0 && (b.current_page ?? 0) < b.page_count) {
+      setFinalSessionVisible(true);
+      setFinalSessionDraft(String(b.current_page ?? 0));
+    }
+  }
+
   async function handleFinish() {
     if (!finishGuard.begin()) return;
     const reqId = book.id;
@@ -429,6 +434,7 @@ export default function BookDetail() {
       if (!isStillCurrent(reqId)) return;
       setBook(updated);
       if (!book.rating) setRatingPrompt(true);
+      maybeShowFinalSession(updated);
       loadReads();
     } catch {
       if (!isStillCurrent(reqId)) return;
@@ -1040,12 +1046,14 @@ export default function BookDetail() {
                   if (String(b.id) !== String(latestIdRef.current)) return;
                   // When the last story-finish auto-rolls the parent
                   // collection to status='finished', surface the rating
-                  // prompt the same way an explicit finish would. Compares
-                  // the prior `book` snapshot held in closure to the
-                  // freshly-fetched `b`.
-                  if (book && book.status !== 'finished' && b.status === 'finished' && !b.rating) {
-                    setRatingPrompt(true);
-                  }
+                  // prompt + final-session prompt the same way the
+                  // explicit Mark-as-finished button would. Compares the
+                  // prior `book` snapshot held in closure to the
+                  // freshly-fetched `b` so a refresh-tick refetch on an
+                  // already-finished collection doesn't re-trigger.
+                  const justRolledToFinished = book && book.status !== 'finished' && b.status === 'finished';
+                  if (justRolledToFinished && !b.rating) setRatingPrompt(true);
+                  if (justRolledToFinished) maybeShowFinalSession(b);
                   setBook(b);
                 })}
               />
