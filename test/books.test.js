@@ -3909,6 +3909,32 @@ describe('books', () => {
       }
     });
 
+    it('POST /api/books/:id/cover/url rejects SSRF targets (loopback, link-local, RFC1918)', async () => {
+      // The endpoint proxies a user-supplied URL and writes the response
+      // into uploads/, where the caller can read it back via /uploads/<f>.
+      // Without the SSRF guard a malicious page open in another tab could
+      // pivot to https://127.0.0.1, http://localhost-anything (rejected
+      // by the https-only check), or https://169.254.169.254/<cloud-meta>.
+      // The guard rejects on hostname resolution before any fetch fires.
+      const { body: created } = await req('POST', '/api/books', { title: 'ssrf' });
+      try {
+        const cases = [
+          'https://localhost/x',          // 127.0.0.1
+          'https://127.0.0.1/x',          // loopback literal
+          'https://169.254.169.254/x',    // link-local / cloud metadata
+          'https://10.0.0.1/x',           // RFC1918
+          'https://192.168.1.1/x',        // RFC1918
+          'http://example.com/x',         // not https
+        ];
+        for (const url of cases) {
+          const { status, body } = await req('POST', `/api/books/${created.id}/cover/url`, { url });
+          assert.equal(status, 400, `${url} must be rejected (got ${status} ${JSON.stringify(body)})`);
+        }
+      } finally {
+        await req('DELETE', `/api/books/${created.id}`);
+      }
+    });
+
     it('POST /api/books/:id/cover/url cleans up the saved file if the book is gone', async () => {
       // The core gap the new endpoint closes: download succeeds, then the
       // DB update can't find the row (or fails for any reason). The file
