@@ -13,6 +13,7 @@ import PersonalFields from '../components/bookForm/PersonalFields.jsx';
 import { useConfirm } from '../components/ConfirmModal.jsx';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import { useActionGuard } from '../hooks/useActionGuard.js';
+import PageHeading from '../components/PageHeading.jsx';
 
 const TABS = [
   { key: 'core',        label: 'Core' },
@@ -552,9 +553,9 @@ export default function BookForm() {
       >
         ← {backLabel}
       </Link>
-      <h1 className="text-xl font-bold text-white mb-8">
-        {isEdit ? 'Edit book' : 'Add book'}
-      </h1>
+      <div className="mb-8">
+        <PageHeading>{isEdit ? 'Edit book' : 'Add book'}</PageHeading>
+      </div>
 
       {loadError && (
         <div role="alert" className="mb-6 px-3 py-2 bg-warn/10 border border-warn/30 rounded text-sm text-warn">
