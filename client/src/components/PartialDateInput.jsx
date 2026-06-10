@@ -48,7 +48,7 @@ export default function PartialDateInput({ value, onChange, size = 'md', ariaLab
   return (
     <div className="flex gap-2 items-center">
       <input
-        type="number" min="1800" max="2099" placeholder="Year"
+        type="number" min="1800" max="2199" placeholder="Year"
         aria-label={labelFor('year')}
         className={`${sz.yearW} ${sz.input}`}
         value={year}
