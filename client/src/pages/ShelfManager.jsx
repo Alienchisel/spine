@@ -13,6 +13,7 @@ import { PROXIMITY_LABEL, PROXIMITY_OPTIONS } from '../components/shelfManager/p
 import { useConfirm } from '../components/ConfirmModal.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 import PageHeading from '../components/PageHeading.jsx';
+import { primaryButtonSm } from '../components/buttonStyles.js';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 
@@ -397,7 +398,7 @@ export default function ShelfManager() {
             </div>
             <div className="flex gap-3">
               <button type="button" onClick={addBuilding} disabled={!newBuildingName.trim()}
-                className="text-xs bg-oak hover:bg-leather disabled:opacity-60 text-neutral-950 font-semibold px-3 py-1.5 rounded transition-colors">
+                className={primaryButtonSm}>
                 Add building
               </button>
               <button type="button" onClick={() => setAddingBuilding(false)}

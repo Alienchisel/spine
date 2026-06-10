@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { submitOnModEnter } from '../components/bookForm/styles.js';
+import { primaryButton } from '../components/buttonStyles.js';
 import { MOD_KEY } from '../utils.js';
 import {
   DndContext,
@@ -242,7 +243,7 @@ function QuickAdd({ listId, listBookIds, onAdded }) {
           type="submit"
           disabled={busy || !title.trim()}
           title="Create a wishlist stub with this title and add it to the list"
-          className="text-sm font-medium bg-oak hover:bg-leather disabled:opacity-60 motion-safe:active:scale-[0.98] text-neutral-950 px-4 py-2 rounded-lg transition-[transform,background-color] ease-out duration-150 whitespace-nowrap"
+          className={`${primaryButton} whitespace-nowrap`}
         >
           + Stub
         </button>

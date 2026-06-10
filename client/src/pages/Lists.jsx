@@ -7,6 +7,7 @@ import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import { useActionGuard } from '../hooks/useActionGuard.js';
 import PageHeading from '../components/PageHeading.jsx';
+import { primaryButton } from '../components/buttonStyles.js';
 
 export default function Lists() {
   const [lists, setLists] = useState([]);
@@ -118,7 +119,7 @@ export default function Lists() {
         <button
           type="submit"
           disabled={createGuard.busy || !newName.trim()}
-          className="text-sm font-medium bg-oak hover:bg-leather disabled:opacity-60 motion-safe:active:scale-[0.98] text-neutral-950 px-4 py-2 rounded-lg transition-[transform,background-color] ease-out duration-150"
+          className={primaryButton}
         >
           Create
         </button>
