@@ -6,6 +6,7 @@ import { useConfirm } from '../components/ConfirmModal.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import { useActionGuard } from '../hooks/useActionGuard.js';
+import PageHeading from '../components/PageHeading.jsx';
 
 export default function Lists() {
   const [lists, setLists] = useState([]);
@@ -102,7 +103,7 @@ export default function Lists() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-white mb-6">Lists</h1>
+      <div className="mb-6"><PageHeading>Lists</PageHeading></div>
 
       <form onSubmit={handleCreate} className="flex items-center gap-2 mb-8">
         <input
