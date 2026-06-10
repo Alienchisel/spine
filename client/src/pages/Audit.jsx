@@ -4,6 +4,7 @@ import { api } from '../api.js';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import ErrorBanner from '../components/ErrorBanner.jsx';
+import PageHeading from '../components/PageHeading.jsx';
 
 const FROM_AUDIT = { from: 'Audit', fromPath: '/audit' };
 
@@ -90,7 +91,7 @@ export default function Audit() {
   return (
     <div className="max-w-5xl mx-auto space-y-8">
       <div className="flex items-center justify-between gap-4">
-        <h1 className="font-slab text-2xl text-parchment tracking-wide uppercase">Library audit</h1>
+        <PageHeading>Library audit</PageHeading>
         <Link to="/stats" state={FROM_AUDIT} className="text-xs text-neutral-500 hover:text-neutral-200 transition-colors">
           ← Stats
         </Link>

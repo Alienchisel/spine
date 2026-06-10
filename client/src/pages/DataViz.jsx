@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
+import PageHeading from '../components/PageHeading.jsx';
 
 const FROM_DV = { from: 'Data viz', fromPath: '/data-viz' };
 
@@ -948,7 +949,7 @@ export default function DataViz() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-12">
-      <h1 className="font-slab text-2xl text-parchment tracking-wide uppercase">Data visualization</h1>
+      <PageHeading>Data visualization</PageHeading>
 
       {/* ── Experiment #1 — Acquisitions by source ── */}
       <section className="space-y-4">

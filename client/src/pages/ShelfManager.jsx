@@ -12,6 +12,7 @@ import SortableBuilding from '../components/shelfManager/BuildingSection.jsx';
 import { PROXIMITY_LABEL, PROXIMITY_OPTIONS } from '../components/shelfManager/proximity.js';
 import { useConfirm } from '../components/ConfirmModal.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
+import PageHeading from '../components/PageHeading.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 
@@ -357,7 +358,7 @@ export default function ShelfManager() {
       <Link to="/shelf-view" className="text-sm text-neutral-600 hover:text-neutral-300 mb-8 inline-block transition-colors">
         ← Shelf view
       </Link>
-      <h1 className="font-slab text-2xl text-parchment tracking-wide uppercase mb-8">Shelves</h1>
+      <div className="mb-8"><PageHeading>Shelves</PageHeading></div>
 
       <ErrorBanner message={error} onDismiss={() => setError(null)} className="mb-4" />
 

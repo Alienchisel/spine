@@ -6,6 +6,7 @@ import { fmtShortDate, fmtShortMonth, fmtIsoWeekMonday, formatYear, plural, init
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import ErrorBanner from '../components/ErrorBanner.jsx';
+import PageHeading from '../components/PageHeading.jsx';
 
 function DonutChart({ title, data }) {
   const total = data.reduce((s, d) => s + d.value, 0);
@@ -427,7 +428,7 @@ export default function Stats() {
   return (
     <div className="space-y-10">
       <div className="flex items-center justify-between gap-4">
-        <h1 className="font-slab text-2xl text-parchment tracking-wide uppercase">Stats</h1>
+        <PageHeading>Stats</PageHeading>
         <Link to="/collage" state={FROM_STATS} className="text-xs text-neutral-500 hover:text-neutral-200 transition-colors">
           Reading collage →
         </Link>
