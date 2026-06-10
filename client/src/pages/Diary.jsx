@@ -6,6 +6,7 @@ import { useConfirm } from '../components/ConfirmModal.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
+import PageHeading from '../components/PageHeading.jsx';
 
 const FROM_DIARY = { from: 'Diary', fromPath: '/diary' };
 
@@ -530,7 +531,7 @@ export default function Diary() {
   return (
     <div>
       <div className="flex items-center gap-4 mb-8">
-        <h1 className="text-xl font-bold text-white">Diary</h1>
+        <PageHeading>Diary</PageHeading>
         {years.length > 1 && (
           <select
             value={year}
