@@ -6,6 +6,7 @@ import BookCard from '../components/BookCard.jsx';
 import CoverSizeSlider from '../components/CoverSizeSlider.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 import { GridSkeleton } from '../components/Skeleton.jsx';
+import PageHeading from '../components/PageHeading.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useCoverSize } from '../hooks/useCoverSize.js';
 import { initialsFor } from '../utils.js';
@@ -66,7 +67,7 @@ export default function Loved() {
     <div>
       <IncomingBackLink />
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-bold text-white">Loved</h1>
+        <PageHeading>Loved</PageHeading>
         {books.length > 0 && (
           <CoverSizeSlider size={coverSize} onChange={setCoverSize} min={coverMin} max={coverMax} />
         )}
