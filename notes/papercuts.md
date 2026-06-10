@@ -20,6 +20,7 @@ Categories worth using: `[ux]`, `[perf]`, `[a11y]`, `[copy]`, `[edge]`,
 - `[edge]` 2026-06-09 — `PartialDateInput` year input hardcodes `min="1800" max="2099"`. Fine for acquisition / reading dates today but won't survive 2100, and an acquisition pre-1800 (rare collector case) would be silently capped. (`client/src/components/PartialDateInput.jsx:51`)
 - `[a11y]` 2026-06-09 — BookDetail cover lightbox doesn't move focus on open and doesn't restore it to the cover thumbnail on Esc-dismiss. Esc keydown listener fires regardless of focus so dismiss works, but keyboard users land on body afterward. Add focus-trap + return-focus shape similar to ConfirmModal. (`client/src/pages/BookDetail.jsx` lightbox useEffect ~line 113)
 - `[edge]` 2026-06-09 — BookDetail final-session input initializes from `current_page` at open and doesn't track edits made in ProgressSection while the form is visible. Save logic compares against current `book.current_page` so no bad write, but the visual input shows stale value. Rare interleaving. (`client/src/pages/BookDetail.jsx` final-session draft state)
+- `[ux]` 2026-06-09 — Notes empty-state ("No notes or reviews written yet.") has no recovery affordance. Add "Start writing notes on any book's detail page" or a link to e.g. `/?tab=reading`. Low priority — discoverable via BookDetail. (`client/src/pages/Notes.jsx` empty-state branch)
 
 ## Done
 

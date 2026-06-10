@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { initialsFor, plural, pluralWord } from '../utils.js';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
@@ -118,6 +118,7 @@ const KIND_TABS = [
   { key: 'reviews', label: 'Reviews', noun: 'review' },
   { key: 'notes',   label: 'Notes',   noun: 'note' },
 ];
+const KIND_KEYS = new Set(KIND_TABS.map(t => t.key));
 
 // Row-level tag pill — visible as a button so the user can click any
 // tag on any row to add it to the active filter. The pill style mirrors
@@ -148,9 +149,24 @@ export default function Notes() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [query, setQuery] = useState('');
-  const [activeTags, setActiveTags] = useState(() => new Set());
-  const [kindFilter, setKindFilter] = useState('all');
+  // Filter state lives on the URL so a navigate-to-BookDetail-then-back
+  // restores the user's exact filter selection (the alt-tab path is
+  // already covered by useRefreshTick). Same shape as Library and
+  // Diary — `?q=…&tags=a,b,c&kind=reviews`.
+  const [params, setParams] = useSearchParams();
+  const query      = params.get('q') ?? '';
+  const kindFilter = KIND_KEYS.has(params.get('kind')) ? params.get('kind') : 'all';
+  const activeTags = useMemo(() => {
+    const raw = params.get('tags') ?? '';
+    return new Set(raw ? raw.split(',').filter(Boolean) : []);
+  }, [params]);
+  const setQuery = useCallback((q) => {
+    setParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (q) next.set('q', q); else next.delete('q');
+      return next;
+    }, { replace: true });
+  }, [setParams]);
   const searchRef = useRef(null);
   // Alt-tab refetch — mirrors every other list-style page (Library, Diary,
   // Loved, …). Without this, edits made elsewhere (a review tweaked on
@@ -168,16 +184,24 @@ export default function Notes() {
   }, [refreshTick]);
 
   // Toggle a tag in the active-filter set. Empty → adds; present →
-  // removes. Stable identity for the Pill onClick prop via useCallback
-  // so the row-level pills don't re-render every keystroke.
+  // removes. Round-trips through the URL so back/forward navigation
+  // restores the user's exact selection.
   const toggleTag = useCallback((name) => {
-    setActiveTags(prev => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
+    setParams(prev => {
+      const next = new URLSearchParams(prev);
+      const current = new Set((next.get('tags') ?? '').split(',').filter(Boolean));
+      if (current.has(name)) current.delete(name); else current.add(name);
+      if (current.size > 0) next.set('tags', [...current].join(',')); else next.delete('tags');
       return next;
-    });
-  }, []);
+    }, { replace: true });
+  }, [setParams]);
+  const setKindFilter = useCallback((kind) => {
+    setParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (kind && kind !== 'all') next.set('kind', kind); else next.delete('kind');
+      return next;
+    }, { replace: true });
+  }, [setParams]);
 
   // Combined filter: text match (notes OR review) AND tag intersection
   // (every active tag must be present on the book's real-tag list).
@@ -215,6 +239,16 @@ export default function Notes() {
   const activeQuery = query.trim();
   const anyFilter = activeQuery !== '' || activeTags.size > 0;
   const kindNoun = KIND_TABS.find(t => t.key === kindFilter).noun;
+
+  // Cohort threading — BookDetail's prev/next walks the filtered Notes
+  // view (same shape as Library / ListDetail / Loved). Without this, a
+  // user clicking into a note's book lands at BookDetail and prev/next
+  // falls back to series siblings only, losing the Notes browse flow.
+  const linkState = useMemo(() => ({
+    from: 'Notes',
+    fromPath: '/notes',
+    cohort: filtered.map(b => ({ id: b.id, title: b.title })),
+  }), [filtered]);
 
   return (
     <div className="max-w-5xl">
@@ -318,14 +352,14 @@ export default function Notes() {
                   <li key={book.id} className="py-4">
                     <Link
                       to={`/books/${book.id}`}
-                      state={{ from: 'Notes', fromPath: '/notes' }}
+                      state={linkState}
                       className="flex gap-4 group focus:outline-none focus-visible:bg-neutral-900/40 -mx-2 px-2 rounded transition-colors"
                     >
                       {/* Thumbnail — small, just enough to anchor the row
                           to a book. Falls back to initials if no cover. */}
                       <div className="flex-shrink-0 w-12 h-16 rounded-sm bg-neutral-800 overflow-hidden">
                         {book.cover_path ? (
-                          <img src={book.cover_path} alt="" className="w-full h-full object-cover" />
+                          <img src={book.cover_path} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-[10px] text-neutral-500 font-medium tracking-wide bg-gradient-to-br from-neutral-700 to-neutral-900">
                             {initialsFor(book.title)}
