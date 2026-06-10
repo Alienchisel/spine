@@ -1,6 +1,6 @@
 import express from 'express';
 import db from '../db.js';
-import { serveBookCardRows } from '../lib/books/joinedFields.js';
+import { serveBookCardRows, LIST_BOOK_SELECT_PREFIXED } from '../lib/books/joinedFields.js';
 
 const router = express.Router();
 
@@ -47,7 +47,7 @@ function booksForList(listId, { sort = 'added', limit = null, offset = 0 } = {})
   `).get(listId);
 
   const rows = db.prepare(`
-    SELECT b.*, lb.added_at, lb.position
+    SELECT ${LIST_BOOK_SELECT_PREFIXED}, lb.added_at, lb.position
     FROM books b
     JOIN list_books lb ON lb.book_id = b.id
     WHERE lb.list_id = ? AND COALESCE(b.archived,0) = 0
