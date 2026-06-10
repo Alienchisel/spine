@@ -196,7 +196,10 @@ export default function Audit() {
                   // right); the missing count is implicit in the slash form
                   // (population − satisfied). Resolved rows collapse to a
                   // single ✓ and skip the right-side cells.
-                  const satisfied = row.population - row.count;
+                  // Clamp at 0 — a data inconsistency where gap > population
+                  // (e.g. a delete that bumped the gap query against a stale
+                  // snapshot) would otherwise render a negative count.
+                  const satisfied = Math.max(0, row.population - row.count);
                   const countCell = resolved
                     ? <span className="text-neutral-600 text-sm tabular-nums w-32 text-right" aria-label="resolved">✓</span>
                     : <span className="text-sm tabular-nums w-32 text-right">
