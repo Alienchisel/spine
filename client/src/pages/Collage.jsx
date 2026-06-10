@@ -125,7 +125,10 @@ export default function Collage() {
   // Lazy-fetch facets on first mount. Cached for the session — a long-
   // lived tab will see stale data if the user logs a new year mid-
   // session, but the cost (one-off refetch) isn't worth a refresh-
-  // tick subscription.
+  // tick subscription. Failure is silent — the year dropdown falls
+  // back to just the current year (always injected by the
+  // `!facets.years.includes(...)` guard below), so the page stays
+  // operable; the user just can't switch years from the UI.
   useEffect(() => {
     api.getCollageFacets().then(setFacets).catch(() => {});
   }, []);

@@ -1108,7 +1108,7 @@ export default function BookDetail() {
                   if (justRolledToFinished && !b.rating) setRatingPrompt(true);
                   if (justRolledToFinished) maybeShowFinalSession(b);
                   setBook(b);
-                })}
+                }).catch(() => {})}
               />
             );
           })()}
