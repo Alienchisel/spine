@@ -327,7 +327,12 @@ export default function Notes() {
       ) : error ? (
         <p role="alert" className="text-sm text-warn">{error}</p>
       ) : books.length === 0 ? (
-        <p className="text-neutral-600">No notes or reviews written yet.</p>
+        <div className="text-center py-24">
+          <p className="text-neutral-600 mb-3">No notes or reviews written yet.</p>
+          <p className="text-sm text-neutral-600">
+            Open any book and use its detail page to write a <Link to="/" className="text-leather hover:text-parchment transition-colors underline-offset-2 hover:underline">note or review</Link>.
+          </p>
+        </div>
       ) : (
         <>
           <p className="text-xs text-neutral-600 mb-3">
