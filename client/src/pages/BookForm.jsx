@@ -458,14 +458,19 @@ export default function BookForm() {
     setError(null);
     try {
       const payload = formStateToPayload(form, { tagInput, narratorInput, authorInput, translatorInput });
+      // `justSaved` mirrors the `justFinished` flag's plumbing — a one-shot
+      // hint to BookDetail that the user landed there from a save and
+      // benefits from an explicit "saved" ack. Without it, the navigate is
+      // silent and easy to misread as a no-op on slow connections.
+      const stateWithAck = { ...(navState ?? {}), justSaved: true };
       if (isEdit) {
         await api.updateBook(id, payload);
         setDirty(false);  // clear before navigate so the blocker doesn't fire
-        navigate(`/books/${id}`, { state: navState });
+        navigate(`/books/${id}`, { state: stateWithAck });
       } else {
         const book = await api.createBook(payload);
         setDirty(false);
-        navigate(`/books/${book.id}`, { state: navState });
+        navigate(`/books/${book.id}`, { state: stateWithAck });
       }
     } catch (err) {
       // Generic fallback if the thrown error has no `.message` — keeps

@@ -80,6 +80,15 @@ export default function BookDetail() {
   // toggle reflects what's actually clipped at the current breakpoint.
   const [descRef, descOverflows] = useTextOverflow(!descExpanded, [book?.description]);
   const [ratingPrompt, setRatingPrompt] = useState(false);
+  // Brief "Saved." acknowledgement after the user lands here from a
+  // BookForm save. Auto-dismisses after 2.5s. Without it, the navigate
+  // from BookForm is silent and feels like a no-op on slow connections.
+  const [saveAck, setSaveAck] = useState(false);
+  useEffect(() => {
+    if (!saveAck) return undefined;
+    const t = setTimeout(() => setSaveAck(false), 2500);
+    return () => clearTimeout(t);
+  }, [saveAck]);
   // Final-session prompt sits alongside the rating prompt when the user
   // landed here from a Mark-as-finished action that left a gap between
   // their last logged page and the page they actually stopped at. Skip
@@ -229,6 +238,7 @@ export default function BookDetail() {
       setDeleteError(null);
       setRatingPrompt(false);
       setDescExpanded(false);
+      setSaveAck(false);
     }
 
     api.getBook(id)
@@ -242,6 +252,11 @@ export default function BookDetail() {
         // rating; revisits of the same already-rated book stay quiet.
         if (navState?.justFinished && !b.rating) setRatingPrompt(true);
         if (navState?.justFinished) maybeShowFinalSession(b);
+        // BookForm's save handler stamps justSaved onto navState so the
+        // post-save navigate carries an explicit ack signal. The banner
+        // auto-dismisses after 2.5s; the cleanup ref protects against
+        // an unmount-mid-timer leaving setSaveAck stuck on next mount.
+        if (navState?.justSaved) setSaveAck(true);
       })
       .catch(() => { if (idGuard.isFresh(epoch)) setLoadError(true); })
       .finally(() => { if (idGuard.isFresh(epoch)) setLoading(false); });
@@ -590,6 +605,14 @@ export default function BookDetail() {
       <Link to={backPath} className="text-sm text-neutral-600 hover:text-neutral-300 focus-visible:text-neutral-300 focus-visible:underline underline-offset-2 focus-visible:outline-none mb-3 inline-block transition-colors">
         ← {backLabel}
       </Link>
+      {saveAck && (
+        // Inline post-save ack. aria-live=polite so screen readers
+        // announce it without interrupting; auto-dismisses after 2.5s
+        // via the saveAck effect above.
+        <p role="status" aria-live="polite" className="text-xs text-emerald-400/80 mb-3 transition-opacity">
+          ✓ Saved.
+        </p>
+      )}
 
       {/* Prev/next strip lives above the title so its vertical position is
           invariant of title length — a user click-walking through a list

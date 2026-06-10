@@ -16,7 +16,6 @@ Categories worth using: `[ux]`, `[perf]`, `[a11y]`, `[copy]`, `[edge]`,
 ## Open
 
 - `[ux]` 2026-06-09 — BookForm validation errors land in a single top-of-page banner; for long edits the user can't tell which field caused a 400 (e.g. source_type vs fiction conflict). Consider parsing the server's error message to highlight the offending field. (`client/src/pages/BookForm.jsx` save handler ~ line 463)
-- `[ux]` 2026-06-09 — BookForm save success has no toast or confirmation — silent navigate to BookDetail. Easy to wonder "did it save?" on a slow connection. Minor; only matters when network is laggy.
 - `[edge]` 2026-06-09 — BookDetail final-session input initializes from `current_page` at open and doesn't track edits made in ProgressSection while the form is visible. Save logic compares against current `book.current_page` so no bad write, but the visual input shows stale value. Rare interleaving. (`client/src/pages/BookDetail.jsx` final-session draft state)
 - `[ux]` 2026-06-09 — Notes empty-state ("No notes or reviews written yet.") has no recovery affordance. Add "Start writing notes on any book's detail page" or a link to e.g. `/?tab=reading`. Low priority — discoverable via BookDetail. (`client/src/pages/Notes.jsx` empty-state branch)
 
@@ -24,3 +23,4 @@ Categories worth using: `[ux]`, `[perf]`, `[a11y]`, `[copy]`, `[edge]`,
 
 - `[a11y]` 2026-06-09 — BookDetail cover lightbox focus management → shipped in 1.205.8 (capture `document.activeElement` on open, focus dialog via tabIndex=-1, restore previous focus on close, mirrors ConfirmModal pattern)
 - `[edge]` 2026-06-09 — `PartialDateInput` year max widened 2099 → 2199 → shipped in 1.205.9 (won't bite the spinner until 2200; min stayed at 1800 since no user acquires a book before that)
+- `[ux]` 2026-06-09 — BookForm save success ack → shipped in 1.205.10 (justSaved flag in navState, BookDetail renders inline "✓ Saved." aria-live=polite with 2.5s auto-dismiss; same plumbing shape as the existing justFinished flag)
