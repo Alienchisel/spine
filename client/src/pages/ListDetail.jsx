@@ -246,7 +246,7 @@ function QuickAdd({ listId, listBookIds, onAdded }) {
         >
           + Stub
         </button>
-        {error && <span role="alert" className="text-xs text-red-400">{error}</span>}
+        {error && <span role="alert" className="text-xs text-warn">{error}</span>}
       </form>
 
       {/* Existing-library matches. Click a row to add the actual library
@@ -734,7 +734,7 @@ export default function ListDetail() {
   }
 
   if (loading) return <GridSkeleton count={18} gridClassName="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-x-3 gap-y-5 items-start" />;
-  if (error)   return <div role="alert" className="text-red-500 text-sm">{error}</div>;
+  if (error)   return <div role="alert" className="text-warn text-sm">{error}</div>;
   // Defensive: cover any future code path that lands here with list still
   // null (the in-effect adoption flag should prevent this, but the render
   // sites below dereference list.name / list.books / list.description
@@ -761,7 +761,7 @@ export default function ListDetail() {
               aria-label="List name"
               className="bg-neutral-800 border border-neutral-700 rounded px-3 py-1 text-lg font-bold text-white focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 transition-colors"
             />
-            {renameError && <span role="alert" className="text-xs text-red-400">{renameError}</span>}
+            {renameError && <span role="alert" className="text-xs text-warn">{renameError}</span>}
           </form>
         ) : (
           <h1

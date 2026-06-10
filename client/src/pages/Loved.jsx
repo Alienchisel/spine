@@ -92,7 +92,7 @@ export default function Loved() {
             {loadingBooks ? (
               <GridSkeleton count={10} compact={compact} gridStyle={gridStyle} gridClassName={gridClassName} />
             ) : books.length === 0 && bookError ? (
-              <div role="alert" className="text-red-500 text-sm">{bookError}</div>
+              <div role="alert" className="text-warn text-sm">{bookError}</div>
             ) : books.length === 0 ? (
               <p className="text-sm text-neutral-600">No loved books yet — click the ♥ on any book card or detail page.</p>
             ) : (
@@ -118,7 +118,7 @@ export default function Loved() {
             {loadingAuthors ? (
               <p role="status" className="text-sm text-neutral-500">Loading…</p>
             ) : authorError ? (
-              <div role="alert" className="text-red-500 text-sm">{authorError}</div>
+              <div role="alert" className="text-warn text-sm">{authorError}</div>
             ) : authors.length === 0 ? (
               <p className="text-sm text-neutral-600">No loved authors yet — click the ♥ on any author&apos;s page.</p>
             ) : (
@@ -154,7 +154,7 @@ export default function Loved() {
             {loadingSeries ? (
               <p role="status" className="text-sm text-neutral-500">Loading…</p>
             ) : seriesError ? (
-              <div role="alert" className="text-red-500 text-sm">{seriesError}</div>
+              <div role="alert" className="text-warn text-sm">{seriesError}</div>
             ) : series.length === 0 ? (
               <p className="text-sm text-neutral-600">No loved series yet — click the ♥ on any row of the <Link to="/series" className="text-neutral-400 hover:text-parchment transition-colors underline-offset-2 hover:underline">Series</Link> index.</p>
             ) : (

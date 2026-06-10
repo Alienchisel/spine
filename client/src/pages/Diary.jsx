@@ -554,7 +554,7 @@ export default function Diary() {
       {loading ? (
         <div role="status" className="text-neutral-700 text-sm">Loading…</div>
       ) : days.length === 0 && error ? (
-        <div role="alert" className="text-red-500 text-sm">{error}</div>
+        <div role="alert" className="text-warn text-sm">{error}</div>
       ) : days.length === 0 ? (
         <div className="text-center py-32">
           <p className="text-neutral-600 mb-3">No reading logged{years.length > 0 ? ` in ${year}` : ' yet'}.</p>

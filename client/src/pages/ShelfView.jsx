@@ -238,7 +238,7 @@ function AddBookHere({ targetPatch, targetLabel, resolveLocation, onAdded }) {
           aria-label={`Add a book to ${targetLabel}`}
           className="bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2 text-sm text-parchment placeholder-neutral-500 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 transition-colors flex-1"
         />
-        {error && <span role="alert" className="text-xs text-red-400">{error}</span>}
+        {error && <span role="alert" className="text-xs text-warn">{error}</span>}
       </div>
 
       {q.trim() && (matches.length > 0 || searching) && (
