@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
+import { nrm } from '../utils.js';
 import IncomingBackLink from '../components/IncomingBackLink.jsx';
 
 // Sort modes for the Series index. Name is the default alphabetical
@@ -109,9 +110,12 @@ export default function SeriesIndex() {
   }), [series]);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    // nrm() folds diacritics so the filter behaves the same as the
+    // CommandPalette's server-side search (e.g. "loeb" matches
+    // "Loeb Classical Library"). Same shape as AuthorsIndex / TagsIndex.
+    const q = nrm(query.trim());
     const rows = q
-      ? series.filter(s => s.name.toLowerCase().includes(q))
+      ? series.filter(s => nrm(s.name).includes(q))
       : series.slice();
     const byName = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
     switch (sort) {

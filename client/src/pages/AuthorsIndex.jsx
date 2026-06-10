@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
+import { nrm } from '../utils.js';
 import IncomingBackLink from '../components/IncomingBackLink.jsx';
 
 // Sort modes for the Authors index. Name is the default (alphabetical
@@ -142,9 +143,13 @@ export default function AuthorsIndex() {
   }), [authors]);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    // nrm() folds diacritics so "lem" matches "Stanisław Lem" and
+    // "etienne" matches "Étienne de La Boétie" — same shape the
+    // server's nrm() applies on the CommandPalette author search, so
+    // both surfaces agree on what counts as a match.
+    const q = nrm(query.trim());
     const rows = q
-      ? authors.filter(a => a.name.toLowerCase().includes(q))
+      ? authors.filter(a => nrm(a.name).includes(q))
       : authors.slice();
     const byName = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
     switch (sort) {

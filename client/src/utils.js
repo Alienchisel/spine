@@ -224,3 +224,20 @@ export function initialsFor(label) {
   const letters = tokens.map(t => t[0]).filter(c => /[A-Za-z]/.test(c)).slice(0, 3);
   return letters.length ? letters.join('').toUpperCase() : (stripped[0] || '·');
 }
+
+// Diacritic-folding lowercase. Mirrors the server's `nrm()` in db.js so
+// client-side text filters (AuthorsIndex / SeriesIndex / TagsIndex query
+// boxes) match the same shape the CommandPalette search does — typing
+// "bohm" finds "Böhm-Bawerk", "lem" finds "Stanisław Lem", "etienne"
+// finds "Étienne de La Boétie". NFD + strip combining marks handles most
+// cases; the explicit fold list covers a handful of non-decomposing
+// ligatures and stroke-letters (Slavic ł / đ, etc.). Cheap enough to run
+// per-row at this scale.
+export function nrm(s) {
+  if (s == null) return '';
+  return String(s).toLowerCase()
+    .normalize('NFD').replace(/\p{Diacritic}/gu, '')
+    .replace(/æ/g, 'ae').replace(/œ/g, 'oe').replace(/ß/g, 'ss')
+    .replace(/ø/g, 'o').replace(/ð/g, 'd').replace(/þ/g, 'th')
+    .replace(/ł/g, 'l').replace(/đ/g, 'd');
+}

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
+import { nrm } from '../utils.js';
 import IncomingBackLink from '../components/IncomingBackLink.jsx';
 
 // Sort modes for the Tags index. Name (alphabetical scan) is the
@@ -89,9 +90,12 @@ export default function TagsIndex() {
   }, [tags]);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    // nrm() folds diacritics so the filter matches the CommandPalette
+    // server-side search. Most tags are ASCII but applying for
+    // consistency with AuthorsIndex / SeriesIndex.
+    const q = nrm(query.trim());
     const rows = q
-      ? tags.filter(t => t.name.toLowerCase().includes(q))
+      ? tags.filter(t => nrm(t.name).includes(q))
       : tags.slice();
     const byName = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
     switch (sort) {
