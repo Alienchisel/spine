@@ -3,6 +3,7 @@ import { Link, useSearchParams, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
 import { nrm } from '../utils.js';
 import IncomingBackLink from '../components/IncomingBackLink.jsx';
+import PageHeading from '../components/PageHeading.jsx';
 
 // Sort modes for the Tags index. Name (alphabetical scan) is the
 // default. Books asc surfaces prune candidates (single-book tags worth
@@ -111,7 +112,7 @@ export default function TagsIndex() {
     <div className="max-w-3xl">
       <IncomingBackLink />
       <header className="mb-6">
-        <h1 className="text-2xl font-slab text-parchment uppercase tracking-wider">Tags</h1>
+        <PageHeading>Tags</PageHeading>
         {!loading && !error && (
           <p className="text-xs text-neutral-600 mt-2">
             {counts.total} tags · {counts.single} used by a single book

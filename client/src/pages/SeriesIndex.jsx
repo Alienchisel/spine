@@ -3,6 +3,7 @@ import { Link, useSearchParams, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
 import { nrm } from '../utils.js';
 import IncomingBackLink from '../components/IncomingBackLink.jsx';
+import PageHeading from '../components/PageHeading.jsx';
 
 // Sort modes for the Series index. Name is the default alphabetical
 // scan. Books desc shows the biggest series first (the natural overview
@@ -133,7 +134,7 @@ export default function SeriesIndex() {
     <div className="max-w-4xl">
       <IncomingBackLink />
       <header className="mb-6">
-        <h1 className="text-2xl font-slab text-parchment uppercase tracking-wider">Series</h1>
+        <PageHeading>Series</PageHeading>
         {!loading && !error && (
           <p className="text-xs text-neutral-600 mt-2">
             {totals.total} series · {totals.books} books across them
