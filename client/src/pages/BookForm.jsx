@@ -21,6 +21,35 @@ const TABS = [
   { key: 'personal',    label: 'Personal' },
 ];
 
+// Server-side validation echoes the offending field name; we route the
+// banner-augmentation + tab-switch off this map. Fields not listed here
+// (e.g. nested join-table fields) fall through to a plain banner without
+// tab-switching. Keep in sync with the field sections' contents — if a
+// field moves tabs, update the value here.
+const FIELD_TO_TAB = {
+  title:            'core',
+  status:           'core',
+  format:           'core',
+  binding:          'core',
+  condition:        'core',
+  source_type:      'core',
+  fiction:          'core',
+  page_count:       'core',
+  duration_minutes: 'core',
+  date_started:     'core',
+  date_finished:    'core',
+  series_number:    'core',
+  read_count:       'core',
+  year_published:   'details',
+  year_edition:     'details',
+  isbn:             'details',
+  isbn_10:          'details',
+  isbn_13:          'details',
+  asin:             'details',
+  acquisition_date: 'acquisition',
+  rating:           'personal',
+};
+
 export default function BookForm() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -475,7 +504,17 @@ export default function BookForm() {
     } catch (err) {
       // Generic fallback if the thrown error has no `.message` — keeps
       // the user from seeing a blank error banner on a save failure.
-      setError(err?.message || 'Failed to save book.');
+      // Validation 400s carry an `err.field` echoed from the server; route
+      // the user to the tab that hosts the offending field and append the
+      // tab name to the banner so the field is locatable at a glance.
+      const tabKey = err?.field && FIELD_TO_TAB[err.field];
+      const tab = tabKey && TABS.find(t => t.key === tabKey);
+      if (tab) {
+        setActiveTab(tabKey);
+        setError(`${err?.message ?? 'Failed to save book.'} (${tab.label} tab)`);
+      } else {
+        setError(err?.message || 'Failed to save book.');
+      }
       // Clear only on failure — on success the component unmounts via
       // navigate, so leaving the guard latched is moot.
       saveGuard.end();

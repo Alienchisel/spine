@@ -11,6 +11,9 @@ async function request(path, options = {}) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     const e = new Error(err.error || 'Request failed');
     e.status = res.status;
+    // Validation routes echo the offending field name so forms can
+    // switch to the right tab / highlight the input inline.
+    if (err.field) e.field = err.field;
     throw e;
   }
   if (res.status === 204) return null;

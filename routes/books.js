@@ -368,7 +368,7 @@ router.delete('/:id/stories/:storyId', (req, res) => {
 
 router.post('/', (req, res) => {
   const errors = validateBook(req.body);
-  if (errors.length) return res.status(400).json({ error: errors[0] });
+  if (errors.length) return res.status(400).json({ error: errors[0].message, field: errors[0].field });
   res.status(201).json(createBook(req.body));
 });
 
@@ -376,7 +376,7 @@ router.put('/:id', (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
   const errors = validateBook(req.body);
-  if (errors.length) return res.status(400).json({ error: errors[0] });
+  if (errors.length) return res.status(400).json({ error: errors[0].message, field: errors[0].field });
   const book = updateBook(id, req.body);
   if (!book) return res.status(404).json({ error: 'Not found' });
   res.json(book);
