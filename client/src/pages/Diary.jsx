@@ -7,6 +7,7 @@ import ErrorBanner from '../components/ErrorBanner.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import PageHeading from '../components/PageHeading.jsx';
+import { sectionEyebrow } from '../components/textStyles.js';
 
 const FROM_DIARY = { from: 'Diary', fromPath: '/diary' };
 
@@ -579,7 +580,7 @@ export default function Diary() {
             <div className="w-[28rem] flex-shrink-0 space-y-8">
               {days.map(day => (
                 <div key={day.date} ref={el => { if (el) dayRefs.current[day.date] = el; }}>
-                  <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-1 pb-2 border-b border-neutral-800 flex justify-between items-baseline">
+                  <h2 className={`${sectionEyebrow} mb-1 pb-2 border-b border-neutral-800 flex justify-between items-baseline`}>
                     <span>{formatDate(day.date)}</span>
                     <span className="text-neutral-700 normal-case tracking-normal font-normal">
                       {(() => {

@@ -7,6 +7,7 @@ import CoverSizeSlider from '../components/CoverSizeSlider.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 import { GridSkeleton } from '../components/Skeleton.jsx';
 import PageHeading from '../components/PageHeading.jsx';
+import { sectionEyebrow } from '../components/textStyles.js';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useCoverSize } from '../hooks/useCoverSize.js';
 import { initialsFor } from '../utils.js';
@@ -85,7 +86,7 @@ export default function Loved() {
           {/* Books — the historical cohort. Cover grid + cohort threading
               into BookDetail's prev/next. */}
           <section className="mb-12">
-            <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-4">Books</h2>
+            <h2 className={`${sectionEyebrow} mb-4`}>Books</h2>
             {books.length > 0 && (
               <ErrorBanner message={bookError} onDismiss={() => setBookError(null)} className="mb-4" />
             )}
@@ -114,7 +115,7 @@ export default function Loved() {
           {/* Authors — small portrait cards. No cover-size slider since
               author photos are independent of the books slider. */}
           <section className="mb-12">
-            <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-4">Authors</h2>
+            <h2 className={`${sectionEyebrow} mb-4`}>Authors</h2>
             {loadingAuthors ? (
               <p role="status" className="text-sm text-neutral-500">Loading…</p>
             ) : authorError ? (
@@ -150,7 +151,7 @@ export default function Loved() {
           {/* Series — first-volume cover (already inlined by the server)
               plus the name and book count below. */}
           <section>
-            <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-4">Series</h2>
+            <h2 className={`${sectionEyebrow} mb-4`}>Series</h2>
             {loadingSeries ? (
               <p role="status" className="text-sm text-neutral-500">Loading…</p>
             ) : seriesError ? (

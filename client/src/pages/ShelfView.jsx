@@ -25,6 +25,7 @@ import { useCoverSize } from '../hooks/useCoverSize.js';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import { useActionGuard } from '../hooks/useActionGuard.js';
+import { sectionEyebrow } from '../components/textStyles.js';
 
 function SortableShelfCover({ book, linkState, focused }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: book.id });
@@ -143,7 +144,7 @@ function ShelfRow({ shelf, books, onReorder, onLabelClick, linkState }) {
         <button
           type="button"
           onClick={onLabelClick}
-          className="text-xs font-semibold text-neutral-500 uppercase tracking-widest hover:text-neutral-300 transition-colors"
+          className={`${sectionEyebrow} hover:text-neutral-300 transition-colors`}
         >
           {shelf.label}
         </button>
@@ -699,7 +700,7 @@ export default function ShelfView() {
             )}
             {unshelfed.length > 0 && (
               <div className="mt-10">
-                <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-4 pb-2 border-b border-neutral-800">
+                <h2 className={`${sectionEyebrow} mb-4 pb-2 border-b border-neutral-800`}>
                   No location assigned · {unshelfed.length}
                 </h2>
                 <div className={gridClassName} style={gridStyle}>
@@ -851,7 +852,7 @@ export default function ShelfView() {
             return (
               <div className={shelves.length > 0 ? 'mb-6 pb-6 border-b border-neutral-800/50' : ''}>
                 {shelves.length > 0 && (
-                  <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-4">Not on a shelf</h2>
+                  <h2 className={`${sectionEyebrow} mb-4`}>Not on a shelf</h2>
                 )}
                 <div className={gridClassName} style={gridStyle}>
                   {(() => {
