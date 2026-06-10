@@ -3,6 +3,7 @@ import { Link, useSearchParams, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
 import { nrm } from '../utils.js';
 import IncomingBackLink from '../components/IncomingBackLink.jsx';
+import PageHeading from '../components/PageHeading.jsx';
 
 // Sort modes for the Authors index. Name is the default (alphabetical
 // scan / who-is-in-my-library reference); the rest are curation flows
@@ -173,7 +174,7 @@ export default function AuthorsIndex() {
     <div className="max-w-5xl">
       <IncomingBackLink />
       <header className="mb-6">
-        <h1 className="text-2xl font-slab text-parchment uppercase tracking-wider">Authors</h1>
+        <PageHeading>Authors</PageHeading>
         {!loading && !error && (
           <p className="text-xs text-neutral-600 mt-2">
             {counts.total} authors · {counts.withBio} with bios · {counts.withPhoto} with portraits · {counts.withDates} with dates · {counts.withGender} with gender
