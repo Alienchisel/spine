@@ -6,6 +6,7 @@ import { initialsFor } from '../utils.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import { useActionGuard } from '../hooks/useActionGuard.js';
 import ErrorBanner from '../components/ErrorBanner.jsx';
+import PageHeading from '../components/PageHeading.jsx';
 import { GridSkeleton } from '../components/Skeleton.jsx';
 
 const STORAGE_KEY = 'spine.collage.lastConfig';
@@ -261,7 +262,7 @@ export default function Collage() {
       <Link to={backPath} className="text-sm text-neutral-500 hover:text-neutral-200 transition-colors">
         {backLabel}
       </Link>
-      <h1 className="text-2xl font-bold text-white mt-6 mb-6">Reading collage</h1>
+      <div className="mt-6 mb-6"><PageHeading>Reading collage</PageHeading></div>
 
       <div className="mb-3 flex flex-wrap items-center gap-4 text-xs">
         <label className="inline-flex items-center gap-1.5 text-neutral-500">
