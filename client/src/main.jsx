@@ -3,33 +3,38 @@ import ReactDOM from 'react-dom/client';
 import { createBrowserRouter, createRoutesFromElements, Route, RouterProvider, Link } from 'react-router-dom';
 import { MOD_KEY } from './utils.js';
 import App from './App.jsx';
+// Eager: the two workhorse surfaces on the cold-load path. Library is the
+// landing page; BookDetail is the most common next click. Keeping them in
+// the main chunk avoids a Suspense flash on the user's typical first
+// interaction. Everything else is lazy below.
 import Library from './pages/Library.jsx';
 import BookDetail from './pages/BookDetail.jsx';
-import BookForm from './pages/BookForm.jsx';
-import BrowsePage from './pages/BrowsePage.jsx';
-import Author from './pages/Author.jsx';
-import AuthorsIndex from './pages/AuthorsIndex.jsx';
-import TagsIndex from './pages/TagsIndex.jsx';
-import SeriesIndex from './pages/SeriesIndex.jsx';
-import Readlist from './pages/Readlist.jsx';
-import Loved from './pages/Loved.jsx';
-import Lists from './pages/Lists.jsx';
-import ListDetail from './pages/ListDetail.jsx';
-import Diary from './pages/Diary.jsx';
-import Notes from './pages/Notes.jsx';
-import Audit from './pages/Audit.jsx';
-import ShelfManager from './pages/ShelfManager.jsx';
-// Lazy-load the four heaviest pages: Stats pulls recharts (~70KB gzip),
-// DataViz + Collage pull html2canvas-pro (~50KB), AuditWizard is its own
-// fat tree of cover/portrait/enum mode grids. None is the user's first
-// landing surface, so deferring them shaves ~120KB off the initial
-// JS chunk and lets the Library + Loved + BookDetail surfaces paint
-// faster. Suspense boundary lives in App.jsx (around <Outlet/>).
-const Stats       = React.lazy(() => import('./pages/Stats.jsx'));
-const Collage     = React.lazy(() => import('./pages/Collage.jsx'));
-const AuditWizard = React.lazy(() => import('./pages/AuditWizard/index.jsx'));
-const DataViz     = React.lazy(() => import('./pages/DataViz.jsx'));
-import ShelfView from './pages/ShelfView.jsx';
+// Lazy-load everything else. Most pages are reached via Nav clicks or
+// filter affordances and aren't on the cold-load critical path. The
+// Suspense boundary in App.jsx renders a null fallback while the chunk
+// is in flight — typical loads are sub-100ms and page-level loading
+// states take over within ~50ms of mount. This shaves the main bundle
+// substantially: each lazy() call splits the page (and any imports
+// unique to it) into its own chunk that's only fetched on navigation.
+const BookForm     = React.lazy(() => import('./pages/BookForm.jsx'));
+const BrowsePage   = React.lazy(() => import('./pages/BrowsePage.jsx'));
+const Author       = React.lazy(() => import('./pages/Author.jsx'));
+const AuthorsIndex = React.lazy(() => import('./pages/AuthorsIndex.jsx'));
+const TagsIndex    = React.lazy(() => import('./pages/TagsIndex.jsx'));
+const SeriesIndex  = React.lazy(() => import('./pages/SeriesIndex.jsx'));
+const Readlist     = React.lazy(() => import('./pages/Readlist.jsx'));
+const Loved        = React.lazy(() => import('./pages/Loved.jsx'));
+const Lists        = React.lazy(() => import('./pages/Lists.jsx'));
+const ListDetail   = React.lazy(() => import('./pages/ListDetail.jsx'));
+const Diary        = React.lazy(() => import('./pages/Diary.jsx'));
+const Notes        = React.lazy(() => import('./pages/Notes.jsx'));
+const Audit        = React.lazy(() => import('./pages/Audit.jsx'));
+const ShelfManager = React.lazy(() => import('./pages/ShelfManager.jsx'));
+const ShelfView    = React.lazy(() => import('./pages/ShelfView.jsx'));
+const Stats        = React.lazy(() => import('./pages/Stats.jsx'));
+const Collage      = React.lazy(() => import('./pages/Collage.jsx'));
+const AuditWizard  = React.lazy(() => import('./pages/AuditWizard/index.jsx'));
+const DataViz      = React.lazy(() => import('./pages/DataViz.jsx'));
 import RouteError from './components/RouteError.jsx';
 import './index.css';
 
