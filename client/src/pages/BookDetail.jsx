@@ -99,6 +99,21 @@ export default function BookDetail() {
   const [finalSessionDraft, setFinalSessionDraft] = useState('');
   const [finalSessionSaving, setFinalSessionSaving] = useState(false);
   const [finalSessionError, setFinalSessionError] = useState(null);
+  // Auto-sync the draft to book.current_page while the user hasn't typed.
+  // Without this, an interleaving ProgressSection edit would leave the
+  // visible value stale (save logic still compares against live book.current_page
+  // so it's never a bad write, just a confusing display). Once the user
+  // types into the input, untouched flips false and we stop tracking.
+  const finalSessionUntouchedRef = useRef(true);
+  useEffect(() => {
+    if (finalSessionVisible) finalSessionUntouchedRef.current = true;
+  }, [finalSessionVisible]);
+  useEffect(() => {
+    if (!finalSessionVisible || !book) return;
+    if (finalSessionUntouchedRef.current) {
+      setFinalSessionDraft(String(book.current_page ?? 0));
+    }
+  }, [book?.current_page, finalSessionVisible]);
   // In-flight lockouts for the action-column buttons. Without the sync
   // ref half, a fast double-click reads stale `book.loved` (etc.) before
   // the first PUT's response has landed, so both intents resolve to the
@@ -930,7 +945,7 @@ export default function BookDetail() {
                     min="0"
                     max={book.page_count ?? undefined}
                     value={finalSessionDraft}
-                    onChange={(e) => setFinalSessionDraft(e.target.value)}
+                    onChange={(e) => { finalSessionUntouchedRef.current = false; setFinalSessionDraft(e.target.value); }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') { e.preventDefault(); saveFinalSession(); }
                       if (e.key === 'Escape') setFinalSessionVisible(false);
