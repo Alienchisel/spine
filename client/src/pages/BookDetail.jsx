@@ -110,15 +110,30 @@ export default function BookDetail() {
   // backdrop; Esc and any click dismiss. Only applies when book.cover_path
   // is set — the initials fallback isn't worth zooming.
   const [coverZoomed, setCoverZoomed] = useState(false);
+  // Focus management — capture the previously-focused element on open
+  // and restore on close so a keyboard user who Tab-focused the cover
+  // thumbnail and hit Enter doesn't get dumped onto <body> after Esc.
+  // Mirrors the ConfirmModal pattern. Defer focus moves past mount /
+  // unmount with requestAnimationFrame so the dialog is in the DOM
+  // before we try to focus it.
+  const lightboxRef = useRef(null);
+  const lightboxReturnFocusRef = useRef(null);
   useEffect(() => {
     if (!coverZoomed) return undefined;
+    lightboxReturnFocusRef.current = document.activeElement;
     function onKey(e) { if (e.key === 'Escape') setCoverZoomed(false); }
     document.addEventListener('keydown', onKey);
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    requestAnimationFrame(() => lightboxRef.current?.focus());
     return () => {
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = prevOverflow;
+      const target = lightboxReturnFocusRef.current;
+      lightboxReturnFocusRef.current = null;
+      if (target && typeof target.focus === 'function') {
+        requestAnimationFrame(() => target.focus());
+      }
     };
   }, [coverZoomed]);
   // Surfaces failures from the three quick actions in the action column
@@ -1143,11 +1158,13 @@ export default function BookDetail() {
           effect attached to coverZoomed. */}
       {coverZoomed && book.cover_path && (
         <div
+          ref={lightboxRef}
+          tabIndex={-1}
           role="dialog"
           aria-modal="true"
           aria-label={`Cover for ${book.title}`}
           onClick={() => setCoverZoomed(false)}
-          className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-6 cursor-zoom-out"
+          className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-6 cursor-zoom-out focus:outline-none"
         >
           <img
             src={book.cover_path}
