@@ -7,6 +7,7 @@ import {
   SortableContext, verticalListSortingStrategy, sortableKeyboardCoordinates, arrayMove,
 } from '@dnd-kit/sortable';
 import { api } from '../api.js';
+import { plural } from '../utils.js';
 import SortableBuilding from '../components/shelfManager/BuildingSection.jsx';
 import { PROXIMITY_LABEL, PROXIMITY_OPTIONS } from '../components/shelfManager/proximity.js';
 import { useConfirm } from '../components/ConfirmModal.jsx';
@@ -138,9 +139,35 @@ export default function ShelfManager() {
     }
   }
 
+  // Roll-up book counts for the four delete-confirm sites. The /tree
+  // endpoint already returns book_count at every level (owned + not
+  // archived) so the user sees how many books will be unshelved before
+  // confirming a building / room / unit / shelf delete. ON DELETE
+  // CASCADE handles the hierarchy; ON DELETE SET NULL on the book
+  // location FKs means the books survive — only their location columns
+  // null out — so "unshelved" is the right word.
+  function buildingBookCount(id) {
+    return tree.find(b => b.id === id)?.book_count ?? 0;
+  }
+  function roomBookCount(id) {
+    for (const b of tree) for (const r of b.rooms || []) if (r.id === id) return r.book_count ?? 0;
+    return 0;
+  }
+  function unitBookCount(id) {
+    for (const b of tree) for (const r of b.rooms || []) for (const u of r.units || []) if (u.id === id) return u.book_count ?? 0;
+    return 0;
+  }
+  function shelfBookCount(id) {
+    for (const b of tree) for (const r of b.rooms || []) for (const u of r.units || []) for (const s of u.shelves || []) if (s.id === id) return s.book_count ?? 0;
+    return 0;
+  }
+  function suffixBooks(n) {
+    return n > 0 ? ` ${plural(n, 'book')} will be unshelved.` : '';
+  }
+
   async function deleteBuilding(id) {
     if (deletingBuildingIdsRef.current.has(id)) return;
-    if (!await confirm('Delete this building and all its rooms, units, and shelves?')) return;
+    if (!await confirm(`Delete this building and all its rooms, units, and shelves?${suffixBooks(buildingBookCount(id))}`)) return;
     if (deletingBuildingIdsRef.current.has(id)) return;
     deletingBuildingIdsRef.current.add(id);
     setError(null);
@@ -197,7 +224,7 @@ export default function ShelfManager() {
 
   async function deleteRoom(id) {
     if (deletingRoomIdsRef.current.has(id)) return;
-    if (!await confirm('Delete this room and all its units and shelves?')) return;
+    if (!await confirm(`Delete this room and all its units and shelves?${suffixBooks(roomBookCount(id))}`)) return;
     if (deletingRoomIdsRef.current.has(id)) return;
     deletingRoomIdsRef.current.add(id);
     setError(null);
@@ -254,7 +281,7 @@ export default function ShelfManager() {
 
   async function deleteUnit(id) {
     if (deletingUnitIdsRef.current.has(id)) return;
-    if (!await confirm('Delete this unit and all its shelves?')) return;
+    if (!await confirm(`Delete this unit and all its shelves?${suffixBooks(unitBookCount(id))}`)) return;
     if (deletingUnitIdsRef.current.has(id)) return;
     deletingUnitIdsRef.current.add(id);
     setError(null);
@@ -311,7 +338,7 @@ export default function ShelfManager() {
 
   async function deleteShelf(id) {
     if (deletingShelfIdsRef.current.has(id)) return;
-    if (!await confirm('Delete this shelf? Books assigned here will lose their location.')) return;
+    if (!await confirm(`Delete this shelf?${suffixBooks(shelfBookCount(id))}`)) return;
     if (deletingShelfIdsRef.current.has(id)) return;
     deletingShelfIdsRef.current.add(id);
     setError(null);
