@@ -136,6 +136,13 @@ export default function BrowsePage() {
   const [seriesLoved, setSeriesLoved] = useState(null);
   const [seriesLoveBusy, setSeriesLoveBusy] = useState(false);
   const [seriesLoveError, setSeriesLoveError] = useState(null);
+  // Hoisted ahead of the seriesLoved useEffect below so it can list
+  // refreshTick in its deps; the other consumers of refreshTick (the
+  // main books fetch + the cohort fetch) sit further down and would
+  // otherwise have prompted leaving the declaration in the lower
+  // hook cluster, but that lower position would have hit the TDZ
+  // when the seriesLoved effect tried to subscribe.
+  const refreshTick = useRefreshTick();
   useEffect(() => {
     if (field !== 'series') { setSeriesLoved(null); return; }
     let stale = false;
@@ -182,7 +189,6 @@ export default function BrowsePage() {
   // loadedRef.current. Mirrors Library.pagingRef.
   const pagingRef = useRef(false);
   const { size: coverSize, setSize: setCoverSize, cols: gridCols, compact, gridStyle, gridClassName, MIN: coverMin, MAX: coverMax } = useCoverSize();
-  const refreshTick = useRefreshTick();
   // Snapshot of the browse target so we can distinguish navigation
   // (different field/value → wipe to loading) from refresh-tick
   // refetch (same target → keep books visible so scroll position
