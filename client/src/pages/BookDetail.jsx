@@ -60,6 +60,17 @@ export default function BookDetail() {
   const backLabel = navState?.from
     ?? (recoveredLibraryPath ? libraryLabelForUrl(recoveredLibraryPath) : 'Library');
   const backPath  = navState?.fromPath ?? recoveredLibraryPath ?? '/';
+  // Strip one-shot consumption flags (justSaved / justFinished) before
+  // forwarding navState to child Links. They're meant to acknowledge an
+  // arrival here from BookForm / Library; forwarding them to sibling /
+  // edition / author hops would re-pop the Saved banner and rating
+  // prompt on every hop along the chain. Returns null when stripping
+  // empties the object so the synthetic fallback below still runs.
+  const inheritedNavState = useMemo(() => {
+    if (!navState) return null;
+    const { justSaved, justFinished, ...rest } = navState;
+    return Object.keys(rest).length > 0 ? rest : null;
+  }, [navState]);
   // Forward to links that should preserve the Library context (Edit,
   // prev/next series siblings). When navState is null — i.e. new-tab
   // arrival where document.referrer recovered the Library URL — we
@@ -67,7 +78,7 @@ export default function BookDetail() {
   // that context on Save / Back / sibling-hop. The recovered backPath
   // is /<library URL> in that case, so children get the same '←
   // Library' affordance they'd have had under same-tab navigation.
-  const detailReturnState = navState ?? { from: backLabel, fromPath: backPath };
+  const detailReturnState = inheritedNavState ?? { from: backLabel, fromPath: backPath };
   const confirm = useConfirm();
   const [book, setBook] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -597,8 +608,8 @@ export default function BookDetail() {
   const bookFromState = useMemo(() => ({
     from:     book?.title ?? '',
     fromPath: `/books/${id}`,
-    origin:   navState ?? null,
-  }), [book?.title, id, navState]);
+    origin:   inheritedNavState,
+  }), [book?.title, id, inheritedNavState]);
 
   // Description / review / notes share the same markdown config. Links
   // to `spine-book:NNN` (inserted by the @ picker as
@@ -1142,7 +1153,7 @@ export default function BookDetail() {
               /books/:id). Without that fallback, clicking a sibling
               edition from a cold-opened tab would land on a page with
               no back affordance — same SPA-vs-document.referrer trap. */}
-          <EditionsSection book={book} linkState={navState ?? bookFromState} onChange={(updated) => {
+          <EditionsSection book={book} linkState={inheritedNavState ?? bookFromState} onChange={(updated) => {
             // Same stale-navigation guard as ProgressSection — the
             // edition link/unlink calls are async; if the user has
             // navigated to another book in the meantime, drop the result
