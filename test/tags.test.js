@@ -44,9 +44,25 @@ describe('tags — index', () => {
     assert.equal(alpha.book_count, 2);
     assert.equal(zeta.book_count,  1);
 
-    // Alphabetical (NOCASE): alpha-* sorts before zeta-*.
+    // Alphabetical via nrm(): alpha-* sorts before zeta-*.
     const aIdx = body.findIndex(t => t.name === `alpha-${stem}`);
     const zIdx = body.findIndex(t => t.name === `zeta-${stem}`);
     assert.ok(aIdx < zIdx, 'alpha should sort before zeta');
+  });
+
+  it('GET /api/tags sorts via nrm() so diacritics fold into their base letter', async () => {
+    // A tag named "Élite" would sort past "z" under default COLLATE
+    // NOCASE because É is codepoint 201. nrm() folds it to "elite" so
+    // it lands between Edmund and Eulalia, not at the tail.
+    const stem = 'srt' + Math.random().toString(36).slice(2, 6);
+    await req('POST', '/api/books', { title: `${stem}-A`, tags: [`Edmund-${stem}`, `Étranger-${stem}`, `Eulalia-${stem}`, `Zenobia-${stem}`] });
+
+    const { body } = await req('GET', '/api/tags');
+    const names = body.map(t => t.name);
+    const idx = (n) => names.indexOf(n);
+
+    assert.ok(idx(`Edmund-${stem}`)   < idx(`Étranger-${stem}`), 'Étranger sorts after Edmund');
+    assert.ok(idx(`Étranger-${stem}`) < idx(`Eulalia-${stem}`),  'Étranger sorts before Eulalia');
+    assert.ok(idx(`Étranger-${stem}`) < idx(`Zenobia-${stem}`),  'Étranger sorts well before Z, not at the tail');
   });
 });

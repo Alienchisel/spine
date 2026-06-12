@@ -1,5 +1,5 @@
 import express from 'express';
-import db from '../db.js';
+import db, { nrm } from '../db.js';
 import { toCoverUrl } from '../lib/books/normalization.js';
 
 const router = express.Router();
@@ -28,7 +28,7 @@ router.get('/', (req, res) => {
            LIMIT 1)                                                     AS cover_path
       FROM series_loved sl
       WHERE EXISTS (SELECT 1 FROM books b WHERE b.series = sl.series)
-      ORDER BY sl.series COLLATE NOCASE
+      ORDER BY nrm(sl.series)
     `).all();
     return res.json(rows.map(r => ({ ...r, cover_path: toCoverUrl(r.cover_path) })));
   }
@@ -48,7 +48,7 @@ router.get('/', (req, res) => {
     LEFT JOIN series_loved sl ON sl.series = b.series
     WHERE b.series IS NOT NULL AND b.series != ''
     GROUP BY b.series
-    ORDER BY b.series COLLATE NOCASE
+    ORDER BY nrm(b.series)
   `).all();
   res.json(rows);
 });
@@ -86,7 +86,7 @@ router.get('/completion', (_req, res) => {
     WHERE series IS NOT NULL AND series != ''
       AND series_number IS NOT NULL
       AND COALESCE(archived, 0) = 0
-    ORDER BY series COLLATE NOCASE, series_number
+    ORDER BY nrm(series), series_number
   `).all();
   res.json(rows);
 });

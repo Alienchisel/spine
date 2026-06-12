@@ -95,7 +95,7 @@ router.get('/', (req, res) => {
       LEFT JOIN story_authors sa ON sa.author_id = a.id
       WHERE nrm(a.name) LIKE ? ESCAPE '\\'
       GROUP BY a.id
-      ORDER BY a.name COLLATE NOCASE
+      ORDER BY nrm(a.name)
       LIMIT 20
     `).all(like);
     return res.json(rows);
@@ -123,7 +123,7 @@ router.get('/', (req, res) => {
       LEFT JOIN story_authors sa ON sa.author_id = a.id
       WHERE a.loved = 1
       GROUP BY a.id
-      ORDER BY a.name COLLATE NOCASE
+      ORDER BY nrm(a.name)
     `).all();
     return res.json(rows);
   }
@@ -142,7 +142,7 @@ router.get('/', (req, res) => {
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 200, 1), 500);
     const orderBy = req.query.sort === 'random'
       ? 'ORDER BY RANDOM()'
-      : 'ORDER BY a.name COLLATE NOCASE';
+      : 'ORDER BY nrm(a.name)';
     const rows = db.prepare(`
       SELECT
         a.id,
@@ -200,7 +200,7 @@ router.get('/', (req, res) => {
     LEFT JOIN book_authors  ba ON ba.author_id  = a.id
     LEFT JOIN story_authors sa ON sa.author_id = a.id
     GROUP BY a.id
-    ORDER BY a.name COLLATE NOCASE
+    ORDER BY nrm(a.name)
   `).all();
   res.json(rows);
 });

@@ -1,5 +1,5 @@
 import express from 'express';
-import db from '../db.js';
+import db, { nrm } from '../db.js';
 
 const router = express.Router();
 
@@ -22,7 +22,7 @@ router.get('/', (_req, res) => {
     FROM tags t
     LEFT JOIN book_tags bt ON bt.tag_id = t.id
     GROUP BY t.id
-    ORDER BY t.name COLLATE NOCASE
+    ORDER BY nrm(t.name)
   `).all();
   res.json(rows);
 });

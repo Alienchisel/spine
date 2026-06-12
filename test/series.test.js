@@ -64,6 +64,25 @@ describe('series — index', () => {
     assert.ok(!names.some(n => n.endsWith('loose')));
   });
 
+  it('GET /api/series sorts via nrm() so diacritics fold into their base letter', async () => {
+    // Default COLLATE NOCASE would put "Éloge" past z. nrm() folds it
+    // to "eloge" so it lands between Edmund and Eulalia, not at the
+    // tail of the A-Z list.
+    const stem = 'srt' + Math.random().toString(36).slice(2, 6);
+    await req('POST', '/api/books', { title: `${stem}-1`, series: `Edmund-${stem}` });
+    await req('POST', '/api/books', { title: `${stem}-2`, series: `Éloge-${stem}` });
+    await req('POST', '/api/books', { title: `${stem}-3`, series: `Eulalia-${stem}` });
+    await req('POST', '/api/books', { title: `${stem}-4`, series: `Zenobia-${stem}` });
+
+    const { body } = await req('GET', '/api/series');
+    const names = body.map(s => s.name);
+    const idx = (n) => names.indexOf(n);
+
+    assert.ok(idx(`Edmund-${stem}`)  < idx(`Éloge-${stem}`),   'Éloge sorts after Edmund');
+    assert.ok(idx(`Éloge-${stem}`)   < idx(`Eulalia-${stem}`), 'Éloge sorts before Eulalia');
+    assert.ok(idx(`Éloge-${stem}`)   < idx(`Zenobia-${stem}`), 'Éloge sorts well before Z, not at the tail');
+  });
+
   it('GET /api/series/completion returns one row per book with a series_number', async () => {
     const stem = 'complete' + Math.random().toString(36).slice(2, 6);
     const seriesName = `Completion-${stem}`;

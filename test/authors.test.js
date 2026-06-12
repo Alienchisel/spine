@@ -713,6 +713,28 @@ describe('authors — index', () => {
     assert.ok(c.some(x => x.name === `Stanisław ${stem}`), 'diacritic-bearing query still matches');
   });
 
+  it('GET /api/authors sorts via nrm() so diacritics fold into their base letter', async () => {
+    // Default SQLite COLLATE NOCASE only folds ASCII case — "Étienne"
+    // would sort past "z" because É is codepoint 201. nrm() strips
+    // diacritics before comparing, so Étienne lands under E (between
+    // Edmund and Eulalia here), Stanisław under S, and the whole tail
+    // of the A-Z list is actual Z, not accented stragglers.
+    const stem = 'srt' + Math.random().toString(36).slice(2, 6);
+    await req('POST', '/api/books', { title: `${stem}-1`, authors: [`Edmund ${stem}`] });
+    await req('POST', '/api/books', { title: `${stem}-2`, authors: [`Étienne ${stem}`] });
+    await req('POST', '/api/books', { title: `${stem}-3`, authors: [`Eulalia ${stem}`] });
+    await req('POST', '/api/books', { title: `${stem}-4`, authors: [`Stanisław ${stem}`] });
+    await req('POST', '/api/books', { title: `${stem}-5`, authors: [`Zenobia ${stem}`] });
+
+    const { body } = await req('GET', '/api/authors');
+    const names = body.map(a => a.name);
+    const idx = (n) => names.indexOf(n);
+
+    assert.ok(idx(`Edmund ${stem}`)    < idx(`Étienne ${stem}`),  'Étienne sorts after Edmund');
+    assert.ok(idx(`Étienne ${stem}`)   < idx(`Eulalia ${stem}`),  'Étienne sorts before Eulalia');
+    assert.ok(idx(`Stanisław ${stem}`) < idx(`Zenobia ${stem}`),  'Stanisław sorts before Zenobia (ł folds to l)');
+  });
+
   it('GET /api/authors?q= escapes SQL LIKE wildcards in user input', async () => {
     // A literal "%" in the query must not match every author. Verifies
     // the ESCAPE clause is doing its job.
