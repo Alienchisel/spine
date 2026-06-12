@@ -260,18 +260,27 @@ export default function BookDetail() {
       .then(b => {
         if (!idGuard.isFresh(epoch)) return;
         setBook(b);
-        // Auto-finish from Library's progress quick-edit navigates here
-        // with state.justFinished so the rating prompt — which would
-        // otherwise vanish along with the unmounting BookCard — surfaces
-        // on a surface that sticks. Only fire if we actually need a
-        // rating; revisits of the same already-rated book stay quiet.
-        if (navState?.justFinished && !b.rating) setRatingPrompt(true);
-        if (navState?.justFinished) maybeShowFinalSession(b);
-        // BookForm's save handler stamps justSaved onto navState so the
-        // post-save navigate carries an explicit ack signal. The banner
-        // auto-dismisses after 2.5s; the cleanup ref protects against
-        // an unmount-mid-timer leaving setSaveAck stuck on next mount.
-        if (navState?.justSaved) setSaveAck(true);
+        // One-shot navigation signals (justFinished / justSaved) only
+        // fire on a real navigation here. navState lives in the router's
+        // location entry and is still present on refresh-tick refetches
+        // (alt-tab back, etc.) — consuming it then would re-pop the
+        // rating prompt or re-flash the Saved banner every focus round.
+        if (isIdChange) {
+          // Auto-finish from Library's progress quick-edit navigates
+          // here with state.justFinished so the rating prompt — which
+          // would otherwise vanish along with the unmounting BookCard —
+          // surfaces on a surface that sticks. Only fire if we actually
+          // need a rating; revisits of the same already-rated book stay
+          // quiet.
+          if (navState?.justFinished && !b.rating) setRatingPrompt(true);
+          if (navState?.justFinished) maybeShowFinalSession(b);
+          // BookForm's save handler stamps justSaved onto navState so
+          // the post-save navigate carries an explicit ack signal. The
+          // banner auto-dismisses after 2.5s; the cleanup ref protects
+          // against an unmount-mid-timer leaving setSaveAck stuck on
+          // next mount.
+          if (navState?.justSaved) setSaveAck(true);
+        }
       })
       .catch(() => { if (idGuard.isFresh(epoch)) setLoadError(true); })
       .finally(() => { if (idGuard.isFresh(epoch)) setLoading(false); });
