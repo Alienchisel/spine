@@ -50,12 +50,19 @@ export function useFreshFetch(fn, deps = [], options = {}) {
   // branch without needing a separate mount flag.
   const prevKeyRef = useRef({});
 
+  // Detect key change DURING RENDER (not in useEffect) so the same
+  // commit that ships the new key also shows loading=true. Setting
+  // loading in useEffect after a deps change leaves a one-paint
+  // window where the previous fetch's data is rendered with the new
+  // key — the flash Author's adoption path was specifically designed
+  // to avoid. Idiomatic per React's "Adjusting State Based on Props".
+  if (key !== undefined && prevKeyRef.current !== key) {
+    prevKeyRef.current = key;
+    if (!loading) setLoading(true);
+  }
+
   useEffect(() => {
     const epoch = guard.next();
-    if (key !== undefined && prevKeyRef.current !== key) {
-      setLoading(true);
-    }
-    prevKeyRef.current = key;
     setError(null);
     fnRef.current()
       .then(d => { if (guard.isFresh(epoch)) setData(d); })

@@ -5,7 +5,7 @@ import { plural, initialsFor, MOD_KEY, formatPartialDate } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
 import { GridSkeleton } from '../components/Skeleton.jsx';
 import { useTextOverflow } from '../hooks/useTextOverflow.js';
-import { useRefreshTick } from '../hooks/useRefreshTick.js';
+import { useFreshFetch } from '../hooks/useFreshFetch.js';
 import { dispatchSpineEvent } from '../hooks/useSpineEvent.js';
 
 // Inline gender picker. Stores 'male' | 'female' | 'other' | null;
@@ -150,13 +150,6 @@ export default function Author() {
   const backLabel    = state?.from ? `← ${state.from}` : '← Library';
   const backPath     = state?.fromPath ?? '/';
 
-  const [author, setAuthor] = useState(null);
-  const [loading, setLoading] = useState(true);
-  // 'notfound' for a 404 (author id has no row), 'fetch' for any other
-  // failure. Distinguished so the body can show a tailored message
-  // instead of conflating "this author doesn't exist" with "the request
-  // failed — please retry".
-  const [errorKind, setErrorKind] = useState(null);
   const [sort, setSort] = useState('year_published');
   // Per-author sort memory parity with the per-list one. After the first
   // GET of an author, if the server-stored default_sort differs from our
@@ -165,6 +158,56 @@ export default function Author() {
   // the dropdown, and resets on id change so each author visit re-syncs.
   const userChangedSortRef = useRef(false);
   useEffect(() => { userChangedSortRef.current = false; }, [id]);
+
+  // Fetch the author. `key` includes sort so a sort change is treated
+  // as real navigation (skeleton flash); refresh-tick refetches at the
+  // same id+sort silently swap.
+  const {
+    data: rawAuthor,
+    setData: setAuthor,
+    loading: fetchLoading,
+    error: fetchError,
+  } = useFreshFetch(
+    () => api.getAuthor(id, { sort }),
+    [id, sort],
+    { key: `${id}::${sort}` },
+  );
+
+  // Server-stored default_sort adoption — if the author has a saved
+  // preference and the user hasn't explicitly chosen during this visit,
+  // switch sort to match. setSort changes the hook's deps → second fetch
+  // with the canonical sort. Hiding `rawAuthor` until adoption resolves
+  // keeps the old-sort response from briefly painting with the new sort
+  // label (the flash the original fetch effect's `adopted` flag guarded).
+  const adopting = !!(
+    rawAuthor?.default_sort &&
+    rawAuthor.default_sort !== sort &&
+    !userChangedSortRef.current
+  );
+  useEffect(() => {
+    if (adopting) setSort(rawAuthor.default_sort);
+  }, [adopting, rawAuthor?.default_sort]);
+  const author = adopting ? null : rawAuthor;
+  const loading = fetchLoading || adopting;
+
+  // 'notfound' for a 404 (author id has no row), 'fetch' for any other
+  // failure. Distinguished so the body can show a tailored message
+  // instead of conflating "this author doesn't exist" with "the request
+  // failed — please retry".
+  const errorKind = fetchError
+    ? (fetchError.status === 404 ? 'notfound' : 'fetch')
+    : null;
+
+  // Self-heal stale references — palette MRU / Recent / future surfaces
+  // caching author ids can prune themselves when the user actually hits
+  // a dead entry. Fires for any 404 path: cascade prune from a last-book
+  // delete, direct API delete, anything.
+  useEffect(() => {
+    if (fetchError?.status === 404) {
+      dispatchSpineEvent('spine:author-deleted', { id: Number(id) });
+    }
+  }, [fetchError, id]);
+
   const [bioExpanded, setBioExpanded] = useState(false);
   // Measured overflow replaces the previous `author.bio.length > 280`
   // proxy — the character count couldn't tell a wide-typeset short bio
@@ -198,56 +241,6 @@ export default function Author() {
     localStorage.setItem('spine-show-unowned', showUnowned ? 'true' : 'false');
   }, [showUnowned]);
   const fileInputRef = useRef(null);
-  const refreshTick = useRefreshTick();
-  // Tracks the (id, sort) key of the most recent run so window-focus
-  // refresh-tick refetches don't flash the skeleton — only id or sort
-  // changes count as a fresh navigation that should reset loading state.
-  const prevKeyRef = useRef('');
-
-  useEffect(() => {
-    let cancelled = false;
-    const key = `${id}::${sort}`;
-    const isFreshFetch = prevKeyRef.current !== key;
-    prevKeyRef.current = key;
-    // Only wipe visible state on real navigation (id or sort change).
-    // On a refresh-tick refetch at the same id+sort, atomically replace
-    // the data — wiping first would flash the skeleton every alt-tab back.
-    if (isFreshFetch) setLoading(true);
-    setErrorKind(null);
-    // Track whether the adoption path was taken so finally doesn't clear
-    // loading mid-handoff — same bug shape as ListDetail (where the
-    // leaked loading=false crashed the page) but here the defensive
-    // `author?.name` only masks it as a single-frame "Author not found"
-    // flash before the re-fired effect's setLoading(true) re-paints.
-    let adopted = false;
-    api.getAuthor(id, { sort })
-      .then(data => {
-        if (cancelled) return;
-        // First-visit adoption of the server-stored default_sort. If the
-        // author has a saved preference and the user hasn't explicitly
-        // chosen during this visit, switch to it — setSort fires the
-        // load effect again with the correct sort.
-        if (data.default_sort && data.default_sort !== sort && !userChangedSortRef.current) {
-          adopted = true;
-          setSort(data.default_sort);
-          return;
-        }
-        setAuthor(data);
-      })
-      .catch(err => {
-        if (cancelled) return;
-        const notFound = err?.status === 404;
-        setErrorKind(notFound ? 'notfound' : 'fetch');
-        // Self-heal stale references — palette MRU / Recent / future
-        // surfaces caching author ids can prune themselves when the
-        // user actually hits a dead entry. Pruning happens via the
-        // existing spine event bus. Fires for any 404 path: cascade
-        // prune from a last-book delete, direct API delete, anything.
-        if (notFound) dispatchSpineEvent('spine:author-deleted', { id: Number(id) });
-      })
-      .finally(() => { if (!cancelled && !adopted) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [id, sort, refreshTick]);
 
   // Reset bio collapse + edit state when navigating to a different
   // author — otherwise we'd carry the previous author's expanded state
