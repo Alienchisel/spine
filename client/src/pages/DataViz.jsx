@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
+import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import PageHeading from '../components/PageHeading.jsx';
 
 const FROM_DV = { from: 'Data viz', fromPath: '/data-viz' };
@@ -896,7 +897,10 @@ export default function DataViz() {
     }
   }
 
+  const refreshTick = useRefreshTick();
   useEffect(() => {
+    let stale = false;
+    setError(null);
     Promise.all([
       api.getStats(),
       api.getReadingCalendar(),
@@ -906,11 +910,13 @@ export default function DataViz() {
       api.getTags(),
     ])
       .then(([s, c, a, t, sc, tg]) => {
+        if (stale) return;
         setStats(s); setCalendar(c); setAuthors(a); setTrajectory(t); setCompletion(sc);
         setTags(tg);
       })
-      .catch(() => setError('Failed to load data.'));
-  }, []);
+      .catch(() => { if (!stale) setError('Failed to load data.'); });
+    return () => { stale = true; };
+  }, [refreshTick]);
 
   const acq = useMemo(
     () => buildAcquisitionPanels(stats?.acquiredByYearAndSource),

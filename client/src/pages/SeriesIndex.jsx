@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
 import { nrm } from '../utils.js';
+import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import IncomingBackLink from '../components/IncomingBackLink.jsx';
 import PageHeading from '../components/PageHeading.jsx';
 
@@ -74,14 +75,16 @@ export default function SeriesIndex() {
     setParams(next, { replace: true, state });
   }
 
+  const refreshTick = useRefreshTick();
   useEffect(() => {
-    setLoading(true);
+    let stale = false;
     setError(null);
     api.getSeries()
-      .then(setSeries)
-      .catch(() => setError('Failed to load series.'))
-      .finally(() => setLoading(false));
-  }, []);
+      .then(d => { if (!stale) setSeries(d); })
+      .catch(() => { if (!stale) setError('Failed to load series.'); })
+      .finally(() => { if (!stale) setLoading(false); });
+    return () => { stale = true; };
+  }, [refreshTick]);
 
   // Loved toggle per row — single boolean, optimistic flip with
   // rollback on failure. Mirrors the books-side BookCard tray heart.
