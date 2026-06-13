@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
-import { useRefreshTick } from '../hooks/useRefreshTick.js';
+import { useFreshFetch } from '../hooks/useFreshFetch.js';
 import PageHeading from '../components/PageHeading.jsx';
 
 const FROM_DV = { from: 'Data viz', fromPath: '/data-viz' };
@@ -866,13 +866,30 @@ function buildCloud(items) {
 }
 
 export default function DataViz() {
-  const [stats, setStats] = useState(null);
-  const [calendar, setCalendar] = useState(null);
-  const [authors, setAuthors] = useState(null);
-  const [trajectory, setTrajectory] = useState(null);
-  const [completion, setCompletion] = useState(null);
-  const [tags, setTags] = useState(null);
-  const [error, setError] = useState(null);
+  // Single Promise.all fetch — all six panels share fate. The .then
+  // shape-maps the array into a named object so the rest of the
+  // component can keep destructuring `stats`/`calendar`/etc. directly
+  // without `data[0]` indexing.
+  const { data, loading, error } = useFreshFetch(
+    () => Promise.all([
+      api.getStats(),
+      api.getReadingCalendar(),
+      api.getAuthors(),
+      api.getLibraryTrajectory(),
+      api.getSeriesCompletion(),
+      api.getTags(),
+    ]).then(([s, c, a, t, sc, tg]) => ({
+      stats: s, calendar: c, authors: a, trajectory: t, completion: sc, tags: tg,
+    })),
+    [],
+  );
+  const stats      = data?.stats;
+  const calendar   = data?.calendar;
+  const authors    = data?.authors;
+  const trajectory = data?.trajectory;
+  const completion = data?.completion;
+  const tags       = data?.tags;
+
   // Experiment #5 tab: 'in_progress' (partial-completion sparklines) or
   // 'complete' (series the user owns 100% of, where the sparkline shape
   // collapses to all-filled and the row carries no comparative info).
@@ -896,27 +913,6 @@ export default function DataViz() {
       completionTabRefs.current[COMPLETION_TABS.length - 1]?.focus();
     }
   }
-
-  const refreshTick = useRefreshTick();
-  useEffect(() => {
-    let stale = false;
-    setError(null);
-    Promise.all([
-      api.getStats(),
-      api.getReadingCalendar(),
-      api.getAuthors(),
-      api.getLibraryTrajectory(),
-      api.getSeriesCompletion(),
-      api.getTags(),
-    ])
-      .then(([s, c, a, t, sc, tg]) => {
-        if (stale) return;
-        setStats(s); setCalendar(c); setAuthors(a); setTrajectory(t); setCompletion(sc);
-        setTags(tg);
-      })
-      .catch(() => { if (!stale) setError('Failed to load data.'); });
-    return () => { stale = true; };
-  }, [refreshTick]);
 
   const acq = useMemo(
     () => buildAcquisitionPanels(stats?.acquiredByYearAndSource),
@@ -950,8 +946,8 @@ export default function DataViz() {
     return buildCloud(top);
   }, [authors]);
 
-  if (error) return <div role="alert" className="text-warn text-sm">{error}</div>;
-  if (!stats || !calendar || !authors || !trajectory || !completion || !tags) return <div role="status" className="text-neutral-700 text-sm">Loading…</div>;
+  if (error) return <div role="alert" className="text-warn text-sm">Failed to load data.</div>;
+  if (loading) return <div role="status" className="text-neutral-700 text-sm">Loading…</div>;
 
   return (
     <div className="max-w-5xl mx-auto space-y-12">
