@@ -10,7 +10,9 @@ import { useLatest } from './useLatest.js';
 //
 // `setData` is exposed so callers can do optimistic updates (e.g.
 // SeriesIndex's loved-toggle flips the row in-place, then api-calls
-// to confirm, then rolls back on failure). Identity is stable.
+// to confirm, then rolls back on failure). `setError` is exposed for
+// dismissible error banners (Loved's ErrorBanner). Both have stable
+// identity.
 //
 // Behaviour:
 //
@@ -72,5 +74,5 @@ export function useFreshFetch(fn, deps = [], options = {}) {
   }, [tick, bump, key, ...deps]);
 
   const refetch = useCallback(() => setBump(b => b + 1), []);
-  return { data, setData, loading, error, refetch };
+  return { data, setData, loading, error, setError, refetch };
 }

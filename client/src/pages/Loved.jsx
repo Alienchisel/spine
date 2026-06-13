@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import IncomingBackLink from '../components/IncomingBackLink.jsx';
 import { api } from '../api.js';
@@ -8,7 +7,7 @@ import ErrorBanner from '../components/ErrorBanner.jsx';
 import { GridSkeleton } from '../components/Skeleton.jsx';
 import PageHeading from '../components/PageHeading.jsx';
 import { sectionEyebrow } from '../components/textStyles.js';
-import { useRefreshTick } from '../hooks/useRefreshTick.js';
+import { useFreshFetch } from '../hooks/useFreshFetch.js';
 import { useCoverSize } from '../hooks/useCoverSize.js';
 import { initialsFor } from '../utils.js';
 
@@ -18,36 +17,41 @@ import { initialsFor } from '../utils.js';
 // the books grid, and an empty section still renders its own
 // "no loved X yet" hint instead of collapsing the page.
 export default function Loved() {
-  const [books, setBooks] = useState([]);
-  const [authors, setAuthors] = useState([]);
-  const [series, setSeries] = useState([]);
-  const [loadingBooks, setLoadingBooks] = useState(true);
-  const [loadingAuthors, setLoadingAuthors] = useState(true);
-  const [loadingSeries, setLoadingSeries] = useState(true);
-  const [bookError, setBookError] = useState(null);
-  const [authorError, setAuthorError] = useState(null);
-  const [seriesError, setSeriesError] = useState(null);
-  const refreshTick = useRefreshTick();
+  // Three independent hooks rather than one Promise.all so a flaky
+  // section can't take down the others — each surface fails alone.
+  // limit=200 on books is the /api/books cap. Without it, the server
+  // default of 50 truncates the cohort that flows into BookDetail's
+  // prev/next.
+  const {
+    data: books,
+    setData: setBooks,
+    loading: loadingBooks,
+    error: bookError,
+    setError: setBookError,
+  } = useFreshFetch(
+    () => api.getBooks({ tab: 'loved', limit: 200 }).then(d => d.books),
+    [],
+    { initialData: [] },
+  );
+  const {
+    data: authors,
+    loading: loadingAuthors,
+    error: authorError,
+  } = useFreshFetch(
+    () => api.getAuthors({ loved: 1 }).then(rows => Array.isArray(rows) ? rows : []),
+    [],
+    { initialData: [] },
+  );
+  const {
+    data: series,
+    loading: loadingSeries,
+    error: seriesError,
+  } = useFreshFetch(
+    () => api.getSeries({ loved: 1 }).then(rows => Array.isArray(rows) ? rows : []),
+    [],
+    { initialData: [] },
+  );
   const { size: coverSize, setSize: setCoverSize, compact, gridStyle, gridClassName, MIN: coverMin, MAX: coverMax } = useCoverSize();
-
-  useEffect(() => {
-    let stale = false;
-    // limit=200 is the /api/books cap. Without this, the server default
-    // of 50 truncates the cohort that flows into BookDetail's prev/next.
-    api.getBooks({ tab: 'loved', limit: 200 })
-      .then(({ books }) => { if (!stale) { setBooks(books); setBookError(null); } })
-      .catch(() => { if (!stale) setBookError('Failed to load loved books.'); })
-      .finally(() => { if (!stale) setLoadingBooks(false); });
-    api.getAuthors({ loved: 1 })
-      .then(rows => { if (!stale) { setAuthors(Array.isArray(rows) ? rows : []); setAuthorError(null); } })
-      .catch(() => { if (!stale) setAuthorError('Failed to load loved authors.'); })
-      .finally(() => { if (!stale) setLoadingAuthors(false); });
-    api.getSeries({ loved: 1 })
-      .then(rows => { if (!stale) { setSeries(Array.isArray(rows) ? rows : []); setSeriesError(null); } })
-      .catch(() => { if (!stale) setSeriesError('Failed to load loved series.'); })
-      .finally(() => { if (!stale) setLoadingSeries(false); });
-    return () => { stale = true; };
-  }, [refreshTick]);
 
   function handleBookUpdate(updated) {
     // Loved sorts by updated_at DESC (no UI selector). Splice the updated
@@ -88,12 +92,12 @@ export default function Loved() {
           <section className="mb-12">
             <h2 className={`${sectionEyebrow} mb-4`}>Books</h2>
             {books.length > 0 && (
-              <ErrorBanner message={bookError} onDismiss={() => setBookError(null)} className="mb-4" />
+              <ErrorBanner message={bookError ? 'Failed to load loved books.' : null} onDismiss={() => setBookError(null)} className="mb-4" />
             )}
             {loadingBooks ? (
               <GridSkeleton count={10} compact={compact} gridStyle={gridStyle} gridClassName={gridClassName} />
             ) : books.length === 0 && bookError ? (
-              <div role="alert" className="text-warn text-sm">{bookError}</div>
+              <div role="alert" className="text-warn text-sm">Failed to load loved books.</div>
             ) : books.length === 0 ? (
               <p className="text-sm text-neutral-600">No loved books yet — click the ♥ on any book card or detail page.</p>
             ) : (
@@ -119,7 +123,7 @@ export default function Loved() {
             {loadingAuthors ? (
               <p role="status" className="text-sm text-neutral-500">Loading…</p>
             ) : authorError ? (
-              <div role="alert" className="text-warn text-sm">{authorError}</div>
+              <div role="alert" className="text-warn text-sm">Failed to load loved authors.</div>
             ) : authors.length === 0 ? (
               <p className="text-sm text-neutral-600">No loved authors yet — click the ♥ on any author&apos;s page.</p>
             ) : (
@@ -155,7 +159,7 @@ export default function Loved() {
             {loadingSeries ? (
               <p role="status" className="text-sm text-neutral-500">Loading…</p>
             ) : seriesError ? (
-              <div role="alert" className="text-warn text-sm">{seriesError}</div>
+              <div role="alert" className="text-warn text-sm">Failed to load loved series.</div>
             ) : series.length === 0 ? (
               <p className="text-sm text-neutral-600">No loved series yet — click the ♥ on any row of the <Link to="/series" className="text-neutral-400 hover:text-parchment transition-colors underline-offset-2 hover:underline">Series</Link> index.</p>
             ) : (
