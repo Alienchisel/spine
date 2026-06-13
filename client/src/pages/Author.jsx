@@ -5,6 +5,7 @@ import { plural, initialsFor, MOD_KEY, formatPartialDate } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
 import { GridSkeleton } from '../components/Skeleton.jsx';
 import { useTextOverflow } from '../hooks/useTextOverflow.js';
+import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { dispatchSpineEvent } from '../hooks/useSpineEvent.js';
 
 // Inline gender picker. Stores 'male' | 'female' | 'other' | null;
@@ -197,10 +198,21 @@ export default function Author() {
     localStorage.setItem('spine-show-unowned', showUnowned ? 'true' : 'false');
   }, [showUnowned]);
   const fileInputRef = useRef(null);
+  const refreshTick = useRefreshTick();
+  // Tracks the (id, sort) key of the most recent run so window-focus
+  // refresh-tick refetches don't flash the skeleton — only id or sort
+  // changes count as a fresh navigation that should reset loading state.
+  const prevKeyRef = useRef('');
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    const key = `${id}::${sort}`;
+    const isFreshFetch = prevKeyRef.current !== key;
+    prevKeyRef.current = key;
+    // Only wipe visible state on real navigation (id or sort change).
+    // On a refresh-tick refetch at the same id+sort, atomically replace
+    // the data — wiping first would flash the skeleton every alt-tab back.
+    if (isFreshFetch) setLoading(true);
     setErrorKind(null);
     // Track whether the adoption path was taken so finally doesn't clear
     // loading mid-handoff — same bug shape as ListDetail (where the
@@ -235,7 +247,7 @@ export default function Author() {
       })
       .finally(() => { if (!cancelled && !adopted) setLoading(false); });
     return () => { cancelled = true; };
-  }, [id, sort]);
+  }, [id, sort, refreshTick]);
 
   // Reset bio collapse + edit state when navigating to a different
   // author — otherwise we'd carry the previous author's expanded state
