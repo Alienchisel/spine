@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
 import { nrm } from '../utils.js';
-import { useRefreshTick } from '../hooks/useRefreshTick.js';
+import { useFreshFetch } from '../hooks/useFreshFetch.js';
 import IncomingBackLink from '../components/IncomingBackLink.jsx';
 import PageHeading from '../components/PageHeading.jsx';
 
@@ -50,9 +50,11 @@ function numberRange(min, max) {
 }
 
 export default function SeriesIndex() {
-  const [series,  setSeries]  = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState(null);
+  const { data: series, setData: setSeries, loading, error } = useFreshFetch(
+    () => api.getSeries(),
+    [],
+    { initialData: [] },
+  );
   const [params, setParams]   = useSearchParams();
   const { pathname, search, state }  = useLocation();
   // Back-link contract — '← Series' on BrowsePage returns to the current
@@ -74,17 +76,6 @@ export default function SeriesIndex() {
     else                                next.set(key, String(value));
     setParams(next, { replace: true, state });
   }
-
-  const refreshTick = useRefreshTick();
-  useEffect(() => {
-    let stale = false;
-    setError(null);
-    api.getSeries()
-      .then(d => { if (!stale) setSeries(d); })
-      .catch(() => { if (!stale) setError('Failed to load series.'); })
-      .finally(() => { if (!stale) setLoading(false); });
-    return () => { stale = true; };
-  }, [refreshTick]);
 
   // Loved toggle per row — single boolean, optimistic flip with
   // rollback on failure. Mirrors the books-side BookCard tray heart.
@@ -165,7 +156,7 @@ export default function SeriesIndex() {
       </div>
 
       {loading && <p role="status" className="text-sm text-neutral-500">Loading…</p>}
-      {error && <p role="alert" className="text-sm text-warn">{error}</p>}
+      {error && <p role="alert" className="text-sm text-warn">Failed to load series.</p>}
 
       {loveError && (
         <p role="alert" className="text-xs text-warn mb-3">{loveError}</p>

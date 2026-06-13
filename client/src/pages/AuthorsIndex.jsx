@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Link, useSearchParams, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
 import { nrm } from '../utils.js';
-import { useRefreshTick } from '../hooks/useRefreshTick.js';
+import { useFreshFetch } from '../hooks/useFreshFetch.js';
 import IncomingBackLink from '../components/IncomingBackLink.jsx';
 import PageHeading from '../components/PageHeading.jsx';
 
@@ -69,9 +69,11 @@ const GENDER_GLYPH = { male: 'm', female: 'f', other: 'o' };
 // slightly warmer hue so they pop on scan. Click a row to open the
 // detail page.
 export default function AuthorsIndex() {
-  const [authors, setAuthors] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState(null);
+  const { data: authors, loading, error } = useFreshFetch(
+    () => api.getAuthors(),
+    [],
+    { initialData: [] },
+  );
   // URL is the source of truth for filter+sort so views like "Missing
   // photo + name=eg" survive refresh / back/forward / shareable links
   // (matches Library / Diary / Browse / Collage). Both updates use
@@ -126,17 +128,6 @@ export default function AuthorsIndex() {
     else                                next.set(key, String(value));
     setParams(next, { replace: true, state });
   }
-
-  const refreshTick = useRefreshTick();
-  useEffect(() => {
-    let stale = false;
-    setError(null);
-    api.getAuthors()
-      .then(d => { if (!stale) setAuthors(d); })
-      .catch(() => { if (!stale) setError('Failed to load authors.'); })
-      .finally(() => { if (!stale) setLoading(false); });
-    return () => { stale = true; };
-  }, [refreshTick]);
 
   const counts = useMemo(() => ({
     total:     authors.length,
@@ -205,7 +196,7 @@ export default function AuthorsIndex() {
       </div>
 
       {loading && <p role="status" className="text-sm text-neutral-500">Loading…</p>}
-      {error && <p role="alert" className="text-sm text-warn">{error}</p>}
+      {error && <p role="alert" className="text-sm text-warn">Failed to load authors.</p>}
 
       {!loading && !error && filtered.length > 0 && (
         <table className="w-full text-sm">

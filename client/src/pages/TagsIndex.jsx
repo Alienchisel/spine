@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Link, useSearchParams, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
 import { nrm } from '../utils.js';
-import { useRefreshTick } from '../hooks/useRefreshTick.js';
+import { useFreshFetch } from '../hooks/useFreshFetch.js';
 import IncomingBackLink from '../components/IncomingBackLink.jsx';
 import PageHeading from '../components/PageHeading.jsx';
 
@@ -35,9 +35,11 @@ function pickValidParams(src) {
 }
 
 export default function TagsIndex() {
-  const [tags,    setTags]    = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState(null);
+  const { data: tags, loading, error } = useFreshFetch(
+    () => api.getTags(),
+    [],
+    { initialData: [] },
+  );
   const [params, setParams]   = useSearchParams();
   const { pathname, search, state }  = useLocation();
   // Back-link contract — '← Tags' on BrowsePage returns to the current
@@ -75,17 +77,6 @@ export default function TagsIndex() {
     else                                next.set(key, String(value));
     setParams(next, { replace: true, state });
   }
-
-  const refreshTick = useRefreshTick();
-  useEffect(() => {
-    let stale = false;
-    setError(null);
-    api.getTags()
-      .then(d => { if (!stale) setTags(d); })
-      .catch(() => { if (!stale) setError('Failed to load tags.'); })
-      .finally(() => { if (!stale) setLoading(false); });
-    return () => { stale = true; };
-  }, [refreshTick]);
 
   const counts = useMemo(() => {
     const total = tags.length;
@@ -143,7 +134,7 @@ export default function TagsIndex() {
       </div>
 
       {loading && <p role="status" className="text-sm text-neutral-500">Loading…</p>}
-      {error && <p role="alert" className="text-sm text-warn">{error}</p>}
+      {error && <p role="alert" className="text-sm text-warn">Failed to load tags.</p>}
 
       {!loading && !error && filtered.length > 0 && (
         <table className="w-full text-sm">
