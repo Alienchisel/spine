@@ -40,6 +40,25 @@ describe('lists', () => {
     assert.deepEqual(body, []);
   });
 
+  it('GET /api/lists sorts via nrm() so diacritics fold into their base letter', async () => {
+    // Lists A-Z mirrors authors/tags/series. Default COLLATE NOCASE
+    // would push "Étranges Lectures" past Z; nrm() folds É→e so it
+    // sorts between Edmund-Listings and Eulalia-Listings.
+    const stem = 'srt' + Math.random().toString(36).slice(2, 6);
+    await req('POST', '/api/lists', { name: `Edmund-Listings-${stem}` });
+    await req('POST', '/api/lists', { name: `Étranges-Lectures-${stem}` });
+    await req('POST', '/api/lists', { name: `Eulalia-Listings-${stem}` });
+    await req('POST', '/api/lists', { name: `Zenobia-Listings-${stem}` });
+
+    const { body } = await req('GET', '/api/lists');
+    const names = body.map(l => l.name);
+    const idx = (n) => names.indexOf(n);
+
+    assert.ok(idx(`Edmund-Listings-${stem}`)    < idx(`Étranges-Lectures-${stem}`), 'Étranges sorts after Edmund');
+    assert.ok(idx(`Étranges-Lectures-${stem}`) < idx(`Eulalia-Listings-${stem}`),  'Étranges sorts before Eulalia');
+    assert.ok(idx(`Étranges-Lectures-${stem}`) < idx(`Zenobia-Listings-${stem}`),  'Étranges sorts well before Z, not at the tail');
+  });
+
   describe('POST /api/lists', () => {
     it('creates a list', async () => {
       const { status, body } = await req('POST', '/api/lists', { name: 'Favourites' });

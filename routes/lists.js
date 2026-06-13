@@ -79,7 +79,7 @@ router.get('/', (_req, res) => {
     LEFT JOIN list_books lb ON lb.list_id = l.id
     LEFT JOIN books b ON b.id = lb.book_id
     GROUP BY l.id
-    ORDER BY l.name ASC
+    ORDER BY nrm(l.name) ASC
   `).all();
   res.json(lists);
 });
