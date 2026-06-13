@@ -4293,6 +4293,26 @@ describe('books', () => {
         `expected normalized order [-apple, -moon, -zebra]; got positions ${iApple}, ${iMoon}, ${iZebra}`);
     });
 
+    it('sort=title folds diacritics so accented titles land under their base letter', async () => {
+      // titleSortExpr() wraps the article-stripped column in nrm() rather
+      // than LOWER(), so "Étranger" sorts under E (between Edmund and
+      // Eulalia here) instead of past Z. Same mechanism the authors /
+      // tags / series A-Z views use.
+      const stem = 'difold' + Math.random().toString(36).slice(2, 8);
+      const { body: edmund }  = await req('POST', '/api/books', { title: `Edmund ${stem}` });
+      const { body: etran }   = await req('POST', '/api/books', { title: `Étranger ${stem}` });
+      const { body: eulalia } = await req('POST', '/api/books', { title: `Eulalia ${stem}` });
+      const { body: zen }     = await req('POST', '/api/books', { title: `Zenobia ${stem}` });
+
+      const { body: results } = await req('GET', `/api/books?sort=title&q=${stem}&limit=50`);
+      const ids = results.books.map(b => b.id);
+      const [iE, iEt, iEu, iZ] = [edmund.id, etran.id, eulalia.id, zen.id].map(id => ids.indexOf(id));
+      assert.ok(iE >= 0 && iEt >= 0 && iEu >= 0 && iZ >= 0, 'all four fixtures should appear');
+      assert.ok(iE < iEt, 'Étranger sorts after Edmund');
+      assert.ok(iEt < iEu, 'Étranger sorts before Eulalia');
+      assert.ok(iEt < iZ,  'Étranger sorts well before Zenobia, not at the tail');
+    });
+
     it('field=series orders results by series_number with null last', async () => {
       // buildOrderBy() in lib/books/filters.js uses COALESCE(series_number,9999)
       // when field === 'series', so unnumbered entries (e.g. companion volumes)

@@ -282,7 +282,7 @@ router.get('/:id', (req, res) => {
     JOIN stories s ON s.id = sa.story_id
     JOIN books   b ON b.id = s.book_id
     WHERE sa.author_id = ?
-    ORDER BY b.title COLLATE NOCASE, COALESCE(s.position, 9999), s.id
+    ORDER BY nrm(b.title), COALESCE(s.position, 9999), s.id
   `).all(id);
   res.json({ ...author, aliases, books, total, stories });
 });
