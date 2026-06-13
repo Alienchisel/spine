@@ -4,8 +4,7 @@ import { api } from '../api.js';
 import { formatAuthors, fmtShortDate, plural, pluralWord, initialsFor, fmtHM } from '../utils.js';
 import { useConfirm } from '../components/ConfirmModal.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
-import { useRefreshTick } from '../hooks/useRefreshTick.js';
-import { useStaleGuard } from '../hooks/useStaleGuard.js';
+import { useFreshFetch } from '../hooks/useFreshFetch.js';
 import PageHeading from '../components/PageHeading.jsx';
 import { sectionEyebrow } from '../components/textStyles.js';
 
@@ -421,63 +420,39 @@ function DiaryEntry({ entry, onDelete }) {
 
 const CURRENT_YEAR = new Date().getFullYear();
 
+const EMPTY_STATS = {
+  dayStreak: 0, dayStreakBest: 0, dayStreakSince: null, dayStreakBestStart: null, dayStreakBestEnd: null,
+  weekStreak: 0, weekStreakBest: 0,
+  thisWeek:  { pages: 0, minutes: 0 },
+  thisMonth: { pages: 0, minutes: 0 },
+  thisYear:  { pages: 0, minutes: 0 },
+};
+
 export default function Diary() {
-  const [year,    setYear]    = useState(CURRENT_YEAR);
-  const [days,    setDays]    = useState([]);
-  const [years,   setYears]   = useState([]);
-  const [stats,   setStats]   = useState({
-    dayStreak: 0, dayStreakBest: 0, dayStreakSince: null, dayStreakBestStart: null, dayStreakBestEnd: null,
-    weekStreak: 0, weekStreakBest: 0,
-    thisWeek:  { pages: 0, minutes: 0 },
-    thisMonth: { pages: 0, minutes: 0 },
-    thisYear:  { pages: 0, minutes: 0 },
-  });
-  const [loading,     setLoading]     = useState(true);
-  const [error,       setError]       = useState(null);
+  const [year, setYear] = useState(CURRENT_YEAR);
   const [deleteError, setDeleteError] = useState(null);
   const dayRefs = useRef({});
-  // Stale-response guard for getDiary on year change. Quick clicking
-  // through years could otherwise let an older year's response clobber
-  // the displayed days/years/stats for a newly-selected year.
-  const guard = useStaleGuard();
   // Tracks diary entry ids whose delete is in flight. The confirm modal
   // cancels overlapping confirms, but a re-click *after* confirming —
-  // while the API call is pending and setDays hasn't yet removed the row
+  // while the API call is pending and the days list hasn't yet removed the row
   // — fires a duplicate deleteDiaryEntry that 404s on the second attempt
   // and surfaces "Failed to remove entry." over a row that did delete.
   // Mirrors the deletingIdsRef pattern in ReadsSection.
   const deletingEntryIdsRef = useRef(new Set());
   const confirm = useConfirm();
-  const refreshTick = useRefreshTick();
-  // Snapshot of the diary-fetch year so we can distinguish a year
-  // change from a refresh-tick refetch. On a same-year refetch we
-  // keep the rendered days visible during the fetch — otherwise
-  // setLoading(true) flips the render to 'Loading…' and the user's
-  // scroll position is lost when content briefly collapses.
-  const lastYearRef = useRef(null);
 
-  useEffect(() => {
-    const epoch = guard.next();
-    const isSameYear = year === lastYearRef.current;
-    lastYearRef.current = year;
-    // Real year change: wipe to a loading state so stale days don't
-    // show under a new year. refreshTick refetch at the same year:
-    // keep days visible during the fetch so scroll position survives.
-    if (!isSameYear) setLoading(true);
-    // Reset prior load/delete errors so a stale message from one year doesn't
-    // hang on top of another year's freshly-loaded entries.
-    setError(null);
-    setDeleteError(null);
-    api.getDiary(year)
-      .then(({ days: d, years: ys, stats: s }) => {
-        if (!guard.isFresh(epoch)) return;
-        setDays(d);
-        setYears(ys);
-        setStats(s);
-      })
-      .catch(() => { if (guard.isFresh(epoch)) setError('Failed to load diary.'); })
-      .finally(() => { if (guard.isFresh(epoch)) setLoading(false); });
-  }, [year, refreshTick]);
+  // key=year so a real year change flashes the skeleton; refresh-tick
+  // refetches at the same year silently swap (preserves scroll position).
+  const { data, setData, loading, error, setError } = useFreshFetch(
+    () => api.getDiary(year),
+    [year],
+    { key: year, initialData: { days: [], years: [], stats: EMPTY_STATS } },
+  );
+  const { days, years, stats } = data;
+  // Clear any stale delete error when the year changes — a "Failed to
+  // remove entry." from last year shouldn't hang over this year's freshly
+  // loaded entries.
+  useEffect(() => { setDeleteError(null); }, [year]);
 
   async function handleDelete(entryId, title) {
     if (deletingEntryIdsRef.current.has(entryId)) return;
@@ -487,7 +462,12 @@ export default function Diary() {
     setDeleteError(null);
     try {
       await api.deleteDiaryEntry(entryId);
-      setDays(ds => ds.map(d => ({ ...d, entries: d.entries.filter(e => e.id !== entryId) })).filter(d => d.entries.length > 0));
+      setData(prev => ({
+        ...prev,
+        days: prev.days
+          .map(d => ({ ...d, entries: d.entries.filter(e => e.id !== entryId) }))
+          .filter(d => d.entries.length > 0),
+      }));
     } catch {
       setDeleteError('Failed to remove entry.');
     } finally {
@@ -549,13 +529,13 @@ export default function Diary() {
           dismissible inline banner alongside the existing days. Same
           shape as ShelfView's error banner. */}
       {days.length > 0 && (
-        <ErrorBanner message={error} onDismiss={() => setError(null)} className="mb-4" />
+        <ErrorBanner message={error ? 'Failed to load diary.' : null} onDismiss={() => setError(null)} className="mb-4" />
       )}
 
       {loading ? (
         <div role="status" className="text-neutral-700 text-sm">Loading…</div>
       ) : days.length === 0 && error ? (
-        <div role="alert" className="text-warn text-sm">{error}</div>
+        <div role="alert" className="text-warn text-sm">Failed to load diary.</div>
       ) : days.length === 0 ? (
         <div className="text-center py-32">
           <p className="text-neutral-600 mb-3">No reading logged{years.length > 0 ? ` in ${year}` : ' yet'}.</p>
