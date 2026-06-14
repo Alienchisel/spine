@@ -22,6 +22,7 @@ import BookCard from '../components/BookCard.jsx';
 import CoverSizeSlider from '../components/CoverSizeSlider.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 import { useCoverSize } from '../hooks/useCoverSize.js';
+import { useFreshFetch } from '../hooks/useFreshFetch.js';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import { useActionGuard } from '../hooks/useActionGuard.js';
@@ -287,25 +288,51 @@ export default function ShelfView() {
   // clicks, URL-normalisation effect) doesn't wipe the incoming
   // location.state ('← Stats' / '← Library' etc.).
   const { state: navState } = useLocation();
-  const [tree, setTree] = useState([]);
   // treeLoaded gates the URL-pruning effect: we only consider the tree
   // canonical (and therefore safe to use as a basis for stripping stale
   // ids out of the URL) once getShelfTree has actually succeeded. On a
-  // failed fetch the tree stays [] but treeLoaded stays false, so a
-  // bookmarked deep link survives a transient network error.
+  // failed fetch tree stays [] but treeLoaded stays false, so a
+  // bookmarked deep link survives a transient network error. Side-set
+  // inside the fetch fn since the hook can't distinguish "haven't
+  // fetched yet" from "fetched and got empty".
   const [treeLoaded, setTreeLoaded] = useState(false);
+  const {
+    data: tree,
+    setData: setTree,
+    loading,
+    error: treeLoadError,
+    setError: setTreeLoadError,
+  } = useFreshFetch(
+    () => api.getShelfTree().then(t => { setTreeLoaded(true); return t; }),
+    [],
+    { initialData: [] },
+  );
+  // Supplementary fetch: shouldn't gate the tree on its slowness, and
+  // its failure renders a smaller-scope warning rather than wiping the
+  // page.
+  const { data: unshelfed, error: unshelfedError } = useFreshFetch(
+    () => api.getUnshelfedBooks(),
+    [],
+    { initialData: [] },
+  );
   const [books, setBooks] = useState([]);
-  const [unshelfed, setUnshelfed] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [booksLoading, setBooksLoading] = useState(false);
-  const [error, setError] = useState(null);
-  // Distinct from page-level `error` so a flaky unshelfed fetch doesn't
-  // wipe the shelf tree (which had loaded fine in parallel) and doesn't
-  // surface as a misleading "Failed to load shelves" banner.
-  const [unshelfedError, setUnshelfedError] = useState(null);
-  // Stale-response guard for the location-books fetch. Bumped on every
-  // location change AND on returns to the root view so an in-flight
-  // request from a prior location can't setBooks after navigation.
+  // Action errors (failed reorder, failed placement) share the
+  // ErrorBanner with the tree load error. setError wraps both so the
+  // ~10 callsites in the location-books effect and the action handlers
+  // stay identical — see ShelfManager for the same shape.
+  const [actionError, setActionError] = useState(null);
+  const error = actionError ?? (treeLoadError ? 'Failed to load shelves.' : null);
+  function setError(msg) {
+    setActionError(msg);
+    setTreeLoadError(null);
+  }
+  // Stale-response guard for the location-books fetch (still on the
+  // manual pattern). Bumped on every location change AND on returns to
+  // the root view so an in-flight request from a prior location can't
+  // setBooks after navigation. The action handlers below also capture
+  // this guard's epoch to drop their own recovery refetches after a
+  // navigation.
   const booksGuard = useStaleGuard();
   const { size: coverSize, setSize: setCoverSize, compact, gridStyle, gridClassName, MIN: coverMin, MAX: coverMax } = useCoverSize();
   // Reveal-from-BookDetail target. When a book detail's "Reveal" link
@@ -384,31 +411,6 @@ export default function ShelfView() {
     () => pathResolves(tree, buildingId, roomId, unitId, shelfId),
     [tree, buildingId, roomId, unitId, shelfId],
   );
-
-  useEffect(() => {
-    // Two independent fetches: the shelf tree is load-bearing (no tree =
-    // no shelves to browse), the unshelfed-books list is supplementary
-    // (only matters at the root view's "no location assigned" section).
-    // Splitting also means `loading` tracks ONLY the shelf-tree fetch —
-    // a slow unshelfed request shouldn't keep the whole page on
-    // "Loading…" once the tree is ready. Unshelfed silently appears when
-    // it resolves; on failure the smaller-scope warning replaces it.
-    let stale = false;
-
-    // Each .then clears its own scoped error so a refresh-tick retry that
-    // succeeds drops a stale banner from the previous attempt; otherwise
-    // the warning lingers above a freshly loaded tree / unshelfed list.
-    api.getShelfTree()
-      .then(t => { if (!stale) { setTree(t); setTreeLoaded(true); setError(null); } })
-      .catch(() => { if (!stale) setError('Failed to load shelves.'); })
-      .finally(() => { if (!stale) setLoading(false); });
-
-    api.getUnshelfedBooks()
-      .then(u => { if (!stale) { setUnshelfed(u); setUnshelfedError(null); } })
-      .catch(() => { if (!stale) setUnshelfedError('Failed to load unshelfed books.'); });
-
-    return () => { stale = true; };
-  }, [refreshTick]);
 
   useEffect(() => {
     // Once the tree is canonical, walk b → r → u → s and prune anything
@@ -696,7 +698,7 @@ export default function ShelfView() {
               // where the section would otherwise render, so the user
               // knows what specifically is missing without the page-wide
               // "Failed to load shelves" being implied.
-              <p role="alert" className="mt-10 text-xs text-warn">{unshelfedError}</p>
+              <p role="alert" className="mt-10 text-xs text-warn">Failed to load unshelfed books.</p>
             )}
             {unshelfed.length > 0 && (
               <div className="mt-10">
