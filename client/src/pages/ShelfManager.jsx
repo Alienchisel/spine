@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
   DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors,
@@ -14,23 +14,36 @@ import { useConfirm } from '../components/ConfirmModal.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 import PageHeading from '../components/PageHeading.jsx';
 import { primaryButtonSm } from '../components/buttonStyles.js';
-import { useRefreshTick } from '../hooks/useRefreshTick.js';
-import { useStaleGuard } from '../hooks/useStaleGuard.js';
+import { useFreshFetch } from '../hooks/useFreshFetch.js';
 
 export default function ShelfManager() {
-  const [tree, setTree] = useState([]);
+  // The hook's internal stale guard handles the "fast user interleaves
+  // several mutations whose reload responses race" case natively — each
+  // refetch() call captures its own epoch and only the latest response
+  // sticks. Replaces the hand-rolled reload() + useStaleGuard pair.
+  const {
+    data: tree,
+    setData: setTree,
+    error: loadError,
+    setError: setLoadError,
+    refetch: reload,
+  } = useFreshFetch(() => api.getShelfTree(), [], { initialData: [] });
   const [addingBuilding, setAddingBuilding] = useState(false);
   const [newBuildingName, setNewBuildingName] = useState('');
   const [newBuildingProximity, setNewBuildingProximity] = useState('home');
-  const [error, setError] = useState(null);
+  // Action errors and load errors share the same ErrorBanner slot. Live
+  // in independent state (the hook owns load, this owns action) and merge
+  // for display. setError wraps both — every action handler's setError
+  // call already clears the prior error before kicking the action, so the
+  // wrapper matching the old single-store API keeps the handler bodies
+  // unchanged.
+  const [actionError, setActionError] = useState(null);
+  const error = actionError ?? (loadError ? 'Failed to load shelves.' : null);
+  function setError(msg) {
+    setActionError(msg);
+    setLoadError(null);
+  }
   const confirm = useConfirm();
-  // Stale-response guard for reload(). Every mutation kicks off a reload,
-  // and a fast user can interleave several writes whose reload responses
-  // race. Without this, an early reload's snapshot can land last and
-  // overwrite a later reload's already-applied tree (e.g. "the room I just
-  // added vanished"). Each reload captures its gen and drops setTree if a
-  // newer reload has bumped the ref.
-  const guard = useStaleGuard();
   // Per-namespace reorder seq counters. Each drag's .catch checks "is my
   // seq still the latest?" — if not, the drag has been superseded and
   // the catch returns silently. Was previously a single shared counter,
@@ -70,7 +83,6 @@ export default function ShelfManager() {
   const addingRoomRef     = useRef(false);
   const addingUnitRef     = useRef(false);
   const addingShelfRef    = useRef(false);
-  const refreshTick = useRefreshTick();
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -92,21 +104,6 @@ export default function ShelfManager() {
       reload();  // refetches the canonical tree (may overwrite error if reload also fails)
     });
   }
-
-  async function reload() {
-    const epoch = guard.next();
-    try {
-      const t = await api.getShelfTree();
-      if (!guard.isFresh(epoch)) return;
-      setTree(t);
-      setError(null);
-    } catch {
-      if (!guard.isFresh(epoch)) return;
-      setError('Failed to load shelves.');
-    }
-  }
-
-  useEffect(() => { reload(); }, [refreshTick]);
 
   async function addBuilding() {
     if (addingBuildingRef.current) return;
