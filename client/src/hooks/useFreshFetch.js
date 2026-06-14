@@ -39,7 +39,7 @@ import { useLatest } from './useLatest.js';
 // special error handling (Author's 404 → 'notfound' kind) should
 // branch on `error?.status` themselves.
 export function useFreshFetch(fn, deps = [], options = {}) {
-  const { key, initialData = null } = options;
+  const { key, initialData = null, wipeOnKeyChange = false } = options;
   const [data, setData]       = useState(initialData);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState(null);
@@ -50,7 +50,8 @@ export function useFreshFetch(fn, deps = [], options = {}) {
   // Sentinel object so the first run never compares equal to a real
   // key — that way mount always flows through the "is key different"
   // branch without needing a separate mount flag.
-  const prevKeyRef = useRef({});
+  const FIRST_RUN = useRef({}).current;
+  const prevKeyRef = useRef(FIRST_RUN);
 
   // Detect key change DURING RENDER (not in useEffect) so the same
   // commit that ships the new key also shows loading=true. Setting
@@ -59,8 +60,14 @@ export function useFreshFetch(fn, deps = [], options = {}) {
   // key — the flash Author's adoption path was specifically designed
   // to avoid. Idiomatic per React's "Adjusting State Based on Props".
   if (key !== undefined && prevKeyRef.current !== key) {
+    const isFirstRun = prevKeyRef.current === FIRST_RUN;
     prevKeyRef.current = key;
     if (!loading) setLoading(true);
+    // wipeOnKeyChange: opt-in for pages whose render doesn't gracefully
+    // gate stale data behind `loading` (BookDetail flashes the previous
+    // book's cover/metadata otherwise). Skips the first run since data
+    // already starts at initialData via useState init.
+    if (wipeOnKeyChange && !isFirstRun) setData(initialData);
   }
 
   useEffect(() => {

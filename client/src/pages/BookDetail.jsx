@@ -14,7 +14,7 @@ import EditionsSection from '../components/bookDetail/EditionsSection.jsx';
 import ReadingLog from '../components/bookDetail/ReadingLog.jsx';
 import BookRef from '../components/bookDetail/BookRef.jsx';
 import { BookDetailSkeleton } from '../components/Skeleton.jsx';
-import { useRefreshTick } from '../hooks/useRefreshTick.js';
+import { useFreshFetch } from '../hooks/useFreshFetch.js';
 import { useTextOverflow } from '../hooks/useTextOverflow.js';
 import { useLatest } from '../hooks/useLatest.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
@@ -80,11 +80,28 @@ export default function BookDetail() {
   // Library' affordance they'd have had under same-tab navigation.
   const detailReturnState = inheritedNavState ?? { from: backLabel, fromPath: backPath };
   const confirm = useConfirm();
-  const [book, setBook] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Three hooks all keyed on id and wiping on key change — BookDetail's
+  // rendering doesn't gate the cover/title/metadata behind `loading`, so
+  // the previous book's data is visible during navigation unless wiped.
+  // The hook's own stale guards cover each fetch independently.
+  const {
+    data: book,
+    setData: setBook,
+    loading,
+    error: bookError,
+  } = useFreshFetch(() => api.getBook(id), [id], { key: id, wipeOnKeyChange: true });
+  const {
+    data: log,
+    setData: setLog,
+    error: logError,
+    refetch: refetchLog,
+  } = useFreshFetch(() => api.getBookLog(id), [id], { key: id, initialData: [], wipeOnKeyChange: true });
+  const {
+    data: reads,
+    error: readsError,
+    refetch: loadReads,
+  } = useFreshFetch(() => api.getBookReads(id), [id], { key: id, initialData: [], wipeOnKeyChange: true });
   const [location, setLocation] = useState(null);
-  const [log, setLog] = useState([]);
-  const [reads, setReads] = useState([]);
   const [descExpanded, setDescExpanded] = useState(false);
   // Measured overflow on the description block — replaces the prior
   // `book.description.length > 400` char-count proxy so the Read-more
@@ -140,7 +157,6 @@ export default function BookDetail() {
   const finishGuard   = useActionGuard();
   const deleteGuard   = useActionGuard();
   const [finishError, setFinishError] = useState(null);
-  const [loadError, setLoadError] = useState(false);
   // Click-to-zoom on the cover. Opens a full-screen lightbox over a dim
   // backdrop; Esc and any click dismiss. Only applies when book.cover_path
   // is set — the initials fallback isn't worth zooming.
@@ -175,13 +191,6 @@ export default function BookDetail() {
   // (loved/readlist toggles, rate). finishError is kept separate because
   // it has its own established render slot under the Mark-as-finished button.
   const [actionError, setActionError] = useState(null);
-  // Reading-log fetches (initial mount + post-progress-save refresh) — kept
-  // separate from actionError because logError renders above the ReadingLog
-  // component on the right side of the page, distinct from the action column.
-  const [logError, setLogError] = useState(null);
-  // Reads (per-completion history) fetches — separate render slot, separate
-  // state. Renders above ReadsSection.
-  const [readsError, setReadsError] = useState(null);
   // Series-sibling fetch powers the prev/next nav between volumes. Failure
   // just hides the nav — small but tells the user why a book in a known
   // series shows no prev/next strip.
@@ -195,18 +204,11 @@ export default function BookDetail() {
   // failure message can render right next to the button that triggered it.
   const [deleteError, setDeleteError] = useState(null);
 
-  // Stale-response guards. Quick clicking between books in a list could
-  // otherwise let an older response from book A clobber the page for the
-  // newly-loaded book B. Two independent gens because the second effect
-  // re-fires on book?.id, which is downstream of the first effect's setBook.
-  const idGuard   = useStaleGuard();
+  // Stale-response guard for the secondary effect (shelf location, series
+  // siblings) — it re-fires on book?.id, which is downstream of the main
+  // fetch's setBook, so it needs its own gen counter independent of the
+  // hook's internal guards.
   const bookGuard = useStaleGuard();
-  // Tracks the id from the previous render of the load effect. Lets us
-  // distinguish a real navigation (new id → wipe visible state) from a
-  // refresh-tick refetch at the same id (silently swap data, preserving
-  // expanded description / rating prompt / scroll position). Mirrors
-  // Library's lastFetchKeyRef pattern.
-  const prevIdRef = useRef(null);
   // Bumped on every rating click so a slower-resolving earlier PUT can't
   // setBook over a faster-resolving later PUT (e.g. user clicks 5 then 3
   // and the 5 response lands last). Local-UI scoped — server-side last-
@@ -225,81 +227,38 @@ export default function BookDetail() {
   const [coverBusy, setCoverBusy] = useState(false);
   const [coverError, setCoverError] = useState(null);
   const coverBusyRef = useRef(false);
-  const refreshTick = useRefreshTick();
 
-  function loadReads() {
-    // Capture the current id-epoch so a slow response can't clobber
-    // the reads list for a book the user has since navigated away from.
-    // (handleFinish and ReadsSection.onUpdate also call this; if the user
-    // navigates mid-flight, idGuard bumps and this response is dropped.)
-    const epoch = idGuard.current();
-    setReadsError(null);
-    api.getBookReads(id)
-      .then(r => { if (idGuard.isFresh(epoch)) setReads(r); })
-      .catch(() => { if (idGuard.isFresh(epoch)) setReadsError('Failed to load read history.'); });
-  }
-
+  // Wipe non-fetch UI state on id-change. The three hooks above handle
+  // their own data + error wipe via wipeOnKeyChange. The independent
+  // action-error states, the description/rating-prompt UI, and the
+  // secondary effect's location/series state get reset here.
   useEffect(() => {
-    const epoch = idGuard.next();
-    const isIdChange = prevIdRef.current !== id;
-    prevIdRef.current = id;
-    // Only wipe visible state on a real navigation (id change). On a
-    // refresh-tick refetch at the same id, the fetch resolutions below
-    // atomically replace the data — wiping first would flash "Loading…"
-    // and reset descExpanded / ratingPrompt every alt-tab roundtrip.
-    if (isIdChange) {
-      setLoading(true);
-      setLoadError(false);
-      setBook(null);
-      setLog([]);
-      setLogError(null);
-      setReads([]);
-      setReadsError(null);
-      setLocation(null);
-      setLocationError(null);
-      setSeriesSiblings([]);
-      setSeriesError(null);
-      setActionError(null);
-      setFinishError(null);
-      setDeleteError(null);
-      setRatingPrompt(false);
-      setDescExpanded(false);
-      setSaveAck(false);
-    }
+    setLocation(null);
+    setLocationError(null);
+    setSeriesSiblings([]);
+    setSeriesError(null);
+    setActionError(null);
+    setFinishError(null);
+    setDeleteError(null);
+    setRatingPrompt(false);
+    setDescExpanded(false);
+    setSaveAck(false);
+  }, [id]);
 
-    api.getBook(id)
-      .then(b => {
-        if (!idGuard.isFresh(epoch)) return;
-        setBook(b);
-        // One-shot navigation signals (justFinished / justSaved) only
-        // fire on a real navigation here. navState lives in the router's
-        // location entry and is still present on refresh-tick refetches
-        // (alt-tab back, etc.) — consuming it then would re-pop the
-        // rating prompt or re-flash the Saved banner every focus round.
-        if (isIdChange) {
-          // Auto-finish from Library's progress quick-edit navigates
-          // here with state.justFinished so the rating prompt — which
-          // would otherwise vanish along with the unmounting BookCard —
-          // surfaces on a surface that sticks. Only fire if we actually
-          // need a rating; revisits of the same already-rated book stay
-          // quiet.
-          if (navState?.justFinished && !b.rating) setRatingPrompt(true);
-          if (navState?.justFinished) maybeShowFinalSession(b);
-          // BookForm's save handler stamps justSaved onto navState so
-          // the post-save navigate carries an explicit ack signal. The
-          // banner auto-dismisses after 2.5s; the cleanup ref protects
-          // against an unmount-mid-timer leaving setSaveAck stuck on
-          // next mount.
-          if (navState?.justSaved) setSaveAck(true);
-        }
-      })
-      .catch(() => { if (idGuard.isFresh(epoch)) setLoadError(true); })
-      .finally(() => { if (idGuard.isFresh(epoch)) setLoading(false); });
-    api.getBookLog(id)
-      .then(l => { if (idGuard.isFresh(epoch)) setLog(l); })
-      .catch(() => { if (idGuard.isFresh(epoch)) setLogError('Failed to load reading log.'); });
-    loadReads();
-  }, [id, refreshTick]);
+  // One-shot consumption of navState (justFinished / justSaved) — only
+  // fires on a real navigation to a new id, not on refresh-tick refetches
+  // (navState lives in the router's location entry and is still present
+  // on alt-tab back, so an unguarded read would re-pop the rating prompt
+  // or re-flash the Saved banner every focus round). justFinished
+  // surfaces a rating prompt; justSaved an auto-dismissing ack banner.
+  const consumedIdRef = useRef(null);
+  useEffect(() => {
+    if (!book || consumedIdRef.current === id) return;
+    consumedIdRef.current = id;
+    if (navState?.justFinished && !book.rating) setRatingPrompt(true);
+    if (navState?.justFinished) maybeShowFinalSession(book);
+    if (navState?.justSaved) setSaveAck(true);
+  }, [book, id, navState]);
 
   // Paste-to-upload-cover: while on BookDetail, a clipboard image (Cmd/
   // Ctrl-V on a screenshot or copied jacket art) uploads as this book's
@@ -633,7 +592,7 @@ export default function BookDetail() {
   }), [bookFromState]);
 
   if (loading) return <BookDetailSkeleton />;
-  if (!book) return <div className="text-neutral-600 text-sm">{loadError ? 'Failed to load book.' : 'Book not found.'}</div>;
+  if (!book) return <div className="text-neutral-600 text-sm">{bookError ? 'Failed to load book.' : 'Book not found.'}</div>;
 
   return (
     <div className="max-w-7xl">
@@ -1042,11 +1001,7 @@ export default function BookDetail() {
               // result if its id doesn't match the URL anymore.
               if (String(updated.id) !== String(latestIdRef.current)) return;
               setBook(updated);
-              setLogError(null);
-              const reqId = id;
-              api.getBookLog(reqId)
-                .then(l => { if (String(reqId) === String(latestIdRef.current)) setLog(l); })
-                .catch(() => { if (String(reqId) === String(latestIdRef.current)) setLogError('Failed to refresh reading log.'); });
+              refetchLog();
             }} />
           )}
 
@@ -1164,7 +1119,7 @@ export default function BookDetail() {
 
           {(book.status !== 'unread' || reads.length > 0 || readsError) && (
             <>
-              {readsError && <p role="alert" className="text-xs text-warn mb-2">{readsError}</p>}
+              {readsError && <p role="alert" className="text-xs text-warn mb-2">Failed to load read history.</p>}
               <ReadsSection
                 bookId={book.id}
                 reads={reads}
@@ -1202,7 +1157,7 @@ export default function BookDetail() {
             </div>
           )}
 
-          {logError && <p role="alert" className="text-xs text-warn mb-2">{logError}</p>}
+          {logError && <p role="alert" className="text-xs text-warn mb-2">Failed to load reading log.</p>}
           <ReadingLog
             log={log}
             isAudiobook={book.format === 'audiobook'}
