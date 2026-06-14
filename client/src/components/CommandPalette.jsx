@@ -252,16 +252,12 @@ export default function CommandPalette() {
   const [bookLoading, setBookLoading] = useState(false);
   const [authorResults, setAuthorResults] = useState([]);
   const [lists, setLists] = useState([]);
-  const [listsLoaded, setListsLoaded] = useState(false);
   // Cached facet data for qualifier-value autocomplete (tag:, author:,
-  // series:, narrator:, translator:, publisher:). Fetched once on first
-  // open from /api/books/facets — same endpoint FilterPanel uses, no new
-  // backend surface needed. Stays in memory for the session; a long-lived
-  // tab won't pick up brand-new tags/authors etc. until reload, which
-  // mirrors the existing `lists` cache tradeoff and is acceptable for an
-  // autocomplete affordance.
+  // series:, narrator:, translator:, publisher:). Fetched on every
+  // palette open from /api/books/facets — same endpoint FilterPanel uses,
+  // no new backend surface needed. Previous facets stay visible during
+  // each refetch so newly-added tags/authors etc. surface without flicker.
   const [facets, setFacets] = useState(null);
-  const [facetsLoaded, setFacetsLoaded] = useState(false);
   // Cursor position inside the search input. Re-synced via onChange,
   // onKeyUp, onClick, onFocus — covers typing, arrow navigation, mouse
   // clicks, and focus restoration. parseCursorContext consumes this
@@ -394,55 +390,44 @@ export default function CommandPalette() {
     requestAnimationFrame(() => inputRef.current?.focus());
   }, [open]);
 
-  // Lazy-load user lists on first open. Cached for the session; a long-
-  // lived tab will see stale list names if they're renamed elsewhere,
-  // but that's a tolerable cost vs. fetching on every open. Phase 5
-  // can revisit if it matters.
-  //
-  // Only mark loaded on success — a transient fetch failure on first
-  // open would otherwise permanently disable the Lists section (and the
-  // add-to-list sub-prompt picker) for the rest of the session, since
-  // the gate at the top of the effect would short-circuit subsequent
-  // opens.
+  // Refetch user lists on every open so renames/creates/deletes in
+  // ListDetail or Lists surface immediately. CommandPalette is mounted
+  // for the whole session — a once-per-mount fetch would never pick up
+  // those mutations. Prior `lists` stays rendered through the refetch
+  // (no setLists([]) on failure) so a transient blip doesn't wipe the
+  // visible names and a successful response silently swaps the array.
   useEffect(() => {
-    if (!open || listsLoaded) return;
+    if (!open) return;
     let cancelled = false;
     (async () => {
       try {
         const data = await api.getLists();
         if (cancelled) return;
         setLists(Array.isArray(data) ? data : []);
-        setListsLoaded(true);
-      } catch {
-        if (!cancelled) setLists([]);
-      }
+      } catch { /* keep prior lists on failure */ }
     })();
     return () => { cancelled = true; };
-  }, [open, listsLoaded]);
+  }, [open]);
 
-  // Pre-fetch facets on mount (not on first open) for qualifier-value
-  // autocomplete. Eager so a fast user typing `tag:` immediately on first
-  // open isn't briefly thrown into the normal palette while the fetch
-  // races their keystrokes. Empty params → corpus-wide facets (every
-  // tag/author/etc. in the library), which is what autocomplete wants —
-  // filtered facets would silently hide values that don't match the
-  // current Library view's filters. Same retry-on-failure shape as the
-  // lists fetch.
+  // Refetch facets on every palette open so tags/authors/series added
+  // elsewhere surface in qualifier autocomplete. The previous eager-on-
+  // mount pre-fetch was dropped — it kept stale facets for the whole
+  // session, which is the wrong tradeoff for a single-user local app
+  // where the round-trip is sub-50ms anyway. Empty params → corpus-wide
+  // facets (every tag/author/etc. in the library), which is what
+  // autocomplete wants. Prior facets stay rendered on failure.
   useEffect(() => {
-    if (facetsLoaded) return;
+    if (!open) return;
     let cancelled = false;
     (async () => {
       try {
         const data = await api.getBookFacets();
         if (cancelled) return;
         setFacets(data || null);
-        setFacetsLoaded(true);
-      } catch {
-        if (!cancelled) setFacets(null);
-      }
+      } catch { /* keep prior facets on failure */ }
     })();
     return () => { cancelled = true; };
-  }, [facetsLoaded]);
+  }, [open]);
 
   // Fetch the current book whenever the palette opens on /books/:id.
   // Re-fetching per open (rather than caching) keeps the loved /
