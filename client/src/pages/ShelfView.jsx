@@ -22,6 +22,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { api } from '../api.js';
 import { plural, initialsFor } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
+import MoreMenu from '../components/MoreMenu.jsx';
 import CoverSizeSlider from '../components/CoverSizeSlider.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 import { useCoverSize } from '../hooks/useCoverSize.js';
@@ -32,8 +33,17 @@ import { useActionGuard } from '../hooks/useActionGuard.js';
 import { useLatest } from '../hooks/useLatest.js';
 import { sectionEyebrow } from '../components/textStyles.js';
 
-function SortableShelfCover({ book, linkState, focused }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: book.id });
+// Sortable cover used in the unit view's per-shelf rows and in the
+// shelf-detail view. Carries shelfId on its sortable data so the unit-
+// view's outer onDragEnd can discriminate same-shelf reorder from
+// cross-shelf move when an item is dropped on another item or wrapper.
+// shelfId can be null when used at the shelf-detail view where the
+// distinction doesn't apply.
+function SortableShelfCover({ book, shelfId = null, linkState, focused }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: book.id,
+    data: { kind: 'shelved-book', book, shelfId },
+  });
   const style = { transform: CSS.Transform.toString(transform), transition };
 
   return (
@@ -60,16 +70,29 @@ function SortableShelfCover({ book, linkState, focused }) {
             <div className="pointer-events-none absolute inset-0 rounded ring-2 ring-inset ring-binding/25 group-hover:ring-[#ffffff99] transition-[box-shadow] duration-200" />
           </div>
         </Link>
+        {/* Drag handle — bottom-left, hover-revealed. */}
         <button
           type="button"
           {...listeners}
-          className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-sm rounded px-2 py-1 text-neutral-500 hover:text-neutral-200 transition-colors cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+          className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-sm rounded px-2 py-1 text-neutral-500 hover:text-neutral-200 transition-colors cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
           aria-label="Drag to reorder"
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4">
             <path fillRule="evenodd" d="M2.75 4a.75.75 0 0 1 .75-.75h9a.75.75 0 0 1 0 1.5h-9A.75.75 0 0 1 2.75 4Zm0 4a.75.75 0 0 1 .75-.75h9a.75.75 0 0 1 0 1.5h-9A.75.75 0 0 1 2.75 8Zm.75 3.25a.75.75 0 0 0 0 1.5h9a.75.75 0 0 0 0-1.5h-9Z" clipRule="evenodd" />
           </svg>
         </button>
+        {/* Hover-revealed MoreMenu — placement picker, status mutations,
+            list toggles. Pre-this addition the only way to correct a
+            shelf placement was a round-trip through BookDetail. dropUp
+            because the cover sits at the bottom of a horizontal row and
+            the menu would otherwise open below the viewport edge. */}
+        <MoreMenu
+          book={book}
+          dropUp
+          iconClassName="w-4 h-4"
+          buttonClassName="absolute bottom-2 right-2 bg-black/60 backdrop-blur-sm rounded px-1.5 py-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+          returnState={linkState}
+        />
       </div>
     </div>
   );
@@ -186,24 +209,12 @@ function DroppableShelfRowWrapper({ shelf, children }) {
   );
 }
 
-function ShelfRow({ shelf, books, onReorder, onLabelClick, linkState }) {
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
-
-  function handleDragEnd(event) {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const oldIdx = books.findIndex(b => b.id === active.id);
-    const newIdx = books.findIndex(b => b.id === over.id);
-    // Either id missing from the current list (stale drag event, list
-    // mutated mid-drag, etc.) → bail. Without this, arrayMove with -1
-    // produces a malformed array and the reorder PUT sends wrong ids.
-    if (oldIdx < 0 || newIdx < 0) return;
-    onReorder(shelf.id, arrayMove(books, oldIdx, newIdx));
-  }
-
+// ShelfRow renders one shelf's strip at the unit view. Drag is owned by
+// ShelfView's page-level DndContext so a single gesture can resolve as
+// in-shelf reorder OR cross-shelf move OR shelf-from-unfiled drop;
+// ShelfRow just hands the outer context a SortableContext that scopes
+// the in-shelf reorder visuals.
+function ShelfRow({ shelf, books, onLabelClick, linkState, focusedBookId, showFocusRing }) {
   return (
     <div className="mb-8 last:mb-0">
       <div className="flex items-baseline gap-3 mb-2 px-4 sm:px-6 lg:px-8">
@@ -219,13 +230,19 @@ function ShelfRow({ shelf, books, onReorder, onLabelClick, linkState }) {
       {books.length === 0 ? (
         <p className="text-neutral-700 text-xs italic px-4 sm:px-6 lg:px-8">empty</p>
       ) : (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={books.map(b => b.id)} strategy={horizontalListSortingStrategy}>
-            <div className="flex gap-4 overflow-x-auto pb-4 px-4 sm:px-6 lg:px-8 [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-track]:bg-neutral-800 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-neutral-600 [&::-webkit-scrollbar-thumb]:rounded-full">
-              {books.map(book => <SortableShelfCover key={book.id} book={book} linkState={linkState} />)}
-            </div>
-          </SortableContext>
-        </DndContext>
+        <SortableContext items={books.map(b => b.id)} strategy={horizontalListSortingStrategy}>
+          <div className="flex gap-4 overflow-x-auto pb-4 px-4 sm:px-6 lg:px-8 [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-track]:bg-neutral-800 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-neutral-600 [&::-webkit-scrollbar-thumb]:rounded-full">
+            {books.map(book => (
+              <SortableShelfCover
+                key={book.id}
+                book={book}
+                shelfId={shelf.id}
+                linkState={linkState}
+                focused={showFocusRing && String(book.id) === focusedBookId}
+              />
+            ))}
+          </div>
+        </SortableContext>
       )}
     </div>
   );
@@ -690,6 +707,82 @@ export default function ShelfView() {
     }
   }
 
+  // Unit-view drag handler. The unit view is the only level where the
+  // page contains both child droppables (shelf row wrappers) AND a
+  // sortable strip of books already in each child, so a single drag has
+  // three possible outcomes resolved here:
+  //   1. unfiled DraggableBookCard → shelf wrapper / sortable item:
+  //      PATCH shelf_id on the book (treat the over item's shelfId as
+  //      the target for shelved-book overs).
+  //   2. shelved SortableShelfCover → sortable item in the SAME shelf:
+  //      in-shelf reorder via api.reorderShelf. Same recovery shape as
+  //      the prior per-ShelfRow handler.
+  //   3. shelved SortableShelfCover → sortable item OR wrapper of a
+  //      DIFFERENT shelf: cross-shelf PATCH of shelf_id.
+  // Discriminated by active.data.kind ('book' vs 'shelved-book') and
+  // over.data.kind ('shelf' wrapper vs 'shelved-book' item).
+  async function handleUnitDragEnd(event) {
+    setActiveDragBook(null);
+    const { active, over } = event;
+    if (!over) return;
+    const activeData = active.data?.current;
+    const overData = over.data?.current;
+    if (!activeData?.book) return;
+
+    const bookId = activeData.book.id;
+    const sourceShelfId = activeData.kind === 'shelved-book' ? activeData.shelfId : null;
+    let targetShelfId;
+    if (overData?.kind === 'shelf') {
+      targetShelfId = overData.payloadId;
+    } else if (overData?.kind === 'shelved-book') {
+      targetShelfId = overData.shelfId;
+    } else {
+      return;
+    }
+
+    setError(null);
+
+    if (sourceShelfId === targetShelfId) {
+      // Same-shelf drop. Reorder only when over is another sortable item.
+      if (overData?.kind !== 'shelved-book') return;
+      if (active.id === over.id) return;
+      const shelfBooks = books.filter(b => b.shelf_id === targetShelfId);
+      const oldIndex = shelfBooks.findIndex(b => b.id === active.id);
+      const newIndex = shelfBooks.findIndex(b => b.id === over.id);
+      if (oldIndex < 0 || newIndex < 0) return;
+      const reordered = arrayMove(shelfBooks, oldIndex, newIndex);
+      setBooks(prev => {
+        const others = prev.filter(b => b.shelf_id !== targetShelfId);
+        return [...others, ...reordered];
+      });
+      const startLocation = locationKeyRef.current;
+      const reorderSeq = ++reorderSeqRef.current;
+      api.reorderShelf(targetShelfId, reordered.map(b => b.id))
+        .catch(() => {
+          if (locationKeyRef.current !== startLocation || reorderSeq !== reorderSeqRef.current) return;
+          setError('Failed to save reorder.');
+          api.getUnitBooks(unitId)
+            .then(b => { if (locationKeyRef.current === startLocation && reorderSeq === reorderSeqRef.current) setBooks(b); })
+            .catch(() => { if (locationKeyRef.current === startLocation && reorderSeq === reorderSeqRef.current) setError('Reorder failed and could not be reverted — refresh the page.'); });
+        });
+      return;
+    }
+
+    // Cross-shelf move OR unfiled-to-shelf. Optimistic source-list prune
+    // so the gesture feels instant; the dispatched event reconciles to
+    // canonical state via the existing refetch listener.
+    setUnshelfed(prev => prev.filter(b => b.id !== bookId));
+    setBooks(prev => prev.filter(b => b.id !== bookId));
+    try {
+      await api.patchBook(bookId, { shelf_id: targetShelfId });
+      dispatchSpineEvent('spine:book-mutated', { id: bookId });
+    } catch {
+      setError('Failed to place book.');
+      refetchUnshelfed();
+      refetchLocationBooks();
+    }
+  }
+
   const building = tree.find(b => b.id === buildingId);
   const rooms    = building?.rooms ?? [];
   const room     = rooms.find(r => r.id === roomId);
@@ -1057,86 +1150,76 @@ export default function ShelfView() {
           sensors={sensors}
           collisionDetection={closestCenter}
           onDragStart={handlePlaceDragStart}
-          onDragEnd={handlePlaceDragEnd}
+          onDragEnd={handleUnitDragEnd}
           onDragCancel={handlePlaceDragCancel}
         >
           {booksLoading ? (
-          <div role="status" className="text-neutral-700 text-sm">Loading…</div>
-        ) : (<>
-          {(() => {
-            // Unit-level unfiled books surface above the shelves loop so
-            // the "appear first at every level" rule holds at the unit
-            // view as it does at the room/building views (where SQL
-            // ordering puts the unfiled bucket first). border-b + mb-6
-            // separates this group from the heavier ShelfRow stack below.
-            const unitOnly = books.filter(b => !b.shelf_id);
-            if (unitOnly.length === 0) return null;
-            return (
-              <div className={shelves.length > 0 ? 'mb-6 pb-6 border-b border-neutral-800/50' : ''}>
-                {shelves.length > 0 && (
-                  <div className="mb-4 flex items-baseline justify-between gap-3">
-                    <h2 className={sectionEyebrow}>Not on a shelf</h2>
-                    <p className="text-[11px] text-neutral-600">Drag onto a shelf to place</p>
-                  </div>
-                )}
-                <div className={gridClassName} style={gridStyle}>
-                  {(() => {
-                    const ls = cohortLinkState(unitOnly);
-                    return unitOnly.map(book =>
-                      shelves.length > 0
-                        ? <DraggableBookCard key={book.id} book={book} compact={compact} linkState={ls} focused={showFocusRing && String(book.id) === focusId} />
-                        : <BookCard key={book.id} book={book} compact={compact} linkState={ls} focused={showFocusRing && String(book.id) === focusId} />
-                    );
-                  })()}
-                </div>
+            <div role="status" className="text-neutral-700 text-sm">Loading…</div>
+          ) : (<>
+            {/* Shelf rows render FIRST so the drop targets sit at the
+                top of the page, matching building/room views where the
+                child tiles are above the unfiled bucket. The user drags
+                a book UP onto a shelf row — same gesture direction at
+                every level of the hierarchy. */}
+            {shelves.length > 0 && (
+              <div className="-mx-4 sm:-mx-6 lg:-mx-8">
+                {shelves.map(s => {
+                  const shelfBooks = books.filter(b => b.shelf_id === s.id);
+                  return (
+                    <DroppableShelfRowWrapper key={s.id} shelf={s}>
+                      <ShelfRow
+                        shelf={s}
+                        books={shelfBooks}
+                        linkState={cohortLinkState(shelfBooks)}
+                        onLabelClick={() => nav({ b: buildingId, r: roomId, u: unitId, s: s.id })}
+                        focusedBookId={focusId}
+                        showFocusRing={showFocusRing}
+                      />
+                    </DroppableShelfRowWrapper>
+                  );
+                })}
               </div>
-            );
-          })()}
-          {shelves.length > 0 && (
-            <div className="-mx-4 sm:-mx-6 lg:-mx-8">
-              {shelves.map(s => {
-                const shelfBooks = books.filter(b => b.shelf_id === s.id);
-                return (
-                <DroppableShelfRowWrapper key={s.id} shelf={s}>
-                <ShelfRow
-                  shelf={s}
-                  books={shelfBooks}
-                  linkState={cohortLinkState(shelfBooks)}
-                  onLabelClick={() => nav({ b: buildingId, r: roomId, u: unitId, s: s.id })}
-                  onReorder={(shelfId, reordered) => {
-                    setBooks(prev => {
-                      const others = prev.filter(b => b.shelf_id !== shelfId);
-                      return [...others, ...reordered];
-                    });
-                    setError(null);
-                    // Same navigation guard as handleDragEnd above — drop
-                    // the recovery refetch and its error setters if the
-                    // user has moved to a different location while the
-                    // reorder was in flight. The seq guard adds protection
-                    // against overlapping drags within this view (across
-                    // any shelf row): A's failure recovery shouldn't snap
-                    // pre-A unit-books over B's newer optimistic state.
-                    const startLocation = locationKeyRef.current;
-                    const reorderSeq = ++reorderSeqRef.current;
-                    api.reorderShelf(shelfId, reordered.map(b => b.id))
-                      .catch(() => {
-                        if (locationKeyRef.current !== startLocation || reorderSeq !== reorderSeqRef.current) return;
-                        setError('Failed to save reorder.');
-                        api.getUnitBooks(unitId)
-                          .then(b => { if (locationKeyRef.current === startLocation && reorderSeq === reorderSeqRef.current) setBooks(b); })
-                          .catch(() => { if (locationKeyRef.current === startLocation && reorderSeq === reorderSeqRef.current) setError('Reorder failed and could not be reverted — refresh the page.'); });
-                      });
-                  }}
-                />
-                </DroppableShelfRowWrapper>
-                );
-              })}
-            </div>
-          )}
-          {shelves.length === 0 && books.length === 0 && (
-            <p className="text-neutral-600 text-sm">No books in this unit yet.</p>
-          )}
-        </>)}
+            )}
+            {(() => {
+              // Unit-level unfiled books surface BELOW the shelves loop
+              // now (was above), so the drag-onto-target gesture goes
+              // upward to match every other level. mt-6 pt-6 border-t
+              // separates this group from the heavier ShelfRow stack
+              // above.
+              const unitOnly = books.filter(b => !b.shelf_id);
+              if (unitOnly.length === 0) return null;
+              return (
+                <div className={shelves.length > 0 ? 'mt-6 pt-6 border-t border-neutral-800/50' : ''}>
+                  {shelves.length > 0 && (
+                    <div className="mb-4 flex items-baseline justify-between gap-3">
+                      <h2 className={sectionEyebrow}>Not on a shelf</h2>
+                      <p className="text-[11px] text-neutral-600">Drag onto a shelf to place</p>
+                    </div>
+                  )}
+                  <div className={gridClassName} style={gridStyle}>
+                    {(() => {
+                      const ls = cohortLinkState(unitOnly);
+                      return unitOnly.map(book =>
+                        shelves.length > 0
+                          ? <DraggableBookCard key={book.id} book={book} compact={compact} linkState={ls} focused={showFocusRing && String(book.id) === focusId} />
+                          : <BookCard key={book.id} book={book} compact={compact} linkState={ls} focused={showFocusRing && String(book.id) === focusId} />
+                      );
+                    })()}
+                  </div>
+                </div>
+              );
+            })()}
+            {shelves.length === 0 && books.length === 0 && (
+              <p className="text-neutral-600 text-sm">No books in this unit yet.</p>
+            )}
+          </>)}
+          {/* Only render the DragOverlay ghost for unfiled draggables
+              (kind === 'book'); shelved-book drags use useSortable's
+              built-in transform animation on the source itself and a
+              parallel DragOverlay would render a second cursor-following
+              copy at compact size, mismatched against the 240×360 row
+              cover. activeDragBook is only set in handlePlaceDragStart
+              when data.kind === 'book', so this branch is already gated. */}
           <DragOverlay dropAnimation={null}>
             {activeDragBook ? (
               <div className="pointer-events-none">
