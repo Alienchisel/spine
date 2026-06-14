@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
@@ -54,7 +54,7 @@ function DotsIcon({ className }) {
 export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-5', buttonClassName = '', onOpenProgress, returnState }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState(null);
-  const [subPrompt, setSubPrompt] = useState(null);  // null | 'add-to-lists'
+  const [subPrompt, setSubPrompt] = useState(null);  // null | 'add-to-lists' | 'shelf-location'
   // Optimistic local rating: lets the star widget react instantly to
   // a click even though the PUT round-trip + Library refetch takes
   // ~100-300ms before book.rating reflects the new value. Reset to
@@ -91,6 +91,70 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
     // so the user notices the failure after closing.
     onError:   () => setActionError('Failed to update list. Try again.'),
   });
+
+  // Shelf-location sub-prompt: loads getShelfTree on first open (cached
+  // across re-opens), flattens to a searchable list of {id, crumb}
+  // shelf rows, and patches the book on selection. Only the leaf shelf
+  // level is offered here — coarser placement (building/room/unit)
+  // belongs on ShelfView's AddBookHere, where the scope is set by the
+  // browse path. Caches the tree on the component so a second open
+  // doesn't re-fetch on every menu reopen.
+  const [shelfTree, setShelfTree]       = useState(null);
+  const [shelfLoading, setShelfLoading] = useState(false);
+  const [shelfError, setShelfError]     = useState(null);
+  const [shelfQuery, setShelfQuery]     = useState('');
+  const [placingShelfId, setPlacingShelfId] = useState(null);
+  const shelfSearchRef = useRef(null);
+  // Show the Shelf… entry only when shelving makes sense — physical
+  // owned books. Ebooks, audiobooks, and wishlist/reference unowned
+  // entries would PATCH to nothing.
+  const canShelve = book.format === 'physical' && !!book.owned;
+
+  const flatShelves = useMemo(() => {
+    if (!shelfTree) return [];
+    const out = [];
+    for (const b of shelfTree) {
+      for (const r of b.rooms || []) {
+        for (const u of r.units || []) {
+          for (const s of u.shelves || []) {
+            out.push({
+              id: s.id,
+              crumb: `${b.name} · ${r.name} · ${u.name} · ${s.label}`,
+              search: `${b.name} ${r.name} ${u.name} ${s.label}`.toLowerCase(),
+            });
+          }
+        }
+      }
+    }
+    return out;
+  }, [shelfTree]);
+
+  const filteredShelves = useMemo(() => {
+    const q = shelfQuery.trim().toLowerCase();
+    if (!q) return flatShelves;
+    return flatShelves.filter(s => s.search.includes(q));
+  }, [flatShelves, shelfQuery]);
+
+  // Resolve the book's current placement to a breadcrumb. Walks the
+  // tree once on demand. Returns null if unplaced.
+  const currentLocationCrumb = useMemo(() => {
+    if (!shelfTree) return null;
+    if (book.shelf_id) {
+      const f = flatShelves.find(s => s.id === book.shelf_id);
+      if (f) return f.crumb;
+    }
+    // Coarser placement — show as much of the path as the book has set.
+    for (const b of shelfTree) {
+      for (const r of b.rooms || []) {
+        for (const u of r.units || []) {
+          if (u.id === book.unit_id) return `${b.name} · ${r.name} · ${u.name}`;
+        }
+        if (r.id === book.room_id) return `${b.name} · ${r.name}`;
+      }
+      if (b.id === book.building_id) return b.name;
+    }
+    return null;
+  }, [shelfTree, flatShelves, book.shelf_id, book.unit_id, book.room_id, book.building_id]);
 
   useClickOutside([buttonRef, dropdownRef], () => setOpen(false), open);
   // Inside a sub-prompt, Escape returns to the root menu; from the root
@@ -156,6 +220,64 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
     e.preventDefault();
     e.stopPropagation();
     toggle(listId);
+  }
+
+  async function openShelfSubPrompt(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    setSubPrompt('shelf-location');
+    setShelfQuery('');
+    // Defer focus past the render that mounts the sub-prompt input.
+    setTimeout(() => shelfSearchRef.current?.focus(), 0);
+    // Tree cache — load once, reuse across re-opens of the sub-prompt.
+    if (shelfTree) return;
+    setShelfLoading(true);
+    setShelfError(null);
+    try {
+      const tree = await api.getShelfTree();
+      setShelfTree(tree);
+    } catch {
+      setShelfError('Failed to load shelves.');
+    } finally {
+      setShelfLoading(false);
+    }
+  }
+
+  // PATCH the book's shelf placement. Server-side normalizeBookLocation
+  // derives the parent unit/room/building from shelf_id, so only the
+  // leaf needs to ship. The card refetches via spine:book-mutated; the
+  // menu closes so the user can move on.
+  async function placeOnShelf(shelfId) {
+    if (placingShelfId != null) return;
+    setPlacingShelfId(shelfId);
+    try {
+      await api.patchBook(book.id, { shelf_id: shelfId });
+      setActionError(null);
+      dispatchSpineEvent('spine:book-mutated', { id: book.id });
+      setOpen(false);
+    } catch {
+      setActionError('Failed to set shelf. Try again.');
+    } finally {
+      setPlacingShelfId(null);
+    }
+  }
+
+  // Explicit unshelve. Clears all four placement ids so a previously
+  // coarser placement (book on a room or unit, no specific shelf)
+  // doesn't survive a "remove" intended to fully unshelve.
+  async function removeFromShelf() {
+    if (placingShelfId != null) return;
+    setPlacingShelfId('remove');
+    try {
+      await api.patchBook(book.id, { shelf_id: null, unit_id: null, room_id: null, building_id: null });
+      setActionError(null);
+      dispatchSpineEvent('spine:book-mutated', { id: book.id });
+      setOpen(false);
+    } catch {
+      setActionError('Failed to remove from shelf. Try again.');
+    } finally {
+      setPlacingShelfId(null);
+    }
   }
 
   // Apply a rating change via a full PUT. Same payload shape as
@@ -309,7 +431,11 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
     <div
       ref={dropdownRef}
       role="menu"
-      aria-label={subPrompt === 'add-to-lists' ? `Add ${book.title} to list` : `Actions for ${book.title}`}
+      aria-label={
+        subPrompt === 'add-to-lists'   ? `Add ${book.title} to list`
+        : subPrompt === 'shelf-location' ? `Choose a shelf for ${book.title}`
+        : `Actions for ${book.title}`
+      }
       style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, maxHeight: pos.maxHeight }}
       className="z-[9999] w-56 flex flex-col bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl"
     >
@@ -370,6 +496,69 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
             </>
           )}
         </>
+      ) : subPrompt === 'shelf-location' ? (
+        <>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSubPrompt(null); }}
+            className="w-full px-3 py-1.5 text-left text-[11px] text-neutral-500 hover:text-neutral-300 border-b border-neutral-800"
+          >
+            ← Back
+          </button>
+          {currentLocationCrumb && (
+            <div role="none" className="px-3 py-2 border-b border-neutral-800">
+              <p className="text-[10px] text-neutral-600 uppercase tracking-wider mb-1">Currently on</p>
+              <p className="text-xs text-neutral-300 truncate mb-1.5" title={currentLocationCrumb}>{currentLocationCrumb}</p>
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeFromShelf(); }}
+                disabled={placingShelfId != null}
+                role="menuitem"
+                className="text-[11px] text-neutral-500 hover:text-warn transition-colors disabled:opacity-60"
+              >
+                Remove from shelf
+              </button>
+            </div>
+          )}
+          <div role="none" className="px-2 py-1.5 border-b border-neutral-800" onMouseDown={(e) => e.stopPropagation()}>
+            <input
+              ref={shelfSearchRef}
+              type="text"
+              value={shelfQuery}
+              onChange={(e) => setShelfQuery(e.target.value)}
+              placeholder="Search shelves…"
+              aria-label="Search shelves"
+              className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-parchment placeholder-neutral-600 focus:outline-none focus:border-oak/50"
+            />
+          </div>
+          {shelfError && (
+            <div role="none">
+              <p role="alert" className="text-xs text-warn px-3 py-1.5 border-b border-neutral-800">{shelfError}</p>
+            </div>
+          )}
+          {shelfLoading ? (
+            <p role="status" className="text-xs text-neutral-600 px-3 py-2">Loading…</p>
+          ) : flatShelves.length === 0 ? (
+            <p className="text-xs text-neutral-600 px-3 py-2">No shelves configured yet.</p>
+          ) : filteredShelves.length === 0 ? (
+            <p className="text-xs text-neutral-600 px-3 py-2">No shelves match.</p>
+          ) : (
+            filteredShelves.map(s => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); placeOnShelf(s.id); }}
+                disabled={placingShelfId != null}
+                role="menuitem"
+                title={s.crumb}
+                className="w-full px-3 py-1.5 text-left text-xs text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 transition-colors disabled:opacity-60 truncate"
+              >
+                {s.crumb}
+              </button>
+            ))
+          )}
+        </>
       ) : (
         <>
           {/* Inline star rating — clicks fire optimistic PUTs; the menu
@@ -418,6 +607,12 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
             className="w-full px-3 py-2 text-left text-sm text-neutral-300 hover:bg-neutral-800 transition-colors">
             Add to lists…
           </button>
+          {canShelve && (
+            <button type="button" onClick={openShelfSubPrompt} role="menuitem"
+              className="w-full px-3 py-2 text-left text-sm text-neutral-300 hover:bg-neutral-800 transition-colors">
+              Shelf…
+            </button>
+          )}
           <button type="button" onClick={handleEdit} role="menuitem"
             className="w-full px-3 py-2 text-left text-sm text-neutral-300 hover:bg-neutral-800 transition-colors">
             Edit book…
