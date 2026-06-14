@@ -3,28 +3,23 @@ import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { plural } from '../utils.js';
 import { useConfirm } from '../components/ConfirmModal.jsx';
-import { useRefreshTick } from '../hooks/useRefreshTick.js';
-import { useStaleGuard } from '../hooks/useStaleGuard.js';
+import { useFreshFetch } from '../hooks/useFreshFetch.js';
 import { useActionGuard } from '../hooks/useActionGuard.js';
 import PageHeading from '../components/PageHeading.jsx';
 import { primaryButton } from '../components/buttonStyles.js';
 
 export default function Lists() {
-  const [lists, setLists] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { data: lists, setData: setLists, loading, error } = useFreshFetch(
+    () => api.getLists(),
+    [],
+    { initialData: [] },
+  );
   const [newName, setNewName] = useState('');
   const createGuard = useActionGuard();
   const [createError, setCreateError] = useState(null);
   const [deleteError, setDeleteError] = useState(null);
   const inputRef = useRef(null);
   const confirm = useConfirm();
-  // Bumped on every load so an in-flight handleCreate whose POST resolves
-  // *after* a refresh-tick reload (which already picked up the new list)
-  // can detect the change and skip the optimistic append — without this,
-  // the success-path setLists would graft `created` onto a fresh list that
-  // already contains it, producing a duplicate row until the next reload.
-  const guard = useStaleGuard();
   // Tracks list ids whose delete is in flight. The confirm modal cancels
   // overlapping confirms, but a re-click *after* confirming — while the
   // API call is pending and setLists hasn't yet filtered the row out —
@@ -32,20 +27,12 @@ export default function Lists() {
   // list." on a list that did delete. Mirrors the pattern in ReadsSection
   // and Diary.
   const deletingIdsRef = useRef(new Set());
-  const refreshTick = useRefreshTick();
-
+  // Drop any lingering create/delete banner whenever a refresh-tick reload
+  // lands so a stale "Failed to …" doesn't sit below the create form.
   useEffect(() => {
-    const epoch = guard.next();
-    // Drop any lingering create/delete banner at the start of a fresh
-    // load so a refresh-tick reload doesn't leave a stale "Failed to …"
-    // sitting in the strip below the create form.
     setCreateError(null);
     setDeleteError(null);
-    api.getLists()
-      .then(ls => { if (guard.isFresh(epoch)) { setLists(ls); setError(null); } })
-      .catch(() => { if (guard.isFresh(epoch)) setError('Failed to load lists.'); })
-      .finally(() => { if (guard.isFresh(epoch)) setLoading(false); });
-  }, [refreshTick]);
+  }, [lists]);
 
   async function handleCreate(e) {
     e.preventDefault();
@@ -60,22 +47,21 @@ export default function Lists() {
     // visible alongside a successful action. Clear both on entry from each
     // handler so the visible state always matches the most recent action.
     setDeleteError(null);
-    const epoch = guard.current();
     try {
       const created = await api.createList(name);
-      // If a refresh-tick reload landed mid-flight, it already includes
-      // `created` — appending again would duplicate the row. The reload
-      // is the authoritative source so just trust it and skip the append.
-      if (!guard.isFresh(epoch)) {
-        setNewName('');
-        inputRef.current?.focus();
-        return;
-      }
-      setLists(ls => [...ls, { ...created, book_count: 0, owned_count: 0, finished_count: 0 }].sort((a, b) => a.name.localeCompare(b.name)));
+      // Dedupe by id when grafting `created` onto the visible list — a
+      // refresh-tick reload that landed mid-flight already includes it,
+      // and appending again would duplicate the row. Comparing by id
+      // works regardless of timing (replaces the prior gen-counter race
+      // check, which only caught the narrow "tick fired before this
+      // setLists ran" window).
+      setLists(ls => ls.find(l => l.id === created.id)
+        ? ls
+        : [...ls, { ...created, book_count: 0, owned_count: 0, finished_count: 0 }]
+            .sort((a, b) => a.name.localeCompare(b.name)));
       setNewName('');
       inputRef.current?.focus();
     } catch (err) {
-      if (!guard.isFresh(epoch)) return;
       setCreateError(err?.message || 'Failed to create list.');
     } finally {
       createGuard.end();
@@ -131,7 +117,7 @@ export default function Lists() {
       {loading ? (
         <div role="status" className="text-neutral-700 text-sm">Loading…</div>
       ) : error ? (
-        <div role="alert" className="text-warn text-sm">{error}</div>
+        <div role="alert" className="text-warn text-sm">Failed to load lists.</div>
       ) : lists.length === 0 ? (
         <div className="text-center py-32">
           <p className="text-neutral-600">No lists yet. Create one above.</p>
