@@ -305,7 +305,11 @@ export default function Notes() {
           ))}
           <button
             type="button"
-            onClick={() => setActiveTags(new Set())}
+            onClick={() => setParams(prev => {
+              const next = new URLSearchParams(prev);
+              next.delete('tags');
+              return next;
+            }, { replace: true })}
             className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors ml-1 focus:outline-none focus-visible:text-neutral-300 focus-visible:underline underline-offset-2"
           >
             Clear
