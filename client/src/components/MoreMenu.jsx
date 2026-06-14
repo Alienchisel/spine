@@ -233,6 +233,12 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
     if (book.building_id) {
       const f = flatLocations.find(l => l.level === 'building' && l.patch.building_id === book.building_id);
       if (f) return f.crumb;
+      // Single-building libraries suppress the building row in
+      // flatLocations, so the find above misses. Fall back to a direct
+      // tree lookup so a book placed at building level still shows its
+      // current location in the picker header.
+      const b = shelfTree.find(x => x.id === book.building_id);
+      if (b) return b.name;
     }
     return null;
   }, [shelfTree, flatLocations, book.shelf_id, book.unit_id, book.room_id, book.building_id]);
