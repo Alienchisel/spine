@@ -533,9 +533,19 @@ export default function ShelfView() {
     revealedRef.current = focusId;
     el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     setShowFocusRing(true);
+  }, [focusId, booksLoading, books]);
+
+  // Auto-clear the focus ring after 2s. Lives in its own effect so a
+  // books refetch (or StrictMode's dev double-invoke) that re-fires the
+  // scroll effect doesn't tear down the timer — the scroll effect's
+  // revealedRef early-return would leave showFocusRing stuck on true
+  // forever otherwise. Depends on focusId too so a rapid second Reveal
+  // for a *different* book restarts the 2s window from that click.
+  useEffect(() => {
+    if (!showFocusRing) return;
     const t = setTimeout(() => setShowFocusRing(false), 2000);
     return () => clearTimeout(t);
-  }, [focusId, booksLoading, books]);
+  }, [showFocusRing, focusId]);
 
   useEffect(() => {
     // Once the tree is canonical, walk b → r → u → s and prune anything
