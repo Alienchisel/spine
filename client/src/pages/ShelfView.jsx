@@ -125,16 +125,18 @@ function LevelCard({ primary, secondary, onClick }) {
   );
 }
 
-// Drag wrappers for the "drop an unfiled book onto a building" gesture on
-// the root view. The whole BookCard is the activator — distance:5 on the
-// PointerSensor lets inner clicks (cover Link, hover-tray buttons) still
-// fire as long as the user doesn't drift past the threshold. opacity-40
-// on the source mirrors SortableShelfCover; the DragOverlay renders a
-// full-opacity ghost at the cursor for the actual follow-feel.
-function DraggableUnshelfedCard({ book, compact, linkState }) {
+// Drag wrappers for the "drop an unfiled-at-this-level book onto a child
+// container" gesture. The whole BookCard is the activator — distance:5
+// on the PointerSensor lets inner clicks (cover Link, hover-tray buttons)
+// still fire as long as the user doesn't drift past the threshold.
+// opacity-40 on the source mirrors SortableShelfCover; the DragOverlay
+// renders a full-opacity ghost at the cursor for the actual follow-feel.
+// The same pair powers all four level transitions: book → building,
+// → room, → unit, → shelf. Discriminated by data.kind on the droppable.
+function DraggableBookCard({ book, compact, linkState }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `book-${book.id}`,
-    data: { kind: 'book', bookId: book.id },
+    data: { kind: 'book', book },
   });
   return (
     <div
@@ -148,21 +150,38 @@ function DraggableUnshelfedCard({ book, compact, linkState }) {
   );
 }
 
-function DroppableBuildingCard({ building, onClick }) {
+function DroppableTile({ kind, payloadId, children }) {
   const { setNodeRef, isOver } = useDroppable({
-    id: `building-${building.id}`,
-    data: { kind: 'building', buildingId: building.id },
+    id: `${kind}-${payloadId}`,
+    data: { kind, payloadId },
   });
   return (
     <div
       ref={setNodeRef}
       className={`rounded-lg transition-shadow ${isOver ? 'ring-2 ring-oak shadow-lg shadow-oak/20' : ''}`}
     >
-      <LevelCard
-        primary={building.name}
-        secondary={[PROXIMITY_LABEL[building.proximity], plural(building.rooms.length, 'room'), building.book_count > 0 && plural(building.book_count, 'book')].filter(Boolean).join(' · ')}
-        onClick={onClick}
-      />
+      {children}
+    </div>
+  );
+}
+
+// Shelf rows have their own visual rhythm (header + horizontal book
+// strip, with `mb-8 last:mb-0` between rows). Wrapping ShelfRow in a
+// generic DroppableTile would lose that spacing, so this wrapper hoists
+// the bottom margin onto itself — the inner ShelfRow's mb-* is now
+// always 0 (single child of its wrapper) but the wrapper carries the
+// gap. Net layout is unchanged from pre-DnD.
+function DroppableShelfRowWrapper({ shelf, children }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `shelf-${shelf.id}`,
+    data: { kind: 'shelf', payloadId: shelf.id },
+  });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`mb-8 last:mb-0 rounded transition-shadow ${isOver ? 'ring-2 ring-oak shadow-lg shadow-oak/20' : ''}`}
+    >
+      {children}
     </div>
   );
 }
@@ -602,44 +621,58 @@ export default function ShelfView() {
       });
   }
 
-  // Drag-to-place: root-view gesture that moves a book from the "No
-  // location assigned" bucket onto a building tile via a PATCH of
-  // { building_id }. The drag is wired up only at the root view; deeper
-  // levels still use MoreMenu's Location… picker for placement and
-  // AddBookHere for search-and-place. activeUnshelfedBookId drives the
-  // DragOverlay ghost; null when no drag is in flight.
-  const [activeUnshelfedBookId, setActiveUnshelfedBookId] = useState(null);
-  const activeUnshelfedBook = activeUnshelfedBookId
-    ? unshelfed.find(b => b.id === activeUnshelfedBookId)
-    : null;
+  // Drag-to-place: every view branch wires up a DndContext that lets the
+  // user drag an "unfiled-at-this-level" book onto a child container tile,
+  // PATCHing the corresponding *_id field on the book. The four cases are
+  // discriminated by over.data.kind:
+  //   building (root view)        → { building_id }
+  //   room     (building view)    → { room_id }
+  //   unit     (room view)        → { unit_id }
+  //   shelf    (unit view)        → { shelf_id }
+  // Server's normalizeBookLocation derives parent ids and clears any
+  // non-chosen children, so the patch stays minimal. Cross-level moves
+  // (book already on shelf X → shelf Y) are intentionally NOT supported
+  // by this gesture; MoreMenu's Location… picker handles those.
+  const [activeDragBook, setActiveDragBook] = useState(null);
 
-  function handleUnshelfedDragStart(event) {
-    if (event.active.data?.current?.kind === 'book') {
-      setActiveUnshelfedBookId(event.active.data.current.bookId);
+  function handlePlaceDragStart(event) {
+    const data = event.active.data?.current;
+    if (data?.kind === 'book' && data.book) {
+      setActiveDragBook(data.book);
     }
   }
 
-  async function handleUnshelfedDragEnd(event) {
-    setActiveUnshelfedBookId(null);
+  function handlePlaceDragCancel() {
+    setActiveDragBook(null);
+  }
+
+  async function handlePlaceDragEnd(event) {
+    setActiveDragBook(null);
     const { active, over } = event;
     if (!over) return;
-    if (active.data?.current?.kind !== 'book') return;
-    if (over.data?.current?.kind !== 'building') return;
-    const bookId = active.data.current.bookId;
-    const targetBuildingId = over.data.current.buildingId;
+    const activeData = active.data?.current;
+    const overData = over.data?.current;
+    if (activeData?.kind !== 'book' || !activeData.book) return;
+    if (!overData?.kind || !['building', 'room', 'unit', 'shelf'].includes(overData.kind)) return;
+    const bookId = activeData.book.id;
+    const patch = { [`${overData.kind}_id`]: overData.payloadId };
     setError(null);
-    // Optimistically drop the book from the unfiled bucket so the gesture
-    // feels instant. The dispatched event triggers the existing
+    // Optimistically drop the book from whichever source list it came
+    // from. The root view's source is unshelfed; deeper views' source is
+    // the per-location books list. Both setters are called — the absent
+    // one is a no-op since filter on a missing id returns the array
+    // unchanged. The dispatched event triggers the existing
     // spine:book-mutated listener (refetchTree + refetchUnshelfed +
-    // refetchLocationBooks), which reconciles to canonical state shortly
-    // after — including the tree's book_count bump on the target building.
+    // refetchLocationBooks), which reconciles to canonical state.
     setUnshelfed(prev => prev.filter(b => b.id !== bookId));
+    setBooks(prev => prev.filter(b => b.id !== bookId));
     try {
-      await api.patchBook(bookId, { building_id: targetBuildingId });
+      await api.patchBook(bookId, patch);
       dispatchSpineEvent('spine:book-mutated', { id: bookId });
     } catch {
       setError('Failed to place book.');
       refetchUnshelfed();
+      refetchLocationBooks();
     }
   }
 
@@ -764,17 +797,19 @@ export default function ShelfView() {
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
-            onDragStart={handleUnshelfedDragStart}
-            onDragEnd={handleUnshelfedDragEnd}
-            onDragCancel={() => setActiveUnshelfedBookId(null)}
+            onDragStart={handlePlaceDragStart}
+            onDragEnd={handlePlaceDragEnd}
+            onDragCancel={handlePlaceDragCancel}
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {tree.map(b => (
-                <DroppableBuildingCard
-                  key={b.id}
-                  building={b}
-                  onClick={() => nav({ b: b.id })}
-                />
+                <DroppableTile key={b.id} kind="building" payloadId={b.id}>
+                  <LevelCard
+                    primary={b.name}
+                    secondary={[PROXIMITY_LABEL[b.proximity], plural(b.rooms.length, 'room'), b.book_count > 0 && plural(b.book_count, 'book')].filter(Boolean).join(' · ')}
+                    onClick={() => nav({ b: b.id })}
+                  />
+                </DroppableTile>
               ))}
             </div>
 
@@ -797,7 +832,7 @@ export default function ShelfView() {
                   {(() => {
                     const ls = cohortLinkState(unshelfed);
                     return unshelfed.map(book => (
-                      <DraggableUnshelfedCard key={book.id} book={book} compact={compact} linkState={ls} />
+                      <DraggableBookCard key={book.id} book={book} compact={compact} linkState={ls} />
                     ));
                   })()}
                 </div>
@@ -808,9 +843,9 @@ export default function ShelfView() {
                 document.body by dnd-kit; styled to match the source
                 card's opacity-100 (vs. the source's opacity-40). */}
             <DragOverlay dropAnimation={null}>
-              {activeUnshelfedBook ? (
+              {activeDragBook ? (
                 <div className="pointer-events-none">
-                  <BookCard book={activeUnshelfedBook} compact={compact} />
+                  <BookCard book={activeDragBook} compact={compact} />
                 </div>
               ) : null}
             </DragOverlay>
@@ -819,127 +854,195 @@ export default function ShelfView() {
       )}
 
       {/* Rooms + building-level books */}
-      {buildingId && !roomId && (<>
-        {rooms.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {rooms.map(r => (
-              <LevelCard
-                key={r.id}
-                primary={r.name}
-                secondary={[plural(r.units.length, 'unit'), r.book_count > 0 && plural(r.book_count, 'book')].filter(Boolean).join(' · ')}
-                onClick={() => nav({ b: buildingId, r: r.id })}
-              />
-            ))}
-          </div>
-        )}
-        {booksLoading ? (
-          <div role="status" className="text-neutral-700 text-sm mt-6">Loading…</div>
-        ) : books.length > 0 && (() => {
-          // Group the flat building-books list under per-room headers.
-          // The SQL ORDER BY guarantees same-room books are adjacent, so a
-          // single walk emits each group in order. Books pinned at the
-          // building level (effective_room_id null) sort last and get a
-          // "Unfiled · building level" header that can't collide with a
-          // user-named room (no one would pick that as a room name).
-          const groups = [];
-          for (const book of books) {
-            const last = groups[groups.length - 1];
-            const rid = book.effective_room_id ?? null;
-            if (last && last.id === rid) {
-              last.books.push(book);
-            } else {
-              groups.push({
-                id: rid,
-                name: rid == null ? 'Unfiled · building level' : book.effective_room_name,
-                books: [book],
-              });
-            }
-          }
-          return (
-            <div className={rooms.length > 0 ? 'mt-8 space-y-6' : 'space-y-6'}>
-              {groups.map(g => (
-                <div key={g.id ?? 'unassigned'}>
-                  <p className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-2">
-                    {g.name} <span className="text-neutral-700">· {plural(g.books.length, 'book')}</span>
-                  </p>
-                  <div className={gridClassName} style={gridStyle}>
-                    {(() => {
-                      const ls = cohortLinkState(g.books);
-                      return g.books.map(book => <BookCard key={book.id} book={book} compact={compact} linkState={ls} />);
-                    })()}
-                  </div>
-                </div>
+      {buildingId && !roomId && (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handlePlaceDragStart}
+          onDragEnd={handlePlaceDragEnd}
+          onDragCancel={handlePlaceDragCancel}
+        >
+          {rooms.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {rooms.map(r => (
+                <DroppableTile key={r.id} kind="room" payloadId={r.id}>
+                  <LevelCard
+                    primary={r.name}
+                    secondary={[plural(r.units.length, 'unit'), r.book_count > 0 && plural(r.book_count, 'book')].filter(Boolean).join(' · ')}
+                    onClick={() => nav({ b: buildingId, r: r.id })}
+                  />
+                </DroppableTile>
               ))}
             </div>
-          );
-        })()}
-        {!booksLoading && rooms.length === 0 && books.length === 0 && (
-          <p className="text-neutral-600 text-sm">No books in this building yet.</p>
-        )}
-      </>)}
+          )}
+          {booksLoading ? (
+            <div role="status" className="text-neutral-700 text-sm mt-6">Loading…</div>
+          ) : books.length > 0 && (() => {
+            // Group the flat building-books list under per-room headers.
+            // The SQL ORDER BY guarantees same-room books are adjacent, so a
+            // single walk emits each group in order. Books pinned at the
+            // building level (effective_room_id null) sort last and get a
+            // "Unfiled · building level" header that can't collide with a
+            // user-named room (no one would pick that as a room name).
+            const groups = [];
+            for (const book of books) {
+              const last = groups[groups.length - 1];
+              const rid = book.effective_room_id ?? null;
+              if (last && last.id === rid) {
+                last.books.push(book);
+              } else {
+                groups.push({
+                  id: rid,
+                  name: rid == null ? 'Unfiled · building level' : book.effective_room_name,
+                  books: [book],
+                });
+              }
+            }
+            return (
+              <div className={rooms.length > 0 ? 'mt-8 space-y-6' : 'space-y-6'}>
+                {groups.map(g => {
+                  // Only the unfiled-at-this-level group is draggable —
+                  // already-placed books in the per-room groups stay
+                  // plain. Same model at every level: drag pushes books
+                  // one step deeper into the hierarchy; cross-tree moves
+                  // go through MoreMenu's Location… picker.
+                  const isUnfiled = g.id == null;
+                  return (
+                    <div key={g.id ?? 'unassigned'}>
+                      <div className="mb-2 flex items-baseline justify-between gap-3">
+                        <p className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wider">
+                          {g.name} <span className="text-neutral-700">· {plural(g.books.length, 'book')}</span>
+                        </p>
+                        {isUnfiled && rooms.length > 0 && (
+                          <p className="text-[11px] text-neutral-600">Drag onto a room to place</p>
+                        )}
+                      </div>
+                      <div className={gridClassName} style={gridStyle}>
+                        {(() => {
+                          const ls = cohortLinkState(g.books);
+                          return g.books.map(book =>
+                            isUnfiled
+                              ? <DraggableBookCard key={book.id} book={book} compact={compact} linkState={ls} />
+                              : <BookCard key={book.id} book={book} compact={compact} linkState={ls} />
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+          {!booksLoading && rooms.length === 0 && books.length === 0 && (
+            <p className="text-neutral-600 text-sm">No books in this building yet.</p>
+          )}
+          <DragOverlay dropAnimation={null}>
+            {activeDragBook ? (
+              <div className="pointer-events-none">
+                <BookCard book={activeDragBook} compact={compact} />
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      )}
 
       {/* Units + room-level books */}
-      {roomId && !unitId && (<>
-        {units.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {units.map(u => (
-              <LevelCard
-                key={u.id}
-                primary={u.name}
-                secondary={[plural(u.shelves.length, 'shelf', 'shelves'), u.book_count > 0 && plural(u.book_count, 'book')].filter(Boolean).join(' · ')}
-                onClick={() => nav({ b: buildingId, r: roomId, u: u.id })}
-              />
-            ))}
-          </div>
-        )}
-        {booksLoading ? (
-          <div role="status" className="text-neutral-700 text-sm mt-6">Loading…</div>
-        ) : books.length > 0 && (() => {
-          // Same per-unit grouping as the building view's per-room
-          // headers — SQL ORDER BY keeps same-unit books adjacent, so a
-          // single walk emits each group. Room-only books (no unit/shelf
-          // pinned) sort last and get a "Unfiled · room level" header
-          // that can't collide with a user-named unit.
-          const groups = [];
-          for (const book of books) {
-            const last = groups[groups.length - 1];
-            const uid = book.effective_unit_id ?? null;
-            if (last && last.id === uid) {
-              last.books.push(book);
-            } else {
-              groups.push({
-                id: uid,
-                name: uid == null ? 'Unfiled · room level' : book.effective_unit_name,
-                books: [book],
-              });
-            }
-          }
-          return (
-            <div className={units.length > 0 ? 'mt-8 space-y-6' : 'space-y-6'}>
-              {groups.map(g => (
-                <div key={g.id ?? 'unassigned'}>
-                  <p className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-2">
-                    {g.name} <span className="text-neutral-700">· {plural(g.books.length, 'book')}</span>
-                  </p>
-                  <div className={gridClassName} style={gridStyle}>
-                    {(() => {
-                      const ls = cohortLinkState(g.books);
-                      return g.books.map(book => <BookCard key={book.id} book={book} compact={compact} linkState={ls} />);
-                    })()}
-                  </div>
-                </div>
+      {roomId && !unitId && (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handlePlaceDragStart}
+          onDragEnd={handlePlaceDragEnd}
+          onDragCancel={handlePlaceDragCancel}
+        >
+          {units.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {units.map(u => (
+                <DroppableTile key={u.id} kind="unit" payloadId={u.id}>
+                  <LevelCard
+                    primary={u.name}
+                    secondary={[plural(u.shelves.length, 'shelf', 'shelves'), u.book_count > 0 && plural(u.book_count, 'book')].filter(Boolean).join(' · ')}
+                    onClick={() => nav({ b: buildingId, r: roomId, u: u.id })}
+                  />
+                </DroppableTile>
               ))}
             </div>
-          );
-        })()}
-        {!booksLoading && units.length === 0 && books.length === 0 && (
-          <p className="text-neutral-600 text-sm">No books in this room yet.</p>
-        )}
-      </>)}
+          )}
+          {booksLoading ? (
+            <div role="status" className="text-neutral-700 text-sm mt-6">Loading…</div>
+          ) : books.length > 0 && (() => {
+            // Same per-unit grouping as the building view's per-room
+            // headers — SQL ORDER BY keeps same-unit books adjacent, so a
+            // single walk emits each group. Room-only books (no unit/shelf
+            // pinned) sort last and get a "Unfiled · room level" header
+            // that can't collide with a user-named unit.
+            const groups = [];
+            for (const book of books) {
+              const last = groups[groups.length - 1];
+              const uid = book.effective_unit_id ?? null;
+              if (last && last.id === uid) {
+                last.books.push(book);
+              } else {
+                groups.push({
+                  id: uid,
+                  name: uid == null ? 'Unfiled · room level' : book.effective_unit_name,
+                  books: [book],
+                });
+              }
+            }
+            return (
+              <div className={units.length > 0 ? 'mt-8 space-y-6' : 'space-y-6'}>
+                {groups.map(g => {
+                  const isUnfiled = g.id == null;
+                  return (
+                    <div key={g.id ?? 'unassigned'}>
+                      <div className="mb-2 flex items-baseline justify-between gap-3">
+                        <p className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wider">
+                          {g.name} <span className="text-neutral-700">· {plural(g.books.length, 'book')}</span>
+                        </p>
+                        {isUnfiled && units.length > 0 && (
+                          <p className="text-[11px] text-neutral-600">Drag onto a unit to place</p>
+                        )}
+                      </div>
+                      <div className={gridClassName} style={gridStyle}>
+                        {(() => {
+                          const ls = cohortLinkState(g.books);
+                          return g.books.map(book =>
+                            isUnfiled
+                              ? <DraggableBookCard key={book.id} book={book} compact={compact} linkState={ls} />
+                              : <BookCard key={book.id} book={book} compact={compact} linkState={ls} />
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+          {!booksLoading && units.length === 0 && books.length === 0 && (
+            <p className="text-neutral-600 text-sm">No books in this room yet.</p>
+          )}
+          <DragOverlay dropAnimation={null}>
+            {activeDragBook ? (
+              <div className="pointer-events-none">
+                <BookCard book={activeDragBook} compact={compact} />
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      )}
 
       {/* Shelves rendered as stacked horizontal rows + unit-level (shelfless) books */}
-      {unitId && !shelfId && (<>
-        {booksLoading ? (
+      {unitId && !shelfId && (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handlePlaceDragStart}
+          onDragEnd={handlePlaceDragEnd}
+          onDragCancel={handlePlaceDragCancel}
+        >
+          {booksLoading ? (
           <div role="status" className="text-neutral-700 text-sm">Loading…</div>
         ) : (<>
           {(() => {
@@ -953,12 +1056,19 @@ export default function ShelfView() {
             return (
               <div className={shelves.length > 0 ? 'mb-6 pb-6 border-b border-neutral-800/50' : ''}>
                 {shelves.length > 0 && (
-                  <h2 className={`${sectionEyebrow} mb-4`}>Not on a shelf</h2>
+                  <div className="mb-4 flex items-baseline justify-between gap-3">
+                    <h2 className={sectionEyebrow}>Not on a shelf</h2>
+                    <p className="text-[11px] text-neutral-600">Drag onto a shelf to place</p>
+                  </div>
                 )}
                 <div className={gridClassName} style={gridStyle}>
                   {(() => {
                     const ls = cohortLinkState(unitOnly);
-                    return unitOnly.map(book => <BookCard key={book.id} book={book} compact={compact} linkState={ls} />);
+                    return unitOnly.map(book =>
+                      shelves.length > 0
+                        ? <DraggableBookCard key={book.id} book={book} compact={compact} linkState={ls} />
+                        : <BookCard key={book.id} book={book} compact={compact} linkState={ls} />
+                    );
                   })()}
                 </div>
               </div>
@@ -969,8 +1079,8 @@ export default function ShelfView() {
               {shelves.map(s => {
                 const shelfBooks = books.filter(b => b.shelf_id === s.id);
                 return (
+                <DroppableShelfRowWrapper key={s.id} shelf={s}>
                 <ShelfRow
-                  key={s.id}
                   shelf={s}
                   books={shelfBooks}
                   linkState={cohortLinkState(shelfBooks)}
@@ -1000,6 +1110,7 @@ export default function ShelfView() {
                       });
                   }}
                 />
+                </DroppableShelfRowWrapper>
                 );
               })}
             </div>
@@ -1008,7 +1119,15 @@ export default function ShelfView() {
             <p className="text-neutral-600 text-sm">No books in this unit yet.</p>
           )}
         </>)}
-      </>)}
+          <DragOverlay dropAnimation={null}>
+            {activeDragBook ? (
+              <div className="pointer-events-none">
+                <BookCard book={activeDragBook} compact={compact} />
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      )}
 
       {/* Shelf-level books */}
       {shelfId && (
