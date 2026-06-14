@@ -92,33 +92,64 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
     onError:   () => setActionError('Failed to update list. Try again.'),
   });
 
-  // Shelf-location sub-prompt: loads getShelfTree on first open (cached
-  // across re-opens), flattens to a searchable list of {id, crumb}
-  // shelf rows, and patches the book on selection. Only the leaf shelf
-  // level is offered here — coarser placement (building/room/unit)
-  // belongs on ShelfView's AddBookHere, where the scope is set by the
-  // browse path. Caches the tree on the component so a second open
-  // doesn't re-fetch on every menu reopen.
+  // Location sub-prompt: loads getShelfTree on first open (cached across
+  // re-opens), flattens to a searchable list of every placement target
+  // — buildings, rooms, units, AND shelves — and patches the book on
+  // selection. Coarser-than-shelf placement is offered because the
+  // schema supports it natively ("I know it's in Living Room but
+  // haven't picked a shelf") and AddBookHere on ShelfView already
+  // patches at whichever level the user is browsing. Caches the tree
+  // on the component so a second open doesn't re-fetch.
   const [shelfTree, setShelfTree]       = useState(null);
   const [shelfLoading, setShelfLoading] = useState(false);
   const [shelfError, setShelfError]     = useState(null);
   const [shelfQuery, setShelfQuery]     = useState('');
-  const [placingShelfId, setPlacingShelfId] = useState(null);
+  const [placingKey, setPlacingKey]     = useState(null);
   const shelfSearchRef = useRef(null);
-  // Show the Shelf… entry only when shelving makes sense — physical
+  // Show the Location… entry only when placement makes sense — physical
   // owned books. Ebooks, audiobooks, and wishlist/reference unowned
   // entries would PATCH to nothing.
   const canShelve = book.format === 'physical' && !!book.owned;
 
-  const flatShelves = useMemo(() => {
+  // Depth-first flatten of the tree into placement rows. Each level
+  // appears before its children, so a building's row sits above its
+  // rooms, a room above its units, etc. — the natural ordering matches
+  // how a user mentally narrows down "where to put this." Each row
+  // carries the exact patch shape AddBookHere uses: a single id at the
+  // chosen level. Server-side normalizeBookLocation derives the parents
+  // and clears any non-chosen children, so the patch stays minimal.
+  const flatLocations = useMemo(() => {
     if (!shelfTree) return [];
     const out = [];
     for (const b of shelfTree) {
+      out.push({
+        key:   `b-${b.id}`,
+        level: 'building',
+        patch: { building_id: b.id },
+        crumb: b.name,
+        search: b.name.toLowerCase(),
+      });
       for (const r of b.rooms || []) {
+        out.push({
+          key:   `r-${r.id}`,
+          level: 'room',
+          patch: { room_id: r.id },
+          crumb: `${b.name} · ${r.name}`,
+          search: `${b.name} ${r.name}`.toLowerCase(),
+        });
         for (const u of r.units || []) {
+          out.push({
+            key:   `u-${u.id}`,
+            level: 'unit',
+            patch: { unit_id: u.id },
+            crumb: `${b.name} · ${r.name} · ${u.name}`,
+            search: `${b.name} ${r.name} ${u.name}`.toLowerCase(),
+          });
           for (const s of u.shelves || []) {
             out.push({
-              id: s.id,
+              key:   `s-${s.id}`,
+              level: 'shelf',
+              patch: { shelf_id: s.id },
               crumb: `${b.name} · ${r.name} · ${u.name} · ${s.label}`,
               search: `${b.name} ${r.name} ${u.name} ${s.label}`.toLowerCase(),
             });
@@ -129,32 +160,34 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
     return out;
   }, [shelfTree]);
 
-  const filteredShelves = useMemo(() => {
+  const filteredLocations = useMemo(() => {
     const q = shelfQuery.trim().toLowerCase();
-    if (!q) return flatShelves;
-    return flatShelves.filter(s => s.search.includes(q));
-  }, [flatShelves, shelfQuery]);
+    if (!q) return flatLocations;
+    return flatLocations.filter(l => l.search.includes(q));
+  }, [flatLocations, shelfQuery]);
 
-  // Resolve the book's current placement to a breadcrumb. Walks the
-  // tree once on demand. Returns null if unplaced.
+  // Resolve the book's current placement to a breadcrumb. Picks the
+  // most-specific populated id and looks up the corresponding flat row.
   const currentLocationCrumb = useMemo(() => {
     if (!shelfTree) return null;
     if (book.shelf_id) {
-      const f = flatShelves.find(s => s.id === book.shelf_id);
+      const f = flatLocations.find(l => l.level === 'shelf' && l.patch.shelf_id === book.shelf_id);
       if (f) return f.crumb;
     }
-    // Coarser placement — show as much of the path as the book has set.
-    for (const b of shelfTree) {
-      for (const r of b.rooms || []) {
-        for (const u of r.units || []) {
-          if (u.id === book.unit_id) return `${b.name} · ${r.name} · ${u.name}`;
-        }
-        if (r.id === book.room_id) return `${b.name} · ${r.name}`;
-      }
-      if (b.id === book.building_id) return b.name;
+    if (book.unit_id) {
+      const f = flatLocations.find(l => l.level === 'unit' && l.patch.unit_id === book.unit_id);
+      if (f) return f.crumb;
+    }
+    if (book.room_id) {
+      const f = flatLocations.find(l => l.level === 'room' && l.patch.room_id === book.room_id);
+      if (f) return f.crumb;
+    }
+    if (book.building_id) {
+      const f = flatLocations.find(l => l.level === 'building' && l.patch.building_id === book.building_id);
+      if (f) return f.crumb;
     }
     return null;
-  }, [shelfTree, flatShelves, book.shelf_id, book.unit_id, book.room_id, book.building_id]);
+  }, [shelfTree, flatLocations, book.shelf_id, book.unit_id, book.room_id, book.building_id]);
 
   useClickOutside([buttonRef, dropdownRef], () => setOpen(false), open);
   // Inside a sub-prompt, Escape returns to the root menu; from the root
@@ -243,22 +276,23 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
     }
   }
 
-  // PATCH the book's shelf placement. Server-side normalizeBookLocation
-  // derives the parent unit/room/building from shelf_id, so only the
-  // leaf needs to ship. The card refetches via spine:book-mutated; the
-  // menu closes so the user can move on.
-  async function placeOnShelf(shelfId) {
-    if (placingShelfId != null) return;
-    setPlacingShelfId(shelfId);
+  // PATCH the book to a placement at any level. The location row carries
+  // a single-id patch ({ building_id } or { room_id } or { unit_id } or
+  // { shelf_id }); the server's normalizeBookLocation derives the parent
+  // ids and clears any non-chosen children, so the patch stays minimal.
+  // Card refetches via spine:book-mutated; menu closes after.
+  async function placeAt(location) {
+    if (placingKey != null) return;
+    setPlacingKey(location.key);
     try {
-      await api.patchBook(book.id, { shelf_id: shelfId });
+      await api.patchBook(book.id, location.patch);
       setActionError(null);
       dispatchSpineEvent('spine:book-mutated', { id: book.id });
       setOpen(false);
     } catch {
-      setActionError('Failed to set shelf. Try again.');
+      setActionError('Failed to set location. Try again.');
     } finally {
-      setPlacingShelfId(null);
+      setPlacingKey(null);
     }
   }
 
@@ -266,8 +300,8 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
   // coarser placement (book on a room or unit, no specific shelf)
   // doesn't survive a "remove" intended to fully unshelve.
   async function removeFromShelf() {
-    if (placingShelfId != null) return;
-    setPlacingShelfId('remove');
+    if (placingKey != null) return;
+    setPlacingKey('remove');
     try {
       await api.patchBook(book.id, { shelf_id: null, unit_id: null, room_id: null, building_id: null });
       setActionError(null);
@@ -276,7 +310,7 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
     } catch {
       setActionError('Failed to remove from shelf. Try again.');
     } finally {
-      setPlacingShelfId(null);
+      setPlacingKey(null);
     }
   }
 
@@ -433,7 +467,7 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
       role="menu"
       aria-label={
         subPrompt === 'add-to-lists'   ? `Add ${book.title} to list`
-        : subPrompt === 'shelf-location' ? `Choose a shelf for ${book.title}`
+        : subPrompt === 'shelf-location' ? `Choose a location for ${book.title}`
         : `Actions for ${book.title}`
       }
       style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, maxHeight: pos.maxHeight }}
@@ -513,7 +547,7 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
               <button
                 type="button"
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeFromShelf(); }}
-                disabled={placingShelfId != null}
+                disabled={placingKey != null}
                 role="menuitem"
                 className="text-[11px] text-neutral-500 hover:text-warn transition-colors disabled:opacity-60"
               >
@@ -527,8 +561,8 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
               type="text"
               value={shelfQuery}
               onChange={(e) => setShelfQuery(e.target.value)}
-              placeholder="Search shelves…"
-              aria-label="Search shelves"
+              placeholder="Search shelves, rooms, units…"
+              aria-label="Search locations"
               className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-parchment placeholder-neutral-600 focus:outline-none focus:border-oak/50"
             />
           </div>
@@ -539,22 +573,33 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
           )}
           {shelfLoading ? (
             <p role="status" className="text-xs text-neutral-600 px-3 py-2">Loading…</p>
-          ) : flatShelves.length === 0 ? (
+          ) : flatLocations.length === 0 ? (
             <p className="text-xs text-neutral-600 px-3 py-2">No shelves configured yet.</p>
-          ) : filteredShelves.length === 0 ? (
-            <p className="text-xs text-neutral-600 px-3 py-2">No shelves match.</p>
+          ) : filteredLocations.length === 0 ? (
+            <p className="text-xs text-neutral-600 px-3 py-2">No locations match.</p>
           ) : (
-            filteredShelves.map(s => (
+            filteredLocations.map(loc => (
               <button
-                key={s.id}
+                key={loc.key}
                 type="button"
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); placeOnShelf(s.id); }}
-                disabled={placingShelfId != null}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); placeAt(loc); }}
+                disabled={placingKey != null}
                 role="menuitem"
-                title={s.crumb}
-                className="w-full px-3 py-1.5 text-left text-xs text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 transition-colors disabled:opacity-60 truncate"
+                title={loc.crumb}
+                className={`w-full px-3 py-1.5 text-left text-xs hover:bg-neutral-800 hover:text-neutral-200 transition-colors disabled:opacity-60 flex items-center gap-2 ${
+                  loc.level === 'shelf' ? 'text-neutral-300' : 'text-neutral-500'
+                }`}
               >
-                {s.crumb}
+                {/* Tiny level badge for coarser-than-shelf rows so the
+                    user can scan the list and tell at a glance which
+                    rows place at a room vs unit vs shelf. Shelves get
+                    no badge — they're the default leaf. */}
+                {loc.level !== 'shelf' && (
+                  <span className="text-[8px] uppercase tracking-wider text-neutral-600 bg-neutral-800/60 px-1 py-0.5 rounded flex-shrink-0">
+                    {loc.level === 'building' ? 'Bldg' : loc.level === 'room' ? 'Room' : 'Unit'}
+                  </span>
+                )}
+                <span className="truncate">{loc.crumb}</span>
               </button>
             ))
           )}
@@ -610,7 +655,7 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
           {canShelve && (
             <button type="button" onClick={openShelfSubPrompt} role="menuitem"
               className="w-full px-3 py-2 text-left text-sm text-neutral-300 hover:bg-neutral-800 transition-colors">
-              Shelf…
+              Location…
             </button>
           )}
           <button type="button" onClick={handleEdit} role="menuitem"
