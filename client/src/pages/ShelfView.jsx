@@ -23,9 +23,9 @@ import CoverSizeSlider from '../components/CoverSizeSlider.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 import { useCoverSize } from '../hooks/useCoverSize.js';
 import { useFreshFetch } from '../hooks/useFreshFetch.js';
-import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import { useActionGuard } from '../hooks/useActionGuard.js';
+import { useLatest } from '../hooks/useLatest.js';
 import { sectionEyebrow } from '../components/textStyles.js';
 
 function SortableShelfCover({ book, linkState, focused }) {
@@ -315,25 +315,12 @@ export default function ShelfView() {
     [],
     { initialData: [] },
   );
-  const [books, setBooks] = useState([]);
-  const [booksLoading, setBooksLoading] = useState(false);
   // Action errors (failed reorder, failed placement) share the
-  // ErrorBanner with the tree load error. setError wraps both so the
-  // ~10 callsites in the location-books effect and the action handlers
-  // stay identical — see ShelfManager for the same shape.
+  // ErrorBanner with the tree/location-books load errors. setError wraps
+  // all three so the ~10 callsites in action handlers stay identical
+  // (same shape as ShelfManager). Filled in after the location-books
+  // hook destructure below.
   const [actionError, setActionError] = useState(null);
-  const error = actionError ?? (treeLoadError ? 'Failed to load shelves.' : null);
-  function setError(msg) {
-    setActionError(msg);
-    setTreeLoadError(null);
-  }
-  // Stale-response guard for the location-books fetch (still on the
-  // manual pattern). Bumped on every location change AND on returns to
-  // the root view so an in-flight request from a prior location can't
-  // setBooks after navigation. The action handlers below also capture
-  // this guard's epoch to drop their own recovery refetches after a
-  // navigation.
-  const booksGuard = useStaleGuard();
   const { size: coverSize, setSize: setCoverSize, compact, gridStyle, gridClassName, MIN: coverMin, MAX: coverMax } = useCoverSize();
   // Reveal-from-BookDetail target. When a book detail's "Reveal" link
   // navigates here it appends &focus=<bookId>; we scroll that book into
@@ -349,27 +336,6 @@ export default function ShelfView() {
   // manually scrolled away. Reset when `focusId` itself changes (new
   // Reveal click) so a different target lands correctly.
   const revealedRef = useRef(null);
-  // Scroll-to-focus: once books are rendered and the focus target is
-  // among them, scroll the row to center it. Fires once per focusId.
-  useEffect(() => {
-    if (!focusId) return;
-    if (booksLoading) return;
-    if (revealedRef.current === focusId) return;
-    const el = document.querySelector(`[data-book-id="${focusId}"]`);
-    if (!el) return;
-    revealedRef.current = focusId;
-    el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-    setShowFocusRing(true);
-    const t = setTimeout(() => setShowFocusRing(false), 2000);
-    return () => clearTimeout(t);
-  }, [focusId, booksLoading, books]);
-  // Snapshot of the previous location so the books-fetch effect can
-  // tell a navigation (clear stale books) apart from a refresh-tick
-  // refetch at the same location (keep books visible so the user's
-  // horizontal scroll position survives the alt-tab roundtrip — without
-  // this the scroll container briefly empties, the browser clamps
-  // scrollLeft to 0, and the user finds themselves back at the start).
-  const lastLocationRef = useRef('');
   // Bumped on every drag so an earlier failed reorder whose recovery
   // refetch lands *after* a later drag has already applied optimistically
   // can detect that it's stale — without this, A's getShelfBooks/
@@ -377,7 +343,6 @@ export default function ShelfView() {
   // the pre-A server state. Mirrors the seq guard in Readlist /
   // ListDetail.
   const reorderSeqRef = useRef(0);
-  const refreshTick = useRefreshTick();
 
   const buildingId = parseIdParam(params, 'b');
   const roomId     = parseIdParam(params, 'r');
@@ -411,6 +376,75 @@ export default function ShelfView() {
     () => pathResolves(tree, buildingId, roomId, unitId, shelfId),
     [tree, buildingId, roomId, unitId, shelfId],
   );
+
+  // Composite key for the location-books fetch. The readiness bit ('1'/
+  // '0' prefix) flips on the treeLoaded+pathOk transition so the hook
+  // treats it as a real navigation — wipe + skeleton + fetch — instead
+  // of a silent refetch. Without that bit, treeLoaded flipping from
+  // false to true wouldn't change the key, the hook wouldn't show the
+  // skeleton, and the user would see an empty grid for one paint frame
+  // before the actual fetch resolved.
+  const locationKey = `${treeLoaded && pathOk ? '1' : '0'}|${buildingId || ''}|${roomId || ''}|${unitId || ''}|${shelfId || ''}`;
+  // Action handlers compare the captured locationKey against this ref
+  // at response time to drop recovery refetches that came back after
+  // the user navigated to another shelf/room/etc. Replaces the prior
+  // booksGuard.current() / .isFresh() pattern — locationKey strictly
+  // dominates booksGuard semantically (the guard only ever bumped on
+  // deps changes, which is exactly what locationKey changes encode).
+  const locationKeyRef = useLatest(locationKey);
+
+  const {
+    data: books,
+    setData: setBooks,
+    loading: booksLoading,
+    error: locationBooksError,
+    setError: setLocationBooksError,
+    refetch: refetchLocationBooks,
+  } = useFreshFetch(
+    () => {
+      // Returning Promise.resolve([]) for the non-fetch branches keeps
+      // the hook's lifecycle uniform — books wipe to [], loading goes
+      // false fast, no real API call fires. Mirrors the original effect's
+      // early-return-with-setBooks([]) branches.
+      if (!buildingId && !roomId && !unitId && !shelfId) return Promise.resolve([]);
+      if (!treeLoaded || !pathOk) return Promise.resolve([]);
+      return shelfId  ? api.getShelfBooks(shelfId)
+        : unitId      ? api.getUnitBooks(unitId)
+        : roomId      ? api.getRoomBooks(roomId)
+        :               api.getBuildingBooks(buildingId);
+    },
+    [buildingId, roomId, unitId, shelfId, treeLoaded, pathOk],
+    { key: locationKey, wipeOnKeyChange: true, initialData: [] },
+  );
+
+  // Three error sources share the ErrorBanner slot. Priority: action
+  // (most recent user-driven failure) → tree (page-level) → location
+  // (specific to the current grid). The setError wrapper clears all
+  // three so the ~10 setError(null) callsites in handlers dismiss any
+  // prior banner regardless of source.
+  const error = actionError
+    ?? (treeLoadError ? 'Failed to load shelves.' : null)
+    ?? (locationBooksError ? 'Failed to load books at this location.' : null);
+  function setError(msg) {
+    setActionError(msg);
+    setTreeLoadError(null);
+    setLocationBooksError(null);
+  }
+
+  // Scroll-to-focus: once books are rendered and the focus target is
+  // among them, scroll the row to center it. Fires once per focusId.
+  useEffect(() => {
+    if (!focusId) return;
+    if (booksLoading) return;
+    if (revealedRef.current === focusId) return;
+    const el = document.querySelector(`[data-book-id="${focusId}"]`);
+    if (!el) return;
+    revealedRef.current = focusId;
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    setShowFocusRing(true);
+    const t = setTimeout(() => setShowFocusRing(false), 2000);
+    return () => clearTimeout(t);
+  }, [focusId, booksLoading, books]);
 
   useEffect(() => {
     // Once the tree is canonical, walk b → r → u → s and prune anything
@@ -457,65 +491,6 @@ export default function ShelfView() {
     if (diff) setParams(next, { replace: true, state: navState });
   }, [treeLoaded, tree, buildingId, roomId, unitId, shelfId, params, setParams]);
 
-  useEffect(() => {
-    // Bump the epoch unconditionally — also on the root-view branch —
-    // so any previous location's in-flight fetch is dropped when its
-    // response arrives.
-    const epoch = booksGuard.next();
-    // Same-location refetches (refreshTick fires on alt-tab) skip the
-    // setBooks([]) intermediate. With it, the scrollable container
-    // briefly has no content, the browser clamps scrollLeft to 0, and
-    // when books re-populate the user finds themselves scrolled back
-    // to the start. Without it, the user's old books stay visible
-    // through the refetch window and scroll position survives.
-    const locationKey = `${buildingId || ''}|${roomId || ''}|${unitId || ''}|${shelfId || ''}`;
-    const isSameLocation = locationKey === lastLocationRef.current;
-    lastLocationRef.current = locationKey;
-    // Clear any prior load/reorder error so it doesn't haunt the next
-    // location. Without this, a failed load at shelf A keeps showing its
-    // warning after the user navigates to shelf B (or to root view).
-    setError(null);
-    if (!buildingId && !roomId && !unitId && !shelfId) {
-      // Returning to the root view: drop the books grid AND clear
-      // booksLoading. Without this, an in-flight location fetch from the
-      // previous view ignores its `.finally` (gen mismatch) and leaves
-      // booksLoading latched at true.
-      setBooks([]);
-      setBooksLoading(false);
-      return;
-    }
-    // Defer the location fetch until the tree has loaded AND the URL
-    // path resolves in it. When treeLoaded flips true with a stale
-    // ?b=999, this effect and the prune effect run in the same render —
-    // prune's setParams is queued for the NEXT render, so without the
-    // pathResolves guard we'd fire one doomed getBuildingBooks(999)
-    // before the URL gets rewritten.
-    if (!treeLoaded || !pathOk) {
-      setBooks([]);
-      setBooksLoading(false);
-      return;
-    }
-    // The shelf render branches on booksLoading — flipping it true
-    // unmounts the DndContext/overflow-x-auto scroll container and
-    // replaces it with a 'Loading…' div, which destroys scrollLeft.
-    // Keep it false on same-location refreshTick refetches so the
-    // container survives the background fetch. Real navigation still
-    // wipes through the Loading… state so old books don't show on the
-    // new view.
-    if (!isSameLocation) {
-      setBooks([]);
-      setBooksLoading(true);
-    }
-    const fetch = shelfId    ? api.getShelfBooks(shelfId)
-      : unitId              ? api.getUnitBooks(unitId)
-      : roomId              ? api.getRoomBooks(roomId)
-      : api.getBuildingBooks(buildingId);
-    fetch
-      .then(b => { if (booksGuard.isFresh(epoch)) setBooks(b); })
-      .catch(() => { if (booksGuard.isFresh(epoch)) setError('Failed to load books at this location.'); })
-      .finally(() => { if (booksGuard.isFresh(epoch)) setBooksLoading(false); });
-  }, [buildingId, roomId, unitId, shelfId, treeLoaded, pathOk, refreshTick]);
-
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -530,19 +505,19 @@ export default function ShelfView() {
     const reordered = arrayMove(books, oldIndex, newIndex);
     setBooks(reordered);
     setError(null);
-    // Capture the location-load epoch so the recovery refetch (and its
+    // Capture the current location so the recovery refetch (and its
     // error setters) can be dropped if the user has navigated to a
     // different shelf/room/etc. by the time the reorder PUT resolves.
     // Without this, a stale `setBooks(...)` from the recovery would
     // clobber the new location's just-loaded books.
-    const epoch = booksGuard.current();
+    const startLocation = locationKeyRef.current;
     // Capture the reorder seq so an earlier failed PUT whose recovery
     // refetch lands after a later drag's optimistic apply doesn't snap
     // pre-A server state over B's newer order.
     const reorderSeq = ++reorderSeqRef.current;
     api.reorderShelf(shelfId, reordered.map(b => b.id))
       .catch(() => {
-        if (!booksGuard.isFresh(epoch) || reorderSeq !== reorderSeqRef.current) return;
+        if (locationKeyRef.current !== startLocation || reorderSeq !== reorderSeqRef.current) return;
         // Always tell the user their reorder didn't save — even when the
         // recovery refetch succeeds and the canonical order snaps back into
         // place, otherwise the snap-back looks like the drag never
@@ -550,8 +525,8 @@ export default function ShelfView() {
         // the user knows to refresh manually.
         setError('Failed to save reorder.');
         api.getShelfBooks(shelfId)
-          .then(b => { if (booksGuard.isFresh(epoch) && reorderSeq === reorderSeqRef.current) setBooks(b); })
-          .catch(() => { if (booksGuard.isFresh(epoch) && reorderSeq === reorderSeqRef.current) setError('Reorder failed and could not be reverted — refresh the page.'); });
+          .then(b => { if (locationKeyRef.current === startLocation && reorderSeq === reorderSeqRef.current) setBooks(b); })
+          .catch(() => { if (locationKeyRef.current === startLocation && reorderSeq === reorderSeqRef.current) setError('Reorder failed and could not be reverted — refresh the page.'); });
       });
   }
 
@@ -596,24 +571,11 @@ export default function ShelfView() {
   // append-to-end is wrong if the server placed it elsewhere — which
   // happens for any shelf/unit with existing books) and any books that
   // were previously at this location but got moved elsewhere by the
-  // PATCH drop out of view. booksGuard.next() bumps the epoch so a
-  // pending in-flight fetch from before the PATCH can't repopulate
-  // with the prior state.
-  async function handleAddedToLocation() {
-    const epoch = booksGuard.next();
-    const fetch = shelfId    ? api.getShelfBooks(shelfId)
-                : unitId     ? api.getUnitBooks(unitId)
-                : roomId     ? api.getRoomBooks(roomId)
-                :              api.getBuildingBooks(buildingId);
-    try {
-      const fresh = await fetch;
-      if (!booksGuard.isFresh(epoch)) return;
-      setBooks(fresh);
-    } catch {
-      // Silent: the next refresh-tick will retry. The PATCH itself
-      // already succeeded, so the placement is on disk; only the
-      // local view is briefly stale.
-    }
+  // PATCH drop out of view. The hook's refetch handles stale-response
+  // dropping internally: if the user navigates before this resolves,
+  // its epoch bumps and the response is dropped.
+  function handleAddedToLocation() {
+    refetchLocationBooks();
   }
 
   function nav(updates) {
@@ -889,15 +851,15 @@ export default function ShelfView() {
                     // against overlapping drags within this view (across
                     // any shelf row): A's failure recovery shouldn't snap
                     // pre-A unit-books over B's newer optimistic state.
-                    const epoch = booksGuard.current();
+                    const startLocation = locationKeyRef.current;
                     const reorderSeq = ++reorderSeqRef.current;
                     api.reorderShelf(shelfId, reordered.map(b => b.id))
                       .catch(() => {
-                        if (!booksGuard.isFresh(epoch) || reorderSeq !== reorderSeqRef.current) return;
+                        if (locationKeyRef.current !== startLocation || reorderSeq !== reorderSeqRef.current) return;
                         setError('Failed to save reorder.');
                         api.getUnitBooks(unitId)
-                          .then(b => { if (booksGuard.isFresh(epoch) && reorderSeq === reorderSeqRef.current) setBooks(b); })
-                          .catch(() => { if (booksGuard.isFresh(epoch) && reorderSeq === reorderSeqRef.current) setError('Reorder failed and could not be reverted — refresh the page.'); });
+                          .then(b => { if (locationKeyRef.current === startLocation && reorderSeq === reorderSeqRef.current) setBooks(b); })
+                          .catch(() => { if (locationKeyRef.current === startLocation && reorderSeq === reorderSeqRef.current) setError('Reorder failed and could not be reverted — refresh the page.'); });
                       });
                   }}
                 />
