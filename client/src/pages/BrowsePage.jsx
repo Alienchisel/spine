@@ -8,7 +8,7 @@ import ErrorBanner from '../components/ErrorBanner.jsx';
 import { GridSkeleton } from '../components/Skeleton.jsx';
 import { useCoverSize } from '../hooks/useCoverSize.js';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
-import { useStaleGuard } from '../hooks/useStaleGuard.js';
+import { usePaginatedFetch } from '../hooks/usePaginatedFetch.js';
 
 const FIELD_LABEL = {
   author: 'Author', translator: 'Translator', publisher: 'Publisher',
@@ -109,15 +109,10 @@ export default function BrowsePage() {
     [fromLabel, pathname],
   );
 
-  const [books,       setBooks]       = useState([]);
   // Cohort fetch — independent of the paginated visible-books fetch so
   // BookDetail's prev/next can walk past the first PAGE_SIZE books in
   // this browse view. Server caps at 200; oversize views truncate there.
-  const [cohort,      setCohort]      = useState([]);
-  const [total,       setTotal]       = useState(0);
-  const [loading,     setLoading]     = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [loadingAll,  setLoadingAll]  = useState(false);
+  const [cohort, setCohort] = useState([]);
   // Owned/unowned toggle for collection-scoping slices. Default off so the
   // page reads as "what I own under this slice"; resets per-target so a
   // stuck toggle doesn't carry between browse views.
@@ -171,98 +166,46 @@ export default function BrowsePage() {
     localStorage.setItem('spine-show-unowned', showUnowned ? 'true' : 'false');
   }, [showUnowned]);
   const ownedTab = (usesOwnedToggle && !showUnowned) ? 'owned' : undefined;
-  // `unowned_total` is returned by the main listBooks fetch when we pass
-  // counts=owned — no separate round-trip. Tracks the unowned subset of the
-  // current browse slice independently of the tab filter, so the toggle
-  // label "Show unowned (N)" is correct in both states.
-  const [unownedCount, setUnownedCount] = useState(0);
-  // Initial load failure: replaces the empty-state with an error message.
-  const [fetchError,  setFetchError]  = useState(false);
-  // Pagination failure: leaves loaded books visible, shows near Load more.
-  const [actionError, setActionError] = useState(null);
-  const loadedRef = useRef(0);
-  const guard     = useStaleGuard();
-  // Synchronous mirror of the loadingMore/loadingAll *pair*. State setters
-  // don't commit until next render — so two same-tick clicks (or Load
-  // more + Load all together) all pass the `loadingMore || loadingAll`
-  // check, fire duplicate getBooks at the same offset, and double-bump
-  // loadedRef.current. Mirrors Library.pagingRef.
-  const pagingRef = useRef(false);
   const { size: coverSize, setSize: setCoverSize, cols: gridCols, compact, gridStyle, gridClassName, MIN: coverMin, MAX: coverMax } = useCoverSize();
-  // Snapshot of the browse target so we can distinguish navigation
-  // (different field/value → wipe to loading) from refresh-tick
-  // refetch (same target → keep books visible so scroll position
-  // survives the alt-tab roundtrip). Same shape as the Library /
-  // Diary / ShelfView fixes.
-  const lastTargetRef = useRef('');
 
-  useEffect(() => {
-    // Capture this navigation's generation. If the user navigates to a
-    // different field/value before the fetch resolves, a later useEffect
-    // run will bump the guard's epoch and these guards will short-circuit
-    // the stale response so it can't overwrite the new browse target.
-    const epoch = guard.next();
-    // Include the owned toggle in the target key so flipping it counts
-    // as a real navigation: clear books, show loading, refetch from
-    // offset 0 — same behaviour as switching field/value.
-    const target = `${field}|${decoded}|${ownedTab ?? ''}`;
-    const isSameTarget = target === lastTargetRef.current;
-    lastTargetRef.current = target;
-    setFetchError(false);
-    if (!isSameTarget) {
-      setLoading(true);
-      setBooks([]);
-    }
-    // Reset pagination flags + action banner: a refresh-tick / nav between
-    // browse targets that fires while loadMore/loadAll is in flight would
-    // otherwise strand the flags at true (their finally clauses are gated
-    // on epoch match) and leave the previous failure banner sitting above
-    // the new browse view.
-    setLoadingMore(false);
-    setLoadingAll(false);
-    setActionError(null);
-    // Restore the previously-loaded depth on same-target refreshTick
-    // refetches so alt-tabbing back doesn't shrink a Load-all'd view
-    // back to page 1. On a real navigation the visible list was wiped
-    // above, prevDepth=0, and the loop fetches just the first page.
-    const prevDepth = isSameTarget ? loadedRef.current : 0;
-    loadedRef.current = 0;
-    (async () => {
-      try {
-        const collected = [];
-        let serverTotal = 0;
-        let serverUnowned;
-        const target = Math.max(PAGE_SIZE, prevDepth);
-        while (guard.isFresh(epoch)) {
-          // Only the first page needs counts=owned — the unowned_total
-          // doesn't change with pagination offset, and computing it on
-          // every page would waste the COUNT query.
-          const wantCounts = usesOwnedToggle && collected.length === 0;
-          const { books: b, total: t, unowned_total: u } = await api.getBooks({
-            field, value: decoded, tab: ownedTab, sort: browseSort(field),
-            limit: PAGE_SIZE, offset: collected.length,
-            counts: wantCounts ? 'owned' : undefined,
-          });
-          if (!guard.isFresh(epoch)) return;
-          if (wantCounts) serverUnowned = u;
-          collected.push(...b);
-          serverTotal = t;
-          if (b.length === 0) break;
-          if (collected.length >= Math.min(target, serverTotal)) break;
-        }
-        if (!guard.isFresh(epoch)) return;
-        setBooks(collected);
-        setTotal(serverTotal);
-        if (serverUnowned !== undefined) setUnownedCount(serverUnowned);
-        else if (!usesOwnedToggle)       setUnownedCount(0);
-        loadedRef.current = collected.length;
-      } catch {
-        if (guard.isFresh(epoch)) setFetchError(true);
-      } finally {
-        if (guard.isFresh(epoch)) setLoading(false);
-      }
-    })();
-  }, [field, decoded, ownedTab, usesOwnedToggle, refreshTick]);
+  // Paginated visible-books fetch. key includes the owned-toggle so
+  // flipping it is treated as a real navigation (skeleton flash) the
+  // same way as field/value changes. unowned_total comes back only on
+  // the first page when counts=owned is passed; the hook's meta merges
+  // across pages within the same key so subsequent loadMore calls don't
+  // wipe it.
+  const {
+    items: books, setItems: setBooks,
+    total, meta,
+    loading, loadingMore, loadingAll,
+    hasMore, loadedCount,
+    error: fetchError,
+    setError: setFetchError,
+    actionError,
+    loadMore, loadAll,
+  } = usePaginatedFetch(
+    (offset, limit) => api.getBooks({
+      field, value: decoded, tab: ownedTab, sort: browseSort(field),
+      limit, offset,
+      counts: offset === 0 && usesOwnedToggle ? 'owned' : undefined,
+    }).then(r => ({
+      items: r.books,
+      total: r.total,
+      // Only include unowned_total on the first page (when we passed
+      // counts=owned). meta merges within the same key, so this value
+      // survives loadMore / loadAll until the next key change.
+      ...(r.unowned_total !== undefined ? { unowned_total: r.unowned_total } : {}),
+    })),
+    [field, decoded, ownedTab, usesOwnedToggle],
+    {
+      key: `${field}|${decoded}|${ownedTab ?? ''}`,
+      pageSize: PAGE_SIZE,
+    },
+  );
+  // No unowned_total when usesOwnedToggle is false (we don't pass
+  // counts=owned for non-toggle browses); the original setUnownedCount(0)
+  // branch survives here as a default.
+  const unownedCount = usesOwnedToggle ? (meta.unowned_total ?? 0) : 0;
 
   // Parallel cohort fetch — see [cohort] declaration above for rationale.
   useEffect(() => {
@@ -279,59 +222,7 @@ export default function BrowsePage() {
     return () => { cancelled = true; };
   }, [field, decoded, ownedTab, refreshTick]);
 
-  function handleLoadMore() {
-    if (pagingRef.current || loadingMore || loadingAll) return;
-    const epoch = guard.current();
-    pagingRef.current = true;
-    setLoadingMore(true);
-    setActionError(null);
-    api.getBooks({ field, value: decoded, tab: ownedTab, sort: browseSort(field), limit: PAGE_SIZE, offset: loadedRef.current })
-      .then(({ books: b, total: t }) => {
-        if (!guard.isFresh(epoch)) return;
-        setBooks(prev => [...prev, ...b]);
-        setTotal(t);
-        loadedRef.current += b.length;
-      })
-      .catch(() => {
-        if (guard.isFresh(epoch)) setActionError('Failed to load more books.');
-      })
-      .finally(() => {
-        // Clear unconditionally — a nav between browse targets bumps gen
-        // and resets loadingMore via setState; a stranded ref would
-        // block all future paging on the new view.
-        pagingRef.current = false;
-        if (guard.isFresh(epoch)) setLoadingMore(false);
-      });
-  }
-
-  async function handleLoadAll() {
-    if (pagingRef.current || loadingMore || loadingAll) return;
-    const epoch = guard.current();
-    pagingRef.current = true;
-    setLoadingAll(true);
-    setActionError(null);
-    try {
-      let serverTotal = total;
-      while (guard.isFresh(epoch) && loadedRef.current < serverTotal) {
-        const { books: b, total: t } = await api.getBooks({ field, value: decoded, tab: ownedTab, sort: browseSort(field), limit: PAGE_SIZE, offset: loadedRef.current });
-        if (!guard.isFresh(epoch)) break;
-        setBooks(prev => [...prev, ...b]);
-        setTotal(t);
-        loadedRef.current += b.length;
-        serverTotal = t;
-        if (b.length === 0) break;
-      }
-    } catch {
-      if (guard.isFresh(epoch)) setActionError('Failed to load more books.');
-    } finally {
-      pagingRef.current = false;
-      if (guard.isFresh(epoch)) setLoadingAll(false);
-    }
-  }
-
   const label = FIELD_LABEL[field] ?? field;
-
-  const hasMore = loadedRef.current < total;
 
   return (
     <div>
@@ -399,7 +290,7 @@ export default function BrowsePage() {
       {books.length > 0 && (
         <ErrorBanner
           message={fetchError ? 'Failed to refresh. Showing the last loaded results.' : null}
-          onDismiss={() => setFetchError(false)}
+          onDismiss={() => setFetchError(null)}
           className="mb-4"
         />
       )}
@@ -462,22 +353,22 @@ export default function BrowsePage() {
           <div className="flex justify-center gap-3">
             <button
               type="button"
-              onClick={handleLoadMore}
+              onClick={loadMore}
               disabled={loadingMore || loadingAll}
               className="text-sm text-neutral-500 hover:text-neutral-200 disabled:opacity-60 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
             >
-              {loadingMore ? 'Loading…' : `Load more · ${total - loadedRef.current} remaining`}
+              {loadingMore ? 'Loading…' : `Load more · ${total - loadedCount} remaining`}
             </button>
             <button
               type="button"
-              onClick={handleLoadAll}
+              onClick={loadAll}
               disabled={loadingMore || loadingAll}
               className="text-sm text-neutral-500 hover:text-neutral-200 disabled:opacity-60 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
             >
-              {loadingAll ? `Loading all · ${loadedRef.current}/${total}` : 'Load all'}
+              {loadingAll ? `Loading all · ${loadedCount}/${total}` : 'Load all'}
             </button>
           </div>
-          {actionError && <p role="alert" className="text-xs text-warn">{actionError}</p>}
+          {actionError && <p role="alert" className="text-xs text-warn">Failed to load more books.</p>}
         </div>
       )}
     </div>

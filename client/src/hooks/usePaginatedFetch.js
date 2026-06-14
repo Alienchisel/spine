@@ -11,9 +11,13 @@ import { useLatest } from './useLatest.js';
 // fetchPage(offset, limit) — Promise<{ items, total, ...meta }>.
 //   The hook calls this with the current accumulated offset and the
 //   configured pageSize. items and total are required; anything else
-//   lands in `meta`, refreshed on each page's response. For pages
-//   whose API returns a different key (e.g. api.getBooks → { books,
-//   total }), wrap inside the callback to rename.
+//   lands in `meta`, MERGED across pages within the same key (so a
+//   field returned only on the first page — e.g. BrowsePage's
+//   unowned_total — survives subsequent loadMore calls). meta wipes
+//   on key change so a navigation to a new entity doesn't leak the
+//   previous one's metadata. For pages whose API returns a different
+//   key (e.g. api.getBooks → { books, total }), wrap inside the
+//   callback to rename.
 //
 // deps — extra deps that trigger an initial reload (sort, filters, …).
 //   The refresh tick + an internal refetch bump are added automatically.
@@ -117,6 +121,11 @@ export function usePaginatedFetch(fetchPage, deps = [], options = {}) {
       if (!loading) setLoading(true);
       if (items.length > 0) setItems([]);
       if (total !== 0) setTotal(0);
+      // Meta wipes on key change too — without this, navigating to a
+      // new list/browse-target would briefly render the previous one's
+      // metadata (list name, unowned_total, etc.) until the first new
+      // fetch resolves.
+      setMeta({});
       loadedRef.current = 0;
     }
   }
@@ -164,7 +173,7 @@ export function usePaginatedFetch(fetchPage, deps = [], options = {}) {
         if (!guard.isFresh(epoch)) return;
         setItems(collected);
         setTotal(serverTotal);
-        setMeta(lastMeta);
+        setMeta(m => ({ ...m, ...lastMeta }));
         loadedRef.current = collected.length;
       } catch (e) {
         if (guard.isFresh(epoch)) setError(e);
@@ -188,7 +197,7 @@ export function usePaginatedFetch(fetchPage, deps = [], options = {}) {
       if (!guard.isFresh(epoch)) return;
       setItems(prev => [...prev, ...pageItems]);
       setTotal(pageTotal);
-      setMeta(rest);
+      setMeta(m => ({ ...m, ...rest }));
       loadedRef.current += pageItems.length;
     } catch (e) {
       if (guard.isFresh(epoch)) setActionError(e);
@@ -215,7 +224,7 @@ export function usePaginatedFetch(fetchPage, deps = [], options = {}) {
         if (!guard.isFresh(epoch)) break;
         setItems(prev => [...prev, ...pageItems]);
         setTotal(pageTotal);
-        setMeta(rest);
+        setMeta(m => ({ ...m, ...rest }));
         loadedRef.current += pageItems.length;
         serverTotal = pageTotal;
         if (pageItems.length === 0) break;
