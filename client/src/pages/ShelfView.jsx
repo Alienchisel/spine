@@ -2,9 +2,12 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams, useLocation, Link } from 'react-router-dom';
 import {
   DndContext,
+  DragOverlay,
   closestCenter,
   PointerSensor,
   KeyboardSensor,
+  useDraggable,
+  useDroppable,
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
@@ -23,7 +26,7 @@ import CoverSizeSlider from '../components/CoverSizeSlider.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 import { useCoverSize } from '../hooks/useCoverSize.js';
 import { useFreshFetch } from '../hooks/useFreshFetch.js';
-import { useSpineEvent } from '../hooks/useSpineEvent.js';
+import { useSpineEvent, dispatchSpineEvent } from '../hooks/useSpineEvent.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import { useActionGuard } from '../hooks/useActionGuard.js';
 import { useLatest } from '../hooks/useLatest.js';
@@ -119,6 +122,48 @@ function LevelCard({ primary, secondary, onClick }) {
       <p className="font-medium text-white group-hover:text-parchment transition-colors">{primary}</p>
       {secondary && <p className="text-xs text-neutral-500 mt-0.5">{secondary}</p>}
     </button>
+  );
+}
+
+// Drag wrappers for the "drop an unfiled book onto a building" gesture on
+// the root view. The whole BookCard is the activator — distance:5 on the
+// PointerSensor lets inner clicks (cover Link, hover-tray buttons) still
+// fire as long as the user doesn't drift past the threshold. opacity-40
+// on the source mirrors SortableShelfCover; the DragOverlay renders a
+// full-opacity ghost at the cursor for the actual follow-feel.
+function DraggableUnshelfedCard({ book, compact, linkState }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `book-${book.id}`,
+    data: { kind: 'book', bookId: book.id },
+  });
+  return (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      className={`select-none ${isDragging ? 'opacity-40' : ''}`}
+    >
+      <BookCard book={book} compact={compact} linkState={linkState} />
+    </div>
+  );
+}
+
+function DroppableBuildingCard({ building, onClick }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `building-${building.id}`,
+    data: { kind: 'building', buildingId: building.id },
+  });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`rounded-lg transition-shadow ${isOver ? 'ring-2 ring-oak shadow-lg shadow-oak/20' : ''}`}
+    >
+      <LevelCard
+        primary={building.name}
+        secondary={[PROXIMITY_LABEL[building.proximity], plural(building.rooms.length, 'room'), building.book_count > 0 && plural(building.book_count, 'book')].filter(Boolean).join(' · ')}
+        onClick={onClick}
+      />
+    </div>
   );
 }
 
@@ -314,6 +359,7 @@ export default function ShelfView() {
   // page.
   const {
     data: unshelfed,
+    setData: setUnshelfed,
     error: unshelfedError,
     refetch: refetchUnshelfed,
   } = useFreshFetch(
@@ -556,6 +602,47 @@ export default function ShelfView() {
       });
   }
 
+  // Drag-to-place: root-view gesture that moves a book from the "No
+  // location assigned" bucket onto a building tile via a PATCH of
+  // { building_id }. The drag is wired up only at the root view; deeper
+  // levels still use MoreMenu's Location… picker for placement and
+  // AddBookHere for search-and-place. activeUnshelfedBookId drives the
+  // DragOverlay ghost; null when no drag is in flight.
+  const [activeUnshelfedBookId, setActiveUnshelfedBookId] = useState(null);
+  const activeUnshelfedBook = activeUnshelfedBookId
+    ? unshelfed.find(b => b.id === activeUnshelfedBookId)
+    : null;
+
+  function handleUnshelfedDragStart(event) {
+    if (event.active.data?.current?.kind === 'book') {
+      setActiveUnshelfedBookId(event.active.data.current.bookId);
+    }
+  }
+
+  async function handleUnshelfedDragEnd(event) {
+    setActiveUnshelfedBookId(null);
+    const { active, over } = event;
+    if (!over) return;
+    if (active.data?.current?.kind !== 'book') return;
+    if (over.data?.current?.kind !== 'building') return;
+    const bookId = active.data.current.bookId;
+    const targetBuildingId = over.data.current.buildingId;
+    setError(null);
+    // Optimistically drop the book from the unfiled bucket so the gesture
+    // feels instant. The dispatched event triggers the existing
+    // spine:book-mutated listener (refetchTree + refetchUnshelfed +
+    // refetchLocationBooks), which reconciles to canonical state shortly
+    // after — including the tree's book_count bump on the target building.
+    setUnshelfed(prev => prev.filter(b => b.id !== bookId));
+    try {
+      await api.patchBook(bookId, { building_id: targetBuildingId });
+      dispatchSpineEvent('spine:book-mutated', { id: bookId });
+    } catch {
+      setError('Failed to place book.');
+      refetchUnshelfed();
+    }
+  }
+
   const building = tree.find(b => b.id === buildingId);
   const rooms    = building?.rooms ?? [];
   const room     = rooms.find(r => r.id === roomId);
@@ -669,13 +756,23 @@ export default function ShelfView() {
             <Link to="/shelf" className="text-sm text-oak hover:text-leather">Manage shelves →</Link>
           </div>
         ) : (
-          <>
+          /* DndContext wraps both the building tiles and the unfiled
+             bucket so a book card from the bucket can be dropped on any
+             building tile. The shelf-detail view's own DndContext is
+             unaffected — it sits inside the {shelfId && …} branch below
+             and is mutually exclusive with this one. */
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleUnshelfedDragStart}
+            onDragEnd={handleUnshelfedDragEnd}
+            onDragCancel={() => setActiveUnshelfedBookId(null)}
+          >
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {tree.map(b => (
-                <LevelCard
+                <DroppableBuildingCard
                   key={b.id}
-                  primary={b.name}
-                  secondary={[PROXIMITY_LABEL[b.proximity], plural(b.rooms.length, 'room'), b.book_count > 0 && plural(b.book_count, 'book')].filter(Boolean).join(' · ')}
+                  building={b}
                   onClick={() => nav({ b: b.id })}
                 />
               ))}
@@ -690,20 +787,34 @@ export default function ShelfView() {
             )}
             {unshelfed.length > 0 && (
               <div className="mt-10">
-                <h2 className={`${sectionEyebrow} mb-4 pb-2 border-b border-neutral-800`}>
-                  No location assigned · {unshelfed.length}
-                </h2>
+                <div className="mb-4 pb-2 border-b border-neutral-800 flex items-baseline justify-between gap-3">
+                  <h2 className={sectionEyebrow}>
+                    No location assigned · {unshelfed.length}
+                  </h2>
+                  <p className="text-[11px] text-neutral-600">Drag onto a building to place</p>
+                </div>
                 <div className={gridClassName} style={gridStyle}>
                   {(() => {
                     const ls = cohortLinkState(unshelfed);
                     return unshelfed.map(book => (
-                      <BookCard key={book.id} book={book} compact={compact} linkState={ls} />
+                      <DraggableUnshelfedCard key={book.id} book={book} compact={compact} linkState={ls} />
                     ));
                   })()}
                 </div>
               </div>
             )}
-          </>
+            {/* Cursor-follow ghost so the drag feels grabbed-and-moved
+                rather than just fading-in-place. Rendered via portal to
+                document.body by dnd-kit; styled to match the source
+                card's opacity-100 (vs. the source's opacity-40). */}
+            <DragOverlay dropAnimation={null}>
+              {activeUnshelfedBook ? (
+                <div className="pointer-events-none">
+                  <BookCard book={activeUnshelfedBook} compact={compact} />
+                </div>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
         )
       )}
 
