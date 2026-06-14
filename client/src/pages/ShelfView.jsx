@@ -23,6 +23,7 @@ import CoverSizeSlider from '../components/CoverSizeSlider.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 import { useCoverSize } from '../hooks/useCoverSize.js';
 import { useFreshFetch } from '../hooks/useFreshFetch.js';
+import { useSpineEvent } from '../hooks/useSpineEvent.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import { useActionGuard } from '../hooks/useActionGuard.js';
 import { useLatest } from '../hooks/useLatest.js';
@@ -302,6 +303,7 @@ export default function ShelfView() {
     loading,
     error: treeLoadError,
     setError: setTreeLoadError,
+    refetch: refetchTree,
   } = useFreshFetch(
     () => api.getShelfTree().then(t => { setTreeLoaded(true); return t; }),
     [],
@@ -310,7 +312,11 @@ export default function ShelfView() {
   // Supplementary fetch: shouldn't gate the tree on its slowness, and
   // its failure renders a smaller-scope warning rather than wiping the
   // page.
-  const { data: unshelfed, error: unshelfedError } = useFreshFetch(
+  const {
+    data: unshelfed,
+    error: unshelfedError,
+    refetch: refetchUnshelfed,
+  } = useFreshFetch(
     () => api.getUnshelfedBooks(),
     [],
     { initialData: [] },
@@ -416,6 +422,26 @@ export default function ShelfView() {
     [buildingId, roomId, unitId, shelfId, treeLoaded, pathOk],
     { key: locationKey, wipeOnKeyChange: true, initialData: [] },
   );
+
+  // Sync on any book mutation dispatched from another surface (most
+  // notably MoreMenu's Location picker, which PATCHes shelf_id /
+  // unit_id / room_id / building_id from the card's three-dot menu).
+  // Three things can drift: the tree's per-level book_counts, the
+  // unshelfed-books list (book just joined or left it), and the
+  // current location's visible books (book may have entered or left
+  // this grid). Refetching all three is cheap and keeps the page
+  // honest. Same idiom Library uses for spine:book-mutated.
+  useSpineEvent('spine:book-mutated', () => {
+    refetchTree();
+    refetchUnshelfed();
+    refetchLocationBooks();
+  });
+  // Book-deleted from anywhere — same surfaces drift, same response.
+  useSpineEvent('spine:book-deleted', () => {
+    refetchTree();
+    refetchUnshelfed();
+    refetchLocationBooks();
+  });
 
   // Three error sources share the ErrorBanner slot. Priority: action
   // (most recent user-driven failure) → tree (page-level) → location
