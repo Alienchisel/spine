@@ -8,6 +8,7 @@ import { GridSkeleton } from '../components/Skeleton.jsx';
 import PageHeading from '../components/PageHeading.jsx';
 import { sectionEyebrow } from '../components/textStyles.js';
 import { useFreshFetch } from '../hooks/useFreshFetch.js';
+import { useSpineEvent } from '../hooks/useSpineEvent.js';
 import { useCoverSize } from '../hooks/useCoverSize.js';
 import { initialsFor } from '../utils.js';
 
@@ -52,6 +53,28 @@ export default function Loved() {
     { initialData: [] },
   );
   const { size: coverSize, setSize: setCoverSize, compact, gridStyle, gridClassName, MIN: coverMin, MAX: coverMax } = useCoverSize();
+
+  // Refetch-and-swap on book mutations from other surfaces (MoreMenu's
+  // Location picker, palette toggles, etc.). Only the books grid here
+  // renders cards with MoreMenus; authors/series sections render their
+  // own portrait/spine cards that don't need swapping. spine:book-deleted
+  // filters in place — the loved tab is naturally going to drop the
+  // book from its server-side result on next mount anyway, this just
+  // keeps the local view consistent until then. Mirrors Library shape.
+  useSpineEvent('spine:book-mutated', (e) => {
+    const id = Number(e.detail?.id);
+    if (!id) return;
+    api.getBook(id)
+      .then(updated => {
+        setBooks(prev => prev.map(b => b.id === id ? updated : b));
+      })
+      .catch(() => {});
+  });
+  useSpineEvent('spine:book-deleted', (e) => {
+    const id = Number(e.detail?.id);
+    if (!id) return;
+    setBooks(prev => prev.filter(b => b.id !== id));
+  });
 
   function handleBookUpdate(updated) {
     // Loved sorts by updated_at DESC (no UI selector). Splice the updated
