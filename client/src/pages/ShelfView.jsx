@@ -357,10 +357,13 @@ export default function ShelfView() {
   // canonical (and therefore safe to use as a basis for stripping stale
   // ids out of the URL) once getShelfTree has actually succeeded. On a
   // failed fetch tree stays [] but treeLoaded stays false, so a
-  // bookmarked deep link survives a transient network error. Side-set
-  // inside the fetch fn since the hook can't distinguish "haven't
-  // fetched yet" from "fetched and got empty".
-  const [treeLoaded, setTreeLoaded] = useState(false);
+  // bookmarked deep link survives a transient network error. Derived
+  // from the hook's loading/error so it tracks the same stale-guard
+  // that gates `setData` — earlier (orphaned) flips inside the fetch fn
+  // ran unguarded and could turn treeLoaded true while data was still
+  // the stale [] from a superseded fetch, which caused the pruning
+  // effect to walk an empty tree and strip valid b/r/u out of a deep
+  // link (visible in dev under StrictMode's double-invoke).
   const {
     data: tree,
     setData: setTree,
@@ -369,10 +372,11 @@ export default function ShelfView() {
     setError: setTreeLoadError,
     refetch: refetchTree,
   } = useFreshFetch(
-    () => api.getShelfTree().then(t => { setTreeLoaded(true); return t; }),
+    () => api.getShelfTree(),
     [],
     { initialData: [] },
   );
+  const treeLoaded = !loading && !treeLoadError;
   // Supplementary fetch: shouldn't gate the tree on its slowness, and
   // its failure renders a smaller-scope warning rather than wiping the
   // page.
