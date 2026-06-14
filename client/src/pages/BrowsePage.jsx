@@ -9,6 +9,7 @@ import { GridSkeleton } from '../components/Skeleton.jsx';
 import { useCoverSize } from '../hooks/useCoverSize.js';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
 import { usePaginatedFetch } from '../hooks/usePaginatedFetch.js';
+import { useSpineEvent } from '../hooks/useSpineEvent.js';
 
 const FIELD_LABEL = {
   author: 'Author', translator: 'Translator', publisher: 'Publisher',
@@ -176,9 +177,9 @@ export default function BrowsePage() {
   // wipe it.
   const {
     items: books, setItems: setBooks,
-    total, meta,
+    total, setTotal, meta,
     loading, loadingMore, loadingAll,
-    hasMore, loadedCount,
+    hasMore, loadedCount, setLoadedCount,
     error: fetchError,
     setError: setFetchError,
     actionError,
@@ -206,6 +207,30 @@ export default function BrowsePage() {
   // counts=owned for non-toggle browses); the original setUnownedCount(0)
   // branch survives here as a default.
   const unownedCount = usesOwnedToggle ? (meta.unowned_total ?? 0) : 0;
+
+  // Refetch-and-swap on book mutations from other surfaces (MoreMenu's
+  // Location picker, the command palette, etc.). Without this, after a
+  // user changes a book's shelf/rating/status the local props stay
+  // stale — most visibly, the MoreMenu's "Currently on" header would
+  // show the pre-mutation placement until a full page reload. Mirrors
+  // Library's pattern.
+  useSpineEvent('spine:book-mutated', (e) => {
+    const id = Number(e.detail?.id);
+    if (!id) return;
+    api.getBook(id)
+      .then(updated => {
+        setBooks(prev => prev.map(b => b.id === id ? updated : b));
+      })
+      .catch(() => {});
+  });
+  // Local-remove-on-delete — same shape as Library.
+  useSpineEvent('spine:book-deleted', (e) => {
+    const id = Number(e.detail?.id);
+    if (!id) return;
+    setBooks(prev => prev.filter(b => b.id !== id));
+    setTotal(prev => Math.max(0, prev - 1));
+    setLoadedCount(n => Math.max(0, n - 1));
+  });
 
   // Parallel cohort fetch — see [cohort] declaration above for rationale.
   useEffect(() => {
