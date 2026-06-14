@@ -92,14 +92,14 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
     onError:   () => setActionError('Failed to update list. Try again.'),
   });
 
-  // Location sub-prompt: loads getShelfTree on first open (cached across
-  // re-opens), flattens to a searchable list of every placement target
-  // — buildings, rooms, units, AND shelves — and patches the book on
-  // selection. Coarser-than-shelf placement is offered because the
-  // schema supports it natively ("I know it's in Living Room but
-  // haven't picked a shelf") and AddBookHere on ShelfView already
-  // patches at whichever level the user is browsing. Caches the tree
-  // on the component so a second open doesn't re-fetch.
+  // Location sub-prompt: loads getShelfTree on every open, flattens to
+  // a searchable list of every placement target — buildings, rooms,
+  // units, AND shelves — and patches the book on selection. Coarser-
+  // than-shelf placement is offered because the schema supports it
+  // natively ("I know it's in Living Room but haven't picked a shelf")
+  // and AddBookHere on ShelfView already patches at whichever level the
+  // user is browsing. Existing tree stays visible during the refetch so
+  // there's no flicker — only the first-ever open shows a spinner.
   const [shelfTree, setShelfTree]       = useState(null);
   const [shelfLoading, setShelfLoading] = useState(false);
   const [shelfError, setShelfError]     = useState(null);
@@ -317,9 +317,11 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
     setExpandedKeys(new Set());
     // Defer focus past the render that mounts the sub-prompt input.
     setTimeout(() => shelfSearchRef.current?.focus(), 0);
-    // Tree cache — load once, reuse across re-opens of the sub-prompt.
-    if (shelfTree) return;
-    setShelfLoading(true);
+    // Refetch every open so a shelf added/renamed/deleted elsewhere
+    // doesn't show stale. Only flip the spinner when there's no cached
+    // tree yet — otherwise the existing rows stay rendered through the
+    // refetch and silently swap on success.
+    if (!shelfTree) setShelfLoading(true);
     setShelfError(null);
     try {
       const tree = await api.getShelfTree();
