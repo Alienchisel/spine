@@ -768,13 +768,50 @@ export default function ShelfView() {
       return;
     }
 
-    // Cross-shelf move OR unfiled-to-shelf. Optimistic source-list prune
-    // so the gesture feels instant; the dispatched event reconciles to
-    // canonical state via the existing refetch listener.
+    // Cross-shelf move OR unfiled-to-shelf. If the user dropped on a
+    // specific item we insert there (visual + server position); a drop
+    // on the row wrapper falls through to the server's default
+    // end-of-shelf placement. Optimistically rebuild books with the
+    // dragged book splice'd into the target shelf at the chosen index
+    // so the cover lands at the expected spot rather than blinking at
+    // end-of-shelf for a frame and then snapping back after refetch.
     setUnshelfed(prev => prev.filter(b => b.id !== bookId));
-    setBooks(prev => prev.filter(b => b.id !== bookId));
+    setBooks(prev => {
+      const draggedBook = prev.find(b => b.id === bookId);
+      if (!draggedBook) return prev;
+      const updatedDragged = { ...draggedBook, shelf_id: targetShelfId };
+      const withoutDragged = prev.filter(b => b.id !== bookId);
+      const targetShelfBooks = withoutDragged.filter(b => b.shelf_id === targetShelfId);
+      let insertIndex = targetShelfBooks.length;
+      if (overData?.kind === 'shelved-book') {
+        const overIdx = targetShelfBooks.findIndex(b => b.id === over.id);
+        if (overIdx >= 0) insertIndex = overIdx;
+      }
+      const newTargetShelfBooks = [
+        ...targetShelfBooks.slice(0, insertIndex),
+        updatedDragged,
+        ...targetShelfBooks.slice(insertIndex),
+      ];
+      const otherBooks = withoutDragged.filter(b => b.shelf_id !== targetShelfId);
+      return [...otherBooks, ...newTargetShelfBooks];
+    });
     try {
       await api.patchBook(bookId, { shelf_id: targetShelfId });
+      // Server's default places the patched book at end of the target
+      // shelf. If the user dropped on a specific item, follow up with a
+      // reorder so it lands at that index instead. The reorder is
+      // non-fatal — the book is on the shelf either way; refetch sorts
+      // the canonical order on success or failure.
+      if (overData?.kind === 'shelved-book') {
+        const targetIds = books
+          .filter(b => b.shelf_id === targetShelfId)
+          .map(b => b.id);
+        const overIdx = targetIds.indexOf(over.id);
+        if (overIdx >= 0) {
+          targetIds.splice(overIdx, 0, bookId);
+          try { await api.reorderShelf(targetShelfId, targetIds); } catch { /* placed but not positioned */ }
+        }
+      }
       dispatchSpineEvent('spine:book-mutated', { id: bookId });
     } catch {
       setError('Failed to place book.');
