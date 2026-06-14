@@ -936,27 +936,35 @@ export default function Library() {
             </div>
           )}
           {hasMore && (
-            <div className="mt-10 flex flex-col items-center gap-2">
-              <div className="flex justify-center gap-3">
-                <button
-                  type="button"
-                  onClick={loadMore}
-                  disabled={loadingMore || loadingAll}
-                  className="text-sm text-neutral-500 hover:text-neutral-200 disabled:opacity-60 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
-                >
-                  {loadingMore ? 'Loading…' : `Load more · ${total - loadedCount} remaining`}
-                </button>
-                <button
-                  type="button"
-                  onClick={loadAll}
-                  disabled={loadingMore || loadingAll}
-                  className="text-sm text-neutral-500 hover:text-neutral-200 disabled:opacity-60 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
-                >
-                  {loadingAll ? `Loading all · ${loadedCount}/${total}` : 'Load all'}
-                </button>
-              </div>
-              {actionError && <p role="alert" className="text-xs text-warn">{typeof actionError === 'string' ? actionError : 'Failed to load more books.'}</p>}
+            <div className="mt-10 flex justify-center gap-3">
+              <button
+                type="button"
+                onClick={loadMore}
+                disabled={loadingMore || loadingAll}
+                className="text-sm text-neutral-500 hover:text-neutral-200 disabled:opacity-60 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
+              >
+                {loadingMore ? 'Loading…' : `Load more · ${total - loadedCount} remaining`}
+              </button>
+              <button
+                type="button"
+                onClick={loadAll}
+                disabled={loadingMore || loadingAll}
+                className="text-sm text-neutral-500 hover:text-neutral-200 disabled:opacity-60 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
+              >
+                {loadingAll ? `Loading all · ${loadedCount}/${total}` : 'Load all'}
+              </button>
             </div>
+          )}
+          {/* actionError lives outside the {hasMore && …} block so the
+              handleDragEnd "Failed to save order" message — which can only
+              fire in edit mode, where hasMore is false by precondition —
+              still surfaces. Load more / Load all failures fire when
+              hasMore is true, so the banner appears under the buttons
+              in that case. */}
+          {actionError && (
+            <p role="alert" className="mt-3 text-center text-xs text-warn">
+              {typeof actionError === 'string' ? actionError : 'Failed to load more books.'}
+            </p>
           )}
         </>
       )}
