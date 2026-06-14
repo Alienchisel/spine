@@ -905,15 +905,17 @@ export default function ShelfView() {
                   // already-placed books in the per-room groups stay
                   // plain. Same model at every level: drag pushes books
                   // one step deeper into the hierarchy; cross-tree moves
-                  // go through MoreMenu's Location… picker.
-                  const isUnfiled = g.id == null;
+                  // go through MoreMenu's Location… picker. Gated on
+                  // there being somewhere to drop (rooms.length > 0) so
+                  // the affordance isn't offered when no targets exist.
+                  const canPlace = g.id == null && rooms.length > 0;
                   return (
                     <div key={g.id ?? 'unassigned'}>
                       <div className="mb-2 flex items-baseline justify-between gap-3">
                         <p className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wider">
                           {g.name} <span className="text-neutral-700">· {plural(g.books.length, 'book')}</span>
                         </p>
-                        {isUnfiled && rooms.length > 0 && (
+                        {canPlace && (
                           <p className="text-[11px] text-neutral-600">Drag onto a room to place</p>
                         )}
                       </div>
@@ -921,7 +923,7 @@ export default function ShelfView() {
                         {(() => {
                           const ls = cohortLinkState(g.books);
                           return g.books.map(book =>
-                            isUnfiled
+                            canPlace
                               ? <DraggableBookCard key={book.id} book={book} compact={compact} linkState={ls} />
                               : <BookCard key={book.id} book={book} compact={compact} linkState={ls} />
                           );
@@ -993,14 +995,16 @@ export default function ShelfView() {
             return (
               <div className={units.length > 0 ? 'mt-8 space-y-6' : 'space-y-6'}>
                 {groups.map(g => {
-                  const isUnfiled = g.id == null;
+                  // Same gating as the building view — only unfiled +
+                  // there's somewhere to drop.
+                  const canPlace = g.id == null && units.length > 0;
                   return (
                     <div key={g.id ?? 'unassigned'}>
                       <div className="mb-2 flex items-baseline justify-between gap-3">
                         <p className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wider">
                           {g.name} <span className="text-neutral-700">· {plural(g.books.length, 'book')}</span>
                         </p>
-                        {isUnfiled && units.length > 0 && (
+                        {canPlace && (
                           <p className="text-[11px] text-neutral-600">Drag onto a unit to place</p>
                         )}
                       </div>
@@ -1008,7 +1012,7 @@ export default function ShelfView() {
                         {(() => {
                           const ls = cohortLinkState(g.books);
                           return g.books.map(book =>
-                            isUnfiled
+                            canPlace
                               ? <DraggableBookCard key={book.id} book={book} compact={compact} linkState={ls} />
                               : <BookCard key={book.id} book={book} compact={compact} linkState={ls} />
                           );
