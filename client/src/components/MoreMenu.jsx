@@ -105,6 +105,10 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
   const [shelfError, setShelfError]     = useState(null);
   const [shelfQuery, setShelfQuery]     = useState('');
   const [placingKey, setPlacingKey]     = useState(null);
+  // Expanded parent keys in browse mode. Cleared on close so re-opens
+  // start collapsed — the picker is meant to fit a single screen, not
+  // remember the user's last drill-down.
+  const [expandedKeys, setExpandedKeys] = useState(() => new Set());
   const shelfSearchRef = useRef(null);
   // Show the Location… entry only when placement makes sense — physical
   // owned books. Ebooks/audiobooks have no shelf, and unowned wishlist
@@ -116,47 +120,63 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
   // surfaces the action on those cards too.
   const canShelve = book.format === 'physical' && book.owned !== 0;
 
-  // Depth-first flatten of the tree into placement rows. Each level
-  // appears before its children, so a building's row sits above its
-  // rooms, a room above its units, etc. — the natural ordering matches
-  // how a user mentally narrows down "where to put this." Each row
-  // carries the exact patch shape AddBookHere uses: a single id at the
-  // chosen level. Server-side normalizeBookLocation derives the parents
-  // and clears any non-chosen children, so the patch stays minimal.
+  // Depth-first flatten of the tree into placement rows. Each row
+  // carries:
+  //   - patch:       the single-id PATCH shape (same as AddBookHere)
+  //   - label:       short local name ("Living Room", "Top shelf")
+  //   - crumb:       full breadcrumb for tooltip + search-mode display
+  //   - search:      lowercase crumb for substring matching
+  //   - parentKey:   the row above this one in the hierarchy, used for
+  //                  browse-mode expand/collapse. null on roots.
+  //   - depth:       indent step in browse mode. Renders relative to
+  //                  whichever rows are actually shown — when the
+  //                  library has a single building, the building's row
+  //                  is suppressed and rooms become roots (depth 0).
+  //
+  // Single-building trimming: in a one-building library the "Home · "
+  // prefix on every crumb is dead weight (it's the same on every row
+  // and there's nothing to disambiguate). Drop the row, drop the
+  // prefix, and let rooms become the top-level entries.
   const flatLocations = useMemo(() => {
     if (!shelfTree) return [];
+    const singleBuilding = shelfTree.length === 1;
     const out = [];
     for (const b of shelfTree) {
-      out.push({
-        key:   `b-${b.id}`,
-        level: 'building',
-        patch: { building_id: b.id },
-        crumb: b.name,
-        search: b.name.toLowerCase(),
-      });
+      if (!singleBuilding) {
+        out.push({
+          key: `b-${b.id}`, level: 'building', parentKey: null, depth: 0,
+          patch: { building_id: b.id },
+          label: b.name,
+          crumb: b.name,
+          search: b.name.toLowerCase(),
+        });
+      }
+      const prefix = singleBuilding ? '' : `${b.name} · `;
+      const bKey   = singleBuilding ? null : `b-${b.id}`;
+      const rDepth = singleBuilding ? 0 : 1;
       for (const r of b.rooms || []) {
         out.push({
-          key:   `r-${r.id}`,
-          level: 'room',
+          key: `r-${r.id}`, level: 'room', parentKey: bKey, depth: rDepth,
           patch: { room_id: r.id },
-          crumb: `${b.name} · ${r.name}`,
-          search: `${b.name} ${r.name}`.toLowerCase(),
+          label: r.name,
+          crumb: `${prefix}${r.name}`,
+          search: `${prefix}${r.name}`.toLowerCase(),
         });
         for (const u of r.units || []) {
           out.push({
-            key:   `u-${u.id}`,
-            level: 'unit',
+            key: `u-${u.id}`, level: 'unit', parentKey: `r-${r.id}`, depth: rDepth + 1,
             patch: { unit_id: u.id },
-            crumb: `${b.name} · ${r.name} · ${u.name}`,
-            search: `${b.name} ${r.name} ${u.name}`.toLowerCase(),
+            label: u.name,
+            crumb: `${prefix}${r.name} · ${u.name}`,
+            search: `${prefix}${r.name} ${u.name}`.toLowerCase(),
           });
           for (const s of u.shelves || []) {
             out.push({
-              key:   `s-${s.id}`,
-              level: 'shelf',
+              key: `s-${s.id}`, level: 'shelf', parentKey: `u-${u.id}`, depth: rDepth + 2,
               patch: { shelf_id: s.id },
-              crumb: `${b.name} · ${r.name} · ${u.name} · ${s.label}`,
-              search: `${b.name} ${r.name} ${u.name} ${s.label}`.toLowerCase(),
+              label: s.label,
+              crumb: `${prefix}${r.name} · ${u.name} · ${s.label}`,
+              search: `${prefix}${r.name} ${u.name} ${s.label}`.toLowerCase(),
             });
           }
         }
@@ -165,11 +185,34 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
     return out;
   }, [shelfTree]);
 
-  const filteredLocations = useMemo(() => {
+  // Which rows have children — drives the chevron rendering in browse
+  // mode. Shelves are always leaves, so they never appear here.
+  const parentKeysWithChildren = useMemo(() => {
+    const set = new Set();
+    for (const l of flatLocations) {
+      if (l.parentKey) set.add(l.parentKey);
+    }
+    return set;
+  }, [flatLocations]);
+
+  // Browse mode (no query): show roots + children of explicitly-
+  // expanded parents. Search mode (query non-empty): bypass the
+  // expand state and show every row that matches the substring so
+  // the user can jump straight to a specific shelf without drilling.
+  const visibleLocations = useMemo(() => {
     const q = shelfQuery.trim().toLowerCase();
-    if (!q) return flatLocations;
-    return flatLocations.filter(l => l.search.includes(q));
-  }, [flatLocations, shelfQuery]);
+    if (q) return flatLocations.filter(l => l.search.includes(q));
+    return flatLocations.filter(l => l.parentKey === null || expandedKeys.has(l.parentKey));
+  }, [flatLocations, shelfQuery, expandedKeys]);
+
+  function toggleExpand(key) {
+    setExpandedKeys(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
 
   // Resolve the book's current placement to a breadcrumb. Picks the
   // most-specific populated id and looks up the corresponding flat row.
@@ -265,6 +308,7 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
     e.stopPropagation();
     setSubPrompt('shelf-location');
     setShelfQuery('');
+    setExpandedKeys(new Set());
     // Defer focus past the render that mounts the sub-prompt input.
     setTimeout(() => shelfSearchRef.current?.focus(), 0);
     // Tree cache — load once, reuse across re-opens of the sub-prompt.
@@ -580,10 +624,13 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
             <p role="status" className="text-xs text-neutral-600 px-3 py-2">Loading…</p>
           ) : flatLocations.length === 0 ? (
             <p className="text-xs text-neutral-600 px-3 py-2">No shelves configured yet.</p>
-          ) : filteredLocations.length === 0 ? (
+          ) : visibleLocations.length === 0 ? (
             <p className="text-xs text-neutral-600 px-3 py-2">No locations match.</p>
-          ) : (
-            filteredLocations.map(loc => (
+          ) : shelfQuery.trim() ? (
+            /* Search mode — show full crumbs, no indent, no chevron. The
+               user has narrowed already; flat list with breadcrumbs is
+               the most informative shape. */
+            visibleLocations.map(loc => (
               <button
                 key={loc.key}
                 type="button"
@@ -595,10 +642,6 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
                   loc.level === 'shelf' ? 'text-neutral-300' : 'text-neutral-500'
                 }`}
               >
-                {/* Tiny level badge for coarser-than-shelf rows so the
-                    user can scan the list and tell at a glance which
-                    rows place at a room vs unit vs shelf. Shelves get
-                    no badge — they're the default leaf. */}
                 {loc.level !== 'shelf' && (
                   <span className="text-[8px] uppercase tracking-wider text-neutral-600 bg-neutral-800/60 px-1 py-0.5 rounded flex-shrink-0">
                     {loc.level === 'building' ? 'Bldg' : loc.level === 'room' ? 'Room' : 'Unit'}
@@ -607,6 +650,50 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
                 <span className="truncate">{loc.crumb}</span>
               </button>
             ))
+          ) : (
+            /* Browse mode — indented label tree with chevrons on
+               expandable rows. Rows start collapsed; chevron toggles
+               just that row's children. Clicking the label itself
+               picks (PATCHes). */
+            visibleLocations.map(loc => {
+              const expandable = parentKeysWithChildren.has(loc.key);
+              const expanded = expandedKeys.has(loc.key);
+              return (
+                <div key={loc.key} className="flex items-stretch hover:bg-neutral-800 transition-colors">
+                  {expandable ? (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleExpand(loc.key); }}
+                      aria-label={expanded ? `Collapse ${loc.label}` : `Expand ${loc.label}`}
+                      aria-expanded={expanded}
+                      className="flex-shrink-0 w-6 flex items-center justify-center text-neutral-600 hover:text-neutral-300 transition-colors"
+                    >
+                      <span aria-hidden="true" className="text-[10px]">{expanded ? '▾' : '▸'}</span>
+                    </button>
+                  ) : (
+                    <span aria-hidden="true" className="flex-shrink-0 w-6" />
+                  )}
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); placeAt(loc); }}
+                    disabled={placingKey != null}
+                    role="menuitem"
+                    title={loc.crumb}
+                    style={{ paddingLeft: loc.depth * 10 }}
+                    className={`flex-1 min-w-0 pr-3 py-1.5 text-left text-xs transition-colors disabled:opacity-60 flex items-center gap-1.5 ${
+                      loc.level === 'shelf' ? 'text-neutral-300' : 'text-neutral-400'
+                    } hover:text-neutral-200`}
+                  >
+                    {loc.level !== 'shelf' && (
+                      <span className="text-[8px] uppercase tracking-wider text-neutral-600 bg-neutral-800/60 px-1 py-0.5 rounded flex-shrink-0">
+                        {loc.level === 'building' ? 'Bldg' : loc.level === 'room' ? 'Room' : 'Unit'}
+                      </span>
+                    )}
+                    <span className="truncate">{loc.label}</span>
+                  </button>
+                </div>
+              );
+            })
           )}
         </>
       ) : (
