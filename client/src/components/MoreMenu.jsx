@@ -527,6 +527,13 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
       }
       style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, maxHeight: pos.maxHeight }}
       className="z-[9999] w-56 flex flex-col bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl"
+      /* Stop clicks at the dropdown root so a miss on the dead space
+         between buttons (py-1 padding, my-1 separators) doesn't bubble
+         through the portal back into BookCard's wrapping <Link> and
+         navigate to BookDetail. Each menu-item's own onClick already
+         stops propagation; this catches the gaps. */
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
     >
       {/* Scrollable region — wraps both the root menu and the add-to-
           lists sub-prompt so the dropdown caps at 80vh in either state.
