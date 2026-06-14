@@ -26,6 +26,7 @@ import BookCard from '../components/BookCard.jsx';
 import CompletionIndicator from '../components/CompletionIndicator.jsx';
 import { GridSkeleton } from '../components/Skeleton.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
+import { usePaginatedFetch } from '../hooks/usePaginatedFetch.js';
 import { useLatest } from '../hooks/useLatest.js';
 import { useActionGuard } from '../hooks/useActionGuard.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
@@ -297,12 +298,6 @@ function QuickAdd({ listId, listBookIds, onAdded }) {
 
 export default function ListDetail() {
   const { id } = useParams();
-  const [list, setList] = useState(null);
-  // Prefer the specific list name so the destination's back link reads
-  // "← [list name]" (matching the rest of Spine's entity-aware back
-  // labels). 'List' is the fallback for the brief window before the
-  // fetch lands, though book cards aren't rendered until `loading`
-  // flips false — so the fallback rarely fires in practice.
   // cohort threads the current list's ordered {id, title} pairs into
   // BookDetail's navState so the destination can render a list-aware
   // prev/next nav strip instead of falling back to series-sibling order
@@ -320,38 +315,6 @@ export default function ListDetail() {
   // visible-books shape until the cohort fetch lands so the cohort is
   // present from the first paint, just possibly short.
   const [cohort, setCohort] = useState([]);
-  const fromState = useMemo(
-    () => ({
-      from: list?.name ?? 'List',
-      fromPath: `/lists/${id}`,
-      cohort: cohort.length > 0
-        ? cohort
-        : (list?.books || []).map(b => ({ id: b.id, title: b.title })),
-    }),
-    [id, list?.name, list?.books, cohort],
-  );
-  // ID set of books already on this list — flows into QuickAdd so the
-  // existing-library matches dropdown can mark duplicates instead of
-  // letting the user click a row that the server would silently
-  // INSERT OR IGNORE. Sourced from the cohort fetch when available
-  // (full list up to its cap) so the dedup signal is accurate beyond
-  // the visible page; falls back to the visible-books shape during the
-  // brief window before the cohort lands.
-  const listBookIds = useMemo(() => {
-    const src = cohort.length > 0 ? cohort : (list?.books || []);
-    return new Set(src.map(b => b.id));
-  }, [cohort, list?.books]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [loadingAll, setLoadingAll] = useState(false);
-  const [error, setError] = useState(null);
-  // Distinct from `error`, which fully replaces the page on load failure
-  // (line ~294). Transient mutation/pagination failures (reorder, Load
-  // more, Show all) leave the list intact, so this surfaces inline —
-  // both above the books and next to the Load more buttons so it's
-  // visible wherever the user's eye happens to be.
-  const [actionError, setActionError] = useState(null);
   const [sort, setSort] = useState('added');
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
@@ -368,15 +331,11 @@ export default function ListDetail() {
   // list-picker, progress editor). Drag-to-reorder requires sort='added'
   // (custom order); entering edit mode in any other sort coerces back.
   const [editMode, setEditMode] = useState(false);
-  const loadedRef = useRef(0);
+  // useStaleGuard kept for the action handlers (rename, description save,
+  // drag reorder) that each capture an epoch at handler start and check
+  // freshness on response. The hook handles its own internal guard for
+  // paging.
   const guard = useStaleGuard();
-  // Synchronous mirror of the loadingMore/loadingAll *pair*. The button
-  // disabled props gate user clicks but the state setters don't commit
-  // until next render — so two same-tick clicks (or Load more + Load all
-  // together) all pass the `loadingMore || loadingAll` check, fire
-  // duplicate getList calls at the same offset, and double-bump
-  // loadedRef.current. Mirrors Library.pagingRef.
-  const pagingRef = useRef(false);
   // Bumped on every drag so an earlier failed reorder whose .catch lands
   // *after* a later drag has already applied optimistically can detect
   // that it's stale — without this, A's rollback to its pre-A snapshot
@@ -407,10 +366,6 @@ export default function ListDetail() {
   // handlers, and a blur immediately after a submit could fire a second
   // PUT before the first resolves.
   const descInFlightRef = useRef(false);
-  // Tracks the last id|sort the load effect ran for so refresh-tick
-  // refetches at the same key don't flash the loading state or cancel an
-  // in-progress rename. Mirrors Library.lastFetchKeyRef.
-  const prevKeyRef = useRef('');
   const refreshTick = useRefreshTick();
 
   const sensors = useSensors(
@@ -434,6 +389,95 @@ export default function ListDetail() {
     userChangedSortRef.current = false;
   }, [id]);
 
+  // Paginated visible-books fetch. The list metadata (name, description,
+  // owned_count, finished_count, default_sort) comes back in meta and
+  // merges across pages within the same key. sort==='added' returns the
+  // whole list unpaginated; the hook's loop sees items.length >= total
+  // on first response and stops naturally, so Load more is hidden via
+  // hasMore=false.
+  const {
+    items: books, setItems: setBooks,
+    total, setTotal,
+    meta, setMeta,
+    loading: fetchLoading,
+    loadingMore, loadingAll,
+    hasMore, loadedCount, setLoadedCount,
+    error,
+    setError,
+    actionError, setActionError,
+    loadMore, loadAll,
+  } = usePaginatedFetch(
+    (offset, limit) => {
+      const params = sort === 'added' ? { sort } : { sort, limit, offset };
+      return api.getList(id, params).then(({ books: bs, total: t, ...rest }) => ({
+        items: bs, total: t, ...rest,
+      }));
+    },
+    [id, sort],
+    {
+      key: `${id}|${sort}`,
+      pageSize: PAGE_SIZE,
+    },
+  );
+
+  // Default-sort adoption — same shape as Author.jsx. When the server's
+  // saved default_sort differs from current sort and the user hasn't
+  // explicitly chosen yet, setSort triggers a refetch with the canonical
+  // sort. Composite loading keeps the skeleton visible across the
+  // adoption gap so the wrong-sort response never paints.
+  const adopting = !!(
+    meta.default_sort &&
+    meta.default_sort !== sort &&
+    !userChangedSortRef.current
+  );
+  useEffect(() => {
+    if (adopting) setSort(meta.default_sort);
+  }, [adopting, meta.default_sort]);
+  const loading = fetchLoading || adopting;
+
+  // Derive list from the hook's split state. The rest of the file reads
+  // list.name / list.books / list.description / list.owned_count etc.
+  // null while loading or adopting matches the original behaviour: the
+  // skeleton-return at the render head fires first, downstream code
+  // never sees a half-populated list.
+  const list = (loading || meta.name === undefined) ? null : { ...meta, books, total };
+
+  // Reset rename / description editor UI on real navigation. Originally
+  // lived in the load effect's isRealChange block; moved out so the hook
+  // owns the fetch and these stay focused on UI cleanup.
+  useEffect(() => {
+    setRenaming(false);
+    setRenameError(null);
+    setRenameValue('');
+    setEditingDesc(false);
+    setDescError(null);
+    setDescValue('');
+  }, [id, sort]);
+
+  // fromState + listBookIds need the derived list and the cohort fetch.
+  // Co-located here so changes to either source flow through cleanly.
+  const fromState = useMemo(
+    () => ({
+      from: meta.name ?? 'List',
+      fromPath: `/lists/${id}`,
+      cohort: cohort.length > 0
+        ? cohort
+        : books.map(b => ({ id: b.id, title: b.title })),
+    }),
+    [id, meta.name, books, cohort],
+  );
+  // ID set of books already on this list — flows into QuickAdd so the
+  // existing-library matches dropdown can mark duplicates instead of
+  // letting the user click a row that the server would silently
+  // INSERT OR IGNORE. Sourced from the cohort fetch when available
+  // (full list up to its cap) so the dedup signal is accurate beyond
+  // the visible page; falls back to the visible-books shape during the
+  // brief window before the cohort lands.
+  const listBookIds = useMemo(() => {
+    const src = cohort.length > 0 ? cohort : books;
+    return new Set(src.map(b => b.id));
+  }, [cohort, books]);
+
   // Full-cohort fetch — independent of the paginated visible-books fetch.
   // limit=500 is the server's cap; for lists larger than that, prev/next
   // truncates at the cap (acceptable tradeoff vs streaming or a separate
@@ -451,143 +495,6 @@ export default function ListDetail() {
     return () => { cancelled = true; };
   }, [id, sort, refreshTick]);
 
-  useEffect(() => {
-    const epoch = guard.next();
-    const key = `${id}|${sort}`;
-    const isRealChange = prevKeyRef.current !== key;
-    prevKeyRef.current = key;
-    // Only show "Loading…" and cancel the rename UI on a real navigation
-    // (id or sort change). A refresh-tick refetch at the same key keeps
-    // the current view in place — atomic data swap via setList(data)
-    // below — so the user doesn't see a flash and an in-progress rename
-    // doesn't get yanked shut on alt-tab.
-    if (isRealChange) {
-      setLoading(true);
-      setError(null);
-      setRenaming(false);
-      setRenameError(null);
-      setRenameValue('');
-      setEditingDesc(false);
-      setDescError(null);
-      setDescValue('');
-    }
-    // Action banner and pagination flags clear on every fire — they're
-    // transient state that shouldn't persist across any refetch (the
-    // guard.next() bump above also orphans in-flight loadMore/loadAll
-    // whose finally clauses would otherwise strand the flags).
-    setActionError(null);
-    setLoadingMore(false);
-    setLoadingAll(false);
-    // Restore the previously-loaded depth on same-key refreshTick
-    // refetches so alt-tabbing back doesn't shrink a Load-all'd view
-    // back to page 1. The 'added' sort is unpaginated (server returns
-    // the whole list), so depth restoration is a no-op there.
-    const prevDepth = isRealChange ? 0 : loadedRef.current;
-    loadedRef.current = 0;
-    // Track whether the IIFE exited via the default_sort adoption path —
-    // when it did, leaving loading=false here renders a `list=null,
-    // loading=false` frame before the re-fired effect's setLoading(true)
-    // commits, and the JSX crashes on `list.name`. The second effect will
-    // re-set loading=true; finally only clears loading when we actually
-    // settled on data.
-    let adopted = false;
-    (async () => {
-      try {
-        if (sort === 'added') {
-          const data = await api.getList(id, { sort });
-          if (!guard.isFresh(epoch)) return;
-          // First-visit auto-sync to the per-list default_sort memory.
-          // If the server has a non-'added' default and the user hasn't
-          // changed sort yet during this visit, adopt it — setSort fires
-          // the load effect again with the correct sort. Skip when the
-          // user has already chosen explicitly.
-          if (data.default_sort && data.default_sort !== sort && !userChangedSortRef.current) {
-            adopted = true;
-            setSort(data.default_sort);
-            return;
-          }
-          setList(data);
-          setTotal(data.total);
-          loadedRef.current = data.books.length;
-          return;
-        }
-        let merged = null;
-        let serverTotal = 0;
-        const target = Math.max(PAGE_SIZE, prevDepth);
-        while (guard.isFresh(epoch)) {
-          const offset = merged ? merged.books.length : 0;
-          const data = await api.getList(id, { sort, limit: PAGE_SIZE, offset });
-          if (!guard.isFresh(epoch)) return;
-          // Same first-visit adoption as the 'added' branch: if the server
-          // has a non-current default_sort and the user hasn't chosen yet,
-          // switch to it. The load effect re-runs with the new sort and
-          // discards the in-flight merge below.
-          if (offset === 0 && data.default_sort && data.default_sort !== sort && !userChangedSortRef.current) {
-            adopted = true;
-            setSort(data.default_sort);
-            return;
-          }
-          serverTotal = data.total;
-          merged = merged ? { ...merged, ...data, books: [...merged.books, ...data.books] } : data;
-          if (data.books.length === 0) break;
-          if (merged.books.length >= Math.min(target, serverTotal)) break;
-        }
-        if (!guard.isFresh(epoch) || !merged) return;
-        setList(merged);
-        setTotal(serverTotal);
-        loadedRef.current = merged.books.length;
-      } catch {
-        if (guard.isFresh(epoch)) setError('Failed to load list.');
-      } finally {
-        if (guard.isFresh(epoch) && !adopted) setLoading(false);
-      }
-    })();
-  }, [id, sort, refreshTick]);
-
-  const loadMore = useCallback(async () => {
-    if (pagingRef.current || loadingMore || loadingAll) return;
-    const epoch = guard.current();
-    pagingRef.current = true;
-    setLoadingMore(true);
-    setActionError(null);
-    try {
-      const data = await api.getList(id, { sort, limit: PAGE_SIZE, offset: loadedRef.current });
-      if (!guard.isFresh(epoch)) return;
-      setList(l => ({ ...l, books: [...l.books, ...data.books] }));
-      loadedRef.current += data.books.length;
-    } catch {
-      if (guard.isFresh(epoch)) setActionError('Failed to load more books.');
-    } finally {
-      // Clear unconditionally — if epoch has bumped, the new load effect
-      // already reset loadingMore via setState, so leaving the ref stuck
-      // would block all future paging on the new list.
-      pagingRef.current = false;
-      if (guard.isFresh(epoch)) setLoadingMore(false);
-    }
-  }, [id, sort, loadingMore, loadingAll]);
-
-  const loadAll = useCallback(async () => {
-    if (pagingRef.current || loadingMore || loadingAll) return;
-    const epoch = guard.current();
-    pagingRef.current = true;
-    setLoadingAll(true);
-    setActionError(null);
-    try {
-      while (guard.isFresh(epoch) && loadedRef.current < total) {
-        const data = await api.getList(id, { sort, limit: PAGE_SIZE, offset: loadedRef.current });
-        if (!guard.isFresh(epoch)) break;
-        setList(l => ({ ...l, books: [...l.books, ...data.books] }));
-        loadedRef.current += data.books.length;
-        if (data.books.length === 0) break;
-      }
-    } catch {
-      if (guard.isFresh(epoch)) setActionError('Failed to load more books.');
-    } finally {
-      pagingRef.current = false;
-      if (guard.isFresh(epoch)) setLoadingAll(false);
-    }
-  }, [id, sort, total, loadingMore, loadingAll]);
-
   function handleAdded(book, submittedListId) {
     // Guard against the QuickAdd-cross-navigation race: if the user
     // navigated to a different list between submit and resolve, the
@@ -604,14 +511,14 @@ export default function ListDetail() {
     // Cheap insurance against a future regression.
     const ownedDelta    = book.owned                 ? 1 : 0;
     const finishedDelta = book.status === 'finished' ? 1 : 0;
-    setList(l => ({
-      ...l,
-      books: [{ ...book, added_at: new Date().toLocaleString('sv-SE') }, ...l.books],
-      owned_count:    (l.owned_count    ?? 0) + ownedDelta,
-      finished_count: (l.finished_count ?? 0) + finishedDelta,
+    setBooks(prev => [{ ...book, added_at: new Date().toLocaleString('sv-SE') }, ...prev]);
+    setMeta(m => ({
+      ...m,
+      owned_count:    (m.owned_count    ?? 0) + ownedDelta,
+      finished_count: (m.finished_count ?? 0) + finishedDelta,
     }));
     setTotal(t => t + 1);
-    loadedRef.current += 1;
+    setLoadedCount(n => n + 1);
   }
 
   async function handleRemove(bookId) {
@@ -635,18 +542,18 @@ export default function ListDetail() {
     const finishedDelta = removed.status === 'finished'  ? 1 : 0;
     try {
       await api.removeFromList(id, bookId);
-      setList(l => ({
-        ...l,
-        books:          l.books.filter(b => b.id !== bookId),
-        owned_count:    Math.max(0, (l.owned_count    ?? 0) - ownedDelta),
-        finished_count: Math.max(0, (l.finished_count ?? 0) - finishedDelta),
+      setBooks(prev => prev.filter(b => b.id !== bookId));
+      setMeta(m => ({
+        ...m,
+        owned_count:    Math.max(0, (m.owned_count    ?? 0) - ownedDelta),
+        finished_count: Math.max(0, (m.finished_count ?? 0) - finishedDelta),
       }));
       // Defensive clamps: a duplicate remove or a state desync would
-       // otherwise let total / loadedRef go negative, which feeds a bad
-       // offset into the next paginated getList and yields nonsense
-       // percentages on the header counters.
+      // otherwise let total / loadedCount go negative, which feeds a bad
+      // offset into the next paginated getList and yields nonsense
+      // percentages on the header counters.
       setTotal(t => Math.max(0, t - 1));
-      loadedRef.current = Math.max(0, loadedRef.current - 1);
+      setLoadedCount(n => Math.max(0, n - 1));
     } catch {
       // actionError, not error: this fails inline with the list intact.
       // The page-replacing `error` is reserved for load failures where
@@ -669,7 +576,7 @@ export default function ListDetail() {
     try {
       const updated = await api.updateList(id, { description });
       if (!guard.isFresh(epoch)) return;
-      setList(l => ({ ...l, description: updated.description }));
+      setMeta(m => ({ ...m, description: updated.description }));
       setEditingDesc(false);
     } catch (err) {
       if (!guard.isFresh(epoch)) return;
@@ -693,7 +600,7 @@ export default function ListDetail() {
     try {
       const updated = await api.updateList(id, { name });
       if (!guard.isFresh(epoch)) return;
-      setList(l => ({ ...l, name: updated.name }));
+      setMeta(m => ({ ...m, name: updated.name }));
       setRenaming(false);
     } catch (err) {
       if (!guard.isFresh(epoch)) return;
@@ -717,7 +624,7 @@ export default function ListDetail() {
     const previousBooks = list.books;
     const reordered = arrayMove(previousBooks, oldIndex, newIndex);
     setActionError(null);
-    setList(l => ({ ...l, books: reordered }));
+    setBooks(reordered);
     // Capture the load epoch so the rollback + error message are dropped
     // if the user has navigated to a different list by the time the
     // reorder PUT resolves. Without this, a failed PUT for list A would
@@ -729,13 +636,13 @@ export default function ListDetail() {
     const reorderSeq = ++reorderSeqRef.current;
     api.reorderList(id, reordered.map(b => b.id)).catch(() => {
       if (!guard.isFresh(epoch) || reorderSeq !== reorderSeqRef.current) return;
-      setList(l => ({ ...l, books: previousBooks }));
+      setBooks(previousBooks);
       setActionError('Failed to save list order.');
     });
   }
 
   if (loading) return <GridSkeleton count={18} gridClassName="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-x-3 gap-y-5 items-start" />;
-  if (error)   return <div role="alert" className="text-warn text-sm">{error}</div>;
+  if (error)   return <div role="alert" className="text-warn text-sm">Failed to load list.</div>;
   // Defensive: cover any future code path that lands here with list still
   // null (the in-effect adoption flag should prevent this, but the render
   // sites below dereference list.name / list.books / list.description
@@ -864,7 +771,7 @@ export default function ListDetail() {
               {SORTS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
             </select>
           </div>
-          {actionError && <p role="alert" className="text-xs text-warn mb-2">{actionError}</p>}
+          {actionError && <p role="alert" className="text-xs text-warn mb-2">{typeof actionError === 'string' ? actionError : 'Failed to load more books.'}</p>}
           {editMode ? (
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext items={list.books.map(b => b.id)} strategy={rectSortingStrategy}>
@@ -891,7 +798,7 @@ export default function ListDetail() {
                   disabled={loadingMore || loadingAll}
                   className="text-sm text-neutral-500 hover:text-neutral-300 disabled:opacity-60 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
                 >
-                  {loadingMore ? 'Loading…' : `Load more · ${total - list.books.length} remaining`}
+                  {loadingMore ? 'Loading…' : `Load more · ${total - loadedCount} remaining`}
                 </button>
                 <button
                   type="button"
@@ -899,10 +806,10 @@ export default function ListDetail() {
                   disabled={loadingMore || loadingAll}
                   className="text-sm text-neutral-500 hover:text-neutral-300 disabled:opacity-60 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
                 >
-                  {loadingAll ? `Loading all · ${list.books.length}/${total}` : 'Load all'}
+                  {loadingAll ? `Loading all · ${loadedCount}/${total}` : 'Load all'}
                 </button>
               </div>
-              {actionError && <p role="alert" className="text-xs text-warn">{actionError}</p>}
+              {actionError && <p role="alert" className="text-xs text-warn">{typeof actionError === 'string' ? actionError : 'Failed to load more books.'}</p>}
             </div>
           )}
         </>
