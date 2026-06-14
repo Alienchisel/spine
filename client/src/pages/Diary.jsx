@@ -235,12 +235,18 @@ function YearHeatmap({ days, selectedYear, onDayClick }) {
 
   // Per-day activity. Score combines pages + minutes/2 only for
   // intensity bucketing — the tooltip shows raw pages / minutes.
+  // entryCount tracks "this day had any reading_log activity at all,"
+  // which catches story-finish rows that write pages_read=0 +
+  // minutes_read=0 (a story closing out doesn't have a page delta of
+  // its own). Without it, story-only days score 0 and the heatmap goes
+  // blank even though the diary lists the entry — visible mismatch.
   const activityByDate = useMemo(() => {
     const map = {};
     for (const day of days) {
       const p = day.pages_total;
       const m = day.minutes_total;
-      map[day.date] = { pages: p, minutes: m, score: p + m / 2 };
+      const entryCount = day.entries?.length ?? 0;
+      map[day.date] = { pages: p, minutes: m, entryCount, score: p + m / 2 };
     }
     return map;
   }, [days]);
@@ -254,11 +260,15 @@ function YearHeatmap({ days, selectedYear, onDayClick }) {
     return [q(0.25), q(0.50), q(0.75)];
   }, [activityByDate]);
 
-  function intensity(score) {
-    if (!score) return 0;
-    if (score < thresholds[0]) return 1;
-    if (score < thresholds[1]) return 2;
-    if (score < thresholds[2]) return 3;
+  function intensity(act) {
+    if (!act) return 0;
+    // No pages/minutes but a reading_log row landed (story-finish,
+    // mostly) → faintest shade. Keeps the heatmap in sync with the
+    // diary entries-list for that day.
+    if (act.score <= 0) return act.entryCount > 0 ? 1 : 0;
+    if (act.score < thresholds[0]) return 1;
+    if (act.score < thresholds[1]) return 2;
+    if (act.score < thresholds[2]) return 3;
     return 4;
   }
 
@@ -334,13 +344,18 @@ function YearHeatmap({ days, selectedYear, onDayClick }) {
               const dateStr = d.toLocaleDateString('en-CA');
               const inYear  = d.getFullYear() === selectedYear;
               const future  = dateStr > todayStr;
-              const act     = activityByDate[dateStr];
-              const level   = inYear && !future && act ? intensity(act.score) : 0;
-              const out     = inYear && !future;
-              const cls     = [
+              const act      = activityByDate[dateStr];
+              const level    = inYear && !future && act ? intensity(act) : 0;
+              const out      = inYear && !future;
+              // "Has any reading_log activity for this day" — includes
+              // story-finishes with no page delta, which the diary lists
+              // but used to leave blank on the heatmap. Drives both the
+              // hover-ring + clickability and the button-vs-div branch.
+              const hasEntry = !!(act && (act.score > 0 || act.entryCount > 0));
+              const cls      = [
                 'aspect-square rounded-sm',
                 out ? HEATMAP_LEVEL_CLASS[level] : 'bg-transparent',
-                act && act.score > 0 ? 'cursor-pointer hover:ring-1 hover:ring-oak/60' : '',
+                hasEntry ? 'cursor-pointer hover:ring-1 hover:ring-oak/60' : '',
               ].join(' ');
               const tip = out
                 ? [
@@ -349,7 +364,7 @@ function YearHeatmap({ days, selectedYear, onDayClick }) {
                     act && act.minutes > 0 && fmtMin(act.minutes),
                   ].filter(Boolean).join(' · ')
                 : null;
-              return act && act.score > 0 ? (
+              return hasEntry ? (
                 <button
                   key={dIdx}
                   type="button"
