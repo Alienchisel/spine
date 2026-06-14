@@ -107,9 +107,14 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
   const [placingKey, setPlacingKey]     = useState(null);
   const shelfSearchRef = useRef(null);
   // Show the Location… entry only when placement makes sense — physical
-  // owned books. Ebooks, audiobooks, and wishlist/reference unowned
-  // entries would PATCH to nothing.
-  const canShelve = book.format === 'physical' && !!book.owned;
+  // owned books. Ebooks/audiobooks have no shelf, and unowned wishlist
+  // entries aren't physically present. `book.owned !== 0` rather than
+  // `!!book.owned` because some surfaces (notably ShelfView's
+  // /shelf/unshelfed and the per-shelf endpoints) don't include the
+  // owned column in their projection — those surfaces already filter
+  // to owned books server-side, so treating undefined as ownable
+  // surfaces the action on those cards too.
+  const canShelve = book.format === 'physical' && book.owned !== 0;
 
   // Depth-first flatten of the tree into placement rows. Each level
   // appears before its children, so a building's row sits above its
