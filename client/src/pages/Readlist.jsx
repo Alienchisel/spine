@@ -2,8 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { formatAuthors, initialsFor, fmtHM, plural, pluralWord } from '../utils.js';
-import { useRefreshTick } from '../hooks/useRefreshTick.js';
-import { useStaleGuard } from '../hooks/useStaleGuard.js';
+import { useFreshFetch } from '../hooks/useFreshFetch.js';
 import { GridSkeleton } from '../components/Skeleton.jsx';
 
 const FROM_READLIST = { from: 'Readlist', fromPath: '/readlist' };
@@ -86,9 +85,24 @@ function PickCard({ book }) {
 }
 
 export default function Readlist() {
-  const [books, setBooks] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const {
+    data: books,
+    setData: setBooks,
+    loading,
+    error: loadError,
+    setError: setLoadError,
+    refetch,
+  } = useFreshFetch(
+    () => api.getReadlist(),
+    [],
+    { initialData: [] },
+  );
+  // Action errors (failed remove) share the same UI slot as the load
+  // error — the original implementation overloaded `setError` for both.
+  // Keep them as separate state so the hook's load error doesn't carry
+  // the wrong message after a refetch; merge for display.
+  const [actionError, setActionError] = useState(null);
+  const errorMessage = actionError ?? (loadError ? 'Failed to load readlist.' : null);
   // Picker constraint state — transient, not URL-persisted, doesn't
   // outlive the session. The picker is for "what should I pick right
   // now?", a moment-bound question.
@@ -98,16 +112,6 @@ export default function Readlist() {
   const [shuffleSeed, setShuffleSeed] = useState(() => Math.floor(Math.random() * 1_000_000));
   const [removingIds, setRemovingIds] = useState(() => new Set());
   const [showAllQueue, setShowAllQueue] = useState(false);
-  const guard = useStaleGuard();
-  const refreshTick = useRefreshTick();
-
-  useEffect(() => {
-    const epoch = guard.next();
-    api.getReadlist()
-      .then(b => { if (guard.isFresh(epoch)) { setBooks(b); setError(null); } })
-      .catch(() => { if (guard.isFresh(epoch)) setError('Failed to load readlist.'); })
-      .finally(() => { if (guard.isFresh(epoch)) setLoading(false); });
-  }, [refreshTick]);
 
   // Top tags across the whole readlist, ordered by frequency. Used as
   // the picker's tag-chip palette so the user picks from tags that
@@ -276,18 +280,20 @@ export default function Readlist() {
     if (removingIds.has(id)) return;
     setRemovingIds(s => new Set([...s, id]));
     setBooks(curr => curr.filter(b => b.id !== id));
-    setError(null);
+    setActionError(null);
+    // Dismiss any lingering load error too — the user has moved on.
+    setLoadError(null);
     try {
       await api.patchBook(id, { on_readlist: 0 });
     } catch {
-      setError('Failed to remove from readlist.');
-      api.getReadlist().then(b => setBooks(b)).catch(() => {});
+      setActionError('Failed to remove from readlist.');
+      refetch();
     } finally {
       setRemovingIds(s => { const n = new Set(s); n.delete(id); return n; });
     }
   }
 
-  const wholeListEmpty = !loading && !error && books.length === 0;
+  const wholeListEmpty = !loading && !errorMessage && books.length === 0;
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -302,8 +308,8 @@ export default function Readlist() {
 
       {loading ? (
         <GridSkeleton count={10} gridClassName="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-4 gap-y-6 items-start" />
-      ) : error ? (
-        <div role="alert" className="text-warn text-sm">{error}</div>
+      ) : errorMessage ? (
+        <div role="alert" className="text-warn text-sm">{errorMessage}</div>
       ) : wholeListEmpty ? (
         <div className="text-center py-32">
           <p className="text-neutral-600 mb-3">No books on your readlist yet.</p>

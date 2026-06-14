@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
-import { useRefreshTick } from '../hooks/useRefreshTick.js';
-import { useStaleGuard } from '../hooks/useStaleGuard.js';
+import { useFreshFetch } from '../hooks/useFreshFetch.js';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 import PageHeading from '../components/PageHeading.jsx';
 
@@ -47,23 +46,13 @@ const ALL_ARCHIVIST_STATES = [
 // audit.js) — power-user `missing=` filters not on this list remain
 // available from the Library filter panel and the Command Palette.
 export default function Audit() {
-  const [stats, setStats] = useState(null);
-  const [error, setError] = useState(null);
+  const { data: stats, loading, error, setError } = useFreshFetch(() => api.getStats(), []);
   // TEMPORARY — hover/focus key for the preview strip. null = display
   // the real cleanPct-derived state.
   const [previewKey, setPreviewKey] = useState(null);
-  const refreshTick = useRefreshTick();
-  const loadGuard = useStaleGuard();
 
-  useEffect(() => {
-    const epoch = loadGuard.next();
-    api.getStats()
-      .then(s => { if (loadGuard.isFresh(epoch)) { setStats(s); setError(null); } })
-      .catch(() => { if (loadGuard.isFresh(epoch)) setError('Failed to load audit data'); });
-  }, [refreshTick]);
-
-  if (!stats && error) return <div role="alert" className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-warn text-sm">{error}</div>;
-  if (!stats) return <div role="status" className="text-neutral-700 text-sm">Loading…</div>;
+  if (!stats && error) return <div role="alert" className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-warn text-sm">Failed to load audit data.</div>;
+  if (loading) return <div role="status" className="text-neutral-700 text-sm">Loading…</div>;
 
   const audit = stats.audit || [];
   const summary = stats.auditSummary || { cleanPct: 100, totalGaps: 0, totalPopulation: 0, rowCount: audit.reduce((s, g) => s + g.rows.length, 0) };
@@ -97,7 +86,7 @@ export default function Audit() {
         </Link>
       </div>
 
-      <ErrorBanner message={error} onDismiss={() => setError(null)} />
+      <ErrorBanner message={error ? 'Failed to load audit data.' : null} onDismiss={() => setError(null)} />
 
       <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-10">
         {/* Hero column — sticky on md+ so the score stays in view while

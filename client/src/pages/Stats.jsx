@@ -3,8 +3,7 @@ import { Link } from 'react-router-dom';
 import { PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { api } from '../api.js';
 import { fmtShortDate, fmtShortMonth, fmtIsoWeekMonday, formatYear, plural, initialsFor, formatPartialDate, FORMAT_LABEL } from '../utils.js';
-import { useRefreshTick } from '../hooks/useRefreshTick.js';
-import { useStaleGuard } from '../hooks/useStaleGuard.js';
+import { useFreshFetch } from '../hooks/useFreshFetch.js';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 import PageHeading from '../components/PageHeading.jsx';
 
@@ -337,15 +336,20 @@ function GoalCard({ label, current, goal, onSave, onEditStart, color = 'bg-oak' 
 }
 
 export default function Stats() {
-  const [stats, setStats] = useState(null);
-  const [settings, setSettings] = useState({});
-  const [error, setError] = useState(null);
+  // Two independent hooks: stats is load-bearing (no stats = nothing to
+  // render), settings is supplementary (only feeds the Goals section).
+  // Splitting them means the stats page renders as soon as the heavy
+  // stats payload arrives — a slow settings fetch can't gate the whole
+  // page. Goals appear (or show settingsError) once settings resolves.
+  const { data: stats, loading: statsLoading, error, setError } = useFreshFetch(() => api.getStats(), []);
+  const {
+    data: settings,
+    setData: setSettings,
+    error: settingsError,
+  } = useFreshFetch(() => api.getSettings(), [], { initialData: {} });
   // Separate from `error` because that one fully replaces the page on
   // load failure. saveGoal rollbacks should leave the page intact.
   const [actionError, setActionError] = useState(null);
-  // Distinct from `error` so a flaky settings fetch doesn't blank out
-  // the entire stats page (settings only feed the three Goal cards).
-  const [settingsError, setSettingsError] = useState(null);
   // Bumped per goal-key on every saveGoal so an earlier failed save's
   // rollback can detect that a later edit on the same key has already
   // applied — without this, A's catch restores `prev` (A's pre-A value)
@@ -355,26 +359,6 @@ export default function Stats() {
   // used in Readlist / ListDetail / ShelfView / ShelfManager / rating
   // saves.
   const goalSaveSeqRef = useRef({});
-  const refreshTick = useRefreshTick();
-  const loadGuard = useStaleGuard();
-
-  useEffect(() => {
-    // Two independent fetches: stats is load-bearing (no stats = nothing
-    // to render), settings is supplementary (only feeds the Goals section).
-    // Each runs its own .then so the stats page renders as soon as the
-    // heavy stats payload arrives — a slow settings fetch shouldn't keep
-    // the whole page on null. Goals appear (or show settingsError) once
-    // settings resolves separately.
-    const epoch = loadGuard.next();
-
-    api.getStats()
-      .then(s => { if (loadGuard.isFresh(epoch)) { setStats(s); setError(null); } })
-      .catch(() => { if (loadGuard.isFresh(epoch)) setError('Failed to load stats'); });
-
-    api.getSettings()
-      .then(g => { if (loadGuard.isFresh(epoch)) { setSettings(g); setSettingsError(null); } })
-      .catch(() => { if (loadGuard.isFresh(epoch)) setSettingsError('Failed to load goals.'); });
-  }, [refreshTick]);
 
   async function saveGoal(key, value) {
     const prev = settings[key];
@@ -394,8 +378,8 @@ export default function Stats() {
   // are loaded, a subsequent refresh-tick failure surfaces as a dismissible
   // banner above the existing data rather than wiping it — mirrors
   // ShelfView's pattern.
-  if (!stats && error) return <div role="alert" className="text-warn text-sm">{error}</div>;
-  if (!stats) return null;
+  if (!stats && error) return <div role="alert" className="text-warn text-sm">Failed to load stats.</div>;
+  if (statsLoading) return null;
 
   const { totals, formats, fiction, ownedStatus, ratings, acquisitionSources, pagesRead, minutesListened, byYear, acquiredByYear = [], byMonth = [], topAuthors, topLovedAuthors = [], topNarrators, languages, authorsByGender = { male: 0, female: 0, other: 0, unassigned: 0 }, streaks, todayPages, thisYearBooks, thisYearPages, topTags, topSeries, avgPagesPerDay, avgDaysToFinish, inProgressPace = [], decadesPublished = [], records } = stats;
 
@@ -434,7 +418,7 @@ export default function Stats() {
         </Link>
       </div>
 
-      <ErrorBanner message={error} onDismiss={() => setError(null)} />
+      <ErrorBanner message={error ? 'Failed to load stats.' : null} onDismiss={() => setError(null)} />
       {actionError && <p role="alert" className="text-xs text-warn">{actionError}</p>}
 
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-6 sm:gap-8 py-4">
@@ -484,7 +468,7 @@ export default function Stats() {
       )}
 
       <Section title="Goals">
-        {settingsError && <p role="alert" className="text-xs text-warn mb-2">{settingsError}</p>}
+        {settingsError && <p role="alert" className="text-xs text-warn mb-2">Failed to load goals.</p>}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <GoalCard
             label="Pages today"

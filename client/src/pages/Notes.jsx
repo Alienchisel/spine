@@ -2,8 +2,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { initialsFor, plural, pluralWord } from '../utils.js';
-import { useRefreshTick } from '../hooks/useRefreshTick.js';
-import { useStaleGuard } from '../hooks/useStaleGuard.js';
+import { useFreshFetch } from '../hooks/useFreshFetch.js';
 
 // Surfaces the reflective layer — user-authored prose (review + notes)
 // across the library — as a first-class destination, instead of leaving
@@ -146,9 +145,15 @@ function TagPill({ name, active, onToggle }) {
 const ROW_TAG_LIMIT = 4;
 
 export default function Notes() {
-  const [books, setBooks] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  // Alt-tab refetch — mirrors every other list-style page (Library,
+  // Diary, Loved, …). Without this, edits made elsewhere (a review
+  // tweaked on BookDetail, a tag toggled in BookForm) don't show in
+  // Notes until full page reload.
+  const { data: books, loading, error } = useFreshFetch(
+    () => api.getBooks({ has_writing: 1, sort: 'updated', limit: 200 }).then(d => d.books || []),
+    [],
+    { initialData: [] },
+  );
   // Filter state lives on the URL so a navigate-to-BookDetail-then-back
   // restores the user's exact filter selection (the alt-tab path is
   // already covered by useRefreshTick). Same shape as Library and
@@ -168,20 +173,6 @@ export default function Notes() {
     }, { replace: true });
   }, [setParams]);
   const searchRef = useRef(null);
-  // Alt-tab refetch — mirrors every other list-style page (Library, Diary,
-  // Loved, …). Without this, edits made elsewhere (a review tweaked on
-  // BookDetail, a tag toggled in BookForm) don't show in Notes until full
-  // page reload.
-  const refreshTick = useRefreshTick();
-  const guard       = useStaleGuard();
-
-  useEffect(() => {
-    const epoch = guard.next();
-    api.getBooks({ has_writing: 1, sort: 'updated', limit: 200 })
-      .then(d => { if (guard.isFresh(epoch)) { setBooks(d.books || []); setError(null); } })
-      .catch(() => { if (guard.isFresh(epoch)) setError('Failed to load notes.'); })
-      .finally(() => { if (guard.isFresh(epoch)) setLoading(false); });
-  }, [refreshTick]);
 
   // Toggle a tag in the active-filter set. Empty → adds; present →
   // removes. Round-trips through the URL so back/forward navigation
@@ -325,7 +316,7 @@ export default function Notes() {
       {loading ? (
         <div role="status" className="text-neutral-700 text-sm">Loading…</div>
       ) : error ? (
-        <p role="alert" className="text-sm text-warn">{error}</p>
+        <p role="alert" className="text-sm text-warn">Failed to load notes.</p>
       ) : books.length === 0 ? (
         <div className="text-center py-24">
           <p className="text-neutral-600 mb-3">No notes or reviews written yet.</p>
