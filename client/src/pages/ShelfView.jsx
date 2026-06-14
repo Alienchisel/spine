@@ -133,7 +133,7 @@ function LevelCard({ primary, secondary, onClick }) {
 // renders a full-opacity ghost at the cursor for the actual follow-feel.
 // The same pair powers all four level transitions: book → building,
 // → room, → unit, → shelf. Discriminated by data.kind on the droppable.
-function DraggableBookCard({ book, compact, linkState }) {
+function DraggableBookCard({ book, compact, linkState, focused }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `book-${book.id}`,
     data: { kind: 'book', book },
@@ -145,7 +145,7 @@ function DraggableBookCard({ book, compact, linkState }) {
       {...listeners}
       className={`select-none ${isDragging ? 'opacity-40' : ''}`}
     >
-      <BookCard book={book} compact={compact} linkState={linkState} />
+      <BookCard book={book} compact={compact} linkState={linkState} focused={focused} />
     </div>
   );
 }
@@ -832,7 +832,7 @@ export default function ShelfView() {
                   {(() => {
                     const ls = cohortLinkState(unshelfed);
                     return unshelfed.map(book => (
-                      <DraggableBookCard key={book.id} book={book} compact={compact} linkState={ls} />
+                      <DraggableBookCard key={book.id} book={book} compact={compact} linkState={ls} focused={showFocusRing && String(book.id) === focusId} />
                     ));
                   })()}
                 </div>
@@ -924,8 +924,8 @@ export default function ShelfView() {
                           const ls = cohortLinkState(g.books);
                           return g.books.map(book =>
                             canPlace
-                              ? <DraggableBookCard key={book.id} book={book} compact={compact} linkState={ls} />
-                              : <BookCard key={book.id} book={book} compact={compact} linkState={ls} />
+                              ? <DraggableBookCard key={book.id} book={book} compact={compact} linkState={ls} focused={showFocusRing && String(book.id) === focusId} />
+                              : <BookCard key={book.id} book={book} compact={compact} linkState={ls} focused={showFocusRing && String(book.id) === focusId} />
                           );
                         })()}
                       </div>
@@ -1013,8 +1013,8 @@ export default function ShelfView() {
                           const ls = cohortLinkState(g.books);
                           return g.books.map(book =>
                             canPlace
-                              ? <DraggableBookCard key={book.id} book={book} compact={compact} linkState={ls} />
-                              : <BookCard key={book.id} book={book} compact={compact} linkState={ls} />
+                              ? <DraggableBookCard key={book.id} book={book} compact={compact} linkState={ls} focused={showFocusRing && String(book.id) === focusId} />
+                              : <BookCard key={book.id} book={book} compact={compact} linkState={ls} focused={showFocusRing && String(book.id) === focusId} />
                           );
                         })()}
                       </div>
@@ -1070,8 +1070,8 @@ export default function ShelfView() {
                     const ls = cohortLinkState(unitOnly);
                     return unitOnly.map(book =>
                       shelves.length > 0
-                        ? <DraggableBookCard key={book.id} book={book} compact={compact} linkState={ls} />
-                        : <BookCard key={book.id} book={book} compact={compact} linkState={ls} />
+                        ? <DraggableBookCard key={book.id} book={book} compact={compact} linkState={ls} focused={showFocusRing && String(book.id) === focusId} />
+                        : <BookCard key={book.id} book={book} compact={compact} linkState={ls} focused={showFocusRing && String(book.id) === focusId} />
                     );
                   })()}
                 </div>

@@ -21,7 +21,7 @@ function PencilIcon() {
   );
 }
 
-export default function BookCard({ book: initialBook, onProgressUpdate, compact, coverOverlay, hideActions, fadeUnowned, linkState }) {
+export default function BookCard({ book: initialBook, onProgressUpdate, compact, coverOverlay, hideActions, fadeUnowned, linkState, focused = false }) {
   const navigate = useNavigate();
   const [book, setBook] = useState(initialBook);
   const [open, setOpen] = useState(false);
@@ -240,7 +240,11 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
     book.is_stub && !book.owned ? '(wishlist placeholder)' : null,
   ].filter(Boolean).join(' — ');
   return (
-    <div onKeyDown={handleKeyDown} className={`transition-[background-color] ease-out duration-150 ${compact ? '' : 'bg-card rounded-lg p-1.5'} ${dimming}`}>
+    <div
+      data-book-id={book.id}
+      onKeyDown={handleKeyDown}
+      className={`transition-[background-color] ease-out duration-150 ${compact ? '' : 'bg-card rounded-lg p-1.5'} ${dimming} ${focused ? 'ring-2 ring-oak rounded animate-pulse' : ''}`}
+    >
       <CoverWrapper {...coverWrapperProps} title={coverTitle}>
         {/* Hover signal: a 2px white inset frame on the cover. Implemented
             via an absolute-positioned overlay sibling AFTER the img so the
