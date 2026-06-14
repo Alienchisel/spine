@@ -30,6 +30,7 @@ import { useCoverSize } from '../hooks/useCoverSize.js';
 import CoverSizeSlider from '../components/CoverSizeSlider.jsx';
 import { GridSkeleton } from '../components/Skeleton.jsx';
 import { useRefreshTick } from '../hooks/useRefreshTick.js';
+import { usePaginatedFetch } from '../hooks/usePaginatedFetch.js';
 import { useLatest } from '../hooks/useLatest.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import { useSpineEvent, dispatchSpineEvent } from '../hooks/useSpineEvent.js';
@@ -246,22 +247,47 @@ export default function Library() {
   // writes use replace:true so typing doesn't spam the history stack.
   const [queryRaw, setQueryRaw] = useState(query);
 
-  const [books,       setBooks]       = useState([]);
   // Cohort fetch is independent of the paginated visible-books fetch so
   // BookDetail's prev/next can walk the current filter+sort view past the
   // first 48 books. Server caps at 200; libraries / filtered views larger
   // than that truncate the cohort there. Refreshes on the same triggers
   // as the main load (tab/sort/filters/query/randomSeed/refreshTick).
-  const [cohort,      setCohort]      = useState([]);
-  const [total,       setTotal]       = useState(0);
-  const [loading,     setLoading]     = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [loadingAll,  setLoadingAll]  = useState(false);
-  const [fetchError,  setFetchError]  = useState(false);
-  // Distinct from fetchError (which fully replaces the list when the
-  // initial fetch fails). Pagination failures are transient and should
-  // leave the loaded books visible; surfaced near the Load more buttons.
-  const [actionError, setActionError] = useState(null);
+  const [cohort, setCohort] = useState([]);
+  // Paginated visible-books fetch — handles tab/sort/filter/query/
+  // randomSeed state changes (key drives wipe + skeleton), refresh-tick
+  // depth restoration (Load-all'd views come back at the same depth on
+  // alt-tab), and Load more / Load all.
+  //
+  // stopWhen lets the initial load keep fetching beyond pageSize when
+  // the visible grid would otherwise be too sparse — a bulk-add of
+  // N≥PAGE_SIZE books sharing a series collapses into a single
+  // SeriesCard, leaving the grid visually empty even though page 1
+  // loaded fully. After hitting the natural page floor, keep going
+  // until at least one full grid row of display items would render.
+  // Custom sort bypasses grouping so the density check returns true
+  // immediately (first page is always enough).
+  const {
+    items: books, setItems: setBooks,
+    total, setTotal,
+    loading, loadingMore, loadingAll,
+    hasMore, loadedCount, setLoadedCount,
+    error: fetchError,
+    actionError, setActionError,
+    loadMore, loadAll,
+  } = usePaginatedFetch(
+    (offset, limit) => api.getBooks(buildApiParams(tab, sort, filters, query, offset, randomSeed, limit))
+      .then(r => ({ items: r.books, total: r.total })),
+    [tab, sort, filters, query, randomSeed],
+    {
+      key: `${tab}|${sort}|${JSON.stringify(filters)}|${query}|${randomSeed}`,
+      pageSize: PAGE_SIZE,
+      stopWhen: (collected) => {
+        if (sort === 'custom') return true;
+        const visible = buildDisplayItems(collected, expandedSeries).length;
+        return visible >= Math.max(coverCols, 1);
+      },
+    },
+  );
   const [facets,      setFacets]      = useState(null);
   const [facetsError, setFacetsError] = useState(false);
   const [counts,      setCounts]      = useState({});
@@ -289,7 +315,10 @@ export default function Library() {
   // user knows the click took effect even when there's a pause.
   const [enteringEdit, setEnteringEdit] = useState(false);
 
-  const loadedRef  = useRef(0);
+  // useStaleGuard kept solely for handleDragEnd's reorder-seq capture
+  // (a failed PUT whose recovery lands after a later drag needs the same
+  // navigation-guard semantics). The hook handles its own internal guard
+  // for paging.
   const guard      = useStaleGuard();
   const prevTabRef = useRef(null);
   const searchRef  = useRef(null);
@@ -297,15 +326,6 @@ export default function Library() {
   // drag's optimistic apply doesn't restore a stale snapshot. Same shape as
   // ListDetail.reorderSeqRef.
   const reorderSeqRef = useRef(0);
-  // Synchronous mirror of the loadingMore/loadingAll *pair*. The button
-  // disabled props gate user clicks but `setLoadingMore`/`setLoadingAll`
-  // (state) don't commit until the next render — so two same-tick clicks
-  // (or one click each on Load more + Load all) both pass the
-  // `loadingMore || loadingAll` check, both fire getBooks at the same
-  // offset, both append the same books, and loadedRef.current ends up
-  // double-bumped (next page request lands at the wrong offset). Shared
-  // between handlers so cross-handler races are caught too.
-  const pagingRef = useRef(false);
   const tabRefs = useRef([]);
 
   function switchTab(key) {
@@ -334,13 +354,6 @@ export default function Library() {
       tabRefs.current[TABS.length - 1]?.focus();
     }
   }
-  // Snapshot of the books-fetch deps (excluding refreshTick) so we can
-  // distinguish a real state change (tab/sort/filters/query/randomSeed
-  // moved) from a refresh-tick refetch at the same state. On a same-
-  // state refetch we skip the visible-state reset so the user's scroll
-  // position survives the alt-tab roundtrip — same shape as the
-  // ShelfView horizontal-scroll fix.
-  const lastFetchKeyRef = useRef('');
   // Refs mirroring the latest tab + sort. handleProgressUpdate is invoked
   // asynchronously by BookCard after its PUT resolves; if the user
   // switched tabs mid-flight, the function's closure-captured tab would
@@ -349,10 +362,6 @@ export default function Library() {
   // of which render's function instance gets invoked.
   const tabRef  = useLatest(tab);
   const sortRef = useLatest(sort);
-  // Read inside the load effect's prefetch loop without listing coverCols
-  // and expandedSeries as deps — a resize or series-expand would otherwise
-  // force a full refetch.
-  const densityCtxRef = useLatest({ coverCols, expandedSeries });
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -378,7 +387,7 @@ export default function Library() {
     if (!id) return;
     setBooks(prev => prev.filter(b => b.id !== id));
     setTotal(prev => Math.max(0, prev - 1));
-    loadedRef.current = Math.max(0, loadedRef.current - 1);
+    setLoadedCount(n => Math.max(0, n - 1));
   });
 
   // Refetch-and-replace on mutation: BookCard's MoreMenu (and the
@@ -401,13 +410,14 @@ export default function Library() {
   });
 
   // Bridge to the command palette: respond to a paging-state request and
-  // listen for invocations of Load more / Load all. Refs carry the
-  // latest handlers + state so we don't need to re-subscribe.
+  // wire its Load more / Load all entries to the hook's loadMore/loadAll.
+  // The hook's handlers have stable identity (useCallback'd internally),
+  // so the subscription doesn't need a ref bounce.
   useSpineEvent('spine:library-paging-request', () => {
     dispatchSpineEvent('spine:library-paging', pagingStateRef.current);
   });
-  useSpineEvent('spine:library-load-more', () => loadHandlersRef.current.loadMore?.());
-  useSpineEvent('spine:library-load-all',  () => loadHandlersRef.current.loadAll?.());
+  useSpineEvent('spine:library-load-more', loadMore);
+  useSpineEvent('spine:library-load-all',  loadAll);
 
   // '/' focuses search
   useEffect(() => {
@@ -493,89 +503,6 @@ export default function Library() {
     return () => { stale = true; };
   }, [tab, filters, query, refreshTick]);
 
-  // Fetch books on tab / sort / filter / query change — always reset to page 1
-  useEffect(() => {
-    const epoch = guard.next();
-    setFetchError(false);
-    // Distinguish a real state change from a refresh-tick refetch.
-    // On real changes (tab/sort/filters/query/randomSeed moved), wipe
-    // visible state so the old list doesn't show on the new view. On
-    // same-state refreshTick refetches, keep books visible so scroll
-    // position survives — without this the briefly-empty grid lets the
-    // browser clamp scroll to 0 and the user pops back to row 1 after
-    // alt-tabbing into a deep list.
-    const fetchKey = `${tab}|${sort}|${JSON.stringify(filters)}|${query}|${randomSeed}`;
-    const isSameState = fetchKey === lastFetchKeyRef.current;
-    lastFetchKeyRef.current = fetchKey;
-    if (!isSameState) {
-      setLoading(true);
-      setBooks([]);
-    }
-    // Reset pagination flags + action banner: a refresh-tick / sort / tab
-    // / filter / query change that fires while loadMore/loadAll is in
-    // flight would otherwise strand the flags at true (their finally
-    // clauses are gated on gen match) and leave the previous failure
-    // banner sitting above the freshly-loaded list.
-    // Also reset pagingRef so the new tab's Load more isn't blocked
-    // while the abandoned old fetch is still in flight.
-    setLoadingMore(false);
-    setLoadingAll(false);
-    setActionError(null);
-    pagingRef.current = false;
-    // Restore the previously-loaded depth on same-state refreshTick
-    // refetches so alt-tabbing back doesn't shrink a Load-all'd (or
-    // Load-more'd) view back to page 1. On a real state change the
-    // visible list was already wiped above, so prevDepth=0 and the
-    // loop fetches just the first page like the original behaviour.
-    const prevDepth = isSameState ? loadedRef.current : 0;
-    // Only zero loadedRef on a real state change. On a same-state
-    // refresh, leaving it at the previous depth keeps `hasMore` and the
-    // "Load more · N remaining" label correct while the new fetch is
-    // in flight — clearing it here used to flip hasMore true mid-refetch
-    // and surface a phantom Load more / Load all pair under the
-    // already-visible Load-all'd grid (the "Load all got undone" bug).
-    // The IIFE below resets loadedRef to `collected.length` on success.
-    if (!isSameState) loadedRef.current = 0;
-    (async () => {
-      try {
-        const collected = [];
-        let serverTotal = 0;
-        const target = Math.max(PAGE_SIZE, prevDepth);
-        // Density floor: a bulk-add of N≥PAGE_SIZE books sharing a series
-        // collapses into a single SeriesCard, leaving the grid visually
-        // empty even though page 1 loaded fully. After hitting the
-        // book-count target, keep fetching until at least one full grid
-        // row of display items would render — or the server runs out.
-        // Custom sort bypasses grouping so the density check is a no-op
-        // there. Read densityCols off the latest-ref so a resize doesn't
-        // force a full refetch through the effect deps.
-        const densityCols = sort === 'custom' ? 0 : Math.max(densityCtxRef.current.coverCols, 1);
-        const expSeries = densityCtxRef.current.expandedSeries;
-        while (guard.isFresh(epoch)) {
-          const params = buildApiParams(tab, sort, filters, query, collected.length, randomSeed);
-          const { books: b, total: t } = await api.getBooks(params);
-          if (!guard.isFresh(epoch)) return;
-          collected.push(...b);
-          serverTotal = t;
-          if (b.length === 0) break;
-          if (collected.length >= serverTotal) break;
-          if (collected.length >= target) {
-            const visible = sort === 'custom' ? collected.length : buildDisplayItems(collected, expSeries).length;
-            if (visible >= densityCols) break;
-          }
-        }
-        if (!guard.isFresh(epoch)) return;
-        setBooks(collected);
-        setTotal(serverTotal);
-        loadedRef.current = collected.length;
-      } catch {
-        if (guard.isFresh(epoch)) setFetchError(true);
-      } finally {
-        if (guard.isFresh(epoch)) setLoading(false);
-      }
-    })();
-  }, [tab, sort, filters, query, refreshTick, randomSeed]);
-
   // Parallel cohort fetch — see [cohort] declaration above for rationale.
   // Cleared on every fire so a stale slow response can't stamp the new
   // view's cohort.
@@ -590,59 +517,6 @@ export default function Library() {
       .catch(() => { /* fall back to the visible-books shape in fromState */ });
     return () => { cancelled = true; };
   }, [tab, sort, filters, query, refreshTick, randomSeed]);
-
-  function handleLoadMore() {
-    // Mirror the disabled button. React batches state updates, so two
-    // rapid clicks before the next render both see loadingMore=false and
-    // would otherwise fire duplicate requests at the same offset, then
-    // each appends the same books and bumps loadedRef twice. pagingRef
-    // (synchronous) closes that gap and also catches the cross-handler
-    // race (Load more + Load all in the same tick).
-    if (pagingRef.current || loadingMore || loadingAll) return;
-    const epoch = guard.current();
-    pagingRef.current = true;
-    setLoadingMore(true);
-    setActionError(null);
-    api.getBooks(buildApiParams(tab, sort, filters, query, loadedRef.current, randomSeed)).then(({ books: b, total: t }) => {
-      if (!guard.isFresh(epoch)) return;
-      setBooks(prev => [...prev, ...b]);
-      setTotal(t);
-      loadedRef.current += b.length;
-    }).catch(() => {
-      if (guard.isFresh(epoch)) setActionError('Failed to load more books.');
-    }).finally(() => {
-      // Clear the ref unconditionally — if the gen has bumped, the new
-      // load effect already reset loadingMore via setState, so leaving
-      // the ref stuck would block all future paging on the new tab.
-      pagingRef.current = false;
-      if (guard.isFresh(epoch)) setLoadingMore(false);
-    });
-  }
-
-  async function handleLoadAll() {
-    if (pagingRef.current || loadingMore || loadingAll) return;
-    const epoch = guard.current();
-    pagingRef.current = true;
-    setLoadingAll(true);
-    setActionError(null);
-    try {
-      let serverTotal = total;
-      while (guard.isFresh(epoch) && loadedRef.current < serverTotal) {
-        const { books: b, total: t } = await api.getBooks(buildApiParams(tab, sort, filters, query, loadedRef.current, randomSeed));
-        if (!guard.isFresh(epoch)) break;
-        setBooks(prev => [...prev, ...b]);
-        setTotal(t);
-        loadedRef.current += b.length;
-        serverTotal = t;
-        if (b.length === 0) break; // guard against unexpected 0-length response
-      }
-    } catch {
-      if (guard.isFresh(epoch)) setActionError('Failed to load more books.');
-    } finally {
-      pagingRef.current = false;
-      if (guard.isFresh(epoch)) setLoadingAll(false);
-    }
-  }
 
   function handleProgressUpdate(updated) {
     // Read tab/sort from refs rather than closure: BookCard's PUT can
@@ -660,7 +534,7 @@ export default function Library() {
       // edit) would otherwise double-decrement counters for a book
       // already filtered out. Clamps below back-stop the same desync.
       if (!books.some(b => b.id === updated.id)) return;
-      loadedRef.current = Math.max(0, loadedRef.current - 1);
+      setLoadedCount(n => Math.max(0, n - 1));
       setTotal(t => Math.max(0, t - 1));
       setBooks(bs => bs.filter(b => b.id !== updated.id));
     } else if (currentSort === 'updated') {
@@ -707,20 +581,20 @@ export default function Library() {
   // to settle on (never_owned, custom), triggers Load all if there are
   // unloaded books, then activates editMode once everything is loaded.
   // Bails out (clears the intent) if Load all surfaced an actionError —
-  // otherwise the effect would retry handleLoadAll on every state-tick
-  // and the button would stay "Loading…" forever after a network blip.
+  // otherwise the effect would retry loadAll on every state-tick and the
+  // button would stay "Loading…" forever after a network blip.
   useEffect(() => {
     if (!enteringEdit) return;
     if (tab !== 'never_owned' || sort !== 'custom') return;
     if (loading || loadingMore || loadingAll) return;
     if (actionError) { setEnteringEdit(false); return; }
-    if (loadedRef.current < total) {
-      handleLoadAll();
+    if (hasMore) {
+      loadAll();
       return;
     }
     setEditMode(true);
     setEnteringEdit(false);
-  }, [enteringEdit, tab, sort, loading, loadingMore, loadingAll, total, actionError]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [enteringEdit, tab, sort, loading, loadingMore, loadingAll, hasMore, actionError]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cancel an in-flight enter-edit intent when the user navigates away
   // from Never owned or away from Custom sort, since the intent only
@@ -742,7 +616,7 @@ export default function Library() {
     // page; without this check the resulting PUT would stamp ranks on
     // those 48 only and leave stale ranks on the rest. Same root cause
     // the button gate addresses, second line of defence.
-    if (loadedRef.current < total) {
+    if (hasMore) {
       setActionError('Books reloaded mid-edit — click Done and Load all again before reordering.');
       return;
     }
@@ -790,13 +664,12 @@ export default function Library() {
     };
   }, [searchParams, books, cohort]);
   const gridCols        = coverCols;
-  const hasMore         = loadedRef.current < total;
 
-  // Bridge: keep refs in sync with the latest handlers and paging state so
-  // the global listeners attached above invoke the current closures, and
-  // publish state changes for the command palette to mirror.
-  const loadHandlersRef = useLatest({ loadMore: handleLoadMore, loadAll: handleLoadAll });
-  const pagingStateRef  = useLatest({ hasMore, loadingMore, loadingAll, loaded: loadedRef.current, total });
+  // Publish paging state for the command palette to mirror. The hook's
+  // loadMore/loadAll have stable identity so the spine event subscriptions
+  // (above, on mount) wire to them directly — no loadHandlersRef bounce
+  // needed any more.
+  const pagingStateRef  = useLatest({ hasMore, loadingMore, loadingAll, loaded: loadedCount, total });
   useEffect(() => {
     dispatchSpineEvent('spine:library-paging', pagingStateRef.current);
   }, [hasMore, loadingMore, loadingAll, total]);
@@ -1067,22 +940,22 @@ export default function Library() {
               <div className="flex justify-center gap-3">
                 <button
                   type="button"
-                  onClick={handleLoadMore}
+                  onClick={loadMore}
                   disabled={loadingMore || loadingAll}
                   className="text-sm text-neutral-500 hover:text-neutral-200 disabled:opacity-60 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
                 >
-                  {loadingMore ? 'Loading…' : `Load more · ${total - loadedRef.current} remaining`}
+                  {loadingMore ? 'Loading…' : `Load more · ${total - loadedCount} remaining`}
                 </button>
                 <button
                   type="button"
-                  onClick={handleLoadAll}
+                  onClick={loadAll}
                   disabled={loadingMore || loadingAll}
                   className="text-sm text-neutral-500 hover:text-neutral-200 disabled:opacity-60 transition-colors px-6 py-2 border border-neutral-800 rounded-lg"
                 >
-                  {loadingAll ? `Loading all · ${loadedRef.current}/${total}` : 'Load all'}
+                  {loadingAll ? `Loading all · ${loadedCount}/${total}` : 'Load all'}
                 </button>
               </div>
-              {actionError && <p role="alert" className="text-xs text-warn">{actionError}</p>}
+              {actionError && <p role="alert" className="text-xs text-warn">{typeof actionError === 'string' ? actionError : 'Failed to load more books.'}</p>}
             </div>
           )}
         </>
