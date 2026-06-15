@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useLocation, Link } from 'react-router-dom';
 import { api } from '../api.js';
-import { plural, initialsFor, MOD_KEY, formatPartialDate } from '../utils.js';
+import { plural, initialsFor, MOD_KEY, formatPartialDate, FORMAT_LABEL } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
 import { GridSkeleton } from '../components/Skeleton.jsx';
 import { useTextOverflow } from '../hooks/useTextOverflow.js';
@@ -264,6 +264,12 @@ export default function Author() {
   useEffect(() => {
     localStorage.setItem('spine-show-unowned', showUnowned ? 'true' : 'false');
   }, [showUnowned]);
+  // Format chip — single-value, local state (no URL param). Matches the
+  // sibling showUnowned / showArchived toggles in scope: per-visit, no
+  // history-restore needed (the author entity is the URL state). Reset
+  // on author change so a stuck filter doesn't carry between authors.
+  const [formatFilter, setFormatFilter] = useState(null);
+  useEffect(() => { setFormatFilter(null); }, [id]);
   const fileInputRef = useRef(null);
 
   // Reset bio collapse + edit state when navigating to a different
@@ -651,15 +657,54 @@ export default function Author() {
         // raw total that includes archived books a separate toggle is
         // still hiding. Was over-promising on the empty-state CTA when
         // all unowned books were also archived.
-        const archivedCount = allBooks.filter(b => b.archived && (showUnowned || b.owned)).length;
-        const unownedCount  = allBooks.filter(b => !b.owned && (showArchived || !b.archived)).length;
+        // Available formats — drives the chip-row gating. Authors whose
+        // entire bibliography is one format don't need the chips.
+        const availableFormats = Array.from(new Set(allBooks.map(b => b.format).filter(Boolean))).sort();
+        const fmtMatch = (b) => formatFilter == null || b.format === formatFilter;
+        // The format filter narrows both counts so "Show unowned (3)"
+        // means 3 unowned of the currently-filtered format, not 3 of any
+        // format (which would over-promise on the empty-state CTA).
+        const archivedCount = allBooks.filter(b => b.archived && (showUnowned || b.owned) && fmtMatch(b)).length;
+        const unownedCount  = allBooks.filter(b => !b.owned && (showArchived || !b.archived) && fmtMatch(b)).length;
         let visibleBooks    = allBooks;
         if (!showArchived) visibleBooks = visibleBooks.filter(b => !b.archived);
         if (!showUnowned)  visibleBooks = visibleBooks.filter(b => b.owned);
+        if (formatFilter)  visibleBooks = visibleBooks.filter(b => b.format === formatFilter);
         return (
           <>
             {allBooks.length > 0 && (
               <>
+                {availableFormats.length > 1 && (
+                  <div className="mb-4 flex items-center gap-1.5 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setFormatFilter(null)}
+                      aria-pressed={formatFilter == null}
+                      className={`text-xs px-2.5 py-1 rounded-full border cursor-pointer transition-[transform,background-color,color,border-color] ease-out duration-150 motion-safe:active:scale-[0.98] ${
+                        formatFilter == null
+                          ? 'bg-binding/50 text-parchment border-binding/70'
+                          : 'border-neutral-700 text-neutral-400 hover:border-neutral-500 hover:text-neutral-200'
+                      }`}
+                    >
+                      All formats
+                    </button>
+                    {availableFormats.map(f => (
+                      <button
+                        key={f}
+                        type="button"
+                        onClick={() => setFormatFilter(formatFilter === f ? null : f)}
+                        aria-pressed={formatFilter === f}
+                        className={`text-xs px-2.5 py-1 rounded-full border cursor-pointer transition-[transform,background-color,color,border-color] ease-out duration-150 motion-safe:active:scale-[0.98] ${
+                          formatFilter === f
+                            ? 'bg-binding/50 text-parchment border-binding/70'
+                            : 'border-neutral-700 text-neutral-400 hover:border-neutral-500 hover:text-neutral-200'
+                        }`}
+                      >
+                        {FORMAT_LABEL[f] ?? f}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <div className="mb-4 flex items-center gap-4 flex-wrap">
                   <label className="inline-flex items-center gap-1.5 text-xs text-neutral-500">
                     <span>Sort:</span>

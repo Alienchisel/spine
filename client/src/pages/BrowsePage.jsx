@@ -81,9 +81,13 @@ const PAGE_SIZE = 48;
 // or are about reading/quality rather than collection state.
 const OWNED_TOGGLE_FIELDS = new Set(['series', 'tag', 'publisher']);
 
-// Fields that expose the per-page format chip row. Series-only for now;
-// when promoted to a shared component this set grows (author/tag/loved).
-const FORMAT_CHIP_FIELDS = new Set(['series']);
+// Fields that expose the per-page format chip row. Both fields are
+// collection-scoping slices where the same work commonly exists in
+// multiple formats (audiobook + paperback editions of a series, or a
+// canonical tag like "Howard" gathering both). Other fields either have
+// only one natural format (year_acquired, rating) or wouldn't benefit
+// (fiction, format itself).
+const FORMAT_CHIP_FIELDS = new Set(['series', 'tag']);
 const VALID_FORMATS = new Set(['physical', 'ebook', 'audiobook']);
 
 export default function BrowsePage() {
