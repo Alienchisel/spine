@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { useFreshFetch } from '../hooks/useFreshFetch.js';
+import { useSpineEvent } from '../hooks/useSpineEvent.js';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 import PageHeading from '../components/PageHeading.jsx';
+import { AuditSkeleton } from '../components/Skeleton.jsx';
 
 const FROM_AUDIT = { from: 'Audit', fromPath: '/audit' };
 
@@ -40,19 +42,39 @@ const ALL_ARCHIVIST_STATES = [
   { key: 'collapsed',  label: 'Collapsed',  range: '0%'     },
 ];
 
+// Module-level cache so route changes don't pay for the heavyweight
+// audit scan (~40 SUM(CASE) over the books table) on every visit.
+// Same shape as Stats: seed initialData on remount, refetch in the
+// background, invalidate on book mutations. Audit's hit-rate is
+// probably lower than Stats — the typical flow is "look → edit a
+// book → revisit" — but each cache hit saves a noticeably bigger
+// scan, so the win per hit is higher.
+let auditCache = null;
+
 // Curation health. Companion to Stats: where Stats describes the shape
 // of the catalogue, Audit surfaces completeness gaps that represent
 // real cleanup work. The audit list is opinionated (see lib/stats/
 // audit.js) — power-user `missing=` filters not on this list remain
 // available from the Library filter panel and the Command Palette.
 export default function Audit() {
-  const { data, loading, error, setError } = useFreshFetch(() => api.getAudit(), []);
+  const { data, loading, error, setError } = useFreshFetch(
+    () => api.getAudit().then(d => { auditCache = d; return d; }),
+    [],
+    { initialData: auditCache },
+  );
   // TEMPORARY — hover/focus key for the preview strip. null = display
   // the real cleanPct-derived state.
   const [previewKey, setPreviewKey] = useState(null);
 
+  // Book mutations invalidate the audit snapshot — almost any edit
+  // moves a row in or out of a gap bucket, so cleanPct and the per-row
+  // counts go stale immediately. The current mount keeps rendering its
+  // existing data; the next /audit visit hits the server.
+  useSpineEvent('spine:book-mutated', () => { auditCache = null; });
+  useSpineEvent('spine:book-deleted', () => { auditCache = null; });
+
   if (!data && error) return <div role="alert" className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-warn text-sm">Failed to load audit data.</div>;
-  if (loading) return <div role="status" className="text-neutral-700 text-sm">Loading…</div>;
+  if (!data && loading) return <AuditSkeleton />;
 
   const audit = data.audit || [];
   const summary = data.auditSummary || { cleanPct: 100, totalGaps: 0, totalPopulation: 0, rowCount: audit.reduce((s, g) => s + g.rows.length, 0) };

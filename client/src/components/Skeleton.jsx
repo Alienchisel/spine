@@ -85,6 +85,38 @@ export function StatsSkeleton() {
   );
 }
 
+// Audit page skeleton — two-column shape mirroring the real Audit:
+// hero score + portrait on the left, grouped audit-row list on the
+// right. Used on cache-miss to anchor structure while the heavier
+// audit scan runs.
+export function AuditSkeleton() {
+  return (
+    <div role="status" aria-label="Loading audit" className="max-w-5xl mx-auto space-y-8">
+      <div className="bg-neutral-800/60 motion-safe:animate-pulse h-9 w-40 rounded" />
+      <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-10">
+        {/* Hero — score, caption, portrait placeholder */}
+        <div className="space-y-4">
+          <div className="bg-neutral-800/60 motion-safe:animate-pulse h-3 w-24 rounded" />
+          <div className="bg-neutral-800/60 motion-safe:animate-pulse h-20 w-48 rounded" />
+          <div className="bg-neutral-800/60 motion-safe:animate-pulse h-3 w-56 rounded" />
+          <div className="bg-neutral-800/60 motion-safe:animate-pulse aspect-[2/3] rounded-sm" />
+        </div>
+        {/* Audit list — group headings each followed by a few rows */}
+        <div className="space-y-6">
+          {Array.from({ length: 4 }, (_, i) => (
+            <div key={i} className="space-y-2">
+              <div className="bg-neutral-800/60 motion-safe:animate-pulse h-3 w-32 rounded" />
+              {Array.from({ length: 4 }, (_, j) => (
+                <div key={j} className="bg-neutral-800/60 motion-safe:animate-pulse h-7 rounded" />
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // BookDetail's hero + cover-rail skeleton. Mirrors the page's actual
 // layout — cover-rail on the left (280×420), hero band + center column
 // on the right with title-bar / byline / meta-cluster placeholders —
