@@ -5572,6 +5572,32 @@ describe('books', () => {
       const { body: byNarr } = await req('GET', `/api/books?q=soren%20${stem}sen`);
       assert.equal(byNarr.books.length, 1);
     });
+
+    it('ignores edge sentence-punctuation so colon-vs-comma in titles still match', async () => {
+      // Stored title uses a comma separator; query uses a colon. Without
+      // edge-punctuation stripping at tokenize time, the literal
+      // "Representation:" would build a LIKE pattern of "%representation:%"
+      // and miss the comma-separated stored value entirely. The fix
+      // strips terminal [,:;.!?] from bare terms so substring matching
+      // still finds the word inside the stored normalised form.
+      const stem = 'punct' + Math.random().toString(36).slice(2, 8);
+      await req('POST', '/api/books', { title: `${stem} Representation, Volume 2` });
+      const { body: colonHit } = await req('GET', `/api/books?q=${stem}%20Representation%3A%20Volume%202`);
+      assert.equal(colonHit.books.length, 1);
+      // Internal punctuation must survive — a version-number-like "5.5"
+      // shouldn't be split into "5 5" because that would break titles
+      // that rely on the dot as a real glyph.
+      const stem2 = 'verp' + Math.random().toString(36).slice(2, 8);
+      await req('POST', '/api/books', { title: `${stem2} 5.5 Edition` });
+      const { body: dotHit } = await req('GET', `/api/books?q=${stem2}%205.5`);
+      assert.equal(dotHit.books.length, 1);
+      // A pure-punctuation query term ("," alone) is dropped at tokenize
+      // time so it doesn't AND-out the rest of the query.
+      const stem3 = 'ppt' + Math.random().toString(36).slice(2, 8);
+      await req('POST', '/api/books', { title: `${stem3} alpha` });
+      const { body: stray } = await req('GET', `/api/books?q=${stem3}%20%2C%20alpha`);
+      assert.equal(stray.books.length, 1);
+    });
   });
 
   describe('search qualifiers', () => {
