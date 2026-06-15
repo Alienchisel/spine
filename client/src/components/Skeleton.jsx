@@ -52,6 +52,39 @@ export function GridSkeleton({
   );
 }
 
+// Stats page skeleton — placeholder for the heading, hero number row,
+// and a few section blocks above the fold. Real renders below the fold
+// don't need skeleton mass; by the time the user scrolls past the hero
+// row the fetch has resolved. Used on cache-miss (first visit /
+// post-mutation revisit) to anchor expectations during the load window.
+export function StatsSkeleton() {
+  return (
+    <div role="status" aria-label="Loading stats" className="space-y-10">
+      <div className="bg-neutral-800/60 motion-safe:animate-pulse h-9 w-24 rounded" />
+      {/* Hero row: five big-number tiles */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-6 sm:gap-8 py-4">
+        {Array.from({ length: 5 }, (_, i) => (
+          <div key={i} className="text-center sm:text-left space-y-2">
+            <div className="bg-neutral-800/60 motion-safe:animate-pulse h-3 w-20 rounded" />
+            <div className="bg-neutral-800/60 motion-safe:animate-pulse h-10 w-24 rounded" />
+          </div>
+        ))}
+      </div>
+      {/* Section blocks — section title + a row of card placeholders */}
+      {Array.from({ length: 3 }, (_, i) => (
+        <div key={i} className="space-y-3">
+          <div className="bg-neutral-800/60 motion-safe:animate-pulse h-3 w-32 rounded" />
+          <div className="grid grid-cols-3 gap-3">
+            {Array.from({ length: 3 }, (_, j) => (
+              <div key={j} className="bg-neutral-800/60 motion-safe:animate-pulse h-20 rounded-lg" />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // BookDetail's hero + cover-rail skeleton. Mirrors the page's actual
 // layout — cover-rail on the left (280×420), hero band + center column
 // on the right with title-bar / byline / meta-cluster placeholders —
