@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useParams, Link, useLocation } from 'react-router-dom';
+import { useParams, Link, useLocation, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { plural, FORMAT_LABEL } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
@@ -81,10 +81,28 @@ const PAGE_SIZE = 48;
 // or are about reading/quality rather than collection state.
 const OWNED_TOGGLE_FIELDS = new Set(['series', 'tag', 'publisher']);
 
+// Fields that expose the per-page format chip row. Series-only for now;
+// when promoted to a shared component this set grows (author/tag/loved).
+const FORMAT_CHIP_FIELDS = new Set(['series']);
+const VALID_FORMATS = new Set(['physical', 'ebook', 'audiobook']);
+
 export default function BrowsePage() {
   const { field, value } = useParams();
   const decoded = decodeURIComponent(value);
-  const { state, pathname } = useLocation();
+  const { state, pathname, search } = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  // Format chip lives in the URL so the back-link from BookDetail and
+  // browser-history navigation restore the filtered view. Only honored
+  // for fields in FORMAT_CHIP_FIELDS; other fields ignore stray ?format=.
+  const usesFormatChip = FORMAT_CHIP_FIELDS.has(field);
+  const rawFormat = searchParams.get('format');
+  const format = usesFormatChip && VALID_FORMATS.has(rawFormat) ? rawFormat : null;
+  function setFormat(next) {
+    const sp = new URLSearchParams(searchParams);
+    if (next == null) sp.delete('format');
+    else              sp.set('format', next);
+    setSearchParams(sp, { replace: true, state });
+  }
   const backLabel = state?.from ? `← ${state.from}` : '← Library';
   const backPath  = state?.fromPath ?? '/';
   // Human-readable name for the current browse view. The raw URL value
@@ -105,9 +123,13 @@ export default function BrowsePage() {
   const fromLabel = field === 'year_acquired' ? `Acquired ${decoded}`
                   : field === 'year_finished' ? `Finished ${decoded}`
                   : heading;
+  // Include `search` so the back-link from BookDetail restores any
+  // active per-page filters (e.g. ?format=physical). Without it, a user
+  // who drilled into a book from a filtered series view would land back
+  // on the unfiltered series.
   const fromState = useMemo(
-    () => ({ from: fromLabel, fromPath: pathname }),
-    [fromLabel, pathname],
+    () => ({ from: fromLabel, fromPath: pathname + search }),
+    [fromLabel, pathname, search],
   );
 
   // Cohort fetch — independent of the paginated visible-books fetch so
@@ -169,6 +191,21 @@ export default function BrowsePage() {
   const ownedTab = (usesOwnedToggle && !showUnowned) ? 'owned' : undefined;
   const { size: coverSize, setSize: setCoverSize, cols: gridCols, compact, gridStyle, gridClassName, MIN: coverMin, MAX: coverMax } = useCoverSize();
 
+  // Available-formats facet — drives the chip-row gating. Render the row
+  // only when the cohort spans more than one format; if a series is
+  // audiobook-only, the chip is just noise. Uses the unfiltered cohort
+  // (no `formats` param) so picking a filter doesn't collapse the chip
+  // row to a single pill.
+  const [availableFormats, setAvailableFormats] = useState([]);
+  useEffect(() => {
+    if (!usesFormatChip) { setAvailableFormats([]); return; }
+    let cancelled = false;
+    api.getBookFacets({ field, value: decoded })
+      .then(f => { if (!cancelled) setAvailableFormats(Array.isArray(f?.formats) ? f.formats : []); })
+      .catch(() => { if (!cancelled) setAvailableFormats([]); });
+    return () => { cancelled = true; };
+  }, [usesFormatChip, field, decoded, refreshTick]);
+
   // Paginated visible-books fetch. key includes the owned-toggle so
   // flipping it is treated as a real navigation (skeleton flash) the
   // same way as field/value changes. unowned_total comes back only on
@@ -187,6 +224,7 @@ export default function BrowsePage() {
   } = usePaginatedFetch(
     (offset, limit) => api.getBooks({
       field, value: decoded, tab: ownedTab, sort: browseSort(field),
+      formats: format ?? undefined,
       limit, offset,
       counts: offset === 0 && usesOwnedToggle ? 'owned' : undefined,
     }).then(r => ({
@@ -197,9 +235,9 @@ export default function BrowsePage() {
       // survives loadMore / loadAll until the next key change.
       ...(r.unowned_total !== undefined ? { unowned_total: r.unowned_total } : {}),
     })),
-    [field, decoded, ownedTab, usesOwnedToggle],
+    [field, decoded, ownedTab, usesOwnedToggle, format],
     {
-      key: `${field}|${decoded}|${ownedTab ?? ''}`,
+      key: `${field}|${decoded}|${ownedTab ?? ''}|${format ?? ''}`,
       pageSize: PAGE_SIZE,
     },
   );
@@ -233,11 +271,14 @@ export default function BrowsePage() {
   });
 
   // Parallel cohort fetch — see [cohort] declaration above for rationale.
+  // Mirrors the visible-books fetch's format filter so prev/next walks
+  // the same slice the user is currently looking at.
   useEffect(() => {
     setCohort([]);
     let cancelled = false;
     api.getBooks({
       field, value: decoded, tab: ownedTab, sort: browseSort(field), limit: 200,
+      formats: format ?? undefined,
     })
       .then(({ books: b }) => {
         if (cancelled) return;
@@ -245,7 +286,7 @@ export default function BrowsePage() {
       })
       .catch(() => { /* fall back to the visible-books shape in linkState */ });
     return () => { cancelled = true; };
-  }, [field, decoded, ownedTab, refreshTick]);
+  }, [field, decoded, ownedTab, format, refreshTick]);
 
   const label = FIELD_LABEL[field] ?? field;
 
@@ -291,6 +332,38 @@ export default function BrowsePage() {
           <CoverSizeSlider size={coverSize} onChange={setCoverSize} min={coverMin} max={coverMax} />
         )}
       </div>
+
+      {usesFormatChip && availableFormats.length > 1 && (
+        <div className="mb-4 flex items-center gap-1.5 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setFormat(null)}
+            aria-pressed={format == null}
+            className={`text-xs px-2.5 py-1 rounded-full border cursor-pointer transition-[transform,background-color,color,border-color] ease-out duration-150 motion-safe:active:scale-[0.98] ${
+              format == null
+                ? 'bg-binding/50 text-parchment border-binding/70'
+                : 'border-neutral-700 text-neutral-400 hover:border-neutral-500 hover:text-neutral-200'
+            }`}
+          >
+            All formats
+          </button>
+          {availableFormats.map(f => (
+            <button
+              key={f}
+              type="button"
+              onClick={() => setFormat(format === f ? null : f)}
+              aria-pressed={format === f}
+              className={`text-xs px-2.5 py-1 rounded-full border cursor-pointer transition-[transform,background-color,color,border-color] ease-out duration-150 motion-safe:active:scale-[0.98] ${
+                format === f
+                  ? 'bg-binding/50 text-parchment border-binding/70'
+                  : 'border-neutral-700 text-neutral-400 hover:border-neutral-500 hover:text-neutral-200'
+              }`}
+            >
+              {FORMAT_LABEL[f] ?? f}
+            </button>
+          ))}
+        </div>
+      )}
 
       {!loading && usesOwnedToggle && unownedCount > 0 && (
         <div className="mb-4 flex items-center gap-4 flex-wrap">
