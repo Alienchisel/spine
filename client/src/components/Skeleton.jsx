@@ -117,6 +117,23 @@ export function AuditSkeleton() {
   );
 }
 
+// DataViz page skeleton — page heading + four placeholder experiment
+// blocks (description line + content area). Used on cache-miss while
+// the six-endpoint Promise.all fetch resolves.
+export function DataVizSkeleton() {
+  return (
+    <div role="status" aria-label="Loading data viz" className="max-w-5xl mx-auto space-y-12">
+      <div className="bg-neutral-800/60 motion-safe:animate-pulse h-9 w-56 rounded" />
+      {Array.from({ length: 4 }, (_, i) => (
+        <div key={i} className="space-y-4">
+          <div className="bg-neutral-800/60 motion-safe:animate-pulse h-4 w-3/4 rounded" />
+          <div className="bg-neutral-800/60 motion-safe:animate-pulse h-48 rounded-lg" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // BookDetail's hero + cover-rail skeleton. Mirrors the page's actual
 // layout — cover-rail on the left (280×420), hero band + center column
 // on the right with title-bar / byline / meta-cluster placeholders —

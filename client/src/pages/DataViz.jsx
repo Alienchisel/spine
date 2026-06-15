@@ -2,7 +2,16 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { useFreshFetch } from '../hooks/useFreshFetch.js';
+import { useSpineEvent } from '../hooks/useSpineEvent.js';
 import PageHeading from '../components/PageHeading.jsx';
+import { DataVizSkeleton } from '../components/Skeleton.jsx';
+
+// Module-level cache for the six-endpoint Promise.all payload. Saves
+// the round-trip on intra-session re-visits. Invalidated by any event
+// that could move a number on the page: book mutations and read-history
+// mutations both affect the underlying queries (acquisition counts,
+// reading calendar, library trajectory, top-tag composition, etc.).
+let dataVizCache = null;
 
 const FROM_DV = { from: 'Data viz', fromPath: '/data-viz' };
 
@@ -878,11 +887,19 @@ export default function DataViz() {
       api.getLibraryTrajectory(),
       api.getSeriesCompletion(),
       api.getTags(),
-    ]).then(([s, c, a, t, sc, tg]) => ({
-      stats: s, calendar: c, authors: a, trajectory: t, completion: sc, tags: tg,
-    })),
+    ]).then(([s, c, a, t, sc, tg]) => {
+      const next = { stats: s, calendar: c, authors: a, trajectory: t, completion: sc, tags: tg };
+      dataVizCache = next;
+      return next;
+    }),
     [],
+    { initialData: dataVizCache },
   );
+
+  // Invalidate the cache on the events that could move a panel.
+  useSpineEvent('spine:book-mutated',  () => { dataVizCache = null; });
+  useSpineEvent('spine:book-deleted',  () => { dataVizCache = null; });
+  useSpineEvent('spine:reads-mutated', () => { dataVizCache = null; });
   const stats      = data?.stats;
   const calendar   = data?.calendar;
   const authors    = data?.authors;
@@ -946,8 +963,12 @@ export default function DataViz() {
     return buildCloud(top);
   }, [authors]);
 
-  if (error) return <div role="alert" className="text-warn text-sm">Failed to load data.</div>;
-  if (loading) return <div role="status" className="text-neutral-700 text-sm">Loading…</div>;
+  // Match the Stats/Audit guard shape: only replace the page when
+  // there's no data to show. Cached-data + background-refetch failure
+  // surfaces silently — preserves the user's panels rather than wiping
+  // them. Skeleton fills the cache-miss load window.
+  if (!data && error) return <div role="alert" className="text-warn text-sm">Failed to load data.</div>;
+  if (!data && loading) return <DataVizSkeleton />;
 
   return (
     <div className="max-w-5xl mx-auto space-y-12">
