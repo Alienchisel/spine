@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { api } from '../../api.js';
 import { useActionGuard } from '../../hooks/useActionGuard.js';
+import { dispatchSpineEvent } from '../../hooks/useSpineEvent.js';
 import PartialDateInput from '../PartialDateInput.jsx';
 import { useConfirm } from '../ConfirmModal.jsx';
 import { formatPartialDate } from '../../utils.js';
@@ -91,6 +92,7 @@ export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBo
       }
       setAdding(false);
       setForm({ date_started: '', date_finished: '', did_not_finish: false });
+      dispatchSpineEvent('spine:reads-mutated', { id: bookId });
       onUpdate();
     } catch {
       setError(isReread ? 'Failed to log re-read' : 'Failed to add read');
@@ -107,6 +109,7 @@ export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBo
     try {
       await api.updateRead(bookId, readId, { date_started: form.date_started || null, date_finished: form.date_finished || null, did_not_finish: form.did_not_finish });
       setEditId(null);
+      dispatchSpineEvent('spine:reads-mutated', { id: bookId });
       onUpdate();
     } catch {
       setError('Failed to save');
@@ -123,6 +126,7 @@ export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBo
     setError(null);
     try {
       await api.deleteRead(bookId, readId);
+      dispatchSpineEvent('spine:reads-mutated', { id: bookId });
       onUpdate();
     } catch {
       setError('Failed to delete read');

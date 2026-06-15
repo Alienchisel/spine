@@ -26,9 +26,11 @@ import BarsGrid from './sections/BarsGrid.jsx';
 // /stats. Cached payload seeds useFreshFetch's initialData; the hook
 // still fires a fresh fetch in the background, so the user gets stale-
 // then-fresh semantics (instant paint, then atomic swap on resolve).
-// Invalidated by the existing book-mutation events — reading-log
-// changes aren't event-emitted today, so they show as a brief stale
-// flash that resolves to fresh data within the fetch window.
+// Invalidated by book mutations AND read-history mutations — the
+// latter (date_finished / read_count changes via ReadsSection) move
+// rows in/out of records.firstFinished/lastFinished/mostReread, byYear
+// finished counts, thisYearBooks, and avgDaysToFinish, none of which
+// go through the book-mutated path.
 let statsCache = null;
 
 // Top-level Stats page composer. Reads /api/stats once, then hands each
@@ -47,9 +49,11 @@ export default function Stats() {
   // Book mutations make the cached snapshot stale. Drop it so the next
   // mount of /stats falls back to a real fetch instead of priming with
   // a stale snapshot. The current mount keeps rendering its existing
-  // data — the user is on Stats, not the mutating surface.
-  useSpineEvent('spine:book-mutated', () => { statsCache = null; });
-  useSpineEvent('spine:book-deleted', () => { statsCache = null; });
+  // data — the user is on Stats, not the mutating surface. reads-mutated
+  // covers ReadsSection's add/update/delete/reread of read-history rows.
+  useSpineEvent('spine:book-mutated',  () => { statsCache = null; });
+  useSpineEvent('spine:book-deleted',  () => { statsCache = null; });
+  useSpineEvent('spine:reads-mutated', () => { statsCache = null; });
 
   // Only replace the whole page when there's no data to show. Once stats
   // are loaded, a subsequent refresh-tick failure surfaces as a dismissible

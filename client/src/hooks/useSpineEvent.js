@@ -10,6 +10,13 @@ import { useLatest } from './useLatest.js';
 // Existing event vocabulary:
 //   spine:book-mutated          { id }   — book changed, refetch
 //   spine:book-deleted          { id }   — book gone, prune
+//   spine:reads-mutated         { id }   — a read-history row was added,
+//                                          updated, or removed (date_started /
+//                                          date_finished / did_not_finish /
+//                                          read_count). Distinct from
+//                                          book-mutated so Stats can drop its
+//                                          cache without surfaces that don't
+//                                          care (e.g. Audit) needing to listen.
 //   spine:library-paging        { hasMore, loadingMore, loadingAll, loaded, total }
 //   spine:library-paging-request         — ask Library to re-publish paging state
 //   spine:library-load-more              — invoke Library's load-more
