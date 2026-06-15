@@ -31,7 +31,7 @@ const Notes        = React.lazy(() => import('./pages/Notes.jsx'));
 const Audit        = React.lazy(() => import('./pages/Audit.jsx'));
 const ShelfManager = React.lazy(() => import('./pages/ShelfManager.jsx'));
 const ShelfView    = React.lazy(() => import('./pages/ShelfView.jsx'));
-const Stats        = React.lazy(() => import('./pages/Stats.jsx'));
+const Stats        = React.lazy(() => import('./pages/Stats/index.jsx'));
 const Collage      = React.lazy(() => import('./pages/Collage.jsx'));
 const AuditWizard  = React.lazy(() => import('./pages/AuditWizard/index.jsx'));
 const DataViz      = React.lazy(() => import('./pages/DataViz.jsx'));
