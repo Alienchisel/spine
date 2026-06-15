@@ -25,9 +25,21 @@ const LIST_ORDER_BY = {
   year_published_desc: "(b.year_published IS NULL), b.year_published DESC, COALESCE(b.series_number, 9999) ASC, nrm(b.title) ASC",
 };
 
-function booksForList(listId, { sort = 'added', limit = null, offset = 0 } = {}) {
+const VALID_LIST_FORMATS = new Set(['physical', 'ebook', 'audiobook']);
+
+function booksForList(listId, { sort = 'added', limit = null, offset = 0, formats = null } = {}) {
   const orderBy = LIST_ORDER_BY[sort] || LIST_ORDER_BY.added;
   const limitSql = limit != null ? `LIMIT ${limit} OFFSET ${offset}` : '';
+  // Format filter is shared between the counts and rows queries so the
+  // completion indicators and the visible grid both describe the same
+  // slice. Invalid tokens are silently dropped — the chip UI only sends
+  // the three valid values, so anything else is a typo'd URL.
+  const fmtList = (Array.isArray(formats) ? formats : [formats])
+    .filter(f => VALID_LIST_FORMATS.has(f));
+  const fmtSql = fmtList.length
+    ? ` AND b.format IN (${fmtList.map(() => '?').join(',')})`
+    : '';
+
   // Archived books are excluded from list views and from the count so the
   // overview badge matches what's actually visible. Membership in list_books
   // is preserved across archive/un-archive — the row reappears intact when
@@ -43,17 +55,17 @@ function booksForList(listId, { sort = 'added', limit = null, offset = 0 } = {})
       SUM(CASE WHEN b.status = 'finished'  THEN 1 ELSE 0 END) AS finished
     FROM list_books lb
     JOIN books b ON b.id = lb.book_id
-    WHERE lb.list_id = ? AND COALESCE(b.archived,0) = 0
-  `).get(listId);
+    WHERE lb.list_id = ? AND COALESCE(b.archived,0) = 0${fmtSql}
+  `).get(listId, ...fmtList);
 
   const rows = db.prepare(`
     SELECT ${LIST_BOOK_SELECT_PREFIXED}, lb.added_at, lb.position
     FROM books b
     JOIN list_books lb ON lb.book_id = b.id
-    WHERE lb.list_id = ? AND COALESCE(b.archived,0) = 0
+    WHERE lb.list_id = ? AND COALESCE(b.archived,0) = 0${fmtSql}
     ORDER BY ${orderBy}
     ${limitSql}
-  `).all(listId);
+  `).all(listId, ...fmtList);
 
   return {
     books: serveBookCardRows(rows),
@@ -136,7 +148,11 @@ router.get('/:id', (req, res) => {
     : (LIST_ORDER_BY[list.default_sort] ? list.default_sort : 'added');
   const limit  = req.query.limit  ? Math.min(Math.max(1, parseInt(req.query.limit)  || PAGE_SIZE), 500) : null;
   const offset = req.query.offset ? Math.max(0, parseInt(req.query.offset) || 0) : 0;
-  const { books, total, owned_count, finished_count } = booksForList(id, { sort, limit, offset });
+  // formats accepts repeated query keys (e.g. ?formats=physical&formats=ebook)
+  // or a single scalar. booksForList silently drops anything not in the
+  // valid format set so a typo'd URL doesn't blow the query.
+  const formats = req.query.formats ?? null;
+  const { books, total, owned_count, finished_count } = booksForList(id, { sort, limit, offset, formats });
   res.json({ ...list, books, total, owned_count, finished_count });
 });
 

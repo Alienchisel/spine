@@ -729,7 +729,11 @@ export default function Author() {
                       <option value="added">Recently added</option>
                     </select>
                   </label>
-                  {unownedCount > 0 && (
+                  {/* The Include-unowned toggle persists across format-chip
+                      selections even when the current filter yields 0
+                      unowned, so the user can always switch the toggle
+                      on/off without bouncing back to All formats first. */}
+                  {(unownedCount > 0 || availableFormats.length > 1) && (
                     <label className="inline-flex items-center gap-1.5 text-xs text-neutral-500 cursor-pointer hover:text-neutral-300 transition-colors">
                       <input
                         type="checkbox"

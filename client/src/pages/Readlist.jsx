@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
-import { formatAuthors, initialsFor, fmtHM, plural, pluralWord } from '../utils.js';
+import { formatAuthors, initialsFor, fmtHM, plural, pluralWord, FORMAT_LABEL } from '../utils.js';
 import { useFreshFetch } from '../hooks/useFreshFetch.js';
 import { GridSkeleton } from '../components/Skeleton.jsx';
 
@@ -112,6 +112,10 @@ export default function Readlist() {
   const [shuffleSeed, setShuffleSeed] = useState(() => Math.floor(Math.random() * 1_000_000));
   const [removingIds, setRemovingIds] = useState(() => new Set());
   const [showAllQueue, setShowAllQueue] = useState(false);
+  // Format filter on the bottom housekeeping list — independent of the
+  // picker's `pickFormat` above (which serves a different mode: matching
+  // the next-thing-to-read constraint, not surveying the queue).
+  const [queueFormat, setQueueFormat] = useState(null);
 
   // Top tags across the whole readlist, ordered by frequency. Used as
   // the picker's tag-chip palette so the user picks from tags that
@@ -445,8 +449,48 @@ export default function Readlist() {
           <h2 id="readlist-all-heading" className="font-slab text-xs text-neutral-500 uppercase tracking-wider mb-3">
             All on readlist
           </h2>
+          {(() => {
+            const availableFormats = Array.from(new Set(books.map(b => b.format).filter(Boolean))).sort();
+            if (availableFormats.length <= 1) return null;
+            return (
+              <div className="mb-3 flex items-center gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setQueueFormat(null)}
+                  aria-pressed={queueFormat == null}
+                  className={`text-xs px-2.5 py-1 rounded-full border cursor-pointer transition-[transform,background-color,color,border-color] ease-out duration-150 motion-safe:active:scale-[0.98] ${
+                    queueFormat == null
+                      ? 'bg-binding/50 text-parchment border-binding/70'
+                      : 'border-neutral-700 text-neutral-400 hover:border-neutral-500 hover:text-neutral-200'
+                  }`}
+                >
+                  All formats
+                </button>
+                {availableFormats.map(f => (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => setQueueFormat(queueFormat === f ? null : f)}
+                    aria-pressed={queueFormat === f}
+                    className={`text-xs px-2.5 py-1 rounded-full border cursor-pointer transition-[transform,background-color,color,border-color] ease-out duration-150 motion-safe:active:scale-[0.98] ${
+                      queueFormat === f
+                        ? 'bg-binding/50 text-parchment border-binding/70'
+                        : 'border-neutral-700 text-neutral-400 hover:border-neutral-500 hover:text-neutral-200'
+                    }`}
+                  >
+                    {FORMAT_LABEL[f] ?? f}
+                  </button>
+                ))}
+              </div>
+            );
+          })()}
+          {(() => {
+            const filtered = queueFormat ? books.filter(b => b.format === queueFormat) : books;
+            const visible  = showAllQueue ? filtered : filtered.slice(0, QUEUE_PREVIEW);
+            return (
+              <>
           <ul className="divide-y divide-binding/15">
-            {(showAllQueue ? books : books.slice(0, QUEUE_PREVIEW)).map(b => {
+            {visible.map(b => {
               const removing = removingIds.has(b.id);
               return (
                 <li key={b.id} className="group flex items-center gap-3 py-2">
@@ -485,7 +529,7 @@ export default function Readlist() {
               );
             })}
           </ul>
-          {books.length > QUEUE_PREVIEW && (
+          {filtered.length > QUEUE_PREVIEW && (
             <div className="mt-3 text-xs">
               <button
                 type="button"
@@ -495,10 +539,13 @@ export default function Readlist() {
               >
                 {showAllQueue
                   ? `Show fewer ↑`
-                  : `Show all ${books.length} →`}
+                  : `Show all ${filtered.length} →`}
               </button>
             </div>
           )}
+              </>
+            );
+          })()}
         </section>
         </>
       )}

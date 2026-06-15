@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import IncomingBackLink from '../components/IncomingBackLink.jsx';
 import { api } from '../api.js';
@@ -10,7 +11,7 @@ import { sectionEyebrow } from '../components/textStyles.js';
 import { useFreshFetch } from '../hooks/useFreshFetch.js';
 import { useSpineEvent } from '../hooks/useSpineEvent.js';
 import { useCoverSize } from '../hooks/useCoverSize.js';
-import { initialsFor } from '../utils.js';
+import { initialsFor, FORMAT_LABEL } from '../utils.js';
 
 // /loved is the home of every loved entity in the library — books at
 // the top (the historical Loved view), then authors, then series.
@@ -53,6 +54,12 @@ export default function Loved() {
     { initialData: [] },
   );
   const { size: coverSize, setSize: setCoverSize, compact, gridStyle, gridClassName, MIN: coverMin, MAX: coverMax } = useCoverSize();
+  // Format chip — single-value local state, filters the Books section only.
+  // Authors and Series sections are unaffected (an author / series isn't
+  // bound to a single format). Reset is implicit on a page visit, not
+  // localStorage-backed: a loved-format browse is exploratory, not a
+  // standing preference.
+  const [formatFilter, setFormatFilter] = useState(null);
 
   // Refetch-and-swap on book mutations from other surfaces (MoreMenu's
   // Location picker, palette toggles, etc.). Only the books grid here
@@ -123,20 +130,63 @@ export default function Loved() {
               <div role="alert" className="text-warn text-sm">Failed to load loved books.</div>
             ) : books.length === 0 ? (
               <p className="text-sm text-neutral-600">No loved books yet — click the ♥ on any book card or detail page.</p>
-            ) : (
-              <div className={gridClassName} style={gridStyle}>
-                {(() => {
-                  const linkState = {
-                    from: 'Loved',
-                    fromPath: '/loved',
-                    cohort: books.map(b => ({ id: b.id, title: b.title })),
-                  };
-                  return books.map(book => (
-                    <BookCard key={book.id} book={book} onProgressUpdate={handleBookUpdate} compact={compact} linkState={linkState} />
-                  ));
-                })()}
-              </div>
-            )}
+            ) : (() => {
+              const availableFormats = Array.from(new Set(books.map(b => b.format).filter(Boolean))).sort();
+              const visible = formatFilter ? books.filter(b => b.format === formatFilter) : books;
+              return (
+                <>
+                  {availableFormats.length > 1 && (
+                    <div className="mb-4 flex items-center gap-1.5 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => setFormatFilter(null)}
+                        aria-pressed={formatFilter == null}
+                        className={`text-xs px-2.5 py-1 rounded-full border cursor-pointer transition-[transform,background-color,color,border-color] ease-out duration-150 motion-safe:active:scale-[0.98] ${
+                          formatFilter == null
+                            ? 'bg-binding/50 text-parchment border-binding/70'
+                            : 'border-neutral-700 text-neutral-400 hover:border-neutral-500 hover:text-neutral-200'
+                        }`}
+                      >
+                        All formats
+                      </button>
+                      {availableFormats.map(f => (
+                        <button
+                          key={f}
+                          type="button"
+                          onClick={() => setFormatFilter(formatFilter === f ? null : f)}
+                          aria-pressed={formatFilter === f}
+                          className={`text-xs px-2.5 py-1 rounded-full border cursor-pointer transition-[transform,background-color,color,border-color] ease-out duration-150 motion-safe:active:scale-[0.98] ${
+                            formatFilter === f
+                              ? 'bg-binding/50 text-parchment border-binding/70'
+                              : 'border-neutral-700 text-neutral-400 hover:border-neutral-500 hover:text-neutral-200'
+                          }`}
+                        >
+                          {FORMAT_LABEL[f] ?? f}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {visible.length === 0 ? (
+                    <p className="text-sm text-neutral-600">
+                      No loved {FORMAT_LABEL[formatFilter]?.toLowerCase() ?? formatFilter} books.
+                    </p>
+                  ) : (
+                    <div className={gridClassName} style={gridStyle}>
+                      {(() => {
+                        const linkState = {
+                          from: 'Loved',
+                          fromPath: '/loved',
+                          cohort: visible.map(b => ({ id: b.id, title: b.title })),
+                        };
+                        return visible.map(book => (
+                          <BookCard key={book.id} book={book} onProgressUpdate={handleBookUpdate} compact={compact} linkState={linkState} />
+                        ));
+                      })()}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </section>
 
           {/* Authors — small portrait cards. No cover-size slider since

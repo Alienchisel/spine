@@ -81,13 +81,19 @@ const PAGE_SIZE = 48;
 // or are about reading/quality rather than collection state.
 const OWNED_TOGGLE_FIELDS = new Set(['series', 'tag', 'publisher']);
 
-// Fields that expose the per-page format chip row. Both fields are
-// collection-scoping slices where the same work commonly exists in
-// multiple formats (audiobook + paperback editions of a series, or a
-// canonical tag like "Howard" gathering both). Other fields either have
-// only one natural format (year_acquired, rating) or wouldn't benefit
-// (fiction, format itself).
-const FORMAT_CHIP_FIELDS = new Set(['series', 'tag']);
+// Fields that expose the per-page format chip row. Every general slice
+// where a multi-format spread is plausible — series, tag, publisher,
+// language, etc. The chip row is gated on the slice actually spanning
+// >1 format (see availableFormats below), so single-format browses
+// stay clean without per-field gating here. Excluded: narrator
+// (audiobook-only by definition), format (filtering format on a
+// format-pinned view is a no-op).
+const FORMAT_CHIP_FIELDS = new Set([
+  'series', 'tag', 'publisher',
+  'language', 'original_language', 'translator',
+  'year_finished', 'year_acquired',
+  'rating', 'fiction', 'author_gender',
+]);
 const VALID_FORMATS = new Set(['physical', 'ebook', 'audiobook']);
 
 export default function BrowsePage() {
@@ -369,7 +375,12 @@ export default function BrowsePage() {
         </div>
       )}
 
-      {!loading && usesOwnedToggle && unownedCount > 0 && (
+      {/* The Include-unowned toggle persists across format-chip selections
+          even when the current filter yields 0 unowned, so the user can
+          always switch the toggle on/off without bouncing back to All
+          formats first. Without that, picking a chip whose slice happens
+          to be fully owned would hide the toggle entirely. */}
+      {!loading && usesOwnedToggle && (unownedCount > 0 || (usesFormatChip && availableFormats.length > 1)) && (
         <div className="mb-4 flex items-center gap-4 flex-wrap">
           <label className="inline-flex items-center gap-1.5 text-xs text-neutral-500 cursor-pointer hover:text-neutral-300 transition-colors">
             <input

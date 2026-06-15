@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { submitOnModEnter } from '../components/bookForm/styles.js';
 import { primaryButton } from '../components/buttonStyles.js';
-import { MOD_KEY } from '../utils.js';
+import { MOD_KEY, FORMAT_LABEL } from '../utils.js';
 import {
   DndContext,
   closestCenter,
@@ -317,6 +317,12 @@ export default function ListDetail() {
   // present from the first paint, just possibly short.
   const [cohort, setCohort] = useState([]);
   const [sort, setSort] = useState('added');
+  // Format chip — single-value, local state. Hidden in edit mode (drag
+  // positions are absolute over the unfiltered list; reordering inside
+  // a filtered subset would scramble positions of the hidden items).
+  // Reset on list-id change so the filter doesn't leak between lists.
+  const [formatFilter, setFormatFilter] = useState(null);
+  useEffect(() => { setFormatFilter(null); }, [id]);
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
   const [renameError, setRenameError] = useState(null);
@@ -379,6 +385,10 @@ export default function ListDetail() {
 
   function toggleEditMode() {
     if (!editMode && sort !== 'added') setSort('added');
+    // Drag-to-reorder operates on positions across the full list; entering
+    // edit mode with a format filter active would let drags scramble the
+    // positions of the hidden books, so clear the filter on the way in.
+    if (!editMode && formatFilter)    setFormatFilter(null);
     setEditMode(m => !m);
   }
 
@@ -409,14 +419,15 @@ export default function ListDetail() {
     loadMore, loadAll,
   } = usePaginatedFetch(
     (offset, limit) => {
-      const params = sort === 'added' ? { sort } : { sort, limit, offset };
+      const base = sort === 'added' ? { sort } : { sort, limit, offset };
+      const params = formatFilter ? { ...base, formats: formatFilter } : base;
       return api.getList(id, params).then(({ books: bs, total: t, ...rest }) => ({
         items: bs, total: t, ...rest,
       }));
     },
-    [id, sort],
+    [id, sort, formatFilter],
     {
-      key: `${id}|${sort}`,
+      key: `${id}|${sort}|${formatFilter ?? ''}`,
       pageSize: PAGE_SIZE,
     },
   );
@@ -507,14 +518,16 @@ export default function ListDetail() {
   // limit=500 is the server's cap; for lists larger than that, prev/next
   // truncates at the cap (acceptable tradeoff vs streaming or a separate
   // ids-only endpoint). Cleared on id/sort change so the previous list's
-  // cohort doesn't leak into the new view's first paint.
+  // cohort doesn't leak into the new view's first paint. Deliberately
+  // unfiltered (no `formats` param) — drives the format-chip availability
+  // detection, so it needs the full distinct-format set of the list.
   useEffect(() => {
     setCohort([]);
     let cancelled = false;
     api.getList(id, { sort, limit: 500 })
       .then(data => {
         if (cancelled) return;
-        setCohort((data.books || []).map(b => ({ id: b.id, title: b.title })));
+        setCohort((data.books || []).map(b => ({ id: b.id, title: b.title, format: b.format })));
       })
       .catch(() => { /* fall back to the visible-books cohort */ });
     return () => { cancelled = true; };
@@ -760,11 +773,63 @@ export default function ListDetail() {
       <QuickAdd key={id} listId={id} listBookIds={listBookIds} onAdded={handleAdded} />
 
       {total === 0 ? (
-        <div className="text-center py-24">
-          <p className="text-neutral-600">This list is empty. Add a book above.</p>
-        </div>
+        formatFilter ? (
+          <div className="text-center py-24">
+            <p className="text-neutral-600">
+              No {FORMAT_LABEL[formatFilter]?.toLowerCase() ?? formatFilter} books in this list.
+            </p>
+            <button
+              type="button"
+              onClick={() => setFormatFilter(null)}
+              className="mt-3 text-sm text-oak hover:text-leather transition-colors"
+            >
+              Show all formats →
+            </button>
+          </div>
+        ) : (
+          <div className="text-center py-24">
+            <p className="text-neutral-600">This list is empty. Add a book above.</p>
+          </div>
+        )
       ) : (
         <>
+          {(() => {
+            const availableFormats = Array.from(new Set(
+              (cohort.length > 0 ? cohort : books).map(b => b.format).filter(Boolean)
+            )).sort();
+            if (editMode || availableFormats.length <= 1) return null;
+            return (
+              <div className="mb-3 flex items-center gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setFormatFilter(null)}
+                  aria-pressed={formatFilter == null}
+                  className={`text-xs px-2.5 py-1 rounded-full border cursor-pointer transition-[transform,background-color,color,border-color] ease-out duration-150 motion-safe:active:scale-[0.98] ${
+                    formatFilter == null
+                      ? 'bg-binding/50 text-parchment border-binding/70'
+                      : 'border-neutral-700 text-neutral-400 hover:border-neutral-500 hover:text-neutral-200'
+                  }`}
+                >
+                  All formats
+                </button>
+                {availableFormats.map(f => (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => setFormatFilter(formatFilter === f ? null : f)}
+                    aria-pressed={formatFilter === f}
+                    className={`text-xs px-2.5 py-1 rounded-full border cursor-pointer transition-[transform,background-color,color,border-color] ease-out duration-150 motion-safe:active:scale-[0.98] ${
+                      formatFilter === f
+                        ? 'bg-binding/50 text-parchment border-binding/70'
+                        : 'border-neutral-700 text-neutral-400 hover:border-neutral-500 hover:text-neutral-200'
+                    }`}
+                  >
+                    {FORMAT_LABEL[f] ?? f}
+                  </button>
+                ))}
+              </div>
+            );
+          })()}
           <div className="flex items-center justify-between gap-3 mb-3">
             <button
               type="button"
