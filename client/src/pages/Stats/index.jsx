@@ -82,12 +82,17 @@ export default function Stats() {
         minutesListened={stats.minutesListened}
         streaks={stats.streaks}
       />
-      <CurrentlyReading inProgressPace={stats.inProgressPace} />
+      {/* Goals sit directly under the hero so an active goal-setter
+          lands on actionable progress right after the headline numbers.
+          Currently reading and Streaks follow — the eye-level band of
+          the page now reads: "here's the library / here's what you're
+          aiming for / here's what's open / here's the streak." */}
       <Goals
         todayPages={stats.todayPages}
         thisYearPages={stats.thisYearPages}
         thisYearBooks={stats.thisYearBooks}
       />
+      <CurrentlyReading inProgressPace={stats.inProgressPace} />
       <Streaks streaks={stats.streaks} />
       <LibraryTotals totals={stats.totals} />
       <LibraryBreakdown
