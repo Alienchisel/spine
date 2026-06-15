@@ -297,6 +297,30 @@ describe('stats', () => {
     });
   });
 
+  describe('GET /api/stats/audit', () => {
+    it('returns audit and auditSummary off the main stats payload', async () => {
+      // Audit lives behind its own endpoint so the heavyweight SUM(CASE)
+      // scan doesn't run on every Stats page load. Main /api/stats must
+      // not carry the audit keys; /api/stats/audit must.
+      const { body: stats } = await req('GET', '/api/stats');
+      assert.ok(!('audit'        in stats), 'audit should not appear in /api/stats');
+      assert.ok(!('auditSummary' in stats), 'auditSummary should not appear in /api/stats');
+
+      const { status, body } = await req('GET', '/api/stats/audit');
+      assert.equal(status, 200);
+      assert.ok(Array.isArray(body.audit), 'audit should be an array');
+      assert.ok(body.auditSummary, 'auditSummary should be present');
+      for (const key of ['cleanPct', 'totalGaps', 'totalPopulation', 'rowCount']) {
+        assert.ok(key in body.auditSummary, `auditSummary missing: ${key}`);
+      }
+      // cleanPct must be 0..100 and rowCount must agree with the flattened
+      // group rows — the page renders both, so guarantee they're coherent.
+      assert.ok(body.auditSummary.cleanPct >= 0 && body.auditSummary.cleanPct <= 100);
+      const flatRows = body.audit.reduce((s, g) => s + g.rows.length, 0);
+      assert.equal(body.auditSummary.rowCount, flatRows);
+    });
+  });
+
   describe('GET /api/stats/library-trajectory', () => {
     it('returns monthly cumulative acquired and finished totals', async () => {
       await req('POST', '/api/books', { title: 'Trajectory Acquired ' + Math.random().toString(36).slice(2, 6), acquisition_date: '2020-03-10', owned: true });

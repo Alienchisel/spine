@@ -46,16 +46,16 @@ const ALL_ARCHIVIST_STATES = [
 // audit.js) — power-user `missing=` filters not on this list remain
 // available from the Library filter panel and the Command Palette.
 export default function Audit() {
-  const { data: stats, loading, error, setError } = useFreshFetch(() => api.getStats(), []);
+  const { data, loading, error, setError } = useFreshFetch(() => api.getAudit(), []);
   // TEMPORARY — hover/focus key for the preview strip. null = display
   // the real cleanPct-derived state.
   const [previewKey, setPreviewKey] = useState(null);
 
-  if (!stats && error) return <div role="alert" className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-warn text-sm">Failed to load audit data.</div>;
+  if (!data && error) return <div role="alert" className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-warn text-sm">Failed to load audit data.</div>;
   if (loading) return <div role="status" className="text-neutral-700 text-sm">Loading…</div>;
 
-  const audit = stats.audit || [];
-  const summary = stats.auditSummary || { cleanPct: 100, totalGaps: 0, totalPopulation: 0, rowCount: audit.reduce((s, g) => s + g.rows.length, 0) };
+  const audit = data.audit || [];
+  const summary = data.auditSummary || { cleanPct: 100, totalGaps: 0, totalPopulation: 0, rowCount: audit.reduce((s, g) => s + g.rows.length, 0) };
   // Two decimals everywhere except the literal 100% case. The
   // intermediate clamp keeps a near-ceiling reading (e.g. 99.998) from
   // displaying as the misleading "100.00%" — when not actually at the
