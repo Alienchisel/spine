@@ -208,8 +208,9 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
 
       {/* Long-list filters live at the bottom so their length when opened
           doesn't shove the compact toggle filters off-screen. Tags is
-          open by default (heavily used); Publisher / Source / Series
-          stay collapsed. */}
+          open by default (heavily used) and Language sits right beneath
+          it — both axes describe what the book is. Publisher / Source /
+          Series cluster below as the provenance group, all collapsed. */}
       {tags.length > 0 && (
         <FilterSection key="tags" label="Tags" active={filters.tags.length > 0}>
           {(() => {
@@ -246,6 +247,32 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
               aria-pressed={filters.tags.includes(t)}
               className={pill(filters.tags.includes(t))}>
               {t}
+            </button>
+          ))}
+        </FilterSection>
+      )}
+
+      {/* Language sits right under Tags — both axes describe what the
+          book is (vs. Publisher / Source which describe provenance) and
+          pairing them makes Language discoverable without forcing the
+          user past three collapsed bibliographic sections. Partitions
+          by original_language (the language the work was written in),
+          not the reading-language field — that one is ~99% English and
+          useless as a filter axis. Surfaces the translated corpus as a
+          first-class slice. */}
+      {(origLangs.length > 0 || hasEmptyOrigLang) && (
+        <FilterSection key="language" label="Language" defaultOpen={false} active={(filters.originalLanguages || []).length > 0}>
+          {hasEmptyOrigLang && (
+            <button type="button" onClick={() => toggle('originalLanguages', 'empty')}
+              aria-pressed={(filters.originalLanguages || []).includes('empty')}
+              aria-label="Missing original language"
+              className={pill((filters.originalLanguages || []).includes('empty'))}>—</button>
+          )}
+          {origLangs.map(l => (
+            <button key={l} type="button" onClick={() => toggle('originalLanguages', l)}
+              aria-pressed={(filters.originalLanguages || []).includes(l)}
+              className={pill((filters.originalLanguages || []).includes(l))}>
+              {l}
             </button>
           ))}
         </FilterSection>
@@ -300,28 +327,6 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
               aria-pressed={filters.series.includes(s)}
               className={pill(filters.series.includes(s))}>
               {s}
-            </button>
-          ))}
-        </FilterSection>
-      )}
-
-      {/* Language section partitions by original_language (the language
-          the work was written in), not the reading-language field — that
-          one is ~99% English and useless as a filter axis. Surfaces the
-          translated corpus as a first-class slice. */}
-      {(origLangs.length > 0 || hasEmptyOrigLang) && (
-        <FilterSection key="language" label="Language" defaultOpen={false} active={(filters.originalLanguages || []).length > 0}>
-          {hasEmptyOrigLang && (
-            <button type="button" onClick={() => toggle('originalLanguages', 'empty')}
-              aria-pressed={(filters.originalLanguages || []).includes('empty')}
-              aria-label="Missing original language"
-              className={pill((filters.originalLanguages || []).includes('empty'))}>—</button>
-          )}
-          {origLangs.map(l => (
-            <button key={l} type="button" onClick={() => toggle('originalLanguages', l)}
-              aria-pressed={(filters.originalLanguages || []).includes(l)}
-              className={pill((filters.originalLanguages || []).includes(l))}>
-              {l}
             </button>
           ))}
         </FilterSection>
