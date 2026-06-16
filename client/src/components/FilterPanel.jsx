@@ -266,7 +266,7 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
           own in French?" question wants). Stacked adjacently so the
           pair reads as a Language cluster without an extra wrapper. */}
       {(origLangs.length > 0 || hasEmptyOrigLang) && (
-        <FilterSection key="original-language" label="Original" defaultOpen={false} active={(filters.originalLanguages || []).length > 0}>
+        <FilterSection key="original-language" label="Original Language" defaultOpen={false} active={(filters.originalLanguages || []).length > 0}>
           {hasEmptyOrigLang && (
             <button type="button" onClick={() => toggle('originalLanguages', 'empty')}
               aria-pressed={(filters.originalLanguages || []).includes('empty')}
@@ -284,7 +284,7 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
       )}
 
       {(editLangs.length > 0 || hasEmptyEditLang) && (
-        <FilterSection key="edition-language" label="Edition" defaultOpen={false} active={(filters.editionLanguages || []).length > 0}>
+        <FilterSection key="edition-language" label="Edition Language" defaultOpen={false} active={(filters.editionLanguages || []).length > 0}>
           {hasEmptyEditLang && (
             <button type="button" onClick={() => toggle('editionLanguages', 'empty')}
               aria-pressed={(filters.editionLanguages || []).includes('empty')}
