@@ -17,7 +17,7 @@ import { EMPTY_FILTERS, normalizeFilters } from './filters.js';
 // every multi-select filter or chip clicks become silent no-ops
 // (writeFiltersToParams skips unknown keys, so the URL never updates
 // and the URL-derived filter state never picks the new value back up).
-const FILTER_ARRAY_KEYS = ['missing', 'formats', 'ratings', 'publishers', 'sources', 'series', 'originalLanguages', 'tags', 'statuses'];
+const FILTER_ARRAY_KEYS = ['missing', 'formats', 'ratings', 'publishers', 'sources', 'series', 'originalLanguages', 'editionLanguages', 'tags', 'statuses'];
 // Tristate fields ('owned', etc.) are encoded only when set — null
 // means "no filter", which doesn't need a param. Empty string is also
 // treated as "not set" to be forgiving.

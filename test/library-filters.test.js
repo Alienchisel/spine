@@ -67,6 +67,7 @@ describe('normalizeFilters', () => {
     assert.deepEqual(out.tags,              []);
     assert.deepEqual(out.statuses,          []);
     assert.deepEqual(out.originalLanguages, []);
+    assert.deepEqual(out.editionLanguages,  []);
     assert.equal(out.tagsMode,              'all');
     assert.equal(out.owned,                 null);
   });

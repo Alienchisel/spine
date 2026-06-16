@@ -154,7 +154,7 @@ describe('books', () => {
 
     it('exposes an originalLanguages facet keyed only on original_language', async () => {
       // Distinct from the flattened `languages` facet — this one drives the
-      // FilterPanel Language chips and must not be smeared with the
+      // FilterPanel Original chips and must not be smeared with the
       // reading-language field (which is ~99% English in practice and
       // useless to partition on).
       await req('POST', '/api/books', {
@@ -169,6 +169,46 @@ describe('books', () => {
         `expected originalLanguages facet to exclude reading-language-only 'English', got ${JSON.stringify(body.originalLanguages)}`);
       assert.equal(body.hasEmptyOriginalLanguage, true,
         'expected hasEmptyOriginalLanguage=true when at least one book has no original_language');
+    });
+
+    it('exposes an editionLanguages facet keyed only on language', async () => {
+      // Partner to originalLanguages — drives the FilterPanel Edition
+      // chips. Must surface the reading-language column ONLY so a French
+      // edition of a Polish work counts as French here while the original
+      // chip stays Polish. Note: language defaults to 'English' on POST
+      // (repository.js:398) so the empty bucket is effectively unreachable
+      // in normal use — not asserted here.
+      await req('POST', '/api/books', {
+        title: 'French Edition of Polish Work', language: 'French', original_language: 'Polish',
+      });
+      await req('POST', '/api/books', {
+        title: 'Italian Edition Reading', language: 'Italian', original_language: 'Spanish', status: 'reading',
+      });
+      const { status, body } = await req('GET', '/api/books/facets');
+      assert.equal(status, 200);
+      assert.ok(body.editionLanguages.includes('French'),
+        `expected editionLanguages facet to include 'French', got ${JSON.stringify(body.editionLanguages)}`);
+      assert.ok(body.editionLanguages.includes('Italian'),
+        `expected editionLanguages facet to include 'Italian', got ${JSON.stringify(body.editionLanguages)}`);
+      assert.ok(!body.editionLanguages.includes('Spanish'),
+        `expected editionLanguages facet to exclude original-language-only 'Spanish', got ${JSON.stringify(body.editionLanguages)}`);
+      const { body: scoped } = await req('GET', '/api/books/facets?status=reading');
+      assert.ok(scoped.editionLanguages.includes('Italian'),
+        `expected status=reading editionLanguages facet to include the reading book's edition language 'Italian', got ${JSON.stringify(scoped.editionLanguages)}`);
+      assert.ok(!scoped.editionLanguages.includes('French'),
+        `expected status=reading editionLanguages facet to exclude unread-only 'French', got ${JSON.stringify(scoped.editionLanguages)}`);
+    });
+
+    it('filters by editionLanguages[]=<lang> on the books endpoint', async () => {
+      // language defaults to 'English' on POST so the bulk parametric
+      // empty-bucket test below skips this filter; this dedicated
+      // assertion guards the real-value path.
+      const { body: french }  = await req('POST', '/api/books', { title: 'EL Filter French',  language: 'French' });
+      const { body: english } = await req('POST', '/api/books', { title: 'EL Filter English', language: 'English' });
+      const { body: results } = await req('GET', '/api/books?editionLanguages[]=French&limit=200');
+      const ids = results.books.map(b => b.id);
+      assert.ok( ids.includes(french.id),  'expected editionLanguages=French to include French-edition book');
+      assert.ok(!ids.includes(english.id), 'expected editionLanguages=French to exclude English-edition book');
     });
 
     it('narrows the tags facet by an active cross-axis filter (status, virtual tags)', async () => {
@@ -4504,6 +4544,11 @@ describe('books', () => {
         { filter: 'formats',           col: 'format',             realMatched: 'physical',                  other: 'audiobook' },
         { filter: 'ratings',           col: 'rating',             realMatched: 4,                           other: 5 },
         { filter: 'originalLanguages', col: 'original_language',  realMatched: 'Combined-Filter Lang A',    other: 'Combined-Filter Lang B' },
+        // editionLanguages skipped here: language defaults to 'English'
+        // on POST (repository.js), so the empty branch of the combined
+        // []=empty + real filter is unreachable through normal book
+        // creation. Real-value path is covered above in the dedicated
+        // editionLanguages filter test.
       ];
       for (const c of cases) {
         const isRating = c.col === 'rating';
@@ -4555,6 +4600,10 @@ describe('books', () => {
         { filter: 'formats',           col: 'format',             filledValue: 'physical' },
         { filter: 'ratings',           col: 'rating',             filledValue: 4 },
         { filter: 'originalLanguages', col: 'original_language',  filledValue: 'Empty-Filter Lang Set' },
+        // editionLanguages skipped here for the same reason as the
+        // combined empty+real test above: language defaults to 'English'
+        // on POST, so a fixture book with "no value" actually carries
+        // 'English' and the empty bucket never matches.
       ];
       for (const c of cases) {
         const { body: matched } = await req('POST', '/api/books', {

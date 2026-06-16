@@ -121,6 +121,8 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
   const hasEmptySeries = facets.hasEmptySeries;
   const origLangs      = facets.originalLanguages || [];
   const hasEmptyOrigLang = facets.hasEmptyOriginalLanguage;
+  const editLangs      = facets.editionLanguages || [];
+  const hasEmptyEditLang = facets.hasEmptyEditionLanguage;
   const tags           = facets.tags;
   const ratings        = facets.ratings;
   const hasEmptyRating = facets.hasEmptyRating;
@@ -252,16 +254,19 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
         </FilterSection>
       )}
 
-      {/* Language sits right under Tags — both axes describe what the
-          book is (vs. Publisher / Source which describe provenance) and
-          pairing them makes Language discoverable without forcing the
-          user past three collapsed bibliographic sections. Partitions
-          by original_language (the language the work was written in),
-          not the reading-language field — that one is ~99% English and
-          useless as a filter axis. Surfaces the translated corpus as a
-          first-class slice. */}
+      {/* Language pair sits right under Tags — both axes describe what
+          the book is (vs. Publisher / Source which describe provenance).
+          Two sections rather than one because the columns answer
+          different questions: Original partitions by what language the
+          work was written in (curator's view — translated corpus,
+          Greek/Latin Loebs, German philosophy); Edition partitions by
+          the language of the copy you actually hold (reader's view —
+          mostly English but the small French / Italian / Latin /
+          facing-page-Greek slices are exactly the cohorts a "what do I
+          own in French?" question wants). Stacked adjacently so the
+          pair reads as a Language cluster without an extra wrapper. */}
       {(origLangs.length > 0 || hasEmptyOrigLang) && (
-        <FilterSection key="language" label="Language" defaultOpen={false} active={(filters.originalLanguages || []).length > 0}>
+        <FilterSection key="original-language" label="Original" defaultOpen={false} active={(filters.originalLanguages || []).length > 0}>
           {hasEmptyOrigLang && (
             <button type="button" onClick={() => toggle('originalLanguages', 'empty')}
               aria-pressed={(filters.originalLanguages || []).includes('empty')}
@@ -272,6 +277,24 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
             <button key={l} type="button" onClick={() => toggle('originalLanguages', l)}
               aria-pressed={(filters.originalLanguages || []).includes(l)}
               className={pill((filters.originalLanguages || []).includes(l))}>
+              {l}
+            </button>
+          ))}
+        </FilterSection>
+      )}
+
+      {(editLangs.length > 0 || hasEmptyEditLang) && (
+        <FilterSection key="edition-language" label="Edition" defaultOpen={false} active={(filters.editionLanguages || []).length > 0}>
+          {hasEmptyEditLang && (
+            <button type="button" onClick={() => toggle('editionLanguages', 'empty')}
+              aria-pressed={(filters.editionLanguages || []).includes('empty')}
+              aria-label="Missing edition language"
+              className={pill((filters.editionLanguages || []).includes('empty'))}>—</button>
+          )}
+          {editLangs.map(l => (
+            <button key={l} type="button" onClick={() => toggle('editionLanguages', l)}
+              aria-pressed={(filters.editionLanguages || []).includes(l)}
+              className={pill((filters.editionLanguages || []).includes(l))}>
               {l}
             </button>
           ))}

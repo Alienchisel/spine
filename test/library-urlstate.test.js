@@ -24,6 +24,7 @@ describe('urlState round trip', () => {
       sources:           ['Audible'],
       series:            ['The Book of the New Sun'],
       originalLanguages: ['German', 'French'],
+      editionLanguages:  ['French', 'Italian'],
       tags:              ['Philosophy'],
       statuses:          ['reading'],
       // Tristates and progress live in TRISTATE_KEYS / the explicit
@@ -44,6 +45,7 @@ describe('urlState round trip', () => {
       `round trip lost data — wrote ${params.toString()} and got back ${JSON.stringify(back)}`);
     // Belt-and-braces: each individual list survived.
     assert.deepEqual(back.originalLanguages, ['German', 'French']);
+    assert.deepEqual(back.editionLanguages,  ['French', 'Italian']);
     assert.deepEqual(back.series,            ['The Book of the New Sun']);
     assert.deepEqual(back.tags,              ['Philosophy']);
     assert.equal(back.owned,    true);

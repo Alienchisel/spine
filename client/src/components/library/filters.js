@@ -15,6 +15,7 @@ export const EMPTY_FILTERS = {
   sources:           [],
   series:            [],
   originalLanguages: [],
+  editionLanguages:  [],
   tags:              [],
   statuses:          [],
   // 'all' = require every selected tag (default; matches the search-bar AND
@@ -32,7 +33,7 @@ export const EMPTY_FILTERS = {
   progress:        null,
 };
 
-const FILTER_ARRAY_KEYS = ['missing', 'formats', 'ratings', 'publishers', 'sources', 'series', 'originalLanguages', 'tags', 'statuses'];
+const FILTER_ARRAY_KEYS = ['missing', 'formats', 'ratings', 'publishers', 'sources', 'series', 'originalLanguages', 'editionLanguages', 'tags', 'statuses'];
 const TRISTATE_KEYS = ['owned', 'previouslyOwned', 'custom', 'loved'];
 
 // Hardens persisted filter shape against (a) future schema migrations
@@ -59,7 +60,8 @@ export function normalizeFilters(saved) {
 export function countFilters(f) {
   return f.missing.length + f.formats.length + f.ratings.length +
     f.publishers.length + f.sources.length + f.series.length +
-    (f.originalLanguages?.length || 0) + f.tags.length +
+    (f.originalLanguages?.length || 0) + (f.editionLanguages?.length || 0) +
+    f.tags.length +
     (f.statuses?.length || 0) +
     (f.owned !== null ? 1 : 0) + (f.previouslyOwned !== null ? 1 : 0) +
     (f.custom !== null ? 1 : 0) + (f.loved !== null ? 1 : 0) +
@@ -74,6 +76,7 @@ export function pruneFilters(filters, facets) {
   const srcSet   = new Set(facets.sources || []);
   const serSet   = new Set(facets.series);
   const olangSet = new Set(facets.originalLanguages || []);
+  const elangSet = new Set(facets.editionLanguages || []);
   const rtSet    = new Set(facets.ratings.map(String));
   const tagSet   = new Set(facets.tags);
   return {
@@ -84,6 +87,8 @@ export function pruneFilters(filters, facets) {
     series:     filters.series.filter(s => s === 'empty' ? facets.hasEmptySeries    : serSet.has(s)),
     originalLanguages: (filters.originalLanguages || []).filter(l =>
       l === 'empty' ? facets.hasEmptyOriginalLanguage : olangSet.has(l)),
+    editionLanguages: (filters.editionLanguages || []).filter(l =>
+      l === 'empty' ? facets.hasEmptyEditionLanguage : elangSet.has(l)),
     ratings:    filters.ratings.filter(r => r === 'empty' ? facets.hasEmptyRating    : rtSet.has(String(r))),
     tags:       filters.tags.filter(t => tagSet.has(t)),
     statuses:   (filters.statuses || []).filter(s => VALID_STATUSES.has(s)),
@@ -103,6 +108,7 @@ export function buildApiParams(tab, sort, filters, q, offset, seed, limit = PAGE
   if (filters.publishers.length) p.publishers     = filters.publishers;
   if (filters.series.length)     p.series         = filters.series;
   if (filters.originalLanguages?.length) p.originalLanguages = filters.originalLanguages;
+  if (filters.editionLanguages?.length)  p.editionLanguages  = filters.editionLanguages;
   if (filters.tags.length)       p.tags           = filters.tags;
   if (filters.statuses?.length)  p.statuses       = filters.statuses;
   if (filters.tags.length > 1 && filters.tagsMode === 'any') p.tagsMode = 'any';
