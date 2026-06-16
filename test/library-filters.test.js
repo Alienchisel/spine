@@ -64,10 +64,11 @@ describe('normalizeFilters', () => {
     // Forward-compatibility the other way: an old blob predates a new
     // filter field; normalize must still surface that field.
     const out = normalizeFilters({ formats: ['ebook'] });
-    assert.deepEqual(out.tags,     []);
-    assert.deepEqual(out.statuses, []);
-    assert.equal(out.tagsMode,     'all');
-    assert.equal(out.owned,        null);
+    assert.deepEqual(out.tags,              []);
+    assert.deepEqual(out.statuses,          []);
+    assert.deepEqual(out.originalLanguages, []);
+    assert.equal(out.tagsMode,              'all');
+    assert.equal(out.owned,                 null);
   });
 
   it('does not mutate the caller', () => {

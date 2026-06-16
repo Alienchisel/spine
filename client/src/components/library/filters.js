@@ -8,14 +8,15 @@ export const PAGE_SIZE = 48;
 const VALID_STATUSES = new Set(['reading', 'finished', 'unread']);
 
 export const EMPTY_FILTERS = {
-  missing:         [],
-  formats:         [],
-  ratings:         [],
-  publishers:      [],
-  sources:         [],
-  series:          [],
-  tags:            [],
-  statuses:        [],
+  missing:           [],
+  formats:           [],
+  ratings:           [],
+  publishers:        [],
+  sources:           [],
+  series:            [],
+  originalLanguages: [],
+  tags:              [],
+  statuses:          [],
   // 'all' = require every selected tag (default; matches the search-bar AND
   // semantic). 'any' = match any selected tag (the multi-select-facet OR
   // semantic, opt-in via the All/Any toggle in FilterPanel). Only meaningful
@@ -31,7 +32,7 @@ export const EMPTY_FILTERS = {
   progress:        null,
 };
 
-const FILTER_ARRAY_KEYS = ['missing', 'formats', 'ratings', 'publishers', 'sources', 'series', 'tags', 'statuses'];
+const FILTER_ARRAY_KEYS = ['missing', 'formats', 'ratings', 'publishers', 'sources', 'series', 'originalLanguages', 'tags', 'statuses'];
 const TRISTATE_KEYS = ['owned', 'previouslyOwned', 'custom', 'loved'];
 
 // Hardens persisted filter shape against (a) future schema migrations
@@ -57,7 +58,8 @@ export function normalizeFilters(saved) {
 
 export function countFilters(f) {
   return f.missing.length + f.formats.length + f.ratings.length +
-    f.publishers.length + f.sources.length + f.series.length + f.tags.length +
+    f.publishers.length + f.sources.length + f.series.length +
+    (f.originalLanguages?.length || 0) + f.tags.length +
     (f.statuses?.length || 0) +
     (f.owned !== null ? 1 : 0) + (f.previouslyOwned !== null ? 1 : 0) +
     (f.custom !== null ? 1 : 0) + (f.loved !== null ? 1 : 0) +
@@ -67,18 +69,21 @@ export function countFilters(f) {
 // Drop selected values that no longer exist in the current facet set
 // (e.g. switching tabs may make a publisher selection meaningless).
 export function pruneFilters(filters, facets) {
-  const fmtSet  = new Set(facets.formats);
-  const pubSet  = new Set(facets.publishers);
-  const srcSet  = new Set(facets.sources || []);
-  const serSet  = new Set(facets.series);
-  const rtSet   = new Set(facets.ratings.map(String));
-  const tagSet  = new Set(facets.tags);
+  const fmtSet   = new Set(facets.formats);
+  const pubSet   = new Set(facets.publishers);
+  const srcSet   = new Set(facets.sources || []);
+  const serSet   = new Set(facets.series);
+  const olangSet = new Set(facets.originalLanguages || []);
+  const rtSet    = new Set(facets.ratings.map(String));
+  const tagSet   = new Set(facets.tags);
   return {
     ...filters,
     formats:    filters.formats.filter(f => f === 'empty' ? facets.hasEmptyFormat    : fmtSet.has(f)),
     publishers: filters.publishers.filter(p => p === 'empty' ? facets.hasEmptyPublisher : pubSet.has(p)),
     sources:    (filters.sources || []).filter(s => s === 'empty' ? facets.hasEmptySource : srcSet.has(s)),
     series:     filters.series.filter(s => s === 'empty' ? facets.hasEmptySeries    : serSet.has(s)),
+    originalLanguages: (filters.originalLanguages || []).filter(l =>
+      l === 'empty' ? facets.hasEmptyOriginalLanguage : olangSet.has(l)),
     ratings:    filters.ratings.filter(r => r === 'empty' ? facets.hasEmptyRating    : rtSet.has(String(r))),
     tags:       filters.tags.filter(t => tagSet.has(t)),
     statuses:   (filters.statuses || []).filter(s => VALID_STATUSES.has(s)),
@@ -97,6 +102,7 @@ export function buildApiParams(tab, sort, filters, q, offset, seed, limit = PAGE
   if (filters.ratings.length)    p.ratings        = filters.ratings.map(String);
   if (filters.publishers.length) p.publishers     = filters.publishers;
   if (filters.series.length)     p.series         = filters.series;
+  if (filters.originalLanguages?.length) p.originalLanguages = filters.originalLanguages;
   if (filters.tags.length)       p.tags           = filters.tags;
   if (filters.statuses?.length)  p.statuses       = filters.statuses;
   if (filters.tags.length > 1 && filters.tagsMode === 'any') p.tagsMode = 'any';

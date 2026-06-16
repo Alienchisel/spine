@@ -119,6 +119,8 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
   const hasEmptyPublisher = facets.hasEmptyPublisher;
   const seriesVals     = facets.series;
   const hasEmptySeries = facets.hasEmptySeries;
+  const origLangs      = facets.originalLanguages || [];
+  const hasEmptyOrigLang = facets.hasEmptyOriginalLanguage;
   const tags           = facets.tags;
   const ratings        = facets.ratings;
   const hasEmptyRating = facets.hasEmptyRating;
@@ -298,6 +300,28 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
               aria-pressed={filters.series.includes(s)}
               className={pill(filters.series.includes(s))}>
               {s}
+            </button>
+          ))}
+        </FilterSection>
+      )}
+
+      {/* Language section partitions by original_language (the language
+          the work was written in), not the reading-language field — that
+          one is ~99% English and useless as a filter axis. Surfaces the
+          translated corpus as a first-class slice. */}
+      {(origLangs.length > 0 || hasEmptyOrigLang) && (
+        <FilterSection key="language" label="Language" defaultOpen={false} active={(filters.originalLanguages || []).length > 0}>
+          {hasEmptyOrigLang && (
+            <button type="button" onClick={() => toggle('originalLanguages', 'empty')}
+              aria-pressed={(filters.originalLanguages || []).includes('empty')}
+              aria-label="Missing original language"
+              className={pill((filters.originalLanguages || []).includes('empty'))}>—</button>
+          )}
+          {origLangs.map(l => (
+            <button key={l} type="button" onClick={() => toggle('originalLanguages', l)}
+              aria-pressed={(filters.originalLanguages || []).includes(l)}
+              className={pill((filters.originalLanguages || []).includes(l))}>
+              {l}
             </button>
           ))}
         </FilterSection>

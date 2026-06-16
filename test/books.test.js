@@ -152,6 +152,25 @@ describe('books', () => {
         `expected status=reading languages facet to exclude original_language whose only book is unread, got ${JSON.stringify(body.languages)}`);
     });
 
+    it('exposes an originalLanguages facet keyed only on original_language', async () => {
+      // Distinct from the flattened `languages` facet — this one drives the
+      // FilterPanel Language chips and must not be smeared with the
+      // reading-language field (which is ~99% English in practice and
+      // useless to partition on).
+      await req('POST', '/api/books', {
+        title: 'Translated Reading', language: 'English', original_language: 'German', status: 'reading',
+      });
+      await req('POST', '/api/books', { title: 'Reading-Lang Only', language: 'English' });
+      const { status, body } = await req('GET', '/api/books/facets');
+      assert.equal(status, 200);
+      assert.ok(body.originalLanguages.includes('German'),
+        `expected originalLanguages facet to include 'German', got ${JSON.stringify(body.originalLanguages)}`);
+      assert.ok(!body.originalLanguages.includes('English'),
+        `expected originalLanguages facet to exclude reading-language-only 'English', got ${JSON.stringify(body.originalLanguages)}`);
+      assert.equal(body.hasEmptyOriginalLanguage, true,
+        'expected hasEmptyOriginalLanguage=true when at least one book has no original_language');
+    });
+
     it('narrows the tags facet by an active cross-axis filter (status, virtual tags)', async () => {
       // Abridged: a reading book with abridged=1 should surface the virtual tag.
       await req('POST', '/api/books', {
@@ -4479,11 +4498,12 @@ describe('books', () => {
       // (col IS NULL OR col IN (...)). The empty-only and real-only branches are
       // covered separately; this guards against a refactor breaking the OR.
       const cases = [
-        { filter: 'publishers', col: 'publisher',          realMatched: 'Combined-Filter Press',     other: 'Combined-Filter Other Press' },
-        { filter: 'series',     col: 'series',             realMatched: 'Combined-Filter Series A',  other: 'Combined-Filter Series B' },
-        { filter: 'sources',    col: 'acquisition_source', realMatched: 'Combined-Filter Mart',      other: 'Combined-Filter Other Mart' },
-        { filter: 'formats',    col: 'format',             realMatched: 'physical',                  other: 'audiobook' },
-        { filter: 'ratings',    col: 'rating',             realMatched: 4,                           other: 5 },
+        { filter: 'publishers',        col: 'publisher',          realMatched: 'Combined-Filter Press',     other: 'Combined-Filter Other Press' },
+        { filter: 'series',            col: 'series',             realMatched: 'Combined-Filter Series A',  other: 'Combined-Filter Series B' },
+        { filter: 'sources',           col: 'acquisition_source', realMatched: 'Combined-Filter Mart',      other: 'Combined-Filter Other Mart' },
+        { filter: 'formats',           col: 'format',             realMatched: 'physical',                  other: 'audiobook' },
+        { filter: 'ratings',           col: 'rating',             realMatched: 4,                           other: 5 },
+        { filter: 'originalLanguages', col: 'original_language',  realMatched: 'Combined-Filter Lang A',    other: 'Combined-Filter Lang B' },
       ];
       for (const c of cases) {
         const isRating = c.col === 'rating';
@@ -4529,11 +4549,12 @@ describe('books', () => {
       // the IS NULL (or = '') branch works uniformly across all filters that
       // expose a — pill in the UI.
       const cases = [
-        { filter: 'publishers', col: 'publisher',          filledValue: 'Empty-Filter Publisher Press' },
-        { filter: 'series',     col: 'series',             filledValue: 'Empty-Filter Series Set' },
-        { filter: 'sources',    col: 'acquisition_source', filledValue: 'Empty-Filter Mart' },
-        { filter: 'formats',    col: 'format',             filledValue: 'physical' },
-        { filter: 'ratings',    col: 'rating',             filledValue: 4 },
+        { filter: 'publishers',        col: 'publisher',          filledValue: 'Empty-Filter Publisher Press' },
+        { filter: 'series',            col: 'series',             filledValue: 'Empty-Filter Series Set' },
+        { filter: 'sources',           col: 'acquisition_source', filledValue: 'Empty-Filter Mart' },
+        { filter: 'formats',           col: 'format',             filledValue: 'physical' },
+        { filter: 'ratings',           col: 'rating',             filledValue: 4 },
+        { filter: 'originalLanguages', col: 'original_language',  filledValue: 'Empty-Filter Lang Set' },
       ];
       for (const c of cases) {
         const { body: matched } = await req('POST', '/api/books', {
