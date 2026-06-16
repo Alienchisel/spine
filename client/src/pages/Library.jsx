@@ -540,8 +540,17 @@ export default function Library() {
     } else if (currentSort === 'updated') {
       // Mirror the server's `updated_at DESC` ordering locally so an inline
       // edit (rating, progress, finish) bumps the book to the top right away
-      // instead of waiting for a refetch on next mount.
-      setBooks(bs => [updated, ...bs.filter(b => b.id !== updated.id)]);
+      // instead of waiting for a refetch on next mount. The server skips
+      // the write on no-op PATCHes (same current_page / current_minutes),
+      // which leaves updated_at unchanged — only reorder when the server
+      // confirms the bump, otherwise an idle save phantom-moves the row.
+      setBooks(bs => {
+        const prev = bs.find(b => b.id === updated.id);
+        if (prev && prev.updated_at === updated.updated_at) {
+          return bs.map(b => b.id === updated.id ? updated : b);
+        }
+        return [updated, ...bs.filter(b => b.id !== updated.id)];
+      });
     } else {
       setBooks(bs => bs.map(b => b.id === updated.id ? updated : b));
     }

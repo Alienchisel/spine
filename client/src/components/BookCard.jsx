@@ -113,6 +113,22 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
     });
     if (patchError) { setError(patchError); return; }
 
+    // No-op submit (re-saving the pre-filled current value): close the
+    // editor without firing the PATCH. The server already skips the
+    // write but the parent Library's handleProgressUpdate optimistically
+    // bumps the book on the 'updated' sort, so we have to short-circuit
+    // here to keep the row in place.
+    if (
+      (patchData.current_page    !== undefined && (patchData.current_page    ?? null) === (book.current_page    ?? null)) ||
+      (patchData.current_minutes !== undefined && (patchData.current_minutes ?? null) === (book.current_minutes ?? null))
+    ) {
+      setOpen(false);
+      setInputVal('');
+      setInputH('');
+      setInputM('');
+      return;
+    }
+
     // Double-fire near the page_count boundary could double-trigger the
     // auto-finish reads-row insert.
     if (!saveGuard.begin()) return;

@@ -70,6 +70,17 @@ export default function ProgressSection({ book, onChange, log }) {
     });
     if (patchError) { setError(patchError); return; }
 
+    // Re-saving the pre-filled current value is a no-op — bail without
+    // firing the PATCH. The server skips the write, but parent Library
+    // surfaces optimistically bump the book on the 'updated' sort,
+    // which surfaces as a phantom reorder for "no progress" saves.
+    if (
+      (patchData.current_page    !== undefined && (patchData.current_page    ?? null) === (book.current_page    ?? null)) ||
+      (patchData.current_minutes !== undefined && (patchData.current_minutes ?? null) === (book.current_minutes ?? null))
+    ) {
+      return;
+    }
+
     // Double-fire near the page_count boundary could double-trigger the
     // auto-finish reads-row insert.
     if (!saveGuard.begin()) return;
