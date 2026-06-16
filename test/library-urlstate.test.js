@@ -26,6 +26,16 @@ describe('urlState round trip', () => {
       originalLanguages: ['German', 'French'],
       tags:              ['Philosophy'],
       statuses:          ['reading'],
+      // Tristates and progress live in TRISTATE_KEYS / the explicit
+      // progress branch, also duplicated between filters.js and
+      // urlState.js — exercise them in the same round trip so drift
+      // there also fails fast.
+      owned:           true,
+      previouslyOwned: false,
+      custom:          true,
+      loved:           false,
+      tagsMode:        'any',
+      progress:        'any',
     };
     const params = new URLSearchParams();
     writeFiltersToParams(params, fixture);
@@ -36,6 +46,10 @@ describe('urlState round trip', () => {
     assert.deepEqual(back.originalLanguages, ['German', 'French']);
     assert.deepEqual(back.series,            ['The Book of the New Sun']);
     assert.deepEqual(back.tags,              ['Philosophy']);
+    assert.equal(back.owned,    true);
+    assert.equal(back.loved,    false);
+    assert.equal(back.tagsMode, 'any');
+    assert.equal(back.progress, 'any');
   });
 
   it('filtersEqual treats originalLanguages drift as a change', () => {
