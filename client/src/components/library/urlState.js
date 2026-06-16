@@ -13,7 +13,11 @@ import { EMPTY_FILTERS, normalizeFilters } from './filters.js';
 
 // Filter array values use repeated keys (`?tag=X&tag=Y`) so the URL
 // reads naturally and each value composes into URLSearchParams.getAll().
-const FILTER_ARRAY_KEYS = ['missing', 'formats', 'ratings', 'publishers', 'sources', 'series', 'tags', 'statuses'];
+// Mirror of FILTER_ARRAY_KEYS in ./filters.js — both lists must include
+// every multi-select filter or chip clicks become silent no-ops
+// (writeFiltersToParams skips unknown keys, so the URL never updates
+// and the URL-derived filter state never picks the new value back up).
+const FILTER_ARRAY_KEYS = ['missing', 'formats', 'ratings', 'publishers', 'sources', 'series', 'originalLanguages', 'tags', 'statuses'];
 // Tristate fields ('owned', etc.) are encoded only when set — null
 // means "no filter", which doesn't need a param. Empty string is also
 // treated as "not set" to be forgiving.
