@@ -266,6 +266,44 @@ describe('today', () => {
       assert.match(body.error, /invalid value/i);
     });
 
+    it('peek=true returns null for a date with no persisted card and does not retroactively pick', async () => {
+      // Day-navigation surface (1.223) passes peek=true for past-date
+      // views. The contract: without an existing today_card_history
+      // or today_card_queue.served_date row for the date, the server
+      // returns card=null AND does NOT write a row for that date —
+      // otherwise scrolling back through dates would burn the queue
+      // and produce odd repetition-guard behaviour.
+      const directDb = (await import('../db.js')).default;
+      const date = '2027-01-15';  // far enough out that no other test has touched it
+      const before = directDb.prepare('SELECT COUNT(*) AS n FROM today_card_history WHERE date = ?').get(date).n;
+      assert.equal(before, 0, 'fixture sanity: no row for this date pre-call');
+
+      const { status, body } = await req('GET', `/api/today/card?date=${date}&peek=true`);
+      assert.equal(status, 200);
+      assert.equal(body.card, null,
+        `expected peek=true with no persisted row to return null, got ${JSON.stringify(body)}`);
+
+      const after = directDb.prepare('SELECT COUNT(*) AS n FROM today_card_history WHERE date = ?').get(date).n;
+      assert.equal(after, 0,
+        'expected peek=true to NOT write today_card_history row for unvisited date');
+    });
+
+    it('peek=true returns the persisted card when one exists', async () => {
+      // After a non-peek fetch persists a card for the date, a
+      // subsequent peek fetch reads it back without doing the compute.
+      const date = '2027-02-20';
+      const { body: first } = await req('GET', `/api/today/card?date=${date}`);
+      assert.ok(first.card, 'expected non-peek fetch to produce and persist a card');
+      const firstId = first.card.book?.id ?? first.card.queue_id;
+      const firstType = first.card.type;
+
+      const { body: second } = await req('GET', `/api/today/card?date=${date}&peek=true`);
+      assert.ok(second.card, 'expected peek to find the persisted card');
+      assert.equal(second.card.type, firstType);
+      const secondId = second.card.book?.id ?? second.card.queue_id;
+      assert.equal(secondId, firstId);
+    });
+
     it('persists the picked card to today_card_history (stable across cohort drift)', async () => {
       // Once a card is persisted for date D, subsequent fetches for
       // that date return the same (type, book_id) even if the cohort

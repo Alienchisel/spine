@@ -13,7 +13,8 @@ router.get('/card', (req, res) => {
   const today = (req.query.date && /^\d{4}-\d{2}-\d{2}$/.test(req.query.date))
     ? req.query.date
     : new Date().toLocaleDateString('en-CA');  // YYYY-MM-DD in local time
-  const picked = pickTodayCard(today);
+  const peek = req.query.peek === 'true' || req.query.peek === '1';
+  const picked = pickTodayCard(today, { peek });
   if (!picked) return res.json({ card: null });
 
   // Queue-driven card types (Connection / Reading Path) hydrate from

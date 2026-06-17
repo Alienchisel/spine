@@ -207,14 +207,24 @@ export function FeedbackBar({ queueId, current }) {
   );
 }
 
-export default function TodayCard({ onCardLoaded }) {
+// Optional `date` and `peek` props power the /today day-navigation
+// surface (1.223+). Default (no date) fetches the current day and
+// goes through pickTodayCard's compute path. Setting `date` to a
+// past YYYY-MM-DD with `peek` lets the page render historical cards
+// without retroactively filling in days the user never visited.
+export default function TodayCard({ date, peek = false, onCardLoaded }) {
   const [card, setCard] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    api.getTodayCard()
+    setLoading(true);
+    setError(false);
+    const params = {};
+    if (date) params.date = date;
+    if (peek) params.peek = 'true';
+    api.getTodayCard(params)
       .then(d => {
         if (cancelled) return;
         const next = d?.card || null;
@@ -224,11 +234,11 @@ export default function TodayCard({ onCardLoaded }) {
       })
       .catch(() => { if (!cancelled) { setError(true); setLoading(false); } });
     return () => { cancelled = true; };
-    // onCardLoaded is intentionally NOT in deps — the parent passes a
-    // fresh closure each render and we only want to fetch once on
-    // mount.
+    // onCardLoaded comes from useState's setter in the parent (stable
+    // reference) so including it in deps is safe and the lint can
+    // be satisfied without ceremony.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [date, peek]);
 
   if (loading) return null;
 
@@ -241,12 +251,16 @@ export default function TodayCard({ onCardLoaded }) {
   }
 
   if (!card) {
-    // No cohort eligible — fresh library, or just nothing loved /
-    // long-running / recently bought. Show a quiet placeholder rather
-    // than nothing, so the page doesn't read as "broken."
+    // Two empty-state shapes. On today: no eligible cohort — fresh
+    // library or quiet rotation day. On a past peek view: nothing
+    // was served on that date (either we never picked one or the
+    // history was pruned).
+    const message = peek
+      ? "No card was served on this day."
+      : "Nothing surfaced for today. Come back after you've loved or started a few books.";
     return (
       <div className="p-6 rounded-lg border border-neutral-800/60 text-sm text-neutral-500">
-        Nothing surfaced for today. Come back after you've loved or started a few books.
+        {message}
       </div>
     );
   }
