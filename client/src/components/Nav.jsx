@@ -23,17 +23,20 @@ export default function Nav() {
   const onShelfView   = pathname === '/shelf-view';
 
   // "New today" dot beside the Today link. Shown whenever the user
-  // hasn't landed on /today yet this calendar day. While the user IS on
-  // /today the dot is suppressed via the pathname check, so there's no
-  // visual race with Today.jsx's localStorage write — the dot is gone
-  // the moment they're on the page, even before the write commits.
-  // Pathname-driven re-render handles routes changing; the localStorage
-  // read happens fresh on each Nav render which is bound to useLocation,
-  // so navigating away from /today re-evaluates with the just-written
-  // visited date.
+  // hasn't landed on /today yet this calendar day. The suppression-
+  // while-on-page check requires both pathname === '/today' AND no
+  // query params — landing on /today?date=2026-06-01 (a past-date
+  // view) shouldn't dismiss the dot since the user hasn't actually
+  // checked today's card, and Today.jsx only writes the localStorage
+  // breadcrumb on the current-day view. Without the search check the
+  // dot would falsely vanish on bookmark loads of past dates.
+  // Pathname/search-driven re-render handles routes changing; the
+  // localStorage read happens fresh on each Nav render which is bound
+  // to useLocation, so navigating away re-evaluates correctly.
+  const onTodayCurrent = pathname === '/today' && !search;
   let visitedTodayStr = null;
   try { visitedTodayStr = localStorage.getItem(TODAY_VISITED_KEY); } catch {}
-  const showTodayDot = !onToday && visitedTodayStr !== todayStr();
+  const showTodayDot = !onTodayCurrent && visitedTodayStr !== todayStr();
 
   // Inactive hover shifts toward the link's own active hue (one shade
   // brighter than active) instead of the previous uniform neutral-200,

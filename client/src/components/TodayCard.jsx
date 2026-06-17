@@ -35,8 +35,11 @@ const TYPE_LABEL = {
     accentClass: 'text-violet-400/80',
   },
   loved_author_followup: {
+    // Pink instead of rose — same warm-loved register but visually
+    // distinct from loved_resurface so the two loved-adjacent types
+    // don't read as the same card on a quick glance.
     label:       'More by an author you loved',
-    accentClass: 'text-rose-400/80',
+    accentClass: 'text-pink-400/80',
   },
   connection: {
     label:       'A thread in your library',
@@ -102,11 +105,19 @@ function CardBody({ card }) {
     );
   }
   if (type === 'forgotten_readlist') {
+    // Show the readlist position only when it's small enough to read
+    // as meaningful queue location. Past ~10 the number stops being
+    // informative and just feels arbitrary ("at position 47" — okay,
+    // but how deep is that?). Above the threshold, drop the number
+    // and just signal that the book is buried.
     const pos = book.readlist_position;
+    const posSuffix =
+      pos != null && pos <= 10 ? ` at position ${pos}` :
+      pos != null              ? ', deep in the queue' :
+      '';
     return (
       <p>
-        {link} — sitting on your readlist
-        {pos != null ? ` at position ${pos}` : ''}, still unread. Move it up or take it off?
+        {link} — sitting on your readlist{posSuffix}, still unread. Move it up or take it off?
       </p>
     );
   }
@@ -166,15 +177,27 @@ export function FeedbackBar({ queueId, current }) {
   const [value, setValue] = useState(current || null);
   const [saving, setSaving] = useState(false);
 
+  // Sync internal state when the `current` prop changes — e.g., a
+  // PastConnections re-render after a refetch surfaces a server-side
+  // grade we haven't seen locally yet, or a Connection card mounts
+  // with a pre-existing feedback value. Without this, the locally-
+  // cached value from the first mount would shadow any later prop
+  // updates from above.
+  useEffect(() => { setValue(current || null); }, [current, queueId]);
+
   async function grade(next) {
     // Toggle off if same value clicked again — useful for mis-clicks.
-    const target = value === next ? null : next;
+    // Capture the prior value BEFORE the optimistic update so the
+    // rollback restores the pre-click state rather than the optimistic
+    // target (the bug pre-1.223.1).
+    const prior = value;
+    const target = prior === next ? null : next;
     setSaving(true);
     setValue(target);  // optimistic
     try {
       await api.postTodayFeedback(queueId, target);
     } catch {
-      setValue(value); // rollback
+      setValue(prior); // rollback to actual pre-click value
     } finally {
       setSaving(false);
     }
@@ -240,7 +263,12 @@ export default function TodayCard({ date, peek = false, onCardLoaded }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date, peek]);
 
-  if (loading) return null;
+  // Only blank during the very first load — once we've shown a card,
+  // keep it on screen during subsequent refetches (date navigation,
+  // etc.) so arrowing between days doesn't flash an empty surface
+  // mid-transition. The new card replaces the old one the moment
+  // the fetch resolves.
+  if (loading && !card) return null;
 
   if (error) {
     return (
