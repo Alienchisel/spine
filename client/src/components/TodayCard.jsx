@@ -41,6 +41,13 @@ const TYPE_LABEL = {
     label:       'More by an author you loved',
     accentClass: 'text-pink-400/80',
   },
+  anniversary: {
+    // Orange for the calendar / festivity register — warm but
+    // distinct from amber (slow_burn) so the two warm accents don't
+    // collide.
+    label:       'An anniversary',
+    accentClass: 'text-orange-400/80',
+  },
   connection: {
     label:       'A thread in your library',
     accentClass: 'text-teal-400/80',
@@ -137,6 +144,15 @@ function CardBody({ card }) {
     return (
       <p>
         You loved {loved_title ? <em>{loved_title}</em> : 'a book'} by {author_name}. Try {link}?
+      </p>
+    );
+  }
+  if (type === 'anniversary') {
+    const { years_ago, year_published } = card.meta || {};
+    if (!years_ago || !year_published) return null;
+    return (
+      <p>
+        {link} — {years_ago} years old this year. Published {year_published}.
       </p>
     );
   }

@@ -266,6 +266,31 @@ describe('today', () => {
       assert.match(body.error, /invalid value/i);
     });
 
+    it('surfaces an anniversary card for a book published a notable round-year offset before the viewed date', async () => {
+      // Anniversary cohort picks books whose year_published is exactly
+      // N years before the viewed date's year, for N in the hardcoded
+      // ANNIVERSARY_OFFSETS list (25, 50, 75, 100, 125, 150, 175, 200,
+      // 250, 300, 400, 500, 750, 1000, 1500, 2000). Post a book at
+      // year_published=1926 and sweep dates in 2026 — at least one
+      // should land on anniversary, and the meta payload should carry
+      // years_ago=100 + year_published=1926 for the request's year.
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Anniversary Test Book', year_published: 1926,
+      });
+      let anniversaryCard = null;
+      for (const d of ['2026-11-01', '2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05', '2026-11-06', '2026-11-07']) {
+        const { body } = await req('GET', `/api/today/card?date=${d}`);
+        if (body.card?.type === 'anniversary' && body.card.book.id === created.id) {
+          anniversaryCard = body.card;
+          break;
+        }
+      }
+      assert.ok(anniversaryCard,
+        `expected the test fixture's anniversary card to surface across the sweep`);
+      assert.equal(anniversaryCard.meta.year_published, 1926);
+      assert.equal(anniversaryCard.meta.years_ago,      100);
+    });
+
     it('peek=true returns null for a date with no persisted card and does not retroactively pick', async () => {
       // Day-navigation surface (1.223) passes peek=true for past-date
       // views. The contract: without an existing today_card_history

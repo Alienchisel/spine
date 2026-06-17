@@ -56,7 +56,7 @@ router.get('/card', (req, res) => {
   // etc.). Recomputed each request from live data so a status change
   // mid-day reflects in the rendered text without leaving the
   // persisted (date, type, book_id) tuple stale.
-  const meta = computeCardMeta(picked.type, picked.bookId);
+  const meta = computeCardMeta(picked.type, picked.bookId, today);
 
   res.json({
     card: {
