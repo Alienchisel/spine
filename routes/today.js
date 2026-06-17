@@ -16,17 +16,19 @@ router.get('/card', (req, res) => {
   const picked = pickTodayCard(today);
   if (!picked) return res.json({ card: null });
 
-  // Connection cards hydrate from today_card_queue rather than the
-  // books table — no book row, the body is the markdown queue payload.
-  if (picked.type === 'connection') {
+  // Queue-driven card types (Connection / Reading Path) hydrate from
+  // today_card_queue rather than the books table — no book row, the
+  // body is the markdown queue payload. Both types share the same
+  // wire shape; only the renderer differs on the client.
+  if (picked.type === 'connection' || picked.type === 'reading_path') {
     const row = db.prepare(
-      'SELECT id, title, body, feedback FROM today_card_queue WHERE id = ?'
+      'SELECT id, card_type, title, body, feedback FROM today_card_queue WHERE id = ?'
     ).get(picked.queueId);
     if (!row) return res.json({ card: null });
     return res.json({
       card: {
-        type: 'connection',
-        date: today,
+        type:     row.card_type,
+        date:     today,
         queue_id: row.id,
         title:    row.title,
         body:     row.body,
@@ -95,20 +97,23 @@ router.post('/queue/:id/feedback', (req, res) => {
   res.json({ ok: true, feedback: value });
 });
 
-// Past served Connection cards in reverse-chronological order. Drives
-// the "Past connections" surface below today's card on /today — the
-// queue work goes into actually-curated chat-generated content, so
-// the cards shouldn't vanish after a single day on screen. Feedback
-// fields come along so the badge / re-grade UI on each row renders
-// the current grade and lets the user upgrade or revise it.
-router.get('/connections', (_req, res) => {
-  const rows = db.prepare(`
+// Past served AI-shaped cards in reverse-chronological order, scoped
+// by card_type. Drives the two "Past connections" / "Past reading
+// paths" surfaces below today's card on /today — the queue work goes
+// into actually-curated chat-generated content, so the cards
+// shouldn't vanish after a single day on screen. Feedback fields
+// come along so the badge / re-grade UI on each row renders the
+// current grade and lets the user upgrade or revise it.
+function pastByType(cardType) {
+  return db.prepare(`
     SELECT id AS queue_id, title, body, served_date, feedback, feedback_at
       FROM today_card_queue
-     WHERE served_at IS NOT NULL
+     WHERE card_type = ? AND served_at IS NOT NULL
      ORDER BY served_date DESC, id DESC
-  `).all();
-  res.json({ connections: rows });
-});
+  `).all(cardType);
+}
+
+router.get('/connections',   (_req, res) => res.json({ connections:   pastByType('connection')   }));
+router.get('/reading-paths', (_req, res) => res.json({ readingPaths:  pastByType('reading_path') }));
 
 export default router;

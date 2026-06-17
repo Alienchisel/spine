@@ -187,6 +187,47 @@ describe('today', () => {
       assert.equal(cleared.feedback_at, null);
     });
 
+    it('reading_path candidates surface under their own queue cohort', async () => {
+      // Seed a single reading_path candidate. The queue table now
+      // hosts two card_type buckets — confirm the cohort selector
+      // picks from the right one when type='reading_path' rolls.
+      const directDb = (await import('../db.js')).default;
+      directDb.prepare(
+        "INSERT INTO today_card_queue (card_type, title, body) VALUES ('reading_path', 'Test Path', 'a [#1](spine-book:1) b')"
+      ).run();
+      const seen = new Set();
+      for (const d of ['2026-09-15', '2026-09-16', '2026-09-17', '2026-09-18', '2026-09-19', '2026-09-20', '2026-09-21']) {
+        const { body } = await req('GET', `/api/today/card?date=${d}`);
+        if (body.card?.type) seen.add(body.card.type);
+      }
+      assert.ok(seen.has('reading_path'),
+        `expected reading_path to surface across 7 days with a queued candidate, got ${[...seen]}`);
+    });
+
+    it('GET /api/today/reading-paths returns reading_path rows only', async () => {
+      // Two queue rows, one of each card_type, both served. The
+      // /reading-paths endpoint must include only the reading_path
+      // and exclude the connection — otherwise PastReadingPaths
+      // would render Connection content under its own header.
+      const directDb = (await import('../db.js')).default;
+      const pathId = directDb.prepare(
+        "INSERT INTO today_card_queue (card_type, title, body, served_at, served_date) VALUES ('reading_path', 'PathArchiveOnly', 'a', datetime('now'), '2026-10-01')"
+      ).run().lastInsertRowid;
+      const connId = directDb.prepare(
+        "INSERT INTO today_card_queue (card_type, title, body, served_at, served_date) VALUES ('connection', 'ConnArchiveOnly', 'a', datetime('now'), '2026-10-02')"
+      ).run().lastInsertRowid;
+
+      const { body: pathBody } = await req('GET', '/api/today/reading-paths');
+      const pathIds = pathBody.readingPaths.map(r => r.queue_id);
+      assert.ok( pathIds.includes(pathId),  'expected reading_path row in /reading-paths');
+      assert.ok(!pathIds.includes(connId), 'expected connection row to be excluded from /reading-paths');
+
+      const { body: connBody } = await req('GET', '/api/today/connections');
+      const connIds = connBody.connections.map(r => r.queue_id);
+      assert.ok( connIds.includes(connId), 'expected connection row in /connections');
+      assert.ok(!connIds.includes(pathId), 'expected reading_path row to be excluded from /connections');
+    });
+
     it('GET /api/today/connections returns served candidates in reverse-chronological order', async () => {
       // Seed three connections, serve two with explicit served_date
       // values, leave one unserved. The endpoint should return only

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import IncomingBackLink from '../components/IncomingBackLink.jsx';
 import TodayCard from '../components/TodayCard.jsx';
 import PastConnections from '../components/PastConnections.jsx';
+import PastReadingPaths from '../components/PastReadingPaths.jsx';
 
 // Dedicated route for the daily card. Lives at /today, nav-linked
 // in teal. Reflective surface — librarian's nudge of the day —
@@ -23,11 +24,18 @@ function todayStr() {
 }
 
 export default function Today() {
-  const [todayQueueId, setTodayQueueId] = useState(null);
+  const [todayCard, setTodayCard] = useState(null);
 
   useEffect(() => {
     try { localStorage.setItem(TODAY_VISITED_KEY, todayStr()); } catch {}
   }, []);
+
+  // Both queue-driven archives need to know whether today's surface
+  // is one of theirs, so they can hide that row from the past list.
+  // Splitting the exclusion by card_type means a connection day
+  // doesn't accidentally hide a reading_path row (and vice versa).
+  const todayConnectionId  = todayCard?.type === 'connection'   ? todayCard.queue_id : null;
+  const todayReadingPathId = todayCard?.type === 'reading_path' ? todayCard.queue_id : null;
 
   return (
     <div>
@@ -37,13 +45,9 @@ export default function Today() {
         <p className="text-sm text-neutral-500">A daily nudge from your library.</p>
       </div>
       <div className="max-w-2xl">
-        <TodayCard onCardLoaded={card => {
-          // Today's card is a connection? Capture its queue id so
-          // PastConnections can exclude it (avoid double-rendering).
-          if (card?.type === 'connection') setTodayQueueId(card.queue_id);
-          else setTodayQueueId(null);
-        }} />
-        <PastConnections excludeQueueId={todayQueueId} />
+        <TodayCard onCardLoaded={setTodayCard} />
+        <PastConnections  excludeQueueId={todayConnectionId} />
+        <PastReadingPaths excludeQueueId={todayReadingPathId} />
       </div>
     </div>
   );

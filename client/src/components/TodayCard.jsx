@@ -42,6 +42,10 @@ const TYPE_LABEL = {
     label:       'A thread in your library',
     accentClass: 'text-teal-400/80',
   },
+  reading_path: {
+    label:       'A path through what you own',
+    accentClass: 'text-emerald-400/80',
+  },
 };
 
 function relativeMonths(days) {
@@ -250,10 +254,12 @@ export default function TodayCard({ onCardLoaded }) {
   const meta = TYPE_LABEL[card.type];
   if (!meta) return null;
 
-  // Connection cards render the queue payload (title + markdown body)
-  // and surface the post-hoc Signal / Knew / Reaching feedback bar.
-  // Book-cohort cards use the existing one-sentence CardBody layout.
-  if (card.type === 'connection') {
+  // Queue-driven card types (Connection / Reading Path) render the
+  // queue payload (title + markdown body) and surface the post-hoc
+  // Signal / Knew / Reaching feedback bar. Book-cohort cards use the
+  // one-sentence CardBody layout below. Both queue types share the
+  // same markup; only the meta label / accent differs.
+  if (card.type === 'connection' || card.type === 'reading_path') {
     return (
       <div className="p-6 rounded-lg bg-neutral-900/60 border border-neutral-800/60">
         <div className={`text-[10px] font-semibold uppercase tracking-wider mb-3 ${meta.accentClass}`}>
