@@ -35,6 +35,7 @@ const Stats        = React.lazy(() => import('./pages/Stats/index.jsx'));
 const Collage      = React.lazy(() => import('./pages/Collage.jsx'));
 const AuditWizard  = React.lazy(() => import('./pages/AuditWizard/index.jsx'));
 const DataViz      = React.lazy(() => import('./pages/DataViz.jsx'));
+const Today        = React.lazy(() => import('./pages/Today.jsx'));
 import RouteError from './components/RouteError.jsx';
 import './index.css';
 
@@ -90,6 +91,7 @@ const router = createBrowserRouter(
         <Route path="lists"                 element={<Lists />} />
         <Route path="lists/:id"             element={<ListDetail />} />
         <Route path="diary"                 element={<Diary />} />
+        <Route path="today"                 element={<Today />} />
         <Route path="notes"                 element={<Notes />} />
         <Route path="stats"                 element={<Stats />} />
         <Route path="collage"               element={<Collage />} />

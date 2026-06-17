@@ -205,6 +205,7 @@ export function labelForPath(pathname) {
   if (pathname.startsWith('/readlist')) return 'Readlist';
   if (pathname.startsWith('/lists'))    return 'Lists';
   if (pathname.startsWith('/diary'))    return 'Diary';
+  if (pathname.startsWith('/today'))    return 'Today';
   if (pathname.startsWith('/collage'))  return 'Collage';
   if (pathname.startsWith('/audit'))    return 'Audit';
   if (pathname.startsWith('/shelf'))    return 'Shelves';

@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link, useSearchParams, useLocation } from 'react-router-dom';
 import IncomingBackLink from '../components/IncomingBackLink.jsx';
-import TodayCard from '../components/TodayCard.jsx';
 import {
   DndContext,
   closestCenter,
@@ -699,7 +698,6 @@ export default function Library() {
   return (
     <div>
       <IncomingBackLink />
-      <TodayCard />
       <div className="flex flex-col gap-3 mb-8">
         {/* Toolbar is always two rows: tab strip on top (filter the corpus),
             controls cluster below (how to view it). Single-row layout used

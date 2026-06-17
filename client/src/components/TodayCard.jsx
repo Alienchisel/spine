@@ -2,19 +2,14 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 
-// v0 of the daily "Today" card. Three deterministic card types
-// (loved_resurface / slow_burn / recent_acquisition) computed from
-// local SQL on the server — no AI yet. The card sits at the top of
-// Library, soaks up exactly one row of vertical space, and dismisses
-// for the rest of the calendar day. Tomorrow a new card slides in
-// (or the same type with a different book if the cohort is small).
-//
-// Identity colours map each card type to one of Spine's nav-hue
-// palette: rose for loved, amber for the long-running read,
-// sky for the freshly-bought book. The labels themselves are
-// uppercase / tracking-wide / text-[10px] to match the FilterPanel
-// label rhythm — same visual register as the "FORMAT" / "RATING" /
-// "TAGS" column on the left of the filter rail.
+// v0 of the daily "Today" card — three deterministic card types
+// (loved_resurface / slow_burn / recent_acquisition) computed by
+// /api/today/card. Lives on the dedicated /today route now (1.218.0);
+// the dismiss-by-localStorage affordance from the original Library-
+// inline placement is gone because the card is the destination here,
+// not an intrusion on a browsing surface. Future card types
+// (Connection / Reading Path / Author Spotlight) plug into the same
+// component as the server gains more cohort logic.
 
 const TYPE_LABEL = {
   loved_resurface: {
@@ -31,10 +26,6 @@ const TYPE_LABEL = {
   },
 };
 
-// Render a calendar-day diff into the natural-English phrasing the
-// card body uses. "months" rounds at 30 days/month; "years" at 365
-// days/year. Returns the phrase without a trailing "ago" — the body
-// supplies that so the grammar is consistent across types.
 function relativeMonths(days) {
   if (days == null) return '';
   if (days < 30)  return `${days} day${days === 1 ? '' : 's'}`;
@@ -47,14 +38,11 @@ function relativeMonths(days) {
 }
 
 function relativeDays(days) {
-  if (days == null)  return '';
-  if (days === 0)    return 'today';
-  if (days === 1)    return 'yesterday';
+  if (days == null) return '';
+  if (days === 0)   return 'today';
+  if (days === 1)   return 'yesterday';
   return `${days} days ago`;
 }
-
-const TODAY = () => new Date().toLocaleDateString('en-CA');  // YYYY-MM-DD
-const DISMISS_KEY = 'today-card-dismissed';
 
 function CardBody({ card }) {
   const { type, book } = card;
@@ -96,52 +84,49 @@ function CardBody({ card }) {
 
 export default function TodayCard() {
   const [card, setCard] = useState(null);
-  const [dismissed, setDismissed] = useState(true); // default hidden until we know
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    // Per-day dismissal: localStorage stores the YYYY-MM-DD the user
-    // last hit ✕. If it matches today, stay hidden; otherwise fetch.
-    const dismissedDate = localStorage.getItem(DISMISS_KEY);
-    if (dismissedDate === TODAY()) {
-      setDismissed(true);
-      return () => { cancelled = true; };
-    }
-    setDismissed(false);
     api.getTodayCard()
-      .then(d => { if (!cancelled) setCard(d?.card || null); })
-      .catch(() => { if (!cancelled) setCard(null); });
+      .then(d => { if (!cancelled) { setCard(d?.card || null); setLoading(false); } })
+      .catch(() => { if (!cancelled) { setError(true); setLoading(false); } });
     return () => { cancelled = true; };
   }, []);
 
-  function dismiss() {
-    localStorage.setItem(DISMISS_KEY, TODAY());
-    setDismissed(true);
+  if (loading) return null;
+
+  if (error) {
+    return (
+      <div className="p-6 rounded-lg border border-neutral-800/60 text-sm text-neutral-500">
+        Couldn't load today's card.
+      </div>
+    );
   }
 
-  if (dismissed || !card) return null;
+  if (!card) {
+    // No cohort eligible — fresh library, or just nothing loved /
+    // long-running / recently bought. Show a quiet placeholder rather
+    // than nothing, so the page doesn't read as "broken."
+    return (
+      <div className="p-6 rounded-lg border border-neutral-800/60 text-sm text-neutral-500">
+        Nothing surfaced for today. Come back after you've loved or started a few books.
+      </div>
+    );
+  }
+
   const meta = TYPE_LABEL[card.type];
   if (!meta) return null;
 
   return (
-    <div className="mb-6 flex items-start gap-4 p-4 rounded-lg bg-neutral-900/60 border border-neutral-800/60">
-      <div className="flex-1 min-w-0">
-        <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${meta.accentClass}`}>
-          {meta.label}
-        </div>
-        <div className="text-sm text-neutral-300 leading-relaxed">
-          <CardBody card={card} />
-        </div>
+    <div className="p-6 rounded-lg bg-neutral-900/60 border border-neutral-800/60">
+      <div className={`text-[10px] font-semibold uppercase tracking-wider mb-3 ${meta.accentClass}`}>
+        {meta.label}
       </div>
-      <button
-        type="button"
-        onClick={dismiss}
-        aria-label="Dismiss today's card"
-        title="Dismiss for today"
-        className="text-neutral-600 hover:text-neutral-300 transition-colors text-sm leading-none mt-0.5"
-      >
-        ✕
-      </button>
+      <div className="text-base text-neutral-300 leading-relaxed">
+        <CardBody card={card} />
+      </div>
     </div>
   );
 }
