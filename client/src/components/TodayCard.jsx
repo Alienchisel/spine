@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
 import { api } from '../api.js';
+import BookRef from './bookDetail/BookRef.jsx';
 
 // v0 of the daily "Today" card — three deterministic card types
 // (loved_resurface / slow_burn / recent_acquisition) computed by
@@ -35,6 +37,10 @@ const TYPE_LABEL = {
   loved_author_followup: {
     label:       'More by an author you loved',
     accentClass: 'text-rose-400/80',
+  },
+  connection: {
+    label:       'A thread in your library',
+    accentClass: 'text-teal-400/80',
   },
 };
 
@@ -122,6 +128,76 @@ function CardBody({ card }) {
   return null;
 }
 
+// Connection cards carry a longer markdown body with [#NNN](spine-book:NNN)
+// references. Reuses the BookDetail page's proseMarkdown link override
+// so [#123](spine-book:123) renders as a live BookRef (resolves the
+// current title from the books table) rather than as a raw link.
+function ConnectionBody({ body }) {
+  const md = useMemo(() => ({
+    urlTransform: (url) => url.startsWith('spine-book:') ? url : defaultUrlTransform(url),
+    components: {
+      a: ({ href, children, node: _node, ...props }) => {
+        if (href?.startsWith('spine-book:')) {
+          const refId = Number(href.slice(11));
+          if (Number.isFinite(refId)) return <BookRef id={refId} />;
+        }
+        return <a href={href} {...props}>{children}</a>;
+      },
+      // Tighten react-markdown's default block spacing so the connection
+      // reads as a short essay paragraph, not a stretched-out doc.
+      p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
+      em: ({ children }) => <em className="italic">{children}</em>,
+      strong: ({ children }) => <strong className="text-parchment">{children}</strong>,
+    },
+  }), []);
+  return <ReactMarkdown {...md}>{body}</ReactMarkdown>;
+}
+
+function FeedbackBar({ queueId, current }) {
+  const [value, setValue] = useState(current || null);
+  const [saving, setSaving] = useState(false);
+
+  async function grade(next) {
+    // Toggle off if same value clicked again — useful for mis-clicks.
+    const target = value === next ? null : next;
+    setSaving(true);
+    setValue(target);  // optimistic
+    try {
+      await api.postTodayFeedback(queueId, target);
+    } catch {
+      setValue(value); // rollback
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const btn = (key, label, accentClass) => (
+    <button
+      key={key}
+      type="button"
+      onClick={() => grade(key)}
+      disabled={saving}
+      aria-pressed={value === key}
+      className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+        value === key
+          ? `${accentClass} border-current`
+          : 'border-neutral-800 text-neutral-500 hover:text-neutral-300 hover:border-neutral-700'
+      }`}
+    >
+      {label}
+    </button>
+  );
+
+  return (
+    <div className="mt-5 pt-4 border-t border-neutral-800/60 flex items-center gap-2">
+      <span className="text-[10px] uppercase tracking-wider text-neutral-600 mr-1">How was it?</span>
+      {btn('signal',   'Signal',   'text-emerald-400')}
+      {btn('knew',     'Knew it',  'text-neutral-300')}
+      {btn('reaching', 'Reaching', 'text-amber-400')}
+    </div>
+  );
+}
+
 export default function TodayCard() {
   const [card, setCard] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -158,6 +234,24 @@ export default function TodayCard() {
 
   const meta = TYPE_LABEL[card.type];
   if (!meta) return null;
+
+  // Connection cards render the queue payload (title + markdown body)
+  // and surface the post-hoc Signal / Knew / Reaching feedback bar.
+  // Book-cohort cards use the existing one-sentence CardBody layout.
+  if (card.type === 'connection') {
+    return (
+      <div className="p-6 rounded-lg bg-neutral-900/60 border border-neutral-800/60">
+        <div className={`text-[10px] font-semibold uppercase tracking-wider mb-3 ${meta.accentClass}`}>
+          {meta.label}
+        </div>
+        <h2 className="font-slab text-xl text-parchment mb-3">{card.title}</h2>
+        <div className="text-sm text-neutral-300 leading-relaxed">
+          <ConnectionBody body={card.body} />
+        </div>
+        <FeedbackBar queueId={card.queue_id} current={card.feedback} />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 rounded-lg bg-neutral-900/60 border border-neutral-800/60">
