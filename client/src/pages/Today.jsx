@@ -1,15 +1,25 @@
+import { useEffect } from 'react';
 import IncomingBackLink from '../components/IncomingBackLink.jsx';
 import TodayCard from '../components/TodayCard.jsx';
 
 // Dedicated route for the daily card. Lives at /today, nav-linked
 // in teal. Reflective surface — librarian's nudge of the day —
 // separated from Library's transactional shape (browse / add / edit).
-// Single card at v0; the page will accumulate card-history scroll-back
-// and saved-cards browsing as the feature matures and the AI-generated
-// card types (Connection / Reading Path / Author Spotlight) come
-// online.
+// The page also drops a YYYY-MM-DD breadcrumb in localStorage so the
+// Nav can suppress its "new today" indicator dot once the user has
+// landed here on this calendar day.
+
+export const TODAY_VISITED_KEY = 'today-visited';
+
+function todayStr() {
+  return new Date().toLocaleDateString('en-CA');  // local YYYY-MM-DD
+}
 
 export default function Today() {
+  useEffect(() => {
+    try { localStorage.setItem(TODAY_VISITED_KEY, todayStr()); } catch {}
+  }, []);
+
   return (
     <div>
       <IncomingBackLink />

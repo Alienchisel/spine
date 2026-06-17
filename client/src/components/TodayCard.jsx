@@ -24,6 +24,18 @@ const TYPE_LABEL = {
     label:       'You just bought this',
     accentClass: 'text-sky-400/80',
   },
+  forgotten_readlist: {
+    label:       'Buried in the queue',
+    accentClass: 'text-sky-400/80',
+  },
+  author_barely_opened: {
+    label:       'Barely opened',
+    accentClass: 'text-violet-400/80',
+  },
+  loved_author_followup: {
+    label:       'More by an author you loved',
+    accentClass: 'text-rose-400/80',
+  },
 };
 
 function relativeMonths(days) {
@@ -76,6 +88,34 @@ function CardBody({ card }) {
     return (
       <p>
         {link} — bought {relativeDays(card.days_since_acquired)}, sitting unread. Slot it in?
+      </p>
+    );
+  }
+  if (type === 'forgotten_readlist') {
+    const pos = book.readlist_position;
+    return (
+      <p>
+        {link} — sitting on your readlist
+        {pos != null ? ` at position ${pos}` : ''}, still unread. Move it up or take it off?
+      </p>
+    );
+  }
+  if (type === 'author_barely_opened') {
+    const { author_name, book_count, finished_count } = card.meta || {};
+    if (!author_name) return null;
+    return (
+      <p>
+        {author_name} — {book_count} {book_count === 1 ? 'book' : 'books'} in your library,
+        {' '}{finished_count} finished. Try {link}?
+      </p>
+    );
+  }
+  if (type === 'loved_author_followup') {
+    const { author_name, loved_title } = card.meta || {};
+    if (!author_name) return null;
+    return (
+      <p>
+        You loved {loved_title ? <em>{loved_title}</em> : 'a book'} by {author_name}. Try {link}?
       </p>
     );
   }

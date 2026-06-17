@@ -1,7 +1,7 @@
 import express from 'express';
 import db from '../db.js';
 import { getBook } from '../lib/books/repository.js';
-import { pickTodayCard } from '../lib/today/card.js';
+import { pickTodayCard, computeCardMeta } from '../lib/today/card.js';
 
 const router = express.Router();
 
@@ -30,6 +30,12 @@ router.get('/card', (req, res) => {
     FROM books WHERE id = ?
   `).get(today, today, today, picked.bookId);
 
+  // Per-type meta (author aggregations, loved-title sibling lookup,
+  // etc.). Recomputed each request from live data so a status change
+  // mid-day reflects in the rendered text without leaving the
+  // persisted (date, type, book_id) tuple stale.
+  const meta = computeCardMeta(picked.type, picked.bookId);
+
   res.json({
     card: {
       type: picked.type,
@@ -38,6 +44,7 @@ router.get('/card', (req, res) => {
       days_since_finished: diffs?.days_since_finished ?? null,
       days_since_started:  diffs?.days_since_started  ?? null,
       days_since_acquired: diffs?.days_since_acquired ?? null,
+      meta,
     },
   });
 });

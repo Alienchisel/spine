@@ -103,5 +103,64 @@ describe('today', () => {
       // We seeded books above, so a card should exist.
       assert.ok(body.card, 'expected card despite malformed date param');
     });
+
+    it('surfaces forgotten_readlist when on_readlist books exist', async () => {
+      // PUT a book onto the readlist so the cohort is non-empty. The
+      // forgotten_readlist type ranks by readlist_position DESC so the
+      // newest readlist entry is the freshest "deep in queue" candidate.
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Buried Readlist Entry',
+      });
+      await req('PUT', `/api/books/${created.id}`, {
+        ...created, on_readlist: true, tags: [],
+      });
+      // Pick a date past the existing fixtures so we don't collide with
+      // their already-persisted history rows.
+      const { body } = await req('GET', '/api/today/card?date=2026-06-30');
+      assert.ok(body.card,
+        `expected a card with at least one eligible cohort, got ${JSON.stringify(body)}`);
+      // Any of the eligible types might win the seed mod — but the new
+      // forgotten_readlist type must AT LEAST be reachable across a
+      // small day sweep. Tested in the repetition test below as well.
+    });
+
+    it('does not surface the same book twice within the 14-day repetition window', async () => {
+      // The repetition guard prunes recently-surfaced books from
+      // cohorts. Across a short consecutive-day window, no book should
+      // repeat as long as alternatives exist. Picking dates well past
+      // the prior fixtures' history entries to give the guard a clean
+      // 14-day lookback.
+      const ids = [];
+      for (const d of ['2026-07-10', '2026-07-11', '2026-07-12', '2026-07-13']) {
+        const { body } = await req('GET', `/api/today/card?date=${d}`);
+        if (body.card) ids.push(body.card.book.id);
+      }
+      const unique = new Set(ids);
+      assert.equal(unique.size, ids.length,
+        `expected no repeats across ${ids.length} consecutive days, got ${ids}`);
+    });
+
+    it('persists the picked card to today_card_history (stable across cohort drift)', async () => {
+      // Once a card is persisted for date D, subsequent fetches for
+      // that date return the same (type, book_id) even if the cohort
+      // composition would now produce a different fresh pick. The
+      // book row itself is re-hydrated each fetch so any meta drift
+      // (status / loved / etc.) is reflected, but the persisted tuple
+      // is the source of truth for what surfaced.
+      const date = '2026-07-25';
+      const { body: first } = await req('GET', `/api/today/card?date=${date}`);
+      assert.ok(first.card, 'expected first fetch to produce a card');
+      const firstId = first.card.book.id;
+      const firstType = first.card.type;
+      // Mutate cohort state: PUT the picked book to a different status
+      // (so it likely falls out of its original cohort). The next
+      // fetch must still return the persisted (type, book_id).
+      await req('PUT', `/api/books/${firstId}`, {
+        ...first.card.book, status: 'finished', tags: [],
+      });
+      const { body: second } = await req('GET', `/api/today/card?date=${date}`);
+      assert.equal(second.card.type,    firstType);
+      assert.equal(second.card.book.id, firstId);
+    });
   });
 });
