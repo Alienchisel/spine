@@ -132,7 +132,10 @@ function CardBody({ card }) {
 // references. Reuses the BookDetail page's proseMarkdown link override
 // so [#123](spine-book:123) renders as a live BookRef (resolves the
 // current title from the books table) rather than as a raw link.
-function ConnectionBody({ body }) {
+//
+// Exported so PastConnections can reuse the same rendering for the
+// archive list below today's card on /today.
+export function ConnectionBody({ body }) {
   const md = useMemo(() => ({
     urlTransform: (url) => url.startsWith('spine-book:') ? url : defaultUrlTransform(url),
     components: {
@@ -153,7 +156,9 @@ function ConnectionBody({ body }) {
   return <ReactMarkdown {...md}>{body}</ReactMarkdown>;
 }
 
-function FeedbackBar({ queueId, current }) {
+// Exported so PastConnections can re-grade archived rows without
+// duplicating the optimistic-update + rollback dance.
+export function FeedbackBar({ queueId, current }) {
   const [value, setValue] = useState(current || null);
   const [saving, setSaving] = useState(false);
 
@@ -198,7 +203,7 @@ function FeedbackBar({ queueId, current }) {
   );
 }
 
-export default function TodayCard() {
+export default function TodayCard({ onCardLoaded }) {
   const [card, setCard] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -206,9 +211,19 @@ export default function TodayCard() {
   useEffect(() => {
     let cancelled = false;
     api.getTodayCard()
-      .then(d => { if (!cancelled) { setCard(d?.card || null); setLoading(false); } })
+      .then(d => {
+        if (cancelled) return;
+        const next = d?.card || null;
+        setCard(next);
+        setLoading(false);
+        if (onCardLoaded) onCardLoaded(next);
+      })
       .catch(() => { if (!cancelled) { setError(true); setLoading(false); } });
     return () => { cancelled = true; };
+    // onCardLoaded is intentionally NOT in deps — the parent passes a
+    // fresh closure each render and we only want to fetch once on
+    // mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (loading) return null;

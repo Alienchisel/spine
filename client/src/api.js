@@ -36,6 +36,7 @@ export const api = {
   getBookFacets: (params = {}) => request(`/books/facets${buildQuery(params)}`),
   getBookCounts: () => request('/books/counts'),
   getTodayCard: () => request('/today/card'),
+  getPastConnections: () => request('/today/connections'),
   postTodayFeedback: (queueId, value) => request(`/today/queue/${queueId}/feedback`, {
     method: 'POST', body: JSON.stringify({ value }),
   }),

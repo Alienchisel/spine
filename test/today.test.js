@@ -187,6 +187,34 @@ describe('today', () => {
       assert.equal(cleared.feedback_at, null);
     });
 
+    it('GET /api/today/connections returns served candidates in reverse-chronological order', async () => {
+      // Seed three connections, serve two with explicit served_date
+      // values, leave one unserved. The endpoint should return only
+      // the served ones, newest served_date first.
+      const directDb = (await import('../db.js')).default;
+      const newest  = directDb.prepare(
+        "INSERT INTO today_card_queue (title, body, served_at, served_date) VALUES ('Newest', 'a', datetime('now'), '2026-09-10')"
+      ).run().lastInsertRowid;
+      const oldest  = directDb.prepare(
+        "INSERT INTO today_card_queue (title, body, served_at, served_date) VALUES ('Oldest', 'a', datetime('now'), '2026-09-05')"
+      ).run().lastInsertRowid;
+      const unserved = directDb.prepare(
+        "INSERT INTO today_card_queue (title, body) VALUES ('Unserved', 'a')"
+      ).run().lastInsertRowid;
+
+      const { status, body } = await req('GET', '/api/today/connections');
+      assert.equal(status, 200);
+      const ids = body.connections.map(c => c.queue_id);
+      assert.ok( ids.includes(newest),  'expected newest served to be present');
+      assert.ok( ids.includes(oldest),  'expected oldest served to be present');
+      assert.ok(!ids.includes(unserved), 'expected unserved to be omitted');
+      // Order: newest served_date BEFORE oldest served_date.
+      const newestIdx = ids.indexOf(newest);
+      const oldestIdx = ids.indexOf(oldest);
+      assert.ok(newestIdx < oldestIdx,
+        `expected served_date DESC order, got ids=${ids}`);
+    });
+
     it('rejects an invalid feedback value', async () => {
       const directDb = (await import('../db.js')).default;
       const id = directDb.prepare(

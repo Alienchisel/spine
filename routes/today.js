@@ -95,4 +95,20 @@ router.post('/queue/:id/feedback', (req, res) => {
   res.json({ ok: true, feedback: value });
 });
 
+// Past served Connection cards in reverse-chronological order. Drives
+// the "Past connections" surface below today's card on /today — the
+// queue work goes into actually-curated chat-generated content, so
+// the cards shouldn't vanish after a single day on screen. Feedback
+// fields come along so the badge / re-grade UI on each row renders
+// the current grade and lets the user upgrade or revise it.
+router.get('/connections', (_req, res) => {
+  const rows = db.prepare(`
+    SELECT id AS queue_id, title, body, served_date, feedback, feedback_at
+      FROM today_card_queue
+     WHERE served_at IS NOT NULL
+     ORDER BY served_date DESC, id DESC
+  `).all();
+  res.json({ connections: rows });
+});
+
 export default router;
