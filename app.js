@@ -15,6 +15,7 @@ import settingsRouter from './routes/settings.js';
 import shelfRouter from './routes/shelf.js';
 import tagsRouter from './routes/tags.js';
 import seriesRouter from './routes/series.js';
+import todayRouter from './routes/today.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -35,6 +36,7 @@ app.use('/api/settings', settingsRouter);
 app.use('/api/shelf', shelfRouter);
 app.use('/api/tags', tagsRouter);
 app.use('/api/series', seriesRouter);
+app.use('/api/today', todayRouter);
 
 app.use('/api', (_req, res) => {
   res.status(404).json({ error: 'Not found' });

@@ -35,6 +35,7 @@ export const api = {
   getBooks: (params = {}) => request(`/books${buildQuery(params)}`),
   getBookFacets: (params = {}) => request(`/books/facets${buildQuery(params)}`),
   getBookCounts: () => request('/books/counts'),
+  getTodayCard: () => request('/today/card'),
   getBookLists: (bookId) => request(`/books/${bookId}/lists`),
   getBookLog: (bookId) => request(`/books/${bookId}/log`),
   getBook: (id) => request(`/books/${id}`),
