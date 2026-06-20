@@ -405,7 +405,135 @@ export default function TodayCard({ date, peek = false, onCardLoaded }) {
           <CardBody card={card} />
         </div>
       </div>
+      <CardActionBar card={card} />
     </div>
+  );
+}
+
+// Inline action bar on book-cohort cards (1.231+). Two universal
+// verbs by default — readlist toggle + snooze. Type-specific
+// suppressions: slow_burn and personal_anniversary skip the readlist
+// button (a reading-status book or a reflective re-acquaintance card
+// doesn't gain anything from the readlist nudge); forgotten_readlist
+// flips the readlist button to "Remove from readlist" since the book
+// is already on the list and the cohort is precisely "buried in the
+// queue." Both buttons go optimistic-update + rollback on error.
+const READLIST_OMITTED_TYPES = new Set([
+  'slow_burn',
+  'personal_anniversary',
+]);
+
+function CardActionBar({ card }) {
+  const book = card?.book;
+  if (!book) return null;
+  const showReadlist = !READLIST_OMITTED_TYPES.has(card.type);
+  const removeMode   = card.type === 'forgotten_readlist';
+  const [onReadlist, setOnReadlist] = useState(!!book.on_readlist);
+  const [snoozedUntil, setSnoozedUntil] = useState(null);
+  const [savingReadlist, setSavingReadlist] = useState(false);
+  const [savingSnooze, setSavingSnooze] = useState(false);
+
+  async function toggleReadlist() {
+    const prior = onReadlist;
+    const target = removeMode ? false : true;
+    if (prior === target && !removeMode) return;  // already there
+    setSavingReadlist(true);
+    setOnReadlist(target);  // optimistic
+    try {
+      await api.patchBook(book.id, { on_readlist: target ? 1 : 0 });
+    } catch {
+      setOnReadlist(prior);  // rollback
+    } finally {
+      setSavingReadlist(false);
+    }
+  }
+
+  async function snooze() {
+    setSavingSnooze(true);
+    const prior = snoozedUntil;
+    setSnoozedUntil('pending');  // optimistic placeholder
+    try {
+      const res = await api.postTodaySnooze(book.id, 7);
+      setSnoozedUntil(res?.snoozed_until || 'until next week');
+    } catch {
+      setSnoozedUntil(prior);
+    } finally {
+      setSavingSnooze(false);
+    }
+  }
+
+  // Readlist label flips on the type-specific axis:
+  //   - forgotten_readlist: "Remove from readlist" → confirmation "Removed"
+  //   - other book-cohort:  "Add to readlist"      → confirmation "On readlist"
+  const readlistLabel =
+    removeMode
+      ? (onReadlist ? 'Remove from readlist' : 'Removed')
+      : (onReadlist ? 'On readlist'          : 'Add to readlist');
+  const readlistDone =
+    removeMode ? !onReadlist : onReadlist;
+
+  // Hide the bar entirely when there's nothing to render — keeps the
+  // card flush with no empty whitespace footer.
+  if (!showReadlist) {
+    // Snooze-only path. If already snoozed (this session), show the
+    // confirmation; else show the snooze button.
+    return (
+      <div className="mt-5 pt-4 border-t border-neutral-800/60 flex items-center gap-2">
+        <SnoozeButton
+          snoozedUntil={snoozedUntil}
+          saving={savingSnooze}
+          onClick={snooze}
+        />
+      </div>
+    );
+  }
+  return (
+    <div className="mt-5 pt-4 border-t border-neutral-800/60 flex items-center gap-2 flex-wrap">
+      <ActionButton
+        onClick={toggleReadlist}
+        disabled={savingReadlist || (!removeMode && readlistDone)}
+        active={readlistDone}
+      >
+        {readlistLabel}
+      </ActionButton>
+      <SnoozeButton
+        snoozedUntil={snoozedUntil}
+        saving={savingSnooze}
+        onClick={snooze}
+      />
+    </div>
+  );
+}
+
+function ActionButton({ onClick, disabled, active, children }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+        active
+          ? 'text-emerald-400 border-emerald-400/60'
+          : 'border-neutral-800 text-neutral-500 hover:text-neutral-300 hover:border-neutral-700'
+      } disabled:opacity-60 disabled:cursor-default`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function SnoozeButton({ snoozedUntil, saving, onClick }) {
+  if (snoozedUntil) {
+    return (
+      <span className="text-xs px-2.5 py-1 rounded-full border border-neutral-800 text-neutral-500">
+        Snoozed
+      </span>
+    );
+  }
+  return (
+    <ActionButton onClick={onClick} disabled={saving} active={false}>
+      Snooze 7 days
+    </ActionButton>
   );
 }
 
