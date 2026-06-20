@@ -405,7 +405,16 @@ export default function TodayCard({ date, peek = false, onCardLoaded }) {
           <CardBody card={card} />
         </div>
       </div>
-      <CardActionBar card={card} />
+      {/* key={book.id} forces a remount on card swap (carousel
+          navigation, mid-day rotation) so the action bar's local
+          onReadlist + snoozedUntil state doesn't leak across books.
+          useState initializers only fire on first mount, so without
+          the key the bar would keep showing the previous book's
+          readlist/snooze state — the FeedbackBar handles this via
+          a `[current, queueId]` useEffect; the bar takes the simpler
+          remount route since it has no focus / scroll state worth
+          preserving. */}
+      <CardActionBar key={card.book.id} card={card} />
     </div>
   );
 }
