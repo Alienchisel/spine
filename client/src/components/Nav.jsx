@@ -86,15 +86,17 @@ export default function Nav() {
             <span className="text-[10px] tracking-normal text-neutral-700 font-normal normal-case">v{__APP_VERSION__}</span>
           </Link>
           <nav className="flex items-center gap-5">
-            {/* Each nav item has its own identity colour. Cool tones
-                (sky/emerald/violet) for the curation + analytical
-                surfaces, warm tones (rose/amber/oak) for the more
-                emotional / theme-aligned ones. */}
+            {/* Today leads the nav (1.232+) — it's the only reflective
+                / ritual surface in the row, the natural entry point on
+                first-open, and leftmost matches the daily-first reading
+                order. The rest are utility tabs; each carries its own
+                identity colour (cool tones for curation/analytical,
+                warm tones for theme-aligned). */}
+            {navLink('/today',      'Today',    onToday,     'text-teal-400',    'hover:text-teal-300', showTodayDot)}
             {navLink('/readlist',   'Readlist', onReadlist,  'text-sky-400',     'hover:text-sky-300')}
             {navLink('/lists',      'Lists',    onLists,     'text-emerald-400', 'hover:text-emerald-300')}
             {navLink('/loved',      'Loved',    onLoved,     'text-rose-400',    'hover:text-rose-300')}
             {navLink('/diary',      'Diary',    onDiary,     'text-amber-400',   'hover:text-amber-300')}
-            {navLink('/today',      'Today',    onToday,     'text-teal-400',    'hover:text-teal-300', showTodayDot)}
             {navLink('/notes',      'Notes',    onNotes,     'text-leather',     'hover:text-parchment')}
             {navLink('/stats',      'Stats',    onStats,     'text-violet-400',  'hover:text-violet-300')}
             {navLink('/shelf-view', 'Shelves',  onShelfView, 'text-oak',         'hover:text-leather')}
