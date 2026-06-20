@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import IncomingBackLink from '../components/IncomingBackLink.jsx';
 import TodayCard from '../components/TodayCard.jsx';
 import TodayCarousel from '../components/TodayCarousel.jsx';
+import TodayQueueBanner from '../components/TodayQueueBanner.jsx';
 import PastConnections from '../components/PastConnections.jsx';
 import PastReadingPaths from '../components/PastReadingPaths.jsx';
 import { fmtShortDate } from '../utils.js';
@@ -80,6 +81,7 @@ export default function Today() {
         </p>
       </div>
       <div className="max-w-2xl">
+        {onToday && <TodayQueueBanner />}
         <TodayCarousel viewedDate={viewedDate} currentDate={currentDate}>
           <TodayCard
             date={onToday ? undefined : viewedDate}

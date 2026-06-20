@@ -728,6 +728,19 @@ describe('today', () => {
         `expected days_since_prev > 0, got ${body.card.meta.days_since_prev}`);
     });
 
+    it('GET /api/today/queue-depth returns unserved counts per card_type', async () => {
+      // Always returns both keys even when zero — the client banner
+      // assumes a populated shape ({ connection: N, reading_path: M })
+      // and shouldn't have to special-case missing keys.
+      const { status, body } = await req('GET', '/api/today/queue-depth');
+      assert.equal(status, 200);
+      assert.ok(body?.depth, 'expected depth payload');
+      assert.equal(typeof body.depth.connection,   'number');
+      assert.equal(typeof body.depth.reading_path, 'number');
+      assert.ok(body.depth.connection   >= 0);
+      assert.ok(body.depth.reading_path >= 0);
+    });
+
     it('snooze excludes a book from cohort picks until snoozed_until passes', async () => {
       // Seed a loved + long-finished book — qualifies for
       // loved_resurface always. Snooze it for 7 days, then verify it

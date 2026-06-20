@@ -117,6 +117,23 @@ function pastByType(cardType) {
 router.get('/connections',   (_req, res) => res.json({ connections:   pastByType('connection')   }));
 router.get('/reading-paths', (_req, res) => res.json({ readingPaths:  pastByType('reading_path') }));
 
+// Unserved queue depth per card_type. Drives the low-queue banner on
+// /today (1.233+) — when either count drops below the client's
+// threshold the page surfaces a quiet warning so we know to draft
+// replacement cards before the queue runs out. Cheap query; the
+// page polls it once per /today mount.
+router.get('/queue-depth', (_req, res) => {
+  const rows = db.prepare(`
+    SELECT card_type, COUNT(*) AS count
+      FROM today_card_queue
+     WHERE served_at IS NULL
+     GROUP BY card_type
+  `).all();
+  const depth = { connection: 0, reading_path: 0 };
+  for (const r of rows) depth[r.card_type] = r.count;
+  res.json({ depth });
+});
+
 // "Don't surface this book on Today for N days." Records to
 // today_snoozes (migration 075); pickTodayCard's exclusion set
 // unions snoozed ids with the 14-day repetition guard. INSERT OR
