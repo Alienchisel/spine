@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { submitOnModEnter } from '../components/bookForm/styles.js';
 import { primaryButton } from '../components/buttonStyles.js';
@@ -299,33 +299,6 @@ function QuickAdd({ listId, listBookIds, onAdded }) {
 
 export default function ListDetail() {
   const { id } = useParams();
-  const navigate = useNavigate();
-  // 'R' shortcut — jumps to a random other list. Mirrors Library's
-  // '/' search-focus shortcut: window-level keydown, gated on
-  // typing-context so it doesn't fire in rename / description inputs.
-  // Fetches /api/lists on each press rather than caching — list
-  // counts are small and the fetch is cheap; freshness beats local
-  // staleness when lists were just created or renamed.
-  useEffect(() => {
-    function onKeyDown(e) {
-      if (e.key !== 'r' && e.key !== 'R') return;
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      const tag = document.activeElement?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || document.activeElement?.isContentEditable) return;
-      e.preventDefault();
-      const currentId = Number(id);
-      api.getLists()
-        .then(lists => {
-          const others = (lists || []).filter(l => l.id !== currentId);
-          if (!others.length) return;
-          const pick = others[Math.floor(Math.random() * others.length)];
-          navigate(`/lists/${pick.id}`);
-        })
-        .catch(() => {});
-    }
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [id, navigate]);
   // cohort threads the current list's ordered {id, title} pairs into
   // BookDetail's navState so the destination can render a list-aware
   // prev/next nav strip instead of falling back to series-sibling order

@@ -58,6 +58,34 @@ export default function App() {
           .catch(() => {});
         return;
       }
+      // Lists context: /lists (index) or /lists/:id. Mirrors the
+      // authors branch — small set, client-side pick from getLists()
+      // (no dedicated random endpoint). On /lists/:id the current
+      // list is excluded so R-R-R walks through siblings rather than
+      // potentially re-landing on the same one. Cold deep-link on
+      // /lists/:id with no incoming state defaults to the index.
+      const onListPath = location.pathname === '/lists'
+        || location.pathname.startsWith('/lists/');
+      if (onListPath) {
+        let fromPath, from, currentListId = null;
+        if (location.pathname.startsWith('/lists/')) {
+          fromPath      = location.state?.fromPath ?? '/lists';
+          from          = location.state?.from     ?? 'Lists';
+          currentListId = Number(location.pathname.slice('/lists/'.length));
+        } else {
+          fromPath = location.pathname + location.search;
+          from     = labelForPath(location.pathname);
+        }
+        api.getLists()
+          .then(lists => {
+            const pool = (lists || []).filter(l => l.id !== currentListId);
+            if (!pool.length) return;
+            const pick = pool[Math.floor(Math.random() * pool.length)];
+            navigate(`/lists/${pick.id}`, { state: { from, fromPath } });
+          })
+          .catch(() => {});
+        return;
+      }
       // Book context (everything else). When chaining R from one random
       // book to the next (i.e. already on /books/X), inherit the incoming
       // back-link state so the chain all returns to the ORIGINAL referrer
