@@ -441,6 +441,106 @@ describe('today', () => {
       assert.match(body.error, /invalid value/i);
     });
 
+    it('anniversary cohort dedupes by work_id (multiple editions count as one)', async () => {
+      // Post three "editions" linked via work_id, all published 1925
+      // (100 years before any 2025-shifted-to-2025 sweep date). The
+      // anniversary cohort must surface AT MOST ONE of them — without
+      // the GROUP BY COALESCE(work_id, -id) dedupe, the seed could
+      // pick any of the three, and across a long sweep multiple
+      // editions could surface for the same work.
+      const titleStem = 'Work-Id Dedupe Anniversary';
+      const { body: ed1 } = await req('POST', '/api/books', {
+        title: `${titleStem} Edition A`, year_published: 1925,
+      });
+      const { body: ed2 } = await req('POST', '/api/books', {
+        title: `${titleStem} Edition B`, year_published: 1925,
+      });
+      const { body: ed3 } = await req('POST', '/api/books', {
+        title: `${titleStem} Edition C`, year_published: 1925,
+      });
+      // Link all three under one work via PUT (work_id isn't on POST
+      // writable set in the standard path).
+      await req('PUT', `/api/books/${ed2.id}`, { ...ed2, work_id: ed1.id, tags: [] });
+      await req('PUT', `/api/books/${ed3.id}`, { ...ed3, work_id: ed1.id, tags: [] });
+      // Sweep 2025 dates (1925 + 100y) and collect every surfaced book
+      // id from anniversary cards. Across the sweep, no more than ONE
+      // of the three editions can appear.
+      const surfaced = new Set();
+      for (const d of ['2025-08-01', '2025-08-02', '2025-08-03', '2025-08-04', '2025-08-05', '2025-08-06', '2025-08-07']) {
+        const { body } = await req('GET', `/api/today/card?date=${d}`);
+        if (body.card?.type === 'anniversary') {
+          const id = body.card.book.id;
+          if ([ed1.id, ed2.id, ed3.id].includes(id)) surfaced.add(id);
+        }
+      }
+      assert.ok(surfaced.size <= 1,
+        `expected at most one edition surfaced, got ${[...surfaced]}`);
+    });
+
+    it('author_anniversary surfaces for an author whose death year matches an offset', async () => {
+      // Post a book and PATCH its author's death_date so the author
+      // hits a notable offset for the viewed year. The cohort should
+      // surface it and the meta must carry { event:'death',
+      // event_year, years_ago, author_name }.
+      const author = 'Test Anniversary Dead Author';
+      const { body: created } = await req('POST', '/api/books', {
+        title:   'Posthumous Test Book',
+        authors: [author],
+        year_published: 1900,
+      });
+      // Resolve author id via the GET response's authors array and
+      // PATCH death_date to a notable offset (100y before 2027).
+      const authorId = created.authors?.[0]?.id;
+      assert.ok(authorId, 'expected fixture book to carry an author id');
+      const { status: patchStatus } = await req('PATCH', `/api/authors/${authorId}`, {
+        death_date: '1927-08-15',
+      });
+      assert.equal(patchStatus, 200, 'expected death_date PATCH to succeed');
+      let hit = null;
+      for (const d of ['2027-09-01', '2027-09-02', '2027-09-03', '2027-09-04', '2027-09-05', '2027-09-06', '2027-09-07']) {
+        const { body } = await req('GET', `/api/today/card?date=${d}`);
+        if (body.card?.type === 'author_anniversary'
+            && body.card.meta?.author_name === author) {
+          hit = body.card;
+          break;
+        }
+      }
+      assert.ok(hit, 'expected the author_anniversary fixture to surface across the sweep');
+      assert.equal(hit.meta.event,      'death');
+      assert.equal(hit.meta.event_year, 1927);
+      assert.equal(hit.meta.years_ago,  100);
+    });
+
+    it('author_anniversary handles BCE author dates via the leading minus sign', async () => {
+      // Plato-shape: birth_date='-428', death_date='-348'. For a
+      // viewed year of 2026 the author is 2454y / 2374y "ago" — neither
+      // matches a hardcoded offset, so the author must NOT surface.
+      // This guards the year-extraction path against accidentally
+      // truncating BCE years to positive integers (which would let
+      // '-428' become 428 → 2026-428 = 1598y, a real-but-incorrect
+      // anniversary).
+      const author = 'Test BCE Author';
+      const { body: created } = await req('POST', '/api/books', {
+        title:   'BCE Test Book',
+        authors: [author],
+      });
+      const authorId = created.authors?.[0]?.id;
+      assert.ok(authorId);
+      await req('PATCH', `/api/authors/${authorId}`, {
+        birth_date: '-428',
+        death_date: '-348',
+      });
+      // Sweep 2026 — neither 2454 nor 2374 is a notable offset, so
+      // this author MUST NOT surface as an author_anniversary.
+      for (const d of ['2026-12-22', '2026-12-23', '2026-12-24', '2026-12-25', '2026-12-26']) {
+        const { body } = await req('GET', `/api/today/card?date=${d}`);
+        if (body.card?.type === 'author_anniversary'
+            && body.card.meta?.author_name === author) {
+          assert.fail(`BCE author surfaced for non-matching offset: ${JSON.stringify(body.card.meta)}`);
+        }
+      }
+    });
+
     it('surfaces an anniversary card for a book published a notable round-year offset before the viewed date', async () => {
       // Anniversary cohort picks books whose year_published is exactly
       // N years before the viewed date's year, for N in the hardcoded

@@ -48,6 +48,13 @@ const TYPE_LABEL = {
     label:       'An anniversary',
     accentClass: 'text-orange-400/80',
   },
+  author_anniversary: {
+    // Fuchsia for the person/author-shaped festivity — distinct from
+    // book anniversary's orange so the two anniversary cards don't
+    // read as the same card at a glance.
+    label:       'An author anniversary',
+    accentClass: 'text-fuchsia-400/80',
+  },
   connection: {
     label:       'A thread in your library',
     accentClass: 'text-teal-400/80',
@@ -153,6 +160,22 @@ function CardBody({ card }) {
     return (
       <p>
         {link} — {years_ago} years old this year. Published {year_published}.
+      </p>
+    );
+  }
+  if (type === 'author_anniversary') {
+    const { author_name, event, event_year, years_ago, book_count } = card.meta || {};
+    if (!author_name || !event || !years_ago) return null;
+    // event_year can be negative for BCE authors; flag it as "BCE"
+    // in the display so the year reads correctly.
+    const yearLabel = event_year < 0 ? `${-event_year} BCE` : String(event_year);
+    const verb = event === 'death' ? 'died' : 'was born';
+    const countStr = book_count > 0
+      ? ` You have ${book_count} book${book_count === 1 ? '' : 's'} by them.`
+      : '';
+    return (
+      <p>
+        {author_name} {verb} {years_ago} years ago, in {yearLabel}.{countStr} Try {link}?
       </p>
     );
   }
