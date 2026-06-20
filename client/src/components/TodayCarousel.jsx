@@ -67,11 +67,11 @@ function SliverShell({ to, side, type, label, ariaLabel }) {
     <Link
       to={to}
       aria-label={ariaLabel}
-      className={`flex-none w-[12%] min-w-[44px] relative ${outerRound} border-y border-neutral-800/60 bg-neutral-900/40 hover:bg-neutral-900/70 transition-colors group`}
+      className={`flex-none w-[9%] min-w-[40px] relative ${outerRound} border-y border-neutral-800/60 bg-neutral-900/30 hover:bg-neutral-900/60 transition-colors group`}
     >
       <div className={`absolute inset-y-0 ${stripeEdge} w-1 ${accent}`} />
       <div className="absolute inset-0 flex items-center justify-center">
-        <span className="text-[10px] uppercase tracking-wider text-neutral-500 group-hover:text-neutral-300 transition-colors -rotate-90 whitespace-nowrap">
+        <span className="text-[10px] uppercase tracking-wide text-neutral-500 group-hover:text-neutral-300 transition-colors -rotate-90 whitespace-nowrap">
           {label}
         </span>
       </div>
@@ -132,18 +132,22 @@ function FutureSliver({ date, currentDate }) {
 }
 
 // Face-down "Tomorrow" tile. Sits in the right slot when the centre
-// is today. Deliberately unclickable and content-free — tomorrow's
-// card is the next-day surprise, and any preview would defeat the
-// ritual.
+// is today. Deliberately unclickable — tomorrow's card is the next-
+// day surprise, and any preview would defeat the ritual. The rotated
+// "TOMORROW" label mirrors the past sliver's rhythm so the row reads
+// as one coherent strip rather than two adjacent strips plus a lone
+// blank tile.
 function MysteryTomorrowSliver() {
   return (
     <div
       aria-hidden="true"
       title="Tomorrow"
-      className="flex-none w-[12%] min-w-[44px] relative rounded-r-lg border-r border-y border-dashed border-neutral-800/60 bg-neutral-900/20"
+      className="flex-none w-[9%] min-w-[40px] relative rounded-r-lg border-r border-y border-dashed border-neutral-800/60 bg-neutral-900/15"
     >
       <div className="absolute inset-0 flex items-center justify-center">
-        <span className="text-neutral-700 text-lg">?</span>
+        <span className="text-[10px] uppercase tracking-wide text-neutral-700 -rotate-90 whitespace-nowrap">
+          Tomorrow
+        </span>
       </div>
     </div>
   );
@@ -157,7 +161,7 @@ function EmptySliver({ side }) {
   return (
     <div
       aria-hidden="true"
-      className={`flex-none w-[12%] min-w-[44px] ${round} border border-dashed border-neutral-900/40 bg-neutral-950/30`}
+      className={`flex-none w-[9%] min-w-[40px] ${round} border border-dashed border-neutral-900/40 bg-neutral-950/30`}
     />
   );
 }
