@@ -55,6 +55,19 @@ hidden versions). Well under the free ceiling; if the library grows
 past ~8 GB of uploads we'll cross into paid territory (~$0.005/GB/mo
 on top of the 10 GB free).
 
+**Verification (confirmed 2026-06-20):** daily DB snapshots land in B2
+at `00:00:01` consistently. Quick health check:
+
+```bash
+rclone lsl --max-age 7d spine-b2:spine-backups/db/ | sort -k 2
+rclone size spine-b2:spine-backups
+```
+
+The first should print one row per day for the last week with
+monotonically growing sizes; the second should be well under 10 GB.
+A missing day means the previous night's `backup.sh` failed before the
+`rclone sync` step — check `backups/backup.log` for the error.
+
 **Fresh-VM rclone setup recipe:**
 
 ```bash
@@ -229,3 +242,122 @@ If the restored DB is missing recent activity (e.g. you restored to
 yesterday but want today's reading sessions back), the transcripts
 typically have the original tool-driven writes — see step 3 of the
 playbook above.
+
+## Live-data maintenance
+
+Notes on the live-data model that come up regularly during ingest /
+audit work and aren't obvious from the schema alone.
+
+### Shelf hierarchy
+
+Physical-book location is a four-level tree: **building → room → unit
+→ shelf**. A book row stores `building_id`, `room_id`, `unit_id`, and
+`shelf_id` columns, but *exactly one* is set — the most specific
+granularity the user chose — and the others are null. The
+normalisation runs through `normalizeBookLocation` in
+`lib/books/normalization.js`; callers send any subset and the
+repository writes only the most specific id.
+
+The single source for the whole layout is `GET /api/shelf/tree`,
+mounted at `app.use('/api/shelf', shelfRouter)` (see
+`routes/shelf.js`). To find a unit/shelf id from a human name:
+
+```bash
+curl -s 'http://localhost:3001/api/shelf/tree' | python3 -c "
+import json, sys
+def walk(node, depth=0):
+    if isinstance(node, list):
+        for n in node: walk(n, depth); return
+    name = node.get('name') or node.get('label') or '?'
+    print('  ' * depth + f'{name} (id={node.get(\"id\")})')
+    for k in ('rooms','units','shelves'):
+        for c in node.get(k, []) or []: walk(c, depth+1)
+walk(json.load(sys.stdin))" | grep -i 'grey 5'
+# → 'Grey 5 (id=14)' — that's a unit_id, not a shelf_id.
+```
+
+Naming gotcha: shelf-level labels are typically `1st / 2nd / 3rd /
+...` *under* a named unit, and units themselves often have names like
+"Paperback Tower 2" or "Grey 5" that *look* like shelf labels. When
+the user says **"Grey 5"** they mean `unit_id=14`, not a shelf inside
+unit Grey. Confirm against `/api/shelf/tree` before assuming
+otherwise.
+
+### Edition groups (`work_id`)
+
+Two book records that are alternate editions of the same underlying
+work share a non-null `work_id`. The relationship is **symmetric**
+(every member sees every other on its BookDetail page) and
+**transitive** (linking a new edition into an existing group joins
+them all; linking two existing groups merges them into the
+lower-id group).
+
+API:
+
+```
+POST   /api/books/:id/work-link   { "other_id": <N> }
+DELETE /api/books/:id/work-link    # removes :id from its group
+```
+
+Use this whenever you intentionally keep a duplicate edition (a
+different translation, a hardcover + paperback pair, a French original
++ English translation, an audiobook + physical, etc.). Quick scan for
+unlinked clusters (same title + same author, differing publisher OR
+format, at least one with null `work_id`):
+
+```sql
+SELECT b.id, b.title, b.publisher, b.format, b.work_id,
+       (SELECT GROUP_CONCAT(a.name, ' & ') FROM book_authors ba
+          JOIN authors a ON a.id=ba.author_id WHERE ba.book_id=b.id
+          ORDER BY ba.position) AS authors
+FROM books b WHERE b.archived = 0
+ORDER BY lower(b.title), b.id;
+```
+
+Group rows in app code, link via the API. Sweep performed 2026-06-20
+brought the linkage count from 7 groups to 64; subsequent ingests
+should keep editions linked at the moment of ingest rather than
+collecting another backlog.
+
+### Merging duplicate book records
+
+When a duplicate record is not an alternate edition but a true
+duplicate (same physical book ingested twice, identical title +
+publisher + year + format and no distinguishing field), merge rather
+than link. Pattern:
+
+1. **Inspect both records for unique fields.** The columns most
+   likely to differ in a real-vs-phantom split are
+   `acquisition_source`, `acquisition_date`, `read_count`, `rating`,
+   `review`, `description`, `notes`, `unit_id` / `shelf_id`,
+   `isbn_10` / `isbn_13`, and the joined `tags` array. A quick
+   sqlite3 diff or two `GET /api/books/:id` calls covers it.
+2. **Pick the survivor** — usually the lower id (older record,
+   more likely to carry acquisition history), but choose by data
+   richness when a later record has accumulated more.
+3. **PATCH the survivor** with any fields the loser had and the
+   survivor didn't. The `PATCH /api/books/:id` endpoint accepts any
+   subset of the column schema; the join-table fields (`tags`,
+   `authors`, `narrators`, `translators`) replace fully, so send the
+   *merged* list, not a delta.
+4. **DELETE the loser** via `DELETE /api/books/:id`. The work-link
+   API auto-merges work groups if both members were already linked
+   into different groups.
+
+Precedent runs:
+
+- **2026-06-20 Saul merge.** `Voltaire's Bastards` #93 (Penguin 1993,
+  shelved Grey 5) survived; #2015 (Penguin Canada 1992, Grey 3) was
+  PATCHed into #93's record for its better description and the four
+  tags it carried, then deleted.
+- **2026-06-20 Letters trio cleanup.** Three identical records each
+  for McLuhan / Wyndham Lewis / Burroughs Letters were ingestion
+  duplicates of a single physical copy. Kept the lowest-id record in
+  each set; deleted the other two. Plotinus Enneads (#1067 +
+  #2365) was flagged for the user to verify before deletion —
+  reserve this for genuinely ambiguous cases.
+
+Run the duplicate-cluster scan above periodically; the same query
+that surfaces edition candidates surfaces ingestion duplicates, just
+filtered the other way (identical publisher + year + format with
+multiple records).
