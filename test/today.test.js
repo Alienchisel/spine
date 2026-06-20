@@ -316,6 +316,36 @@ describe('today', () => {
         `expected reading_path to surface across 7 days with a queued candidate, got ${[...seen]}`);
     });
 
+    it('rotation cohort scoping: connection type picks only connection queue rows (not reading_path)', async () => {
+      // The /reading-paths and /connections archive endpoints scope
+      // by card_type — covered above. Separately, the seeded-mod
+      // rotation must scope by card_type too: a date that rolls
+      // type='connection' must only consider connection queue rows
+      // when picking, and similarly for reading_path. Without this
+      // scoping the same queue row could surface under the wrong
+      // type label. Seed one of each with distinctive titles, sweep
+      // dates, and confirm whichever AI-shaped card lands carries
+      // the title of its OWN card_type row.
+      const directDb = (await import('../db.js')).default;
+      const connId = directDb.prepare(
+        "INSERT INTO today_card_queue (card_type, title, body) VALUES ('connection', 'CrossCohort-Conn', 'a')"
+      ).run().lastInsertRowid;
+      const pathId = directDb.prepare(
+        "INSERT INTO today_card_queue (card_type, title, body) VALUES ('reading_path', 'CrossCohort-Path', 'a')"
+      ).run().lastInsertRowid;
+      for (const d of ['2027-03-01', '2027-03-02', '2027-03-03', '2027-03-04', '2027-03-05', '2027-03-06', '2027-03-07']) {
+        const { body } = await req('GET', `/api/today/card?date=${d}`);
+        const c = body.card;
+        if (c?.type === 'connection') {
+          assert.equal(c.queue_id, connId,
+            `connection rotation picked a non-connection queue row (id=${c.queue_id})`);
+        } else if (c?.type === 'reading_path') {
+          assert.equal(c.queue_id, pathId,
+            `reading_path rotation picked a non-reading_path queue row (id=${c.queue_id})`);
+        }
+      }
+    });
+
     it('GET /api/today/reading-paths returns reading_path rows only', async () => {
       // Two queue rows, one of each card_type, both served. The
       // /reading-paths endpoint must include only the reading_path
