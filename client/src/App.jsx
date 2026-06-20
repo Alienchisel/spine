@@ -71,7 +71,12 @@ export default function App() {
         if (location.pathname.startsWith('/lists/')) {
           fromPath      = location.state?.fromPath ?? '/lists';
           from          = location.state?.from     ?? 'Lists';
-          currentListId = Number(location.pathname.slice('/lists/'.length));
+          // Regex extract so non-numeric slugs / future subroutes
+          // (/lists/:id/edit etc.) yield a clean null rather than
+          // NaN — NaN !== anything is true, so the dedupe filter
+          // below would silently fail to exclude the current list.
+          const m = location.pathname.match(/^\/lists\/(\d+)/);
+          currentListId = m ? Number(m[1]) : null;
         } else {
           fromPath = location.pathname + location.search;
           from     = labelForPath(location.pathname);

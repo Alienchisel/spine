@@ -345,8 +345,13 @@ export default function TodayCard({ date, peek = false, onCardLoaded }) {
   // keep it on screen during subsequent refetches (date navigation,
   // etc.) so arrowing between days doesn't flash an empty surface
   // mid-transition. The new card replaces the old one the moment
-  // the fetch resolves.
-  if (loading && !card) return null;
+  // the fetch resolves. The placeholder shell holds vertical space
+  // during that first load so the carousel slivers (items-stretch)
+  // have something to size against — a bare null collapsed the row
+  // to ~0px for a few frames.
+  if (loading && !card) {
+    return <div aria-hidden="true" className="p-6 rounded-lg border border-neutral-800/40 min-h-[140px]" />;
+  }
 
   if (error) {
     return (
@@ -445,7 +450,7 @@ function CardActionBar({ card }) {
   async function toggleReadlist() {
     const prior = onReadlist;
     const target = removeMode ? false : true;
-    if (prior === target && !removeMode) return;  // already there
+    if (prior === target) return;  // already in target state, no work
     setSavingReadlist(true);
     setOnReadlist(target);  // optimistic
     try {
@@ -500,7 +505,7 @@ function CardActionBar({ card }) {
     <div className="mt-5 pt-4 border-t border-neutral-800/60 flex items-center gap-2 flex-wrap">
       <ActionButton
         onClick={toggleReadlist}
-        disabled={savingReadlist || (!removeMode && readlistDone)}
+        disabled={savingReadlist || readlistDone}
         active={readlistDone}
       >
         {readlistLabel}
