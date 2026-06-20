@@ -185,6 +185,39 @@ describe('today', () => {
       assert.ok(created.includes(hit.book.id), 'expected pick to be one of the fixture books');
     });
 
+    it('promotes author_barely_opened picks to series Vol 1 when one is available', async () => {
+      // Cohort selects unread books by under-read authors ordered by
+      // id; raw, that picks whatever was added last (e.g., a Thermæ
+      // Romæ Vol 5 instead of Vol 1). Promotion should swap the pick
+      // to series_number=1 of any series owned by the same author.
+      // Seed an author with five volumes, asserts the surfaced pick
+      // is Vol 1 regardless of which the seed-mod first chose.
+      const author = 'Test Series Promotion Author';
+      const seriesName = 'Test Promotion Series';
+      let vol1Id;
+      for (let n = 1; n <= 5; n++) {
+        const { body } = await req('POST', '/api/books', {
+          title:         `${seriesName} Vol ${n}`,
+          authors:       [author],
+          status:        'unread',
+          series:        seriesName,
+          series_number: n,
+        });
+        if (n === 1) vol1Id = body.id;
+      }
+      let hit = null;
+      for (const d of ['2027-04-10', '2027-04-11', '2027-04-12', '2027-04-13', '2027-04-14', '2027-04-15', '2027-04-16']) {
+        const { body } = await req('GET', `/api/today/card?date=${d}`);
+        if (body.card?.type === 'author_barely_opened' && body.card.meta?.author_name === author) {
+          hit = body.card;
+          break;
+        }
+      }
+      assert.ok(hit, 'expected the promotion-fixture author to surface across the sweep');
+      assert.equal(hit.book.id, vol1Id,
+        `expected promoted pick to be Vol 1 (id=${vol1Id}), got id=${hit.book.id}`);
+    });
+
     it('surfaces loved_author_followup for an unread book whose author has a loved sibling', async () => {
       // Cohort SQL: the book's first-author has at least one loved
       // sibling AND the book itself is unread + not loved. Post a
