@@ -42,6 +42,15 @@ const TYPE_LABEL = {
     label:       'More by an author you loved',
     accentClass: 'text-pink-400/80',
   },
+  series_next_volume: {
+    // Green for "continue the journey" — picks up the growth /
+    // progression register, distinct from emerald (reading_path) so
+    // the two emerald-family accents don't blur, and from pink /
+    // rose (the loved family) since this is a continuation not a
+    // sentiment.
+    label:       'Next in the series',
+    accentClass: 'text-green-400/80',
+  },
   anniversary: {
     // Orange for the calendar / festivity register — warm but
     // distinct from amber (slow_burn) so the two warm accents don't
@@ -159,6 +168,17 @@ function CardBody({ card }) {
     return (
       <p>
         You loved {loved_title ? <em>{loved_title}</em> : 'a book'} by {author_name}. Try {link}?
+      </p>
+    );
+  }
+  if (type === 'series_next_volume') {
+    const { series, next_volume, prev_volume, prev_title, days_since_prev } = card.meta || {};
+    if (!series || next_volume == null || prev_volume == null) return null;
+    return (
+      <p>
+        You finished Vol {prev_volume} of <em>{series}</em>
+        {prev_title ? <> (<em>{prev_title}</em>)</> : null}
+        {' '}{relativeMonths(days_since_prev)} ago. Vol {next_volume}: {link} — read on?
       </p>
     );
   }

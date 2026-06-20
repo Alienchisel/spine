@@ -33,6 +33,7 @@ const TYPE_ACCENT = {
   forgotten_readlist:    'bg-sky-400/70',
   author_barely_opened:  'bg-violet-400/70',
   loved_author_followup: 'bg-pink-400/70',
+  series_next_volume:    'bg-green-400/70',
   anniversary:           'bg-orange-400/70',
   author_anniversary:    'bg-fuchsia-400/70',
   personal_anniversary:  'bg-yellow-400/70',

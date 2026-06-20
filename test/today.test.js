@@ -649,6 +649,108 @@ describe('today', () => {
       }
     });
 
+    it('series_next_volume cohort surfaces the immediate-next owned/unread volume after a finished one', async () => {
+      // Vol 1 finished + Vol 2 owned & unread → the cohort should
+      // produce Vol 2 once the seed lands on it. Use a unique series
+      // name so we don't collide with any earlier-test series chains,
+      // and a sweep wide enough that the heavy shared DB's seeded
+      // type rotation has a fair chance of hitting series_next_volume.
+      const seriesName = `SeriesNextCohort ${Date.now()}`;
+      const { body: vol1 } = await req('POST', '/api/books', {
+        title:         `${seriesName} The First`,
+        authors:       [`${seriesName} Author`],
+        series:        seriesName,
+        series_number: 1,
+        status:        'finished',
+        date_finished: '2025-12-01',
+      });
+      const { body: vol2 } = await req('POST', '/api/books', {
+        title:         `${seriesName} The Second`,
+        authors:       [`${seriesName} Author`],
+        series:        seriesName,
+        series_number: 2,
+        owned:         1,
+        status:        'unread',
+      });
+      let hit = false;
+      for (let i = 0; i < 14; i++) {
+        const d = new Date('2027-10-01T12:00:00');
+        d.setDate(d.getDate() + i);
+        const dateStr = d.toLocaleDateString('en-CA');
+        const { body } = await req('GET', `/api/today/card?date=${dateStr}`);
+        if (body.card?.type === 'series_next_volume' && body.card.book.id === vol2.id) {
+          hit = true;
+          break;
+        }
+      }
+      assert.ok(hit,
+        'expected series_next_volume to surface vol2 across the sweep');
+      // Silence the unused-vol1 lint while keeping the fixture id
+      // available in the assertion failure trace.
+      assert.ok(vol1.id, 'expected vol1 fixture to be created');
+    });
+
+    it('series_next_volume meta carries series, prev_volume, prev_title, next_volume', async () => {
+      // Pre-seed today_card_history so the route delivers the card
+      // via the existingBook short-circuit (sidesteps mod-N selection
+      // flakiness on the shared DB). The meta payload should still go
+      // through computeCardMeta against live book state, which is the
+      // production path we want covered.
+      const seriesName = `SeriesNextMeta ${Date.now()}`;
+      await req('POST', '/api/books', {
+        title:         `${seriesName} Vol 1`,
+        authors:       [`${seriesName} Author`],
+        series:        seriesName,
+        series_number: 1,
+        status:        'finished',
+        date_finished: '2025-06-15',
+      });
+      const { body: vol2 } = await req('POST', '/api/books', {
+        title:         `${seriesName} Vol 2`,
+        authors:       [`${seriesName} Author`],
+        series:        seriesName,
+        series_number: 2,
+        owned:         1,
+        status:        'unread',
+      });
+      const db = (await import('../db.js')).default;
+      db.prepare(
+        'INSERT INTO today_card_history (date, type, book_id) VALUES (?, ?, ?)'
+      ).run('2026-08-08', 'series_next_volume', vol2.id);
+      const { body } = await req('GET', '/api/today/card?date=2026-08-08');
+      assert.equal(body.card?.type,    'series_next_volume');
+      assert.equal(body.card.book.id,  vol2.id);
+      assert.equal(body.card.meta.series,      seriesName);
+      assert.equal(body.card.meta.next_volume, 2);
+      assert.equal(body.card.meta.prev_volume, 1);
+      assert.equal(body.card.meta.prev_title,  `${seriesName} Vol 1`);
+      assert.ok(body.card.meta.days_since_prev > 0,
+        `expected days_since_prev > 0, got ${body.card.meta.days_since_prev}`);
+    });
+
+    it('series_next_volume stays silent when the user owns Vol 1 but has never finished a sibling', async () => {
+      // Unstarted series — no finished volume to base "next" on, so
+      // the series_progress CTE has no row for this series and Vol 1
+      // shouldn't appear in the cohort. Verify by checking the
+      // returned card across a sweep never surfaces this fixture as
+      // series_next_volume.
+      const seriesName = `SeriesNextSilent ${Date.now()}`;
+      const { body: vol1 } = await req('POST', '/api/books', {
+        title:         `${seriesName} Vol 1`,
+        authors:       [`${seriesName} Author`],
+        series:        seriesName,
+        series_number: 1,
+        owned:         1,
+        status:        'unread',
+      });
+      for (const d of ['2027-11-01', '2027-11-02', '2027-11-03', '2027-11-04', '2027-11-05']) {
+        const { body } = await req('GET', `/api/today/card?date=${d}`);
+        if (body.card?.type === 'series_next_volume' && body.card.book.id === vol1.id) {
+          assert.fail(`vol1 surfaced as series_next_volume on ${d} without a finished sibling`);
+        }
+      }
+    });
+
     it('peek=true returns null for a date with no persisted card and does not retroactively pick', async () => {
       // Day-navigation surface (1.223) passes peek=true for past-date
       // views. The contract: without an existing today_card_history
