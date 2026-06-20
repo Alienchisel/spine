@@ -35,6 +35,7 @@ const TYPE_ACCENT = {
   loved_author_followup: 'bg-pink-400/70',
   anniversary:           'bg-orange-400/70',
   author_anniversary:    'bg-fuchsia-400/70',
+  personal_anniversary:  'bg-yellow-400/70',
   connection:            'bg-teal-400/70',
   reading_path:          'bg-emerald-400/70',
 };

@@ -55,6 +55,13 @@ const TYPE_LABEL = {
     label:       'An author anniversary',
     accentClass: 'text-fuchsia-400/80',
   },
+  personal_anniversary: {
+    // Yellow for "your reading history" — warm/candlelit, distinct
+    // from amber (slow_burn) and orange (anniversary) so the three
+    // warm accents don't blur together.
+    label:       'Looking back',
+    accentClass: 'text-yellow-400/80',
+  },
   connection: {
     label:       'A thread in your library',
     accentClass: 'text-teal-400/80',
@@ -151,6 +158,17 @@ function CardBody({ card }) {
     return (
       <p>
         You loved {loved_title ? <em>{loved_title}</em> : 'a book'} by {author_name}. Try {link}?
+      </p>
+    );
+  }
+  if (type === 'personal_anniversary') {
+    const { event, years_ago } = card.meta || {};
+    if (!event || !years_ago) return null;
+    const yearLabel = years_ago === 1 ? 'one year' : `${years_ago} years`;
+    const verb = event === 'finished' ? 'finished' : 'acquired';
+    return (
+      <p>
+        You {verb} {link} {yearLabel} ago today.
       </p>
     );
   }

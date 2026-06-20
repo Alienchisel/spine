@@ -566,6 +566,89 @@ describe('today', () => {
       assert.equal(anniversaryCard.meta.years_ago,      100);
     });
 
+    it('personal_anniversary meta carries the finished event when fired', async () => {
+      // The mod-N type selection has its own flakiness across a heavy
+      // shared test DB (other cohorts compete for the seed bucket),
+      // so test the meta payload directly by pre-seeding
+      // today_card_history with the (date, type, book_id) triple. The
+      // route hits the existingBook short-circuit and runs
+      // computeCardMeta against the picked book — exactly the
+      // production path once the type is selected. The cohort SQL is
+      // covered indirectly by the tiebreaker test below, which only
+      // passes when the personal cohort is non-empty.
+      const { body: created } = await req('POST', '/api/books', {
+        title:         'PA Meta Finished',
+        authors:       ['PA Meta Solo F'],
+        date_finished: '2025-04-12',
+        status:        'finished',
+      });
+      const db = (await import('../db.js')).default;
+      db.prepare(
+        'INSERT INTO today_card_history (date, type, book_id) VALUES (?, ?, ?)'
+      ).run('2026-04-12', 'personal_anniversary', created.id);
+      const { body } = await req('GET', '/api/today/card?date=2026-04-12');
+      assert.equal(body.card?.type,    'personal_anniversary');
+      assert.equal(body.card.book.id,  created.id);
+      assert.equal(body.card.meta.event,     'finished');
+      assert.equal(body.card.meta.event_year, 2025);
+      assert.equal(body.card.meta.years_ago,  1);
+    });
+
+    it('personal_anniversary meta carries the acquired event when fired', async () => {
+      // Acquired path mirror — same pre-seed trick, anchoring on
+      // acquisition_date and a 2y delta.
+      const { body: created } = await req('POST', '/api/books', {
+        title:              'PA Meta Acquired',
+        authors:            ['PA Meta Solo A'],
+        owned:              1,
+        acquisition_source: 'Amazon',
+        acquisition_date:   '2024-07-04',
+      });
+      const db = (await import('../db.js')).default;
+      db.prepare(
+        'INSERT INTO today_card_history (date, type, book_id) VALUES (?, ?, ?)'
+      ).run('2026-07-04', 'personal_anniversary', created.id);
+      const { body } = await req('GET', '/api/today/card?date=2026-07-04');
+      assert.equal(body.card?.type,    'personal_anniversary');
+      assert.equal(body.card.book.id,  created.id);
+      assert.equal(body.card.meta.event,     'acquired');
+      assert.equal(body.card.meta.event_year, 2024);
+      assert.equal(body.card.meta.years_ago,  2);
+    });
+
+    it('personal_anniversary outranks work-publication anniversary when both are eligible', async () => {
+      // The tiebreaker prunes anniversary from eligibleTypes whenever
+      // personal is also eligible — so on any sweep date where the
+      // personal cohort has a candidate, the work-anniversary book
+      // must NEVER surface. Make the personal cohort non-empty on
+      // every sweep date (one fixture per day) and assert the work
+      // book is silent across the sweep.
+      const { body: workBook } = await req('POST', '/api/books', {
+        title:          'Tiebreaker Work Book',
+        year_published: 1927,
+      });
+      const sweepDates = [
+        '2027-07-15', '2027-07-16', '2027-07-17', '2027-07-18',
+        '2027-07-19', '2027-07-20', '2027-07-21',
+      ];
+      for (let i = 0; i < sweepDates.length; i++) {
+        const finished = sweepDates[i].replace('2027', '2026');  // 1y ago
+        await req('POST', '/api/books', {
+          title:         `Tiebreaker Personal ${i}`,
+          authors:       [`TiebreakerPersonal Solo ${i}`],
+          date_finished: finished,
+          status:        'finished',
+        });
+      }
+      for (const d of sweepDates) {
+        const { body } = await req('GET', `/api/today/card?date=${d}`);
+        if (body.card?.book?.id === workBook.id) {
+          assert.fail(
+            `workBook surfaced on ${d} despite eligible personal cohort: ${JSON.stringify(body.card)}`);
+        }
+      }
+    });
+
     it('peek=true returns null for a date with no persisted card and does not retroactively pick', async () => {
       // Day-navigation surface (1.223) passes peek=true for past-date
       // views. The contract: without an existing today_card_history
