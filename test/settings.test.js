@@ -5,23 +5,16 @@ import { createTestServer } from './helpers.js';
 describe('settings', () => {
   let url;
   let close;
+  let req;
 
   before(async () => {
     const server = await createTestServer();
     url = server.url;
     close = server.close;
+    req = server.req;
   });
 
   after(() => close());
-
-  async function req(method, path, body) {
-    const res = await fetch(`${url}${path}`, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: body != null ? JSON.stringify(body) : undefined,
-    });
-    return { status: res.status, body: res.status === 204 ? null : await res.json() };
-  }
 
   it('GET /api/settings returns an object', async () => {
     const { status, body } = await req('GET', '/api/settings');

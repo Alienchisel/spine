@@ -11,24 +11,16 @@ async function loadDb() { return (await import('../db.js')).default; }
 describe('books', () => {
   let url;
   let close;
+  let req;
 
   before(async () => {
     const server = await createTestServer();
     url = server.url;
     close = server.close;
+    req = server.req;
   });
 
   after(() => close());
-
-  async function req(method, path, body) {
-    const res = await fetch(`${url}${path}`, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: body != null ? JSON.stringify(body) : undefined,
-    });
-    const data = res.status === 204 ? null : await res.json();
-    return { status: res.status, body: data };
-  }
 
   describe('GET /api/books', () => {
     it('returns empty list initially', async () => {
@@ -5830,15 +5822,6 @@ describe('books', () => {
       // form can mark each on its own. Placed at end-of-file so this
       // fixture's row doesn't bump prior sort-tests' fixtures past the
       // global GET /api/books limit cap.
-      async function req(method, path, body) {
-        const res = await fetch(`${url}${path}`, {
-          method,
-          headers: { 'Content-Type': 'application/json' },
-          body: body != null ? JSON.stringify(body) : undefined,
-        });
-        const data = res.status === 204 ? null : await res.json();
-        return { status: res.status, body: data };
-      }
       const { status, body } = await req('POST', '/api/books', {
         title: 'YPA Letters', year_published: 65, year_edition: 2017,
         year_published_approximate: true, year_approximate: false,

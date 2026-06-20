@@ -11,24 +11,16 @@ import { createTestServer } from './helpers.js';
 describe('today', () => {
   let url;
   let close;
+  let req;
 
   before(async () => {
     const server = await createTestServer();
     url = server.url;
     close = server.close;
+    req = server.req;
   });
 
   after(() => close());
-
-  async function req(method, path, body) {
-    const res = await fetch(`${url}${path}`, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: body != null ? JSON.stringify(body) : undefined,
-    });
-    const data = res.status === 204 ? null : await res.json();
-    return { status: res.status, body: data };
-  }
 
   describe('GET /api/today/card', () => {
     it('returns card=null when no cohort is eligible (empty library)', async () => {
@@ -95,17 +87,137 @@ describe('today', () => {
       assert.ok(slowBurn.body.id, 'expected slow_burn fixture to have been created');
     });
 
-    it('falls back to today when the date param is malformed', async () => {
-      // Invalid date string should be silently coerced to today rather
-      // than 400. The fallback's `card` field may be truthy or null
-      // depending on whether the day's cohort is exhausted by earlier
-      // tests in this suite (the 14-day repetition guard can leave the
-      // fixture library with no eligible books on certain fallback
-      // dates) — the contract being verified here is purely "200 with
-      // a {card} envelope", not the cohort content.
-      const { status, body } = await req('GET', '/api/today/card?date=not-a-date');
+    it('falls back to today when the date param is malformed (matches no-date fallback)', async () => {
+      // Malformed date silently coerces to today rather than 400 —
+      // verify the fallback reaches the SAME path as a no-date call.
+      // Two calls back-to-back (same effective date thanks to the
+      // fallback) must return the same card under the persistence
+      // guarantee. This sidesteps the prior coupling to "is the cohort
+      // exhausted by earlier tests on today's actual date" — the
+      // assertion now checks behaviour by comparing the malformed-date
+      // and no-date responses against each other, which agree
+      // regardless of cohort state.
+      const { body: noParam } = await req('GET', '/api/today/card');
+      const { status, body: bad } = await req('GET', '/api/today/card?date=not-a-date');
       assert.equal(status, 200);
-      assert.ok('card' in body, 'expected {card} envelope shape regardless of cohort content');
+      assert.equal(bad.card?.type ?? null, noParam.card?.type ?? null,
+        'malformed date should reach the same fallback as no-date');
+      if (bad.card) {
+        const badId     = bad.card.book?.id ?? bad.card.queue_id;
+        const noParamId = noParam.card.book?.id ?? noParam.card.queue_id;
+        assert.equal(badId, noParamId,
+          'malformed date and no-date should resolve to the same persisted card');
+      }
+    });
+
+    it('surfaces slow_burn for a reading book started more than 30 days ago', async () => {
+      // Cohort SQL: status='reading' AND date_started < now-30d. Post
+      // a fixture matching that shape and confirm it surfaces in a
+      // small date sweep. Date_started set far enough back that the
+      // 30-day guard fires regardless of when this test runs.
+      const { body: created } = await req('POST', '/api/books', {
+        title:        'Slow Burn Cohort Fixture',
+        status:       'reading',
+        date_started: '2025-01-01',  // well past 30 days for any 2026+ test date
+      });
+      let hit = false;
+      for (const d of ['2026-11-10', '2026-11-11', '2026-11-12', '2026-11-13', '2026-11-14', '2026-11-15', '2026-11-16']) {
+        const { body } = await req('GET', `/api/today/card?date=${d}`);
+        if (body.card?.type === 'slow_burn' && body.card.book.id === created.id) { hit = true; break; }
+      }
+      assert.ok(hit, 'expected the slow_burn fixture to surface across the sweep');
+    });
+
+    it('surfaces recent_acquisition for an owned unread book bought in the last 14 days', async () => {
+      // Cohort SQL: owned=1 AND acquisition_date >= now-14d AND
+      // status='unread' AND NOT is_stub. The 14-day window is computed
+      // against the request date (date('now','localtime')), so seed
+      // an acquisition_date in the very recent past and sweep
+      // matching dates.
+      const today = new Date().toLocaleDateString('en-CA');
+      const { body: created } = await req('POST', '/api/books', {
+        title:              'Recent Acquisition Fixture',
+        owned:              true,
+        acquisition_date:   today,
+        status:             'unread',
+      });
+      let hit = false;
+      // Sweep TODAY's date forward by a handful of days — anything
+      // within +14 days from acquisition_date qualifies for the
+      // cohort. Use future dates to dodge prior tests' history.
+      for (const offset of [0, 1, 2, 3, 4, 5, 6]) {
+        const d = new Date(`${today}T12:00:00`);
+        d.setDate(d.getDate() + offset);
+        const dateStr = d.toLocaleDateString('en-CA');
+        const { body } = await req('GET', `/api/today/card?date=${dateStr}`);
+        if (body.card?.type === 'recent_acquisition' && body.card.book.id === created.id) { hit = true; break; }
+      }
+      assert.ok(hit, 'expected the recent_acquisition fixture to surface across the sweep');
+    });
+
+    it('surfaces author_barely_opened for an author with ≥5 books and <15% finished', async () => {
+      // Cohort thresholds in lib/today/card.js: book_count >= 5 AND
+      // finished_count / book_count < 0.15. Post six unread books by
+      // the same author; the ratio is 0/6 = 0%, well under the 0.15
+      // gate. The meta payload should carry the author's name and
+      // their library count.
+      const author = 'Test Barely Opened Author';
+      const created = [];
+      for (let i = 0; i < 6; i++) {
+        const { body } = await req('POST', '/api/books', {
+          title: `Barely Opened Fixture ${i}`,
+          authors: [author],
+          status:  'unread',
+        });
+        created.push(body.id);
+      }
+      let hit = null;
+      for (const d of ['2026-11-20', '2026-11-21', '2026-11-22', '2026-11-23', '2026-11-24', '2026-11-25', '2026-11-26']) {
+        const { body } = await req('GET', `/api/today/card?date=${d}`);
+        if (body.card?.type === 'author_barely_opened' && body.card.meta?.author_name === author) {
+          hit = body.card;
+          break;
+        }
+      }
+      assert.ok(hit, 'expected the author_barely_opened fixture to surface across the sweep');
+      assert.equal(hit.meta.book_count,     6, 'expected meta.book_count = 6');
+      assert.equal(hit.meta.finished_count, 0, 'expected meta.finished_count = 0');
+      assert.ok(created.includes(hit.book.id), 'expected pick to be one of the fixture books');
+    });
+
+    it('surfaces loved_author_followup for an unread book whose author has a loved sibling', async () => {
+      // Cohort SQL: the book's first-author has at least one loved
+      // sibling AND the book itself is unread + not loved. Post a
+      // loved book and an unread sibling by the same author; the
+      // meta payload should carry the author name and the loved
+      // title that earned the followup.
+      const author     = 'Test Followup Author';
+      const lovedTitle = 'Test Followup Loved Anchor';
+      const { body: anchor } = await req('POST', '/api/books', {
+        title:         lovedTitle,
+        authors:       [author],
+        status:        'finished',
+        date_finished: '2025-01-01',
+      });
+      await req('PUT', `/api/books/${anchor.id}`, {
+        ...anchor, loved: true, tags: [],
+      });
+      const { body: followup } = await req('POST', '/api/books', {
+        title:   'Test Followup Sibling Unread',
+        authors: [author],
+        status:  'unread',
+      });
+      let hit = null;
+      for (const d of ['2026-11-28', '2026-11-29', '2026-11-30', '2026-12-01', '2026-12-02', '2026-12-03', '2026-12-04']) {
+        const { body } = await req('GET', `/api/today/card?date=${d}`);
+        if (body.card?.type === 'loved_author_followup' && body.card.meta?.author_name === author) {
+          hit = body.card;
+          break;
+        }
+      }
+      assert.ok(hit, 'expected the loved_author_followup fixture to surface across the sweep');
+      assert.equal(hit.book.id,           followup.id, 'expected the unread sibling to be picked, not the loved anchor');
+      assert.equal(hit.meta.loved_title,  lovedTitle,  'expected meta.loved_title to identify the loved anchor');
     });
 
     it('surfaces forgotten_readlist when on_readlist books exist', async () => {

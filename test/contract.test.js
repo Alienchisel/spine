@@ -28,6 +28,7 @@ import { createTestServer } from './helpers.js';
 describe('book contract: full field round-trip', () => {
   let url;
   let close;
+  let req;
   let buildingId, roomId, unitId, shelfId;
   let bookId;
 
@@ -35,6 +36,7 @@ describe('book contract: full field round-trip', () => {
     const server = await createTestServer();
     url = server.url;
     close = server.close;
+    req = server.req;
 
     const { body: b } = await req('POST', '/api/shelf/buildings', { name: 'Contract Building' });
     buildingId = b.id;
@@ -47,16 +49,6 @@ describe('book contract: full field round-trip', () => {
   });
 
   after(() => close());
-
-  async function req(method, path, body) {
-    const res = await fetch(`${url}${path}`, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: body != null ? JSON.stringify(body) : undefined,
-    });
-    const data = res.status === 204 ? null : await res.json();
-    return { status: res.status, body: data };
-  }
 
   // ── Step 1: POST ────────────────────────────────────────────────────────────
 

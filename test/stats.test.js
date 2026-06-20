@@ -5,24 +5,16 @@ import { createTestServer } from './helpers.js';
 describe('stats', () => {
   let url;
   let close;
+  let req;
 
   before(async () => {
     const server = await createTestServer();
     url = server.url;
     close = server.close;
+    req = server.req;
   });
 
   after(() => close());
-
-  async function req(method, path, body) {
-    const res = await fetch(`${url}${path}`, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: body != null ? JSON.stringify(body) : undefined,
-    });
-    const data = res.status === 204 ? null : await res.json();
-    return { status: res.status, body: data };
-  }
 
   describe('GET /api/stats shape', () => {
     it('returns 200 with all expected top-level keys', async () => {

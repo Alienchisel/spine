@@ -10,27 +10,19 @@ import { parseDate, normalizeBio, stripBioDates } from '../lib/authors/openLibra
 describe('authors — Open Library refresh', () => {
   let url;
   let close;
+  let req;
   const realFetch = global.fetch;
 
   before(async () => {
     const server = await createTestServer();
     url = server.url;
     close = server.close;
+    req = server.req;
   });
 
   after(() => close());
 
   afterEach(() => { global.fetch = realFetch; });
-
-  async function req(method, path, body) {
-    const res = await fetch(`${url}${path}`, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: body != null ? JSON.stringify(body) : undefined,
-    });
-    const data = res.status === 204 ? null : await res.json();
-    return { status: res.status, body: data };
-  }
 
   function stubFetch(handlers) {
     // handlers: array of { match: (url) => bool, respond: () => fetchResponse }
@@ -530,16 +522,9 @@ describe('authors — Open Library refresh', () => {
 describe('authors — per-author default_sort', () => {
   let url;
   let close;
-  before(async () => { const s = await createTestServer(); url = s.url; close = s.close; });
+  let req;
+  before(async () => { const s = await createTestServer(); url = s.url; close = s.close; req = s.req; });
   after(() => close());
-  async function req(method, path, body) {
-    const res = await fetch(`${url}${path}`, {
-      method, headers: { 'Content-Type': 'application/json' },
-      body: body != null ? JSON.stringify(body) : undefined,
-    });
-    const data = res.status === 204 ? null : await res.json();
-    return { status: res.status, body: data };
-  }
   async function authorByline(name) {
     await req('POST', '/api/books', { title: `book by ${name} ${Math.random()}`, authors: [name] });
     const { body } = await req('GET', `/api/authors?q=${encodeURIComponent(name)}`);
@@ -616,24 +601,16 @@ describe('authors — per-author default_sort', () => {
 describe('authors — index', () => {
   let url;
   let close;
+  let req;
 
   before(async () => {
     const server = await createTestServer();
     url = server.url;
     close = server.close;
+    req = server.req;
   });
 
   after(() => close());
-
-  async function req(method, path, body) {
-    const res = await fetch(`${url}${path}`, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: body != null ? JSON.stringify(body) : undefined,
-    });
-    const data = res.status === 204 ? null : await res.json();
-    return { status: res.status, body: data };
-  }
 
   it('GET /api/authors returns every author with book_count + curation flags', async () => {
     // Two distinct authors, one with two books, one with one — confirms
