@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
 import { api } from '../api.js';
+import { initialsFor } from '../utils.js';
 import BookRef from './bookDetail/BookRef.jsx';
 
 // v0 of the daily "Today" card — three deterministic card types
@@ -378,9 +379,44 @@ export default function TodayCard({ date, peek = false, onCardLoaded }) {
       <div className={`text-[10px] font-semibold uppercase tracking-wider mb-3 ${meta.accentClass}`}>
         {meta.label}
       </div>
-      <div className="text-base text-neutral-300 leading-relaxed">
-        <CardBody card={card} />
+      <div className="flex gap-4 items-start">
+        <CardThumb book={card.book} />
+        <div className="text-base text-neutral-300 leading-relaxed flex-1 min-w-0">
+          <CardBody card={card} />
+        </div>
       </div>
     </div>
+  );
+}
+
+// Cover thumbnail for book-cohort cards. Lives left of the body so the
+// card reads as a shelf item rather than a paragraph. Wrapped in a
+// Link to /books/{id} so clicking the cover navigates the same way
+// the in-body title link does. Falls back to initialsFor(book.title)
+// when no cover is on file.
+function CardThumb({ book }) {
+  if (!book) return null;
+  return (
+    <Link
+      to={`/books/${book.id}`}
+      aria-label={book.title}
+      className="flex-none w-16 aspect-[2/3] rounded overflow-hidden bg-neutral-800/60 flex items-center justify-center group"
+    >
+      {book.cover_path
+        ? (
+          <img
+            src={book.cover_path}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            className="w-full h-full object-cover group-hover:opacity-90 transition-opacity"
+          />
+        )
+        : (
+          <span className="text-neutral-500 text-xs font-medium">
+            {initialsFor(book.title)}
+          </span>
+        )}
+    </Link>
   );
 }
