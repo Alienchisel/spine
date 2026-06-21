@@ -80,20 +80,34 @@ export default function Today() {
           )}
         </p>
       </div>
-      <div className="max-w-2xl">
-        {onToday && <TodayQueueBanner />}
-        <TodayCarousel viewedDate={viewedDate} currentDate={currentDate}>
-          <TodayCard
-            date={onToday ? undefined : viewedDate}
-            peek={!onToday}
-            onCardLoaded={setTodayCard}
-          />
-        </TodayCarousel>
+      {/* xl:flex peels the past-lists archive into a sidebar on wide
+          screens (xl chosen over lg so the sidebar always has enough
+          width to render PastQueueList's full-card layout — at lg the
+          ~256 px column was too cramped for the ConnectionBody prose).
+          The today card column keeps its max-w-2xl tuning; the sidebar
+          xl:flex-1 takes whatever's left of the max-w-7xl page. Past-
+          card view (!onToday) renders no sidebar so the wrapper just
+          carries the single card column. */}
+      <div className="xl:flex xl:gap-8 xl:items-start">
+        <div className="max-w-2xl">
+          {onToday && <TodayQueueBanner />}
+          <TodayCarousel viewedDate={viewedDate} currentDate={currentDate}>
+            <TodayCard
+              date={onToday ? undefined : viewedDate}
+              peek={!onToday}
+              onCardLoaded={setTodayCard}
+            />
+          </TodayCarousel>
+        </div>
         {onToday && (
-          <>
+          /* First PastQueueList's mt-12 is overridden on xl+ so the
+             sidebar's first heading aligns with the top of the card
+             column (mobile still wants the gap because the sidebar
+             stacks below the carousel there). */
+          <aside className="mt-12 xl:mt-0 xl:flex-1 xl:[&>div:first-child]:mt-0 xl:min-w-0">
             <PastConnections  excludeQueueId={todayConnectionId} />
             <PastReadingPaths excludeQueueId={todayReadingPathId} />
-          </>
+          </aside>
         )}
       </div>
     </div>
