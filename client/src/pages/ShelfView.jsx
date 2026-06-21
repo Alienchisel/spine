@@ -1115,19 +1115,24 @@ export default function ShelfView() {
                 {groups.map(g => {
                   // Only the unfiled-at-this-level group is draggable —
                   // already-placed books in the per-room groups stay
-                  // plain. Same model at every level: drag pushes books
-                  // one step deeper into the hierarchy; cross-tree moves
-                  // go through MoreMenu's Location… picker. Gated on
-                  // there being somewhere to drop (rooms.length > 0) so
-                  // the affordance isn't offered when no targets exist.
-                  const canPlace = g.id == null && rooms.length > 0;
+                  // plain (to clear a placed book's room/unit/shelf
+                  // chain the user navigates into that location and
+                  // uses its own drag handle, OR uses MoreMenu's
+                  // Location picker). The "drag onto X to place"
+                  // affordance hint only renders when there's actually
+                  // a child target to drop onto; the upward gesture
+                  // (drop on an ancestor breadcrumb) is always
+                  // available so the card is draggable regardless of
+                  // how many rooms the building has.
+                  const isUnfiled = g.id == null;
+                  const hasChildTargets = rooms.length > 0;
                   return (
                     <div key={g.id ?? 'unassigned'}>
                       <div className="mb-2 flex items-baseline justify-between gap-3">
                         <p className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wider">
                           {g.name} <span className="text-neutral-700">· {plural(g.books.length, 'book')}</span>
                         </p>
-                        {canPlace && (
+                        {isUnfiled && hasChildTargets && (
                           <p className="text-[11px] text-neutral-600">Drag onto a room to place</p>
                         )}
                       </div>
@@ -1135,7 +1140,7 @@ export default function ShelfView() {
                         {(() => {
                           const ls = cohortLinkState(g.books);
                           return g.books.map(book =>
-                            canPlace
+                            isUnfiled
                               ? <DraggableBookCard key={book.id} book={book} compact={compact} linkState={ls} focused={showFocusRing && String(book.id) === focusId} />
                               : <BookCard key={book.id} book={book} compact={compact} linkState={ls} focused={showFocusRing && String(book.id) === focusId} />
                           );
@@ -1194,16 +1199,21 @@ export default function ShelfView() {
             return (
               <div className={units.length > 0 ? 'mt-8 space-y-6' : 'space-y-6'}>
                 {groups.map(g => {
-                  // Same gating as the building view — only unfiled +
-                  // there's somewhere to drop.
-                  const canPlace = g.id == null && units.length > 0;
+                  // Same gating shape as the building view: card is
+                  // draggable when it's the unfiled-at-this-level
+                  // group (upward gesture to an ancestor crumb is
+                  // always available), and the "drag onto a unit to
+                  // place" hint only renders when there's a child
+                  // target.
+                  const isUnfiled = g.id == null;
+                  const hasChildTargets = units.length > 0;
                   return (
                     <div key={g.id ?? 'unassigned'}>
                       <div className="mb-2 flex items-baseline justify-between gap-3">
                         <p className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wider">
                           {g.name} <span className="text-neutral-700">· {plural(g.books.length, 'book')}</span>
                         </p>
-                        {canPlace && (
+                        {isUnfiled && hasChildTargets && (
                           <p className="text-[11px] text-neutral-600">Drag onto a unit to place</p>
                         )}
                       </div>
@@ -1211,7 +1221,7 @@ export default function ShelfView() {
                         {(() => {
                           const ls = cohortLinkState(g.books);
                           return g.books.map(book =>
-                            canPlace
+                            isUnfiled
                               ? <DraggableBookCard key={book.id} book={book} compact={compact} linkState={ls} focused={showFocusRing && String(book.id) === focusId} />
                               : <BookCard key={book.id} book={book} compact={compact} linkState={ls} focused={showFocusRing && String(book.id) === focusId} />
                           );
@@ -1267,6 +1277,12 @@ export default function ShelfView() {
               // above.
               const unitOnly = books.filter(b => !b.shelf_id);
               if (unitOnly.length === 0) return null;
+              // Unit-level unfiled books are always draggable so the
+              // upward-to-an-ancestor-crumb gesture works even when
+              // the unit has zero shelves (no child target for the
+              // downward gesture). The "drag onto a shelf to place"
+              // affordance hint and the separator border only render
+              // when there's actually a shelf row above to drop onto.
               return (
                 <div className={shelves.length > 0 ? 'mt-6 pt-6 border-t border-neutral-800/50' : ''}>
                   {shelves.length > 0 && (
@@ -1278,11 +1294,9 @@ export default function ShelfView() {
                   <div className={gridClassName} style={gridStyle}>
                     {(() => {
                       const ls = cohortLinkState(unitOnly);
-                      return unitOnly.map(book =>
-                        shelves.length > 0
-                          ? <DraggableBookCard key={book.id} book={book} compact={compact} linkState={ls} focused={showFocusRing && String(book.id) === focusId} />
-                          : <BookCard key={book.id} book={book} compact={compact} linkState={ls} focused={showFocusRing && String(book.id) === focusId} />
-                      );
+                      return unitOnly.map(book => (
+                        <DraggableBookCard key={book.id} book={book} compact={compact} linkState={ls} focused={showFocusRing && String(book.id) === focusId} />
+                      ));
                     })()}
                   </div>
                 </div>
