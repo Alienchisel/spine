@@ -107,7 +107,7 @@ export default function Today() {
              archive rail so the card column reads as the page's
              primary surface — the sidebar is supporting context, not
              a co-equal pane. */
-          <aside className="mt-12 xl:mt-0 xl:flex-1 xl:max-w-md xl:[&>div:first-child]:mt-0 xl:min-w-0">
+          <aside className="mt-12 xl:mt-0 xl:flex-1 xl:max-w-lg xl:[&>div:first-child]:mt-0 xl:min-w-0">
             <PastConnections  excludeQueueId={todayConnectionId} />
             <PastReadingPaths excludeQueueId={todayReadingPathId} />
           </aside>
