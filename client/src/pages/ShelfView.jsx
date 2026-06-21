@@ -209,6 +209,37 @@ function DroppableShelfRowWrapper({ shelf, children }) {
   );
 }
 
+// Drop-receptive breadcrumb crumb. The ordinary text-button gains a
+// useDroppable so a book dragged from anywhere on the page can land on
+// an ancestor crumb (or the root "Shelves" crumb) to lift its location
+// back up. The dispatcher reads {kind, payloadId, ancestorDrop:true}
+// off the over and emits a single-field PATCH; the server's
+// normalizeBookLocation clears the deeper fields in one shot. The
+// current-level crumb (action=null) renders as plain text and is not
+// a drop target — landing a book on the level you're already viewing
+// is a no-op.
+function DroppableCrumbBtn({ crumb, isCurrent }) {
+  const droppableId = `crumb-${crumb.kind ?? 'noop'}-${crumb.payloadId ?? 'root'}`;
+  const { setNodeRef, isOver } = useDroppable({
+    id: droppableId,
+    data: { kind: crumb.kind, payloadId: crumb.payloadId, ancestorDrop: true },
+    disabled: isCurrent || !crumb.kind,
+  });
+  if (isCurrent) {
+    return <span className="text-white font-medium">{crumb.label}</span>;
+  }
+  return (
+    <button
+      ref={setNodeRef}
+      type="button"
+      onClick={crumb.action}
+      className={`transition-colors rounded px-1.5 py-0.5 ${isOver ? 'bg-oak/20 ring-2 ring-oak text-neutral-100' : 'hover:text-neutral-200'}`}
+    >
+      {crumb.label}
+    </button>
+  );
+}
+
 // ShelfRow renders one shelf's strip at the unit view. Drag is owned by
 // ShelfView's page-level DndContext so a single gesture can resolve as
 // in-shelf reorder OR cross-shelf move OR shelf-from-unfiled drop;
@@ -820,6 +851,58 @@ export default function ShelfView() {
     }
   }
 
+  // Ancestor-crumb drop: a book card dropped on a higher-level crumb
+  // snaps the book's location to that ancestor's level. The root
+  // "Shelves" crumb (kind='root') clears everything by sending
+  // {building_id: null} through normalizeBookLocation — all four
+  // location fields fall to null, returning the book to the
+  // No-location-assigned bucket on the root view. The MoreMenu's
+  // Location… picker remains the path for cross-tree moves; this
+  // gesture is purely up-the-current-chain.
+  async function handleAncestorCrumbDrop(event) {
+    setActiveDragBook(null);
+    const { active, over } = event;
+    if (!over) return;
+    const activeData = active.data?.current;
+    const overData = over.data?.current;
+    if (!activeData?.book) return;
+    if (!overData?.ancestorDrop) return;
+    const bookId = activeData.book.id;
+    let patch;
+    if (overData.kind === 'root') {
+      patch = { building_id: null };
+    } else if (['building', 'room', 'unit'].includes(overData.kind)) {
+      patch = { [`${overData.kind}_id`]: overData.payloadId };
+    } else {
+      return;
+    }
+    setError(null);
+    setUnshelfed(prev => prev.filter(b => b.id !== bookId));
+    setBooks(prev => prev.filter(b => b.id !== bookId));
+    try {
+      await api.patchBook(bookId, patch);
+      dispatchSpineEvent('spine:book-mutated', { id: bookId });
+    } catch {
+      setError('Failed to move book.');
+      refetchUnshelfed();
+      refetchLocationBooks();
+    }
+  }
+
+  // Single onDragEnd for the hoisted page-level DndContext. Ancestor-
+  // crumb drops are checked first because the crumb is global; the
+  // per-view handlers then dispatch by current depth. Each existing
+  // handler already bails on event shapes it doesn't recognise, so
+  // they're safe to call from this dispatcher even when an unrelated
+  // gesture lands on the wrong branch.
+  function unifiedDragEnd(event) {
+    const overData = event.over?.data?.current;
+    if (overData?.ancestorDrop) return handleAncestorCrumbDrop(event);
+    if (shelfId) return handleDragEnd(event);
+    if (unitId) return handleUnitDragEnd(event);
+    return handlePlaceDragEnd(event);
+  }
+
   const building = tree.find(b => b.id === buildingId);
   const rooms    = building?.rooms ?? [];
   const room     = rooms.find(r => r.id === roomId);
@@ -877,31 +960,44 @@ export default function ShelfView() {
     setParams(next, { state: navState });
   }
 
+  // Each crumb carries the drop-target shape its DroppableCrumbBtn
+  // needs to register with the page DndContext. The current-level
+  // crumb (action=null) gets a kind so the JSX can render it as a
+  // styled "you are here" span; useDroppable is disabled on it so
+  // dropping at the level you're viewing is a no-op rather than an
+  // expensive same-level PATCH.
   const crumbs = [
-    { label: 'Shelves', action: () => setParams({}, { state: navState }) },
-    building && { label: building.name, action: () => nav({ b: buildingId }) },
-    room     && { label: room.name,     action: () => nav({ b: buildingId, r: roomId }) },
-    unit     && { label: unit.name,     action: () => nav({ b: buildingId, r: roomId, u: unitId }) },
-    shelf    && { label: shelf.label, action: null },
+    { label: 'Shelves', kind: 'root', payloadId: null, action: () => setParams({}, { state: navState }) },
+    building && { label: building.name, kind: 'building', payloadId: buildingId, action: () => nav({ b: buildingId }) },
+    room     && { label: room.name,     kind: 'room',     payloadId: roomId,     action: () => nav({ b: buildingId, r: roomId }) },
+    unit     && { label: unit.name,     kind: 'unit',     payloadId: unitId,     action: () => nav({ b: buildingId, r: roomId, u: unitId }) },
+    shelf    && { label: shelf.label,   kind: 'shelf',    payloadId: shelfId,    action: null },
   ].filter(Boolean);
 
   if (loading) return <div role="status" className="text-neutral-700 text-sm">Loading…</div>;
 
   return (
     <div>
+      {/* Page-level DndContext hoisted from the five per-view contexts
+          this file used to render. The crumb at the top is a global
+          drop target — making it work required a single context that
+          spans both the crumb and any view branch's draggable book
+          card. unifiedDragEnd dispatches to per-view logic; per-view
+          handlers still bail on event shapes they don't recognise. */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handlePlaceDragStart}
+        onDragEnd={unifiedDragEnd}
+        onDragCancel={handlePlaceDragCancel}
+      >
       <ErrorBanner message={error} onDismiss={() => setError(null)} className="mb-4" />
       <div className="flex items-center justify-between mb-6">
         <nav className="flex items-center gap-1.5 text-sm text-neutral-500">
           {crumbs.map((c, i) => (
             <span key={i} className="flex items-center gap-1.5">
               {i > 0 && <span className="text-neutral-800">/</span>}
-              {c.action ? (
-                <button type="button" onClick={c.action} className="hover:text-neutral-200 transition-colors">
-                  {c.label}
-                </button>
-              ) : (
-                <span className="text-white font-medium">{c.label}</span>
-              )}
+              <DroppableCrumbBtn crumb={c} isCurrent={!c.action} />
             </span>
           ))}
         </nav>
@@ -933,18 +1029,7 @@ export default function ShelfView() {
             <Link to="/shelf" className="text-sm text-oak hover:text-leather">Manage shelves →</Link>
           </div>
         ) : (
-          /* DndContext wraps both the building tiles and the unfiled
-             bucket so a book card from the bucket can be dropped on any
-             building tile. The shelf-detail view's own DndContext is
-             unaffected — it sits inside the {shelfId && …} branch below
-             and is mutually exclusive with this one. */
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragStart={handlePlaceDragStart}
-            onDragEnd={handlePlaceDragEnd}
-            onDragCancel={handlePlaceDragCancel}
-          >
+          <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {tree.map(b => (
                 <DroppableTile key={b.id} kind="building" payloadId={b.id}>
@@ -982,30 +1067,13 @@ export default function ShelfView() {
                 </div>
               </div>
             )}
-            {/* Cursor-follow ghost so the drag feels grabbed-and-moved
-                rather than just fading-in-place. Rendered via portal to
-                document.body by dnd-kit; styled to match the source
-                card's opacity-100 (vs. the source's opacity-40). */}
-            <DragOverlay dropAnimation={null}>
-              {activeDragBook ? (
-                <div className="pointer-events-none">
-                  <BookCard book={activeDragBook} compact={compact} />
-                </div>
-              ) : null}
-            </DragOverlay>
-          </DndContext>
+          </>
         )
       )}
 
       {/* Rooms + building-level books */}
       {buildingId && !roomId && (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragStart={handlePlaceDragStart}
-          onDragEnd={handlePlaceDragEnd}
-          onDragCancel={handlePlaceDragCancel}
-        >
+        <>
           {rooms.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {rooms.map(r => (
@@ -1082,25 +1150,12 @@ export default function ShelfView() {
           {!booksLoading && rooms.length === 0 && books.length === 0 && (
             <p className="text-neutral-600 text-sm">No books in this building yet.</p>
           )}
-          <DragOverlay dropAnimation={null}>
-            {activeDragBook ? (
-              <div className="pointer-events-none">
-                <BookCard book={activeDragBook} compact={compact} />
-              </div>
-            ) : null}
-          </DragOverlay>
-        </DndContext>
+        </>
       )}
 
       {/* Units + room-level books */}
       {roomId && !unitId && (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragStart={handlePlaceDragStart}
-          onDragEnd={handlePlaceDragEnd}
-          onDragCancel={handlePlaceDragCancel}
-        >
+        <>
           {units.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {units.map(u => (
@@ -1171,25 +1226,12 @@ export default function ShelfView() {
           {!booksLoading && units.length === 0 && books.length === 0 && (
             <p className="text-neutral-600 text-sm">No books in this room yet.</p>
           )}
-          <DragOverlay dropAnimation={null}>
-            {activeDragBook ? (
-              <div className="pointer-events-none">
-                <BookCard book={activeDragBook} compact={compact} />
-              </div>
-            ) : null}
-          </DragOverlay>
-        </DndContext>
+        </>
       )}
 
       {/* Shelves rendered as stacked horizontal rows + unit-level (shelfless) books */}
       {unitId && !shelfId && (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragStart={handlePlaceDragStart}
-          onDragEnd={handleUnitDragEnd}
-          onDragCancel={handlePlaceDragCancel}
-        >
+        <>
           {booksLoading ? (
             <div role="status" className="text-neutral-700 text-sm">Loading…</div>
           ) : (<>
@@ -1250,21 +1292,7 @@ export default function ShelfView() {
               <p className="text-neutral-600 text-sm">No books in this unit yet.</p>
             )}
           </>)}
-          {/* Only render the DragOverlay ghost for unfiled draggables
-              (kind === 'book'); shelved-book drags use useSortable's
-              built-in transform animation on the source itself and a
-              parallel DragOverlay would render a second cursor-following
-              copy at compact size, mismatched against the 240×360 row
-              cover. activeDragBook is only set in handlePlaceDragStart
-              when data.kind === 'book', so this branch is already gated. */}
-          <DragOverlay dropAnimation={null}>
-            {activeDragBook ? (
-              <div className="pointer-events-none">
-                <BookCard book={activeDragBook} compact={compact} />
-              </div>
-            ) : null}
-          </DragOverlay>
-        </DndContext>
+        </>
       )}
 
       {/* Shelf-level books */}
@@ -1274,7 +1302,7 @@ export default function ShelfView() {
         ) : books.length === 0 ? (
           <p className="text-neutral-600 text-sm">No books on this shelf yet.</p>
         ) : (
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <>
             <SortableContext items={books.map(b => b.id)} strategy={horizontalListSortingStrategy}>
               <div className="relative -mx-4 sm:-mx-6 lg:-mx-8">
                 {/* z-10 puts books in front of the absolute plank below, so the
@@ -1305,9 +1333,21 @@ export default function ShelfView() {
                 )} */}
               </div>
             </SortableContext>
-          </DndContext>
+          </>
         )
       )}
+      {/* One cursor-follow ghost for the whole page; only painted while
+          activeDragBook is set (handlePlaceDragStart only stores book-kind
+          drags), so SortableShelfCover's built-in transform animation in
+          shelf/unit views isn't doubled by a parallel overlay copy. */}
+      <DragOverlay dropAnimation={null}>
+        {activeDragBook ? (
+          <div className="pointer-events-none">
+            <BookCard book={activeDragBook} compact={compact} />
+          </div>
+        ) : null}
+      </DragOverlay>
+      </DndContext>
     </div>
   );
 }
