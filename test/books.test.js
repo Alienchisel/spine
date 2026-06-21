@@ -264,6 +264,21 @@ describe('books', () => {
       assert.equal(body.tags[0].name, 'Wrapped Tag');
     });
 
+    it('folds hyphen-shaped Unicode (U+2010/2011/2013/2212) and strips soft hyphens (U+00AD) in identifier fields', async () => {
+      // Without this fold a paste of Amazon metadata that uses the
+      // non-breaking hyphen (U+2011, visually identical to U+002D) makes
+      // a title like "K-punk" unreachable from a Ctrl-K query — exactly
+      // the 2026-06-21 incident. Em-dash (U+2014) stays as-is — visually
+      // distinct, used at sentence level, not the same trap.
+      const { status, body } = await req('POST', '/api/books', {
+        title:     'K‑punk – 1970–­‒1980 — a survey',
+        publisher: 'Penguin‑Random',
+      });
+      assert.equal(status, 201);
+      assert.equal(body.title, 'K-punk - 1970--1980 — a survey');
+      assert.equal(body.publisher, 'Penguin-Random');
+    });
+
     it('leaves mid-string quotes and prose-body quotes alone', async () => {
       // Mid-string: s[0] !== s[s.length-1] so stripWrap is a no-op.
       // Prose fields (description/notes/review) skip stripWrap so a
