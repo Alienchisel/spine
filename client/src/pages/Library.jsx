@@ -63,6 +63,7 @@ const SORTS = [
   { key: 'progress',    label: 'Progress' },
   { key: 'started',     label: 'Date started' },
   { key: 'finished',    label: 'Date finished' },
+  { key: 'acquired',    label: 'Date acquired' },
   { key: 'length',      label: 'Length' },
   // Duration is only meaningful when audiobooks can appear in the
   // listing — gated below in the dropdown render against filters.formats.

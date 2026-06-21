@@ -4193,18 +4193,22 @@ describe('books', () => {
         `expected newer book first; got positions first=${iFirst}, second=${iSecond}`);
     });
 
-    it('sort=started/finished orders DESC with undated books last', async () => {
-      // Both branches use COALESCE(date_*,''), so the empty string sinks to the
-      // bottom under DESC. Same shape across the two columns.
+    it('sort=started/finished/acquired orders DESC with undated books last', async () => {
+      // All three branches use COALESCE(<date>,''), so the empty string sinks to
+      // the bottom under DESC. Same shape across the three columns. Note the
+      // owned:1 below: acquisition_date is null-ed by the bookColumns()
+      // ownership gate unless owned or previously_owned is set; harmless on
+      // the started/finished cases so we just pass it uniformly.
       const cases = [
-        { sort: 'started',  col: 'date_started'  },
-        { sort: 'finished', col: 'date_finished' },
+        { sort: 'started',  col: 'date_started'      },
+        { sort: 'finished', col: 'date_finished'     },
+        { sort: 'acquired', col: 'acquisition_date'  },
       ];
       for (const c of cases) {
         const stem = `${c.sort}sort` + Math.random().toString(36).slice(2, 6);
-        const { body: recent }  = await req('POST', '/api/books', { title: `${stem}-recent`, [c.col]: '2026-04-01' });
-        const { body: older }   = await req('POST', '/api/books', { title: `${stem}-older`,  [c.col]: '2024-01-01' });
-        const { body: undated } = await req('POST', '/api/books', { title: `${stem}-undated` });
+        const { body: recent }  = await req('POST', '/api/books', { title: `${stem}-recent`, owned: 1, [c.col]: '2026-04-01' });
+        const { body: older }   = await req('POST', '/api/books', { title: `${stem}-older`,  owned: 1, [c.col]: '2024-01-01' });
+        const { body: undated } = await req('POST', '/api/books', { title: `${stem}-undated`, owned: 1 });
 
         const { body: results } = await req('GET', `/api/books?sort=${c.sort}&limit=500`);
         const ids = results.books.map(b => b.id);
