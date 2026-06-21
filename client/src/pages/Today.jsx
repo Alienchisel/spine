@@ -16,10 +16,10 @@ import { fmtShortDate } from '../utils.js';
 // (TodayCarousel) — past day on the left, today centre, face-down
 // "tomorrow" on the right. Past lookback caps at 14 days; deeper
 // history lives in the Past Connections / Past Reading Paths
-// archives below. The route still reads an optional ?date=YYYY-MM-DD
-// search param; default (no param) renders today's card alongside
-// the archives. A past-date view shows just that day's persisted
-// card; archives stay on today only.
+// archives in the sidebar. The route still reads an optional
+// ?date=YYYY-MM-DD search param; default (no param) renders today's
+// card. A past-date view shows that day's persisted card centred,
+// with the archive sidebar still mounted.
 //
 // localStorage 'today-visited' breadcrumb is only written when viewing
 // the CURRENT date so navigating to past days doesn't suppress the
@@ -57,10 +57,12 @@ export default function Today() {
 
   // Both queue-driven archives need to know whether today's surface
   // is one of theirs, so they can hide that row from the past list.
-  // Only meaningful on the current-day view since archives don't show
-  // on past-date views at all.
-  const todayConnectionId  = todayCard?.type === 'connection'   ? todayCard.queue_id : null;
-  const todayReadingPathId = todayCard?.type === 'reading_path' ? todayCard.queue_id : null;
+  // The exclude only applies on the current-day view — on a past-date
+  // view, the centred card IS the archive entry the user wants to see
+  // flanked by the rest of the history, so hiding it would defeat the
+  // point.
+  const todayConnectionId  = onToday && todayCard?.type === 'connection'   ? todayCard.queue_id : null;
+  const todayReadingPathId = onToday && todayCard?.type === 'reading_path' ? todayCard.queue_id : null;
 
   return (
     <div>
@@ -85,9 +87,11 @@ export default function Today() {
           width to render PastQueueList's full-card layout — at lg the
           ~256 px column was too cramped for the ConnectionBody prose).
           The today card column keeps its max-w-2xl tuning; the sidebar
-          xl:flex-1 takes whatever's left of the max-w-7xl page. Past-
-          card view (!onToday) renders no sidebar so the wrapper just
-          carries the single card column. */}
+          xl:flex-1 takes whatever's left of the max-w-7xl page. The
+          sidebar stays mounted on past-date views too — it's "archive
+          from today's perspective", independent of which day's card is
+          centred, so it behaves like persistent chrome rather than
+          flashing in and out as the user scrubs through days. */}
       <div className="xl:flex xl:gap-8 xl:items-start">
         <div className="max-w-2xl">
           {onToday && <TodayQueueBanner />}
@@ -99,19 +103,17 @@ export default function Today() {
             />
           </TodayCarousel>
         </div>
-        {onToday && (
-          /* First PastQueueList's mt-12 is overridden on xl+ so the
-             sidebar's first heading aligns with the top of the card
-             column (mobile still wants the gap because the sidebar
-             stacks below the carousel there). xl:max-w-md caps the
-             archive rail so the card column reads as the page's
-             primary surface — the sidebar is supporting context, not
-             a co-equal pane. */
-          <aside className="mt-12 xl:mt-0 xl:flex-1 xl:max-w-lg xl:[&>div:first-child]:mt-0 xl:min-w-0">
-            <PastConnections  excludeQueueId={todayConnectionId} />
-            <PastReadingPaths excludeQueueId={todayReadingPathId} />
-          </aside>
-        )}
+        {/* First PastQueueList's mt-12 is overridden on xl+ so the
+           sidebar's first heading aligns with the top of the card
+           column (mobile still wants the gap because the sidebar
+           stacks below the carousel there). xl:max-w-lg caps the
+           archive rail so the card column reads as the page's
+           primary surface — the sidebar is supporting context, not
+           a co-equal pane. */}
+        <aside className="mt-12 xl:mt-0 xl:flex-1 xl:max-w-lg xl:[&>div:first-child]:mt-0 xl:min-w-0">
+          <PastConnections  excludeQueueId={todayConnectionId} />
+          <PastReadingPaths excludeQueueId={todayReadingPathId} />
+        </aside>
       </div>
     </div>
   );
