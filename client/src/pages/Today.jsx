@@ -103,8 +103,11 @@ export default function Today() {
           /* First PastQueueList's mt-12 is overridden on xl+ so the
              sidebar's first heading aligns with the top of the card
              column (mobile still wants the gap because the sidebar
-             stacks below the carousel there). */
-          <aside className="mt-12 xl:mt-0 xl:flex-1 xl:[&>div:first-child]:mt-0 xl:min-w-0">
+             stacks below the carousel there). xl:max-w-md caps the
+             archive rail so the card column reads as the page's
+             primary surface — the sidebar is supporting context, not
+             a co-equal pane. */
+          <aside className="mt-12 xl:mt-0 xl:flex-1 xl:max-w-md xl:[&>div:first-child]:mt-0 xl:min-w-0">
             <PastConnections  excludeQueueId={todayConnectionId} />
             <PastReadingPaths excludeQueueId={todayReadingPathId} />
           </aside>
