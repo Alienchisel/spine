@@ -203,14 +203,20 @@ function CardBody({ card }) {
     );
   }
   if (type === 'author_anniversary') {
-    const { author_name, event, event_year, years_ago, book_count } = card.meta || {};
+    const { author_name, author_gender, event, event_year, years_ago, book_count } = card.meta || {};
     if (!author_name || !event || !years_ago) return null;
     // event_year can be negative for BCE authors; flag it as "BCE"
     // in the display so the year reads correctly.
     const yearLabel = event_year < 0 ? `${-event_year} BCE` : String(event_year);
     const verb = event === 'death' ? 'died' : 'was born';
+    // Pronoun for "books by ___": gender-driven where the author has
+    // one recorded, singular-they fallback when gender is null or
+    // 'other'. Authors table vocab is male / female / other / NULL.
+    const pronoun = author_gender === 'male' ? 'him'
+                  : author_gender === 'female' ? 'her'
+                  : 'them';
     const countStr = book_count > 0
-      ? ` You have ${book_count} book${book_count === 1 ? '' : 's'} by them.`
+      ? ` You have ${book_count} book${book_count === 1 ? '' : 's'} by ${pronoun}.`
       : '';
     return (
       <p>

@@ -494,6 +494,7 @@ describe('today', () => {
       assert.ok(authorId, 'expected fixture book to carry an author id');
       const { status: patchStatus } = await req('PATCH', `/api/authors/${authorId}`, {
         death_date: '1927-08-15',
+        gender:     'female',
       });
       assert.equal(patchStatus, 200, 'expected death_date PATCH to succeed');
       let hit = null;
@@ -506,9 +507,14 @@ describe('today', () => {
         }
       }
       assert.ok(hit, 'expected the author_anniversary fixture to surface across the sweep');
-      assert.equal(hit.meta.event,      'death');
-      assert.equal(hit.meta.event_year, 1927);
-      assert.equal(hit.meta.years_ago,  100);
+      assert.equal(hit.meta.event,         'death');
+      assert.equal(hit.meta.event_year,    1927);
+      assert.equal(hit.meta.years_ago,     100);
+      // author_gender drives the "by him/her/them" pronoun in the
+      // rendered card copy; the meta must carry the author's recorded
+      // gender through so the client doesn't fall back to singular-they
+      // for an author with a known one.
+      assert.equal(hit.meta.author_gender, 'female');
     });
 
     it('author_anniversary handles BCE author dates via the leading minus sign', async () => {
