@@ -716,8 +716,11 @@ export default function ShelfView() {
     if (diff) setParams(next, { replace: true, state: navState });
   }, [treeLoaded, tree, buildingId, roomId, unitId, shelfId, params, setParams]);
 
+  // distance:8 (was 5) — 5 was low enough that a casual click with a
+  // light hand-tremor crossed the threshold and silently armed a drag.
+  // 8 still feels responsive when a drag is intended.
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
@@ -1433,6 +1436,17 @@ export default function ShelfView() {
           </div>
         ) : null}
       </DragOverlay>
+      {/* Cancel-hint banner — visible only while a place-drag is active.
+          Tells the user they can drop anywhere outside a target (or hit
+          Escape) to abandon the grab. Fixed at the top so it stays in
+          view regardless of where the drag started or how far they've
+          scrolled. pointer-events-none so it can never become its own
+          drop target. */}
+      {activeDragBook && (
+        <div className="pointer-events-none fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-black/80 backdrop-blur-sm text-neutral-200 text-xs px-3 py-2 rounded shadow-lg ring-1 ring-neutral-700">
+          Drop on a target to place, or press <kbd className="px-1 py-0.5 rounded bg-neutral-800 border border-neutral-700 text-[10px]">Esc</kbd> / release on empty space to cancel
+        </div>
+      )}
       </DndContext>
     </div>
   );
