@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useId, useRef } from 'react';
 import ChipInput from './ChipInput.jsx';
 import ConditionGuide from './ConditionGuide.jsx';
 import PartialDateInput from '../PartialDateInput.jsx';
@@ -20,6 +20,13 @@ export default function CoreFields({
   // duration h/m) get aria-label instead.
   const idPfx = useId();
   const idFor = (k) => `${idPfx}-${k}`;
+  // Sticky visibility for the Times read input: once the field has been
+  // shown in this session it stays shown, even if read_count is edited
+  // down to 0. Without this, typing 0 mid-edit makes the input vanish
+  // before save and the user can't bump it back up.
+  const showTimesReadRef = useRef(form.status === 'finished' || form.read_count > 0);
+  if (form.status === 'finished' || form.read_count > 0) showTimesReadRef.current = true;
+  const showTimesRead = showTimesReadRef.current;
   return (
     <div className="space-y-6">
       <div>
@@ -166,7 +173,7 @@ export default function CoreFields({
         </select>
       </div>
 
-      {(form.status === 'reading' || form.status === 'finished' || form.read_count > 0) && (
+      {(form.status === 'reading' || form.status === 'finished' || showTimesRead) && (
         <div className="grid grid-cols-2 gap-4">
           {(form.status === 'reading' || form.status === 'finished') && (
             <div>
@@ -188,7 +195,7 @@ export default function CoreFields({
               />
             </div>
           )}
-          {(form.status === 'finished' || form.read_count > 0) && (
+          {showTimesRead && (
             <div>
               <label htmlFor={idFor('read_count')} className={label}>Times read</label>
               <input id={idFor('read_count')} type="number" min="0" className={input} value={form.read_count}
