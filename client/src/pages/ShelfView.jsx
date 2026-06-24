@@ -199,10 +199,14 @@ function DroppableShelfRowWrapper({ shelf, children }) {
     id: `shelf-${shelf.id}`,
     data: { kind: 'shelf', payloadId: shelf.id },
   });
+  // content-visibility skips layout + paint for off-screen rows;
+  // contain-intrinsic-size reserves the placeholder height so scroll
+  // position stays stable. DOM nodes stay mounted, so dnd-kit's
+  // SortableContext + cross-row drop targets keep working.
   return (
     <div
       ref={setNodeRef}
-      className={`mb-8 last:mb-0 rounded transition-shadow ${isOver ? 'ring-2 ring-oak shadow-lg shadow-oak/20' : ''}`}
+      className={`mb-8 last:mb-0 rounded transition-shadow [content-visibility:auto] [contain-intrinsic-size:auto_300px] ${isOver ? 'ring-2 ring-oak shadow-lg shadow-oak/20' : ''}`}
     >
       {children}
     </div>
@@ -1127,7 +1131,7 @@ export default function ShelfView() {
                   const isUnfiled = g.id == null;
                   const hasChildTargets = rooms.length > 0;
                   return (
-                    <div key={g.id ?? 'unassigned'}>
+                    <div key={g.id ?? 'unassigned'} className="[content-visibility:auto] [contain-intrinsic-size:auto_800px]">
                       <div className="mb-2 flex items-baseline justify-between gap-3">
                         <p className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wider">
                           {g.name} <span className="text-neutral-700">· {plural(g.books.length, 'book')}</span>
@@ -1208,7 +1212,7 @@ export default function ShelfView() {
                   const isUnfiled = g.id == null;
                   const hasChildTargets = units.length > 0;
                   return (
-                    <div key={g.id ?? 'unassigned'}>
+                    <div key={g.id ?? 'unassigned'} className="[content-visibility:auto] [contain-intrinsic-size:auto_800px]">
                       <div className="mb-2 flex items-baseline justify-between gap-3">
                         <p className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wider">
                           {g.name} <span className="text-neutral-700">· {plural(g.books.length, 'book')}</span>
