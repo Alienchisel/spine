@@ -716,11 +716,11 @@ export default function ShelfView() {
     if (diff) setParams(next, { replace: true, state: navState });
   }, [treeLoaded, tree, buildingId, roomId, unitId, shelfId, params, setParams]);
 
-  // distance:8 (was 5) — 5 was low enough that a casual click with a
-  // light hand-tremor crossed the threshold and silently armed a drag.
-  // 8 still feels responsive when a drag is intended.
+  // Hold-to-drag: a pure distance threshold can't stop a slightly-twitchy
+  // click from arming a drag. A 200ms hold with <5px movement is short
+  // enough to feel snappy when intended, but no casual click reaches it.
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(PointerSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
