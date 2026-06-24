@@ -195,12 +195,13 @@ const BookCoverThumb = memo(function BookCoverThumb({ book, compact, linkState, 
       data-book-id={book.id}
       className={`transition-[background-color] ease-out duration-150 ${compact ? '' : 'bg-card rounded-lg p-1.5'} ${dimming} ${focused ? 'ring-2 ring-oak rounded animate-pulse' : ''}`}
     >
-      <Link to={`/books/${book.id}`} state={linkState} className="group block" title={coverTitle}>
+      <Link to={`/books/${book.id}`} state={linkState} draggable={false} className="group block" title={coverTitle}>
         <div className={`relative bg-neutral-800 overflow-hidden ${compact ? 'aspect-[2/3] rounded-sm' : 'aspect-[2/3] rounded shadow-lg'}`}>
           {book.cover_path ? (
             <img
               src={book.cover_path}
               alt={book.title}
+              draggable={false}
               loading="lazy"
               decoding="async"
               className="w-full h-full object-cover"
@@ -716,11 +717,13 @@ export default function ShelfView() {
     if (diff) setParams(next, { replace: true, state: navState });
   }, [treeLoaded, tree, buildingId, roomId, unitId, shelfId, params, setParams]);
 
-  // Hold-to-drag: a pure distance threshold can't stop a slightly-twitchy
-  // click from arming a drag. A 200ms hold with <5px movement is short
-  // enough to feel snappy when intended, but no casual click reaches it.
+  // distance:8 gives a small buffer over a casual click. Earlier reports
+  // of "accidental drags even at delay:200" turned out to be the browser's
+  // native <img> drag firing (it bypasses dnd-kit's sensors entirely);
+  // covers now set draggable={false} so the dnd-kit constraint is what
+  // governs activation.
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 

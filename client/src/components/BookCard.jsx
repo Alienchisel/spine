@@ -248,7 +248,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
   const CoverWrapper      = hideActions ? 'div' : Link;
   const coverWrapperProps = hideActions
     ? { className: 'group block' }
-    : { to: `/books/${book.id}`, state: linkState, className: 'group block' };
+    : { to: `/books/${book.id}`, state: linkState, draggable: false, className: 'group block' };
   const coverTitle = [
     book.title,
     book.authors?.map(a => a.name).join(', '),
@@ -273,6 +273,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
             <img
               src={book.cover_path}
               alt={book.title}
+              draggable={false}
               loading="lazy"
               decoding="async"
               className="w-full h-full object-cover"
