@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, memo } from 'react';
 import { useSearchParams, useLocation, Link } from 'react-router-dom';
 import {
   DndContext,
@@ -169,6 +169,74 @@ function DraggableBookCard({ book, compact, linkState, focused }) {
       className={`select-none ${isDragging ? 'opacity-40' : ''}`}
     >
       <BookCard book={book} compact={compact} linkState={linkState} focused={focused} />
+    </div>
+  );
+}
+
+// Lightweight cover-only thumb used at the building- and room-level
+// views, where a flat per-room/per-unit grid can stack 1000+ books.
+// BookCard mounts useState/useRef/useEffect/useActionGuard/MoreMenu per
+// instance — at 1k+ cards that's the bottleneck for initial paint.
+// BookCoverThumb has no hooks, no MoreMenu, no inline editor; just a
+// link to the detail page with the cover, status bar, and the same
+// hover/dim/focus treatment. The lossy interactions (love/readlist
+// toggles, MoreMenu) live one click away on BookDetail and on the
+// unit-view shelf strips (which use the heavier components).
+const BookCoverThumb = memo(function BookCoverThumb({ book, compact, linkState, focused }) {
+  const STATUS_BAR = book.status === 'reading' ? 'bg-oak' : book.status === 'finished' ? 'bg-leather' : 'bg-neutral-600';
+  const dimming = book.archived ? 'opacity-60 saturate-50' : '';
+  const coverTitle = [
+    book.title,
+    book.authors?.map(a => a.name).join(', '),
+    book.is_stub && !book.owned ? '(wishlist placeholder)' : null,
+  ].filter(Boolean).join(' — ');
+  return (
+    <div
+      data-book-id={book.id}
+      className={`transition-[background-color] ease-out duration-150 ${compact ? '' : 'bg-card rounded-lg p-1.5'} ${dimming} ${focused ? 'ring-2 ring-oak rounded animate-pulse' : ''}`}
+    >
+      <Link to={`/books/${book.id}`} state={linkState} className="group block" title={coverTitle}>
+        <div className={`relative bg-neutral-800 overflow-hidden ${compact ? 'aspect-[2/3] rounded-sm' : 'aspect-[2/3] rounded shadow-lg'}`}>
+          {book.cover_path ? (
+            <img
+              src={book.cover_path}
+              alt={book.title}
+              loading="lazy"
+              decoding="async"
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full flex flex-col items-center justify-center p-3 bg-gradient-to-br from-neutral-700 to-neutral-900 gap-2">
+              <span className="text-5xl font-bold text-neutral-500 select-none leading-none tracking-wide">
+                {initialsFor(book.title)}
+              </span>
+              <span className="text-xs text-neutral-500 font-medium leading-tight line-clamp-3 text-center">{book.title}</span>
+            </div>
+          )}
+          <div className="pointer-events-none absolute inset-0 rounded ring-2 ring-inset ring-binding/25 group-hover:ring-[#ffffff99] transition-[box-shadow] duration-200" />
+          <div className={`absolute bottom-0 left-0 right-0 h-0.5 ${STATUS_BAR}`} />
+        </div>
+      </Link>
+    </div>
+  );
+});
+
+// Draggable variant of the thumb for the unfiled-at-this-level bucket
+// at building/room views (needs the same upward-drag-to-ancestor
+// gesture as DraggableBookCard, but without the BookCard weight).
+function DraggableBookCoverThumb({ book, compact, linkState, focused }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `book-${book.id}`,
+    data: { kind: 'book', book },
+  });
+  return (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      className={`select-none ${isDragging ? 'opacity-40' : ''}`}
+    >
+      <BookCoverThumb book={book} compact={compact} linkState={linkState} focused={focused} />
     </div>
   );
 }
@@ -1145,8 +1213,8 @@ export default function ShelfView() {
                           const ls = cohortLinkState(g.books);
                           return g.books.map(book =>
                             isUnfiled
-                              ? <DraggableBookCard key={book.id} book={book} compact={compact} linkState={ls} focused={showFocusRing && String(book.id) === focusId} />
-                              : <BookCard key={book.id} book={book} compact={compact} linkState={ls} focused={showFocusRing && String(book.id) === focusId} />
+                              ? <DraggableBookCoverThumb key={book.id} book={book} compact={compact} linkState={ls} focused={showFocusRing && String(book.id) === focusId} />
+                              : <BookCoverThumb key={book.id} book={book} compact={compact} linkState={ls} focused={showFocusRing && String(book.id) === focusId} />
                           );
                         })()}
                       </div>
@@ -1226,8 +1294,8 @@ export default function ShelfView() {
                           const ls = cohortLinkState(g.books);
                           return g.books.map(book =>
                             isUnfiled
-                              ? <DraggableBookCard key={book.id} book={book} compact={compact} linkState={ls} focused={showFocusRing && String(book.id) === focusId} />
-                              : <BookCard key={book.id} book={book} compact={compact} linkState={ls} focused={showFocusRing && String(book.id) === focusId} />
+                              ? <DraggableBookCoverThumb key={book.id} book={book} compact={compact} linkState={ls} focused={showFocusRing && String(book.id) === focusId} />
+                              : <BookCoverThumb key={book.id} book={book} compact={compact} linkState={ls} focused={showFocusRing && String(book.id) === focusId} />
                           );
                         })()}
                       </div>
