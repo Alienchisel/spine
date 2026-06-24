@@ -3,7 +3,7 @@ import { useSearchParams, useLocation, Link } from 'react-router-dom';
 import {
   DndContext,
   DragOverlay,
-  closestCenter,
+  pointerWithin,
   PointerSensor,
   KeyboardSensor,
   useDraggable,
@@ -1064,7 +1064,7 @@ export default function ShelfView() {
           handlers still bail on event shapes they don't recognise. */}
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCenter}
+        collisionDetection={pointerWithin}
         onDragStart={handlePlaceDragStart}
         onDragEnd={unifiedDragEnd}
         onDragCancel={handlePlaceDragCancel}
