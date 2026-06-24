@@ -166,16 +166,18 @@ export default function CoreFields({
         </select>
       </div>
 
-      {(form.status === 'reading' || form.status === 'finished') && (
+      {(form.status === 'reading' || form.status === 'finished' || form.read_count > 0) && (
         <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className={label}>Date started</label>
-            <PartialDateInput
-              value={form.date_started}
-              onChange={(v) => set('date_started', v)}
-              ariaLabelPrefix="Date started"
-            />
-          </div>
+          {(form.status === 'reading' || form.status === 'finished') && (
+            <div>
+              <label className={label}>Date started</label>
+              <PartialDateInput
+                value={form.date_started}
+                onChange={(v) => set('date_started', v)}
+                ariaLabelPrefix="Date started"
+              />
+            </div>
+          )}
           {form.status === 'finished' && (
             <div>
               <label className={label}>Date finished</label>
