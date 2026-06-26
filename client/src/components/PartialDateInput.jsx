@@ -1,6 +1,9 @@
 // Year / Month / Day picker for fields that accept partial dates (YYYY,
 // YYYY-MM, YYYY-MM-DD). Used wherever the backend's isValidPartialDate
-// applies — acquisition_date and reads.date_started/date_finished.
+// applies — i.e., every user-facing date field: books.date_started /
+// date_finished / acquisition_date, the reads rows, stories.date_finished.
+// (Internal full-date fields like reading_log.date — system-generated via
+// date('now') — are not for user input.)
 //
 // Returns the current value via onChange as the same partial-date string
 // the backend stores: '2024', '2024-06', or '2024-06-15'. Clearing the year

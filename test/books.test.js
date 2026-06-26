@@ -1229,24 +1229,23 @@ describe('books', () => {
       }
     });
 
-    it('PATCH rejects partial dates on books.date_started / books.date_finished', async () => {
-      // The book row's date_started / date_finished are full-date only —
-      // partial dates ('2019' / '2019-07') belong on reads rows and on
-      // acquisition_date. A partial slipping onto the book column trips
-      // every subsequent PUT-style action that re-spreads the book.
+    it('PATCH accepts partial dates on books.date_started / books.date_finished / acquisition_date', async () => {
+      // Uniform rule across all user-facing date fields: partials are accepted
+      // anywhere a date can be remembered vaguely (matches reads / stories /
+      // acquisition_date). Downstream stats that use strftime/julianday
+      // silently exclude partial-date rows — see lib/stats/activity.js.
       const { body: created } = await req('POST', '/api/books', {
-        title: 'Zzz Partial Date Reject', authors: ['Z partial_date'],
+        title: 'Zzz Partial Date Accept', authors: ['Z partial_date'],
       });
-      for (const col of ['date_started', 'date_finished']) {
-        for (const bad of ['2019', '2019-07']) {
-          const { status } = await req('PATCH', `/api/books/${created.id}`, { [col]: bad });
-          assert.equal(status, 400, `${col}=${bad} should reject`);
+      for (const col of ['date_started', 'date_finished', 'acquisition_date']) {
+        for (const ok of ['2019', '2019-07', '2019-07-15']) {
+          const { status, body: patched } = await req('PATCH', `/api/books/${created.id}`, { [col]: ok });
+          assert.equal(status, 200, `${col}=${ok} should accept (got ${status})`);
+          assert.equal(patched[col], ok, `${col}=${ok} should round-trip`);
         }
-      }
-      // acquisition_date still accepts the same partials.
-      for (const ok of ['2019', '2019-07', '2019-07-15']) {
-        const { status } = await req('PATCH', `/api/books/${created.id}`, { acquisition_date: ok });
-        assert.equal(status, 200, `acquisition_date=${ok} should accept`);
+        // Malformed still rejects.
+        const { status: badStatus } = await req('PATCH', `/api/books/${created.id}`, { [col]: '2019-13' });
+        assert.equal(badStatus, 400, `${col}=2019-13 should reject`);
       }
     });
 
