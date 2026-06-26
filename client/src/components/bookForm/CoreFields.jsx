@@ -1,7 +1,6 @@
 import { useId, useRef } from 'react';
 import ChipInput from './ChipInput.jsx';
 import ConditionGuide from './ConditionGuide.jsx';
-import PartialDateInput from '../PartialDateInput.jsx';
 import { input, inputNoWidth, label } from './styles.js';
 
 export default function CoreFields({
@@ -177,21 +176,25 @@ export default function CoreFields({
         <div className="grid grid-cols-2 gap-4">
           {(form.status === 'reading' || form.status === 'finished') && (
             <div>
-              <label className={label}>Date started</label>
-              <PartialDateInput
-                value={form.date_started}
-                onChange={(v) => set('date_started', v)}
-                ariaLabelPrefix="Date started"
+              <label htmlFor={idFor('date_started')} className={label}>Date started</label>
+              <input
+                id={idFor('date_started')}
+                type="date"
+                className={input}
+                value={form.date_started || ''}
+                onChange={(e) => set('date_started', e.target.value)}
               />
             </div>
           )}
           {form.status === 'finished' && (
             <div>
-              <label className={label}>Date finished</label>
-              <PartialDateInput
-                value={form.date_finished}
-                onChange={(v) => set('date_finished', v)}
-                ariaLabelPrefix="Date finished"
+              <label htmlFor={idFor('date_finished')} className={label}>Date finished</label>
+              <input
+                id={idFor('date_finished')}
+                type="date"
+                className={input}
+                value={form.date_finished || ''}
+                onChange={(e) => set('date_finished', e.target.value)}
               />
             </div>
           )}
