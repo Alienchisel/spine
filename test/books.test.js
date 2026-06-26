@@ -5495,35 +5495,33 @@ describe('books', () => {
       assert.equal(bGet.editions[0].id, c.id);
     });
 
-    it('archived siblings hide from a non-archived book\'s editions list, but the archived book itself still sees them', async () => {
-      // Mirrors the Library default-view rule: archived rows surface only on
-      // tab=archived / when the user has explicitly opted into archive
-      // territory. The opt-in case here is "you're already on an archived
-      // book's detail page" — at that point siblings (archived or not) are
-      // all visible.
+    it('archived siblings stay visible in the editions list — work-level metadata, not inventory', async () => {
+      // The editions panel is work-level metadata ("what other editions of
+      // this work exist") rather than a library-inventory surface, so it
+      // ignores the archived flag. A finished previously-owned edition that
+      // was archived to declutter still credits the active edition with
+      // "you've read this work in another form." Reverted from the old
+      // Library-default-view behaviour on 2026-06-26 after the Jünger Paris
+      // journals ingest highlighted the disconnect.
       const a = await mkBook('Edition Archive Visible');
       const b = await mkBook('Edition Archive Hidden');
       await req('POST', `/api/books/${a.id}/work-link`, { other_id: b.id });
 
-      // Both visible before any archive.
+      // Baseline: both sides see each other before any archive.
       const { body: aBefore } = await req('GET', `/api/books/${a.id}`);
       assert.equal(aBefore.editions.length, 1);
 
-      // Archive B. From A's (non-archived) detail page, B should disappear.
+      // Archive B. From A's (non-archived) detail page, B should STILL appear.
       await req('PATCH', `/api/books/${b.id}`, { archived: true });
       const { body: aAfter } = await req('GET', `/api/books/${a.id}`);
-      assert.equal(aAfter.editions.length, 0,
-        'expected archived sibling to be hidden from non-archived book\'s editions list');
+      assert.equal(aAfter.editions.length, 1,
+        'archived sibling should still surface in the editions list');
+      assert.equal(aAfter.editions[0].id, b.id);
 
-      // From B's own (archived) detail page, A is still visible — opt-in.
+      // From B's own (archived) detail page, A is also still visible.
       const { body: bAfter } = await req('GET', `/api/books/${b.id}`);
       assert.equal(bAfter.editions.length, 1);
       assert.equal(bAfter.editions[0].id, a.id);
-
-      // Un-archive B and the symmetry returns.
-      await req('PATCH', `/api/books/${b.id}`, { archived: false });
-      const { body: aRestored } = await req('GET', `/api/books/${a.id}`);
-      assert.equal(aRestored.editions.length, 1);
     });
 
     it('rejects linking a book to itself', async () => {
