@@ -461,13 +461,25 @@ router.patch('/:id', (req, res) => {
       req.body[col] = stripped;
     }
   }
-  // Partial-date fields share the YYYY / YYYY-MM / YYYY-MM-DD shape
-  // (server's isValidPartialDate). Empty / null clears.
-  for (const col of ['acquisition_date', 'date_started', 'date_finished']) {
+  // acquisition_date is a partial-date column (YYYY / YYYY-MM / YYYY-MM-DD)
+  // — mirrors validateBook. Empty / null clears.
+  if (req.body.acquisition_date !== undefined && req.body.acquisition_date !== null && req.body.acquisition_date !== '') {
+    const trimmed = String(req.body.acquisition_date).trim();
+    if (!isValidPartialDate(trimmed)) {
+      return res.status(400).json({ error: 'Invalid acquisition_date — must be YYYY, YYYY-MM, or YYYY-MM-DD' });
+    }
+    req.body.acquisition_date = trimmed;
+  }
+  // books.date_started / books.date_finished are full-date only — partial
+  // dates belong on the reads rows (which carry the historical record) and
+  // on acquisition_date. Matches validateBook (the PUT/POST path); without
+  // this gate, a partial wrote here would land in the column and then trip
+  // every subsequent PUT-style action that re-spreads the book.
+  for (const col of ['date_started', 'date_finished']) {
     if (req.body[col] !== undefined && req.body[col] !== null && req.body[col] !== '') {
       const trimmed = String(req.body[col]).trim();
-      if (!isValidPartialDate(trimmed)) {
-        return res.status(400).json({ error: `Invalid ${col} — must be YYYY, YYYY-MM, or YYYY-MM-DD` });
+      if (!isValidDate(trimmed)) {
+        return res.status(400).json({ error: `Invalid ${col} — must be YYYY-MM-DD` });
       }
       req.body[col] = trimmed;
     }

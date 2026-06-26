@@ -1187,7 +1187,7 @@ describe('books', () => {
         { col: 'binding',                     val: 'paperback',            expect: 'paperback' },
         { col: 'format',                      val: 'physical',             expect: 'physical' },
         { col: 'condition',                   val: 'good',                 expect: 'good' },
-        // partial-date text
+        // dates — books.date_* are full-date only; acquisition_date accepts partials
         { col: 'date_started',                val: '2024-01-15',           expect: '2024-01-15' },
         { col: 'date_finished',               val: '2024-02-15',           expect: '2024-02-15' },
         { col: 'acquisition_date',            val: '2024',                 expect: '2024' },
@@ -1226,6 +1226,27 @@ describe('books', () => {
         // echoes the input without writing it).
         const { body: refetched } = await req('GET', `/api/books/${created.id}`);
         assert.equal(refetched[c.col], c.expect, `${c.col}: GET after PATCH did not reflect the value`);
+      }
+    });
+
+    it('PATCH rejects partial dates on books.date_started / books.date_finished', async () => {
+      // The book row's date_started / date_finished are full-date only —
+      // partial dates ('2019' / '2019-07') belong on reads rows and on
+      // acquisition_date. A partial slipping onto the book column trips
+      // every subsequent PUT-style action that re-spreads the book.
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Zzz Partial Date Reject', authors: ['Z partial_date'],
+      });
+      for (const col of ['date_started', 'date_finished']) {
+        for (const bad of ['2019', '2019-07']) {
+          const { status } = await req('PATCH', `/api/books/${created.id}`, { [col]: bad });
+          assert.equal(status, 400, `${col}=${bad} should reject`);
+        }
+      }
+      // acquisition_date still accepts the same partials.
+      for (const ok of ['2019', '2019-07', '2019-07-15']) {
+        const { status } = await req('PATCH', `/api/books/${created.id}`, { acquisition_date: ok });
+        assert.equal(status, 200, `acquisition_date=${ok} should accept`);
       }
     });
 
