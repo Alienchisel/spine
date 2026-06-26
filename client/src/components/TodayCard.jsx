@@ -174,11 +174,16 @@ function CardBody({ card }) {
   if (type === 'series_next_volume') {
     const { series, next_volume, prev_volume, prev_title, days_since_prev } = card.meta || {};
     if (!series || next_volume == null || prev_volume == null) return null;
+    // days_since_prev is null when prev volume's date_finished is a partial
+    // ('2019' / '2019-07'): julianday returns NULL on partials, so the
+    // computation can't run. Drop the "{N} ago" segment in that case
+    // instead of leaving a double-space gap before "ago."
+    const elapsed = days_since_prev != null ? <> {relativeMonths(days_since_prev)} ago.</> : '.';
     return (
       <p>
         You finished Vol {prev_volume} of <em>{series}</em>
         {prev_title ? <> (<em>{prev_title}</em>)</> : null}
-        {' '}{relativeMonths(days_since_prev)} ago. Vol {next_volume}: {link} — read on?
+        {elapsed} Vol {next_volume}: {link} — read on?
       </p>
     );
   }

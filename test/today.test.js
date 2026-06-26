@@ -128,6 +128,41 @@ describe('today', () => {
       assert.ok(hit, 'expected the slow_burn fixture to surface across the sweep');
     });
 
+    it('skips loved_resurface and slow_burn when the underlying date is a partial', async () => {
+      // The cohort SQL requires length(date_finished) = 10 (or date_started)
+      // so cards only surface for books where days-since-* can be computed
+      // precisely. Without this guard the card text would render an awkward
+      // double-space gap ("You marked X as loved  ago.") because julianday
+      // returns NULL on partial dates like '2019' / '2019-07'.
+      const { body: lovedPartial } = await req('POST', '/api/books', {
+        title:         'Partial-Date Loved Fixture',
+        loved:         true,
+      });
+      await req('PATCH', `/api/books/${lovedPartial.id}`, {
+        status: 'finished', date_finished: '2019',
+      });
+      const { body: readingPartial } = await req('POST', '/api/books', {
+        title:         'Partial-Date Slow-Burn Fixture',
+        status:        'reading',
+        date_started:  '2025-06',
+      });
+
+      // Sweep a window of dates — neither fixture should ever appear as
+      // its corresponding partial-date-incompatible card type.
+      for (const d of ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04', '2026-09-05']) {
+        const { body } = await req('GET', `/api/today/card?date=${d}`);
+        if (!body.card) continue;
+        if (body.card.book.id === lovedPartial.id) {
+          assert.notEqual(body.card.type, 'loved_resurface',
+            `partial date_finished=${lovedPartial.id} should not surface as loved_resurface`);
+        }
+        if (body.card.book.id === readingPartial.id) {
+          assert.notEqual(body.card.type, 'slow_burn',
+            `partial date_started=${readingPartial.id} should not surface as slow_burn`);
+        }
+      }
+    });
+
     it('surfaces recent_acquisition for an owned unread book bought in the last 14 days', async () => {
       // Cohort SQL: owned=1 AND acquisition_date >= now-14d AND
       // status='unread' AND NOT is_stub. The 14-day window is computed

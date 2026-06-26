@@ -170,6 +170,22 @@ describe('collage', () => {
     assert.equal(tileThis.sublabel, fmtPartial(today));
   });
 
+  it('year_in_review includes partial-date finishes that name the year', async () => {
+    // A book finished with a partial date like '2018' (vague memory) should
+    // appear in 2018's collage. The previous range-filter '2018-01-01' <=
+    // date_finished <= '2018-12-31' silently excluded year-precision partials
+    // because '2018' < '2018-01-01' lexically; the LIKE 'YYYY%' rewrite fixes
+    // it. Pick a year that's two back so no other test fixture races us into it.
+    const partialYear = String(new Date().getFullYear() - 2);
+    const { body: bPartial } = await req('POST', '/api/books', {
+      title: `YIR Partial ${Date.now()}`, authors: ['YIR Author'], fiction: true,
+    });
+    await req('PATCH', `/api/books/${bPartial.id}`, { status: 'finished', date_finished: partialYear });
+
+    const { body } = await req('GET', `/api/collage?mode=year_in_review&year=${partialYear}`);
+    assert.ok(body.tiles.some(t => t.id === bPartial.id), 'year-precision partial finish should appear in its year-in-review');
+  });
+
   it('year_in_review rejects bad year inputs with 400', async () => {
     const bad1 = await req('GET', '/api/collage?mode=year_in_review&year=abc');
     assert.equal(bad1.status, 400);
