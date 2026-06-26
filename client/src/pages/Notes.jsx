@@ -31,7 +31,11 @@ function stripMarkdown(s) {
 
 function formatDate(iso) {
   if (!iso) return '';
-  const d = new Date(iso);
+  // SQLite datetime strings come as 'YYYY-MM-DD HH:MM:SS' (space separator).
+  // `new Date(str)` of that form works in V8 / Firefox but isn't
+  // ECMAScript-conformant — Safari historically rejected it. Swap in 'T' so
+  // the parse is ISO-conformant in every engine.
+  const d = new Date(String(iso).replace(' ', 'T'));
   if (Number.isNaN(d.getTime())) return '';
   return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
