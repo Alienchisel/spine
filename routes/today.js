@@ -106,11 +106,17 @@ router.post('/queue/:id/feedback', (req, res) => {
 // come along so the badge / re-grade UI on each row renders the
 // current grade and lets the user upgrade or revise it.
 function pastByType(cardType) {
+  // Order by served_at (the precise serve timestamp) rather than served_date
+  // (the calendar-day mirror). The two are equivalent when data is healthy,
+  // but anchoring on served_at means the archive stays correctly
+  // reverse-chronological even if served_date ever drifts again. Bad served_
+  // date rows on 2026-06-26 cleaned up; the FutureSliver carousel fix
+  // prevents fresh drift.
   return db.prepare(`
     SELECT id AS queue_id, title, body, served_date, feedback, feedback_at
       FROM today_card_queue
      WHERE card_type = ? AND served_at IS NOT NULL
-     ORDER BY served_date DESC, id DESC
+     ORDER BY served_at DESC, id DESC
   `).all(cardType);
 }
 
