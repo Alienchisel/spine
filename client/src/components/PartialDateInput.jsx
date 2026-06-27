@@ -68,15 +68,22 @@ export default function PartialDateInput({ value, onChange, size = 'md', ariaLab
           <option key={m} value={String(i + 1).padStart(2, '0')}>{m}</option>
         ))}
       </select>
-      {month && (
-        <input
-          type="number" min="1" max="31" placeholder="Day"
-          aria-label={labelFor('day')}
-          className={`${sz.dayW} ${sz.input}`}
-          value={day ? parseInt(day) : ''}
-          onChange={e => emit(year, month, e.target.value ? String(parseInt(e.target.value)).padStart(2, '0') : '')}
-        />
-      )}
+      {/* Day input renders unconditionally. The previous `{month && (...)}`
+          gate produced a visual desync on Firefox keyboard typeahead — the
+          user could press 'S' on the Month select to jump to September,
+          but the native `change` event doesn't fire until commit (Tab /
+          Enter / blur), so React's `month` was still '' and Day didn't
+          appear even though the dropdown visually showed September. Always
+          rendering Day eliminates the timing-dependent disclosure. Day's
+          value is only emitted when month is also set — entering Day with
+          no Month is silently dropped. */}
+      <input
+        type="number" min="1" max="31" placeholder="Day"
+        aria-label={labelFor('day')}
+        className={`${sz.dayW} ${sz.input}`}
+        value={day ? parseInt(day) : ''}
+        onChange={e => emit(year, month, month && e.target.value ? String(parseInt(e.target.value)).padStart(2, '0') : '')}
+      />
     </div>
   );
 }
