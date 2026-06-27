@@ -134,7 +134,7 @@ export default function TagsIndex() {
         </select>
       </div>
 
-      {loading && <TableSkeleton />}
+      {loading && <TableSkeleton ariaLabel="Loading tags" />}
       {error && <p role="alert" className="text-sm text-warn">Failed to load tags.</p>}
 
       {!loading && !error && filtered.length > 0 && (

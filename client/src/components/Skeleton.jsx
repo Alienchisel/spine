@@ -177,9 +177,9 @@ export function TodayCardSkeleton() {
 // approximation; callers can override if their typical row count diverges.
 // Row widths vary slightly so the rendered block reads as data rather than
 // a uniform stack of identical bars.
-export function TableSkeleton({ count = 12 }) {
+export function TableSkeleton({ count = 12, ariaLabel = 'Loading' }) {
   return (
-    <div role="status" aria-label="Loading">
+    <div role="status" aria-label={ariaLabel}>
       {/* Header rule mirrors the thead's border-b */}
       <div className="border-b border-neutral-800/60 mb-2 pb-2">
         <div className="bg-neutral-800/60 motion-safe:animate-pulse h-3 w-24 rounded" />

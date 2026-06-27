@@ -156,7 +156,7 @@ export default function SeriesIndex() {
         </select>
       </div>
 
-      {loading && <TableSkeleton />}
+      {loading && <TableSkeleton ariaLabel="Loading series" />}
       {error && <p role="alert" className="text-sm text-warn">Failed to load series.</p>}
 
       {loveError && (

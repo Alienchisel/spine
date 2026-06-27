@@ -196,7 +196,7 @@ export default function AuthorsIndex() {
         </select>
       </div>
 
-      {loading && <TableSkeleton />}
+      {loading && <TableSkeleton ariaLabel="Loading authors" />}
       {error && <p role="alert" className="text-sm text-warn">Failed to load authors.</p>}
 
       {!loading && !error && filtered.length > 0 && (
