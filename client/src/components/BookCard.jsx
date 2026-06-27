@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { useActionGuard } from '../hooks/useActionGuard.js';
 import { realTagNames, initialsFor, fmtHM } from '../utils.js';
-import { getModeKey, initialProgressMode, computeProgressPatch, syncProgressInputs, progressDerived, clampMinutes } from './progressMode.js';
+import { getModeKey, initialProgressMode, computeProgressPatch, savePatchAndMaybeAutoFinish, syncProgressInputs, progressDerived, clampMinutes } from './progressMode.js';
 import MoreMenu from './MoreMenu.jsx';
 
 const STATUS_BAR = {
@@ -134,25 +134,11 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
     if (!saveGuard.begin()) return;
     setError(null);
     try {
-      const updated = await api.patchBook(book.id, patchData);
-      // Inline until a second surface needs auto-finish — progressMode.js stays the home for shared progress logic.
-      const isComplete = isAudiobook
-        ? (updated.duration_minutes > 0 && updated.current_minutes >= updated.duration_minutes)
-        : (updated.page_count > 0 && updated.current_page >= updated.page_count);
-      if (isComplete && updated.status === 'reading') {
-        // Mirror BookDetail.handleFinish's prev-owned-aware date default:
-        // owned-and-just-finished → today; previously-owned historical
-        // entries → leave null so the user can fill in if they remember.
-        const today = new Date().toLocaleDateString('en-CA');
-        const dateFinished = updated.date_finished
-          || (updated.previously_owned ? null : today);
-        const finished = await api.updateBook(book.id, {
-          ...updated,
-          status: 'finished',
-          date_finished: dateFinished,
-          tags: realTagNames(updated.tags),
-        });
-        onProgressUpdate?.(finished);
+      const { book: result, autoFinished } = await savePatchAndMaybeAutoFinish({
+        book, patchData, isAudiobook, api, realTagNames,
+      });
+      if (autoFinished) {
+        onProgressUpdate?.(result);
         // The card unmounts the moment the parent (Library) re-filters
         // the now-finished book off the Reading tab — so a local rating
         // prompt would vanish before the user sees it. Send the user to
@@ -160,8 +146,8 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
         // shows the rating prompt there, on a surface that survives.
         navigate(`/books/${book.id}`, { state: { ...(linkState || {}), justFinished: true } });
       } else {
-        setBook(updated);
-        onProgressUpdate?.(updated);
+        setBook(result);
+        onProgressUpdate?.(result);
       }
       setOpen(false);
       setInputVal('');

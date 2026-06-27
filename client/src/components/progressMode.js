@@ -112,6 +112,38 @@ export function syncProgressInputs({ book, isAudiobook, mode, pct }) {
 // max(0, ...) when it isn't. Server-side PATCH enforces the same
 // bounds; the clamp here prevents the round-trip error that an
 // out-of-range typo would otherwise produce.
+// Shared progress-save path used by both surfaces that can mutate progress:
+// the Library quick-edit on BookCard.jsx and the BookDetail ProgressSection.
+// Applies the progress patch, and if the resulting position hits the book's
+// total while status is still 'reading', issues the follow-up
+// status='finished' PUT — same prev-owned-aware date default the Mark-as-
+// finished button uses. Caller passes the api module and realTagNames helper
+// to keep this file import-free (it stayed pure for the rest of its life).
+// Returns { book, autoFinished } so surfaces can branch their post-save UX
+// (BookCard navigates to BookDetail with justFinished; ProgressSection
+// stays in-place and pops the rating prompt via its onChange).
+export async function savePatchAndMaybeAutoFinish({ book, patchData, isAudiobook, api, realTagNames }) {
+  const updated = await api.patchBook(book.id, patchData);
+  const isComplete = isAudiobook
+    ? (updated.duration_minutes > 0 && updated.current_minutes >= updated.duration_minutes)
+    : (updated.page_count > 0 && updated.current_page >= updated.page_count);
+  if (!isComplete || updated.status !== 'reading') {
+    return { book: updated, autoFinished: false };
+  }
+  // Owned-and-just-finished defaults date_finished to today; previously-
+  // owned historical entries leave it null for the user to fill in.
+  const today = new Date().toLocaleDateString('en-CA');
+  const dateFinished = updated.date_finished
+    || (updated.previously_owned ? null : today);
+  const finished = await api.updateBook(book.id, {
+    ...updated,
+    status: 'finished',
+    date_finished: dateFinished,
+    tags: realTagNames(updated.tags),
+  });
+  return { book: finished, autoFinished: true };
+}
+
 export function computeProgressPatch({ book, isAudiobook, mode, inputVal, inputH, inputM }) {
   if (isAudiobook) {
     const enteredMinutes = (parseInt(inputH) || 0) * 60 + (parseInt(inputM) || 0);
