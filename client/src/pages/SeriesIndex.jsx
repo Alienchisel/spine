@@ -5,6 +5,7 @@ import { nrm } from '../utils.js';
 import { useFreshFetch } from '../hooks/useFreshFetch.js';
 import IncomingBackLink from '../components/IncomingBackLink.jsx';
 import PageHeading from '../components/PageHeading.jsx';
+import { TableSkeleton } from '../components/Skeleton.jsx';
 
 // Sort modes for the Series index. Name is the default alphabetical
 // scan. Books desc shows the biggest series first (the natural overview
@@ -155,7 +156,7 @@ export default function SeriesIndex() {
         </select>
       </div>
 
-      {loading && <p role="status" className="text-sm text-neutral-500">Loading…</p>}
+      {loading && <TableSkeleton />}
       {error && <p role="alert" className="text-sm text-warn">Failed to load series.</p>}
 
       {loveError && (

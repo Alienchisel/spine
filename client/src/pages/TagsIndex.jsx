@@ -5,6 +5,7 @@ import { nrm } from '../utils.js';
 import { useFreshFetch } from '../hooks/useFreshFetch.js';
 import IncomingBackLink from '../components/IncomingBackLink.jsx';
 import PageHeading from '../components/PageHeading.jsx';
+import { TableSkeleton } from '../components/Skeleton.jsx';
 
 // Sort modes for the Tags index. Name (alphabetical scan) is the
 // default. Books asc surfaces prune candidates (single-book tags worth
@@ -133,7 +134,7 @@ export default function TagsIndex() {
         </select>
       </div>
 
-      {loading && <p role="status" className="text-sm text-neutral-500">Loading…</p>}
+      {loading && <TableSkeleton />}
       {error && <p role="alert" className="text-sm text-warn">Failed to load tags.</p>}
 
       {!loading && !error && filtered.length > 0 && (

@@ -134,6 +134,37 @@ export function DataVizSkeleton() {
   );
 }
 
+// Generic table skeleton — anchors a thin header rule + N row placeholders,
+// matching the shared shape of the index surfaces (AuthorsIndex,
+// SeriesIndex, TagsIndex). `count` defaults to a useful first-screen
+// approximation; callers can override if their typical row count diverges.
+// Row widths vary slightly so the rendered block reads as data rather than
+// a uniform stack of identical bars.
+export function TableSkeleton({ count = 12 }) {
+  return (
+    <div role="status" aria-label="Loading">
+      {/* Header rule mirrors the thead's border-b */}
+      <div className="border-b border-neutral-800/60 mb-2 pb-2">
+        <div className="bg-neutral-800/60 motion-safe:animate-pulse h-3 w-24 rounded" />
+      </div>
+      <div className="space-y-2 py-2">
+        {Array.from({ length: count }, (_, i) => {
+          // Pseudo-random row widths from the index — stable across renders,
+          // varied enough to read as distinct rows. Avoids importing a
+          // randomness helper just for visual texture.
+          const w = ['w-3/4', 'w-2/3', 'w-1/2', 'w-4/5', 'w-3/5'][i % 5];
+          return (
+            <div key={i} className="flex items-center justify-between gap-3 py-1">
+              <div className={`bg-neutral-800/60 motion-safe:animate-pulse h-3 ${w} rounded`} />
+              <div className="bg-neutral-800/60 motion-safe:animate-pulse h-3 w-10 rounded" />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ShelfView skeleton — mirrors the entry view (Shelves crumb + cover-size
 // slider + grid of LevelCard tiles for buildings). Subsequent drill-down
 // states (Building → Room → Unit) share the same broad shape (grid of
