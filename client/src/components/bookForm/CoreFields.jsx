@@ -174,7 +174,12 @@ export default function CoreFields({
       </div>
 
       {(form.status === 'reading' || form.status === 'finished' || showTimesRead) && (
-        <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-4">
+          {/* Each date field gets its own full-width row so Year + Month + Day
+              fit comfortably in the BookForm column. The previous
+              grid-cols-2 layout gave each date ~208px, which was too narrow
+              for "September" + Year + Day — Day overflowed the row and got
+              visually covered by the adjacent column's content. */}
           {(form.status === 'reading' || form.status === 'finished') && (
             <div>
               <label className={label}>Date started</label>
