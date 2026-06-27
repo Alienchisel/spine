@@ -134,6 +134,43 @@ export function DataVizSkeleton() {
   );
 }
 
+// Notes skeleton — divide-y list of richer rows (title + byline + 2-line
+// snippet). Matches the real layout's per-row vertical rhythm so the
+// skeleton-to-content transition doesn't shift the page.
+export function NotesSkeleton({ count = 6 }) {
+  return (
+    <ul role="status" aria-label="Loading notes" className="divide-y divide-neutral-800">
+      {Array.from({ length: count }, (_, i) => (
+        <li key={i} className="py-4 space-y-2">
+          <div className="bg-neutral-800/60 motion-safe:animate-pulse h-4 w-2/3 rounded" />
+          <div className="bg-neutral-800/60 motion-safe:animate-pulse h-3 w-1/3 rounded" />
+          <div className="bg-neutral-800/60 motion-safe:animate-pulse h-3 w-full rounded" />
+          <div className="bg-neutral-800/60 motion-safe:animate-pulse h-3 w-4/5 rounded" />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+// Today card skeleton — placeholder shell during the initial card fetch.
+// Sized to the same min-h-[140px] envelope the bare loading-div used so
+// the page doesn't shift when the real card lands, with light pulse-shapes
+// inside so a slightly-longer load (e.g. AI Connection cards) reads as
+// "something coming" rather than as an empty bordered box.
+export function TodayCardSkeleton() {
+  return (
+    <div
+      role="status"
+      aria-label="Loading card"
+      className="p-6 rounded-lg border border-neutral-800/40 min-h-[140px] space-y-3"
+    >
+      <div className="bg-neutral-800/60 motion-safe:animate-pulse h-3 w-20 rounded" />
+      <div className="bg-neutral-800/60 motion-safe:animate-pulse h-4 w-3/4 rounded" />
+      <div className="bg-neutral-800/60 motion-safe:animate-pulse h-3 w-2/3 rounded" />
+    </div>
+  );
+}
+
 // Generic table skeleton — anchors a thin header rule + N row placeholders,
 // matching the shared shape of the index surfaces (AuthorsIndex,
 // SeriesIndex, TagsIndex). `count` defaults to a useful first-screen

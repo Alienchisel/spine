@@ -4,6 +4,7 @@ import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
 import { api } from '../api.js';
 import { initialsFor } from '../utils.js';
 import BookRef from './bookDetail/BookRef.jsx';
+import { TodayCardSkeleton } from './Skeleton.jsx';
 
 // v0 of the daily "Today" card — three deterministic card types
 // (loved_resurface / slow_burn / recent_acquisition) computed by
@@ -356,12 +357,13 @@ export default function TodayCard({ date, peek = false, onCardLoaded }) {
   // keep it on screen during subsequent refetches (date navigation,
   // etc.) so arrowing between days doesn't flash an empty surface
   // mid-transition. The new card replaces the old one the moment
-  // the fetch resolves. The placeholder shell holds vertical space
+  // the fetch resolves. The skeleton shell holds vertical space
   // during that first load so the carousel slivers (items-stretch)
   // have something to size against — a bare null collapsed the row
-  // to ~0px for a few frames.
+  // to ~0px for a few frames — and adds light pulse-shapes so a
+  // slightly-longer fetch reads as "loading" rather than "empty."
   if (loading && !card) {
-    return <div aria-hidden="true" className="p-6 rounded-lg border border-neutral-800/40 min-h-[140px]" />;
+    return <TodayCardSkeleton />;
   }
 
   if (error) {

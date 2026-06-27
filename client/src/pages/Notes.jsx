@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { initialsFor, plural, pluralWord } from '../utils.js';
 import { useFreshFetch } from '../hooks/useFreshFetch.js';
+import { NotesSkeleton } from '../components/Skeleton.jsx';
 
 // Surfaces the reflective layer — user-authored prose (review + notes)
 // across the library — as a first-class destination, instead of leaving
@@ -322,7 +323,7 @@ export default function Notes() {
       )}
 
       {loading ? (
-        <div role="status" className="text-neutral-700 text-sm">Loading…</div>
+        <NotesSkeleton />
       ) : error ? (
         <p role="alert" className="text-sm text-warn">Failed to load notes.</p>
       ) : books.length === 0 ? (
