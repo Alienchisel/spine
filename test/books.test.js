@@ -1325,6 +1325,57 @@ describe('books', () => {
       assert.equal(bad.status, 400);
     });
 
+    it('PATCH finish-transition propagates to unread stories; preserves finished + DNF', async () => {
+      // Forward leg of the parent↔stories coupling. maybeAutoRollParent
+      // handles stories-all-finished → parent finished; this is the
+      // reverse: parent flips to finished after a linear read-through, so
+      // the TOC mirrors the parent's status. Stories already finished or
+      // DNF'd survive untouched so deliberate per-story state isn't lost.
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Zzz Story Propagate', authors: ['Z story_propagate'],
+      });
+      const { body: a } = await req('POST', `/api/books/${created.id}/stories`, { title: 'A', position: 1 });
+      const { body: b } = await req('POST', `/api/books/${created.id}/stories`, { title: 'B', position: 2 });
+      const { body: c } = await req('POST', `/api/books/${created.id}/stories`, { title: 'C', position: 3 });
+      const { body: d } = await req('POST', `/api/books/${created.id}/stories`, { title: 'D', position: 4 });
+      // Pre-seed: B finished, C DNF'd. A and D stay unread.
+      await req('PUT', `/api/books/${created.id}/stories/${b.id}`, { title: 'B', status: 'finished', date_finished: '2024-01-15' });
+      await req('PUT', `/api/books/${created.id}/stories/${c.id}`, { title: 'C', did_not_finish: true });
+
+      await req('PATCH', `/api/books/${created.id}`, { status: 'finished', date_finished: '2024-02-15' });
+
+      const { body: storiesAfter } = await req('GET', `/api/books/${created.id}/stories`);
+      const byId = Object.fromEntries(storiesAfter.map(s => [s.id, s]));
+      assert.equal(byId[a.id].status, 'finished',                       'unread story A should flip to finished');
+      assert.equal(byId[a.id].date_finished, null,                      'A.date_finished should stay null — no per-story fabrication');
+      assert.equal(byId[b.id].status, 'finished',                       'already-finished story B stays finished');
+      assert.equal(byId[b.id].date_finished, '2024-01-15',              'B.date_finished should not be overwritten');
+      assert.equal(byId[c.id].status, 'unread',                         'DNF\'d story C stays unread (status), the dnf flag is the signal');
+      assert.equal(byId[c.id].did_not_finish, 1,                        'C.did_not_finish stays set');
+      assert.equal(byId[d.id].status, 'finished',                       'unread story D should flip to finished');
+    });
+
+    it('PATCH on already-finished parent does NOT touch stories (not a transition)', async () => {
+      // The propagation is a one-shot side effect of the finish-transition,
+      // not a continuous side effect of being finished. Adding a rating
+      // / review to an already-finished book shouldn't re-flip a story
+      // the user manually re-read.
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Zzz Story No Repropagate', authors: ['Z story_no_repropagate'],
+      });
+      const { body: s1 } = await req('POST', `/api/books/${created.id}/stories`, { title: 'X', position: 1 });
+      // First finish-transition propagates X to finished.
+      await req('PATCH', `/api/books/${created.id}`, { status: 'finished', date_finished: '2024-02-15' });
+      // User manually flips X back to unread for a re-read attempt.
+      await req('PUT', `/api/books/${created.id}/stories/${s1.id}`, { title: 'X', status: 'unread' });
+      // Add a rating to the (still-finished) parent. This is NOT a transition.
+      await req('PATCH', `/api/books/${created.id}`, { rating: 5 });
+
+      const { body: storiesAfter } = await req('GET', `/api/books/${created.id}/stories`);
+      assert.equal(storiesAfter[0].status, 'unread',
+        'story X should remain unread — no transition fired, so no propagation');
+    });
+
     it('PATCH source_type: round-trips on fiction=0, rejects otherwise', async () => {
       // source_type is non-fiction-only (mirrors validation.js for POST/PUT).
       // The route reads existing.fiction when fiction isn't in the patch,
