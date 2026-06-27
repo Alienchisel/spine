@@ -134,6 +134,41 @@ export function DataVizSkeleton() {
   );
 }
 
+// ShelfView skeleton — mirrors the entry view (Shelves crumb + cover-size
+// slider + grid of LevelCard tiles for buildings). Subsequent drill-down
+// states (Building → Room → Unit) share the same broad shape (grid of
+// LevelCards) so this works as a generic placeholder. The 6-tile count
+// matches a typical small-library footprint without dwarfing it on a
+// minimal one.
+export function ShelfViewSkeleton() {
+  return (
+    <div role="status" aria-label="Loading shelves">
+      {/* Crumb + cover-slider header strip */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="bg-neutral-800/60 motion-safe:animate-pulse h-4 w-20 rounded" />
+        <div className="flex items-center gap-4">
+          <div className="bg-neutral-800/60 motion-safe:animate-pulse h-3 w-24 rounded" />
+          <div className="bg-neutral-800/60 motion-safe:animate-pulse h-3 w-28 rounded" />
+        </div>
+      </div>
+      {/* LevelCard grid — matches the entry view's
+          grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 shape with two-line
+          tiles (primary label + secondary caption) to mirror real cards. */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {Array.from({ length: 6 }, (_, i) => (
+          <div
+            key={i}
+            className="bg-neutral-900 border border-neutral-800 rounded-lg p-4 space-y-2"
+          >
+            <div className="bg-neutral-800/60 motion-safe:animate-pulse h-4 w-2/3 rounded" />
+            <div className="bg-neutral-800/60 motion-safe:animate-pulse h-3 w-1/2 rounded" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // BookDetail's hero + cover-rail skeleton. Mirrors the page's actual
 // layout — cover-rail on the left (280×420), hero band + center column
 // on the right with title-bar / byline / meta-cluster placeholders —

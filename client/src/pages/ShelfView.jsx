@@ -25,6 +25,7 @@ import BookCard from '../components/BookCard.jsx';
 import MoreMenu from '../components/MoreMenu.jsx';
 import CoverSizeSlider from '../components/CoverSizeSlider.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
+import { ShelfViewSkeleton } from '../components/Skeleton.jsx';
 import { useCoverSize } from '../hooks/useCoverSize.js';
 import { useFreshFetch } from '../hooks/useFreshFetch.js';
 import { useSpineEvent, dispatchSpineEvent } from '../hooks/useSpineEvent.js';
@@ -1052,7 +1053,7 @@ export default function ShelfView() {
     shelf    && { label: shelf.label,   kind: 'shelf',    payloadId: shelfId,    action: null },
   ].filter(Boolean);
 
-  if (loading) return <div role="status" className="text-neutral-700 text-sm">Loading…</div>;
+  if (loading) return <ShelfViewSkeleton />;
 
   return (
     <div>
