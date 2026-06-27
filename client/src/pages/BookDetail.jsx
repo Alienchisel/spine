@@ -1000,6 +1000,15 @@ export default function BookDetail() {
               // navigated to another book in the meantime. Drop the
               // result if its id doesn't match the URL anymore.
               if (String(updated.id) !== String(latestIdRef.current)) return;
+              // Auto-finish on 100%: ProgressSection mirrors BookCard's
+              // quick-edit by issuing the follow-up status='finished' PUT
+              // itself. Detect the reading→finished transition here and
+              // surface the rating prompt (same hand-off the Mark-as-
+              // finished button uses) so the user lands in the rate-and-
+              // review flow without leaving the page.
+              if (book.status === 'reading' && updated.status === 'finished' && !updated.rating) {
+                setRatingPrompt(true);
+              }
               setBook(updated);
               refetchLog();
             }} />

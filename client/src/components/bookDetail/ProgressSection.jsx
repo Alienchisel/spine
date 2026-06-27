@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../api.js';
 import { useActionGuard } from '../../hooks/useActionGuard.js';
-import { fmtHM } from '../../utils.js';
+import { fmtHM, realTagNames } from '../../utils.js';
 import { computeEta } from './eta.js';
 import { getModeKey, initialProgressMode, computeProgressPatch, syncProgressInputs, progressDerived, clampMinutes } from '../progressMode.js';
 
@@ -87,11 +87,39 @@ export default function ProgressSection({ book, onChange, log }) {
     setError(null);
     try {
       const updated = await api.patchBook(book.id, patchData);
-      onChange(updated);
-      const inputs = syncProgressInputs({ book: updated, isAudiobook, mode, pct: progressDerived(updated).pct });
-      setInputVal(inputs.inputVal);
-      setInputH(inputs.inputH);
-      setInputM(inputs.inputM);
+      // Auto-finish on hitting page_count / duration_minutes — same shape as
+      // BookCard.jsx's quick-edit. Without this, advancing to 100% on the
+      // BookDetail surface left the book sitting in 'reading' (the user
+      // would have to click "Mark as finished" separately), which doesn't
+      // match what the Library quick-edit does.
+      const isComplete = isAudiobook
+        ? (updated.duration_minutes > 0 && updated.current_minutes >= updated.duration_minutes)
+        : (updated.page_count > 0 && updated.current_page >= updated.page_count);
+      if (isComplete && updated.status === 'reading') {
+        // Prev-owned-aware date default mirrors BookDetail.handleFinish:
+        // owned-and-just-finished defaults to today; previously-owned
+        // historical entries leave the date null for the user to fill in.
+        const today = new Date().toLocaleDateString('en-CA');
+        const dateFinished = updated.date_finished
+          || (updated.previously_owned ? null : today);
+        const finished = await api.updateBook(book.id, {
+          ...updated,
+          status: 'finished',
+          date_finished: dateFinished,
+          tags: realTagNames(updated.tags),
+        });
+        onChange(finished);
+        const inputs = syncProgressInputs({ book: finished, isAudiobook, mode, pct: progressDerived(finished).pct });
+        setInputVal(inputs.inputVal);
+        setInputH(inputs.inputH);
+        setInputM(inputs.inputM);
+      } else {
+        onChange(updated);
+        const inputs = syncProgressInputs({ book: updated, isAudiobook, mode, pct: progressDerived(updated).pct });
+        setInputVal(inputs.inputVal);
+        setInputH(inputs.inputH);
+        setInputM(inputs.inputM);
+      }
     } catch {
       setError('Failed to save');
     } finally {
