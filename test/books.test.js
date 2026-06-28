@@ -443,6 +443,44 @@ describe('books', () => {
       const { body: refetched } = await req('GET', `/api/books/${created.id}`);
       assert.equal(refetched.read_count, 0);
     });
+
+    it('POST with status=finished runs the finish-cascade (read_count=1 + reads row)', async () => {
+      // Mirrors the PATCH/PUT finish-transition cascade so a backfill POST
+      // that creates a row directly in finished state doesn't end up with
+      // read_count=0 and zero reads-rows. Honours explicit date_started /
+      // date_finished from the payload.
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Zzz POST finished cascade', authors: ['Z post_cascade'],
+        status: 'finished',
+        date_started: '2024-01-15',
+        date_finished: '2024-02-15',
+      });
+      assert.equal(created.status, 'finished');
+      assert.equal(created.read_count, 1);
+      assert.equal(created.date_started, '2024-01-15');
+      assert.equal(created.date_finished, '2024-02-15');
+      const { body: reads } = await req('GET', `/api/books/${created.id}/reads`);
+      assert.equal(reads.length, 1);
+      assert.equal(reads[0].date_started, '2024-01-15');
+      assert.equal(reads[0].date_finished, '2024-02-15');
+    });
+
+    it('POST with status=finished and no dates leaves the reads row dateless', async () => {
+      // No today auto-fill on POST — when the user doesn't supply dates,
+      // the row + reads sit with NULL dates rather than fabricating today.
+      // Different stance from PATCH cascade (which fills today) because a
+      // POST backfill is almost always historical of unknown date.
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Zzz POST finished no dates', authors: ['Z post_no_dates'],
+        status: 'finished',
+      });
+      assert.equal(created.status, 'finished');
+      assert.equal(created.read_count, 1);
+      assert.equal(created.date_finished, null);
+      const { body: reads } = await req('GET', `/api/books/${created.id}/reads`);
+      assert.equal(reads.length, 1);
+      assert.equal(reads[0].date_finished, null);
+    });
   });
 
   describe('GET /api/books/:id', () => {
