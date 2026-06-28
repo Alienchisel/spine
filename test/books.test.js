@@ -2057,6 +2057,61 @@ describe('books', () => {
       const { status } = await req('POST', '/api/books/abc/reread', {});
       assert.equal(status, 400);
     });
+
+    it('GET /:id surfaces first_/last_started/finished aggregates from reads', async () => {
+      // Establish a finished book with three reads spanning multiple years,
+      // logged out of order to exercise the lexical MIN/MAX semantics rather
+      // than insertion order.
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Read Aggregates Test',
+        status:        'finished',
+        date_started:  '2022-04-10',
+        date_finished: '2022-05-01',
+      });
+      // First read came in via the POST cascade. Log two more out of date order.
+      await req('POST', `/api/books/${created.id}/reread`, {
+        date_started: '2024-01-15', date_finished: '2024-02-01',
+      });
+      await req('POST', `/api/books/${created.id}/reread`, {
+        date_started: '2023-08-01', date_finished: '2023-08-15',
+      });
+
+      const { body } = await req('GET', `/api/books/${created.id}`);
+      assert.equal(body.reads_count, 3,        'reads_count counts every reads row');
+      assert.equal(body.first_started, '2022-04-10',  'first_started = MIN(date_started)');
+      assert.equal(body.last_started,  '2024-01-15',  'last_started = MAX(date_started)');
+      assert.equal(body.first_finished, '2022-05-01', 'first_finished = MIN(date_finished)');
+      assert.equal(body.last_finished,  '2024-02-01', 'last_finished = MAX(date_finished)');
+    });
+
+    it('GET /:id returns null aggregates and reads_count=0 for never-read books', async () => {
+      const { body: created } = await req('POST', '/api/books', { title: 'Unread Aggregates' });
+      const { body } = await req('GET', `/api/books/${created.id}`);
+      assert.equal(body.reads_count,    0);
+      assert.equal(body.first_started,  null);
+      assert.equal(body.last_started,   null);
+      assert.equal(body.first_finished, null);
+      assert.equal(body.last_finished,  null);
+    });
+
+    it('GET /api/books list response includes per-book read aggregates', async () => {
+      // Two books, distinguishable by title; assert the aggregates surface on
+      // the list endpoint too (Library / Stats / Diary all consume this).
+      const tag = 'agg-list-' + Math.random().toString(36).slice(2, 8);
+      const { body: a } = await req('POST', '/api/books', {
+        title: `${tag} A`, status: 'finished', date_finished: '2020-01-01',
+      });
+      const { body: b } = await req('POST', '/api/books', {
+        title: `${tag} B`,
+      });
+      const { body: list } = await req('GET', `/api/books?q=${tag}&limit=10`);
+      const ra = list.books.find(x => x.id === a.id);
+      const rb = list.books.find(x => x.id === b.id);
+      assert.equal(ra.last_finished, '2020-01-01');
+      assert.equal(ra.reads_count, 1);
+      assert.equal(rb.last_finished, null);
+      assert.equal(rb.reads_count, 0);
+    });
   });
 
   describe('stories (collection table-of-contents)', () => {
