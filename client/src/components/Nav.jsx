@@ -105,9 +105,11 @@ export default function Nav() {
         <Link
           to="/books/new"
           state={{ from: labelForPath(pathname), fromPath: pathname + search }}
-          className="text-sm font-medium bg-oak hover:bg-leather motion-safe:active:scale-[0.98] text-neutral-950 px-4 py-1.5 rounded-full transition-[transform,background-color] ease-out duration-150"
+          aria-label="Add book"
+          className="text-sm font-medium bg-oak hover:bg-leather motion-safe:active:scale-[0.98] text-neutral-950 px-4 py-1.5 rounded-full whitespace-nowrap transition-[transform,background-color] ease-out duration-150"
         >
-          + Add book
+          <span aria-hidden="true">+</span>
+          <span className="hidden sm:inline ml-1">Add book</span>
         </Link>
       </div>
     </header>
