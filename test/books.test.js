@@ -2058,6 +2058,47 @@ describe('books', () => {
       assert.equal(status, 400);
     });
 
+    it('PATCH date_finished targets the reads row with the current MAX date_finished, not the highest id', async () => {
+      // Regression: syncLatestReadsRow used to pick the latest reads
+      // row by id DESC. That's wrong when reads are logged out of
+      // chronological order — e.g. a user logs an older read AFTER a
+      // newer one, giving the older read the highest id. The next
+      // date_finished PATCH would then silently overwrite the older
+      // row instead of the row the form was showing.
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Out-of-order reads target', status: 'finished',
+        date_finished: '2020-01-15',
+      });
+      // Add a more recent re-read (gets a higher id than row 1, AND
+      // happens to be the actually-most-recent date).
+      await req('POST', `/api/books/${created.id}/reread`, { date_finished: '2025-06-01' });
+      // Now backfill an older read (gets the highest id, but is the
+      // earliest date_finished — the out-of-order case).
+      await req('POST', `/api/books/${created.id}/reread`, { date_finished: '2022-08-20' });
+
+      const { body: before } = await req('GET', `/api/books/${created.id}`);
+      assert.equal(before.last_finished, '2025-06-01', 'sanity: latest finish is the 2025 read');
+
+      // PATCH date_finished — the form was showing 2025-06-01, so the
+      // user is editing that read's date. The fix must target the
+      // 2025 row, not the backfilled 2022 row (which has the highest id).
+      await req('PATCH', `/api/books/${created.id}`, { date_finished: '2025-06-15' });
+
+      const { body: after } = await req('GET', `/api/books/${created.id}`);
+      assert.equal(after.last_finished, '2025-06-15',
+        'PATCH should have moved the 2025-06-01 read forward to 2025-06-15');
+      assert.equal(after.first_finished, '2020-01-15',
+        'first finish (2020-01-15) must be untouched');
+      // The middle read (2022-08-20) must also be untouched — if the
+      // helper had targeted by id DESC, that row would have been
+      // overwritten and first_finished would now be 2020-01-15 still
+      // but the middle date would be gone. Verify via reads list.
+      const { body: reads } = await req('GET', `/api/books/${created.id}/reads`);
+      assert.equal(reads.length, 3);
+      const dates = reads.map(r => r.date_finished).sort();
+      assert.deepEqual(dates, ['2020-01-15', '2022-08-20', '2025-06-15']);
+    });
+
     it('GET /:id surfaces first_/last_started/finished aggregates from reads', async () => {
       // Establish a finished book with three reads spanning multiple years,
       // logged out of order to exercise the lexical MIN/MAX semantics rather
