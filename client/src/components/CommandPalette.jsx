@@ -1335,7 +1335,7 @@ export default function CommandPalette() {
       role="dialog"
       aria-modal="true"
       aria-label="Command palette"
-      className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh] p-4"
+      className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh] pt-[10dvh] p-4"
       onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}
       onKeyDownCapture={(e) => {
         // Tab trap — the palette is a fixed-overlay dialog, but without
@@ -1433,7 +1433,7 @@ export default function CommandPalette() {
           <p role="status" className="px-4 py-3 text-xs text-neutral-600">Searching…</p>
         )}
         {flat.length > 0 && (
-          <div ref={listRef} className="max-h-[60vh] overflow-y-auto">
+          <div ref={listRef} className="max-h-[60vh] max-h-[60dvh] overflow-y-auto">
             {sections.map(section => (
               <div key={section.kind}>
                 <p className="px-4 pt-3 pb-1 text-[10px] font-semibold text-neutral-600 uppercase tracking-wider">
