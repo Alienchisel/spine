@@ -1593,31 +1593,34 @@ describe('books', () => {
       assert.equal(patched.is_stub, 0, 'cannot mark an owned row as wishlist without un-owning it');
     });
 
-    it("status='reading' on a stub clears is_stub (active engagement implies access)", async () => {
+    it("status='reading' on a stub does NOT clear is_stub (status decoupled from wishlist)", async () => {
       const { body: stub } = await req('POST', '/api/books', {
         title: 'Stub Reading Test', authors: ['Author'], owned: 0, is_stub: true,
       });
       assert.equal(stub.is_stub, 1);
       const { body: reading } = await req('PATCH', `/api/books/${stub.id}`, { status: 'reading' });
       assert.equal(reading.status, 'reading');
-      assert.equal(reading.is_stub, 0, 'starting a stub coerces it out of placeholder state');
+      assert.equal(reading.is_stub, 1, 'reading a borrowed/digital copy does not graduate the wishlist placeholder');
     });
 
-    it("status='finished' on a stub clears is_stub", async () => {
+    it("status='finished' on a stub does NOT clear is_stub (read-but-want-own case)", async () => {
       const { body: stub } = await req('POST', '/api/books', {
         title: 'Stub Finished Test', authors: ['Author'], owned: 0, is_stub: true,
       });
       const { body: finished } = await req('PATCH', `/api/books/${stub.id}`, { status: 'finished' });
       assert.equal(finished.status, 'finished');
-      assert.equal(finished.is_stub, 0, 'finishing a stub coerces it out of placeholder state');
+      assert.equal(finished.is_stub, 1, 'finishing a borrowed/digital copy does not graduate the wishlist placeholder');
     });
 
-    it('POST with is_stub=true and status=reading clears is_stub at creation', async () => {
+    it('POST with is_stub=true and status=finished preserves is_stub (read-but-want-own at creation)', async () => {
       const { body } = await req('POST', '/api/books', {
-        title: 'Stub Created Reading', authors: ['Author'],
-        owned: 0, is_stub: true, status: 'reading',
+        title: 'Stub Created Finished', authors: ['Author'],
+        owned: 0, previously_owned: 1, is_stub: true,
+        status: 'finished', rating: 4, date_finished: '2020-03-04',
       });
-      assert.equal(body.is_stub, 0, 'active status at POST forecloses wishlist placeholder');
+      assert.equal(body.is_stub, 1, 'wishlist placeholder survives finished-status POST when not owned');
+      assert.equal(body.status, 'finished');
+      assert.equal(body.previously_owned, 1);
     });
   });
 
