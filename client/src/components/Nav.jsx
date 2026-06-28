@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { labelForPath } from '../utils.js';
 
@@ -27,15 +28,46 @@ export default function Nav() {
   // while-on-page check requires both pathname === '/today' AND no
   // query params — landing on /today?date=2026-06-01 (a past-date
   // view) shouldn't dismiss the dot since the user hasn't actually
-  // checked today's card, and Today.jsx only writes the localStorage
+  // checked today's card, and Today.jsx only writes the visited
   // breadcrumb on the current-day view. Without the search check the
   // dot would falsely vanish on bookmark loads of past dates.
-  // Pathname/search-driven re-render handles routes changing; the
-  // localStorage read happens fresh on each Nav render which is bound
-  // to useLocation, so navigating away re-evaluates correctly.
+  //
+  // Cross-device sync: source of truth lives in the server `settings`
+  // table (key 'today-visited'). localStorage is kept as a synchronous
+  // cache so first paint doesn't flash a stale dot; the server fetch
+  // overrides it. Triggers: every route change, plus visibilitychange
+  // so coming back to the PC tab after visiting Today on the phone
+  // refreshes the dot without needing a navigation.
   const onTodayCurrent = pathname === '/today' && !search;
-  let visitedTodayStr = null;
-  try { visitedTodayStr = localStorage.getItem(TODAY_VISITED_KEY); } catch {}
+  const [visitedTodayStr, setVisitedTodayStr] = useState(() => {
+    try { return localStorage.getItem(TODAY_VISITED_KEY); } catch { return null; }
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    function sync() {
+      fetch('/api/settings')
+        .then(r => r.json())
+        .then(s => {
+          if (cancelled) return;
+          const v = s?.[TODAY_VISITED_KEY] ?? null;
+          if (!v) return;
+          try { localStorage.setItem(TODAY_VISITED_KEY, v); } catch {}
+          setVisitedTodayStr(v);
+        })
+        .catch(() => {});
+    }
+    sync();
+    function onVisibility() {
+      if (document.visibilityState === 'visible') sync();
+    }
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [pathname]);
+
   const showTodayDot = !onTodayCurrent && visitedTodayStr !== todayStr();
 
   // Inactive hover shifts toward the link's own active hue (one shade

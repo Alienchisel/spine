@@ -21,9 +21,11 @@ import { fmtShortDate } from '../utils.js';
 // card. A past-date view shows that day's persisted card centred,
 // with the archive sidebar still mounted.
 //
-// localStorage 'today-visited' breadcrumb is only written when viewing
-// the CURRENT date so navigating to past days doesn't suppress the
-// Nav's "new today" dot.
+// 'today-visited' breadcrumb is only written when viewing the CURRENT
+// date so navigating to past days doesn't suppress the Nav's "new
+// today" dot. Stored on the server (settings table) so the visited
+// state syncs across devices — phone visit clears the dot on PC and
+// vice versa. localStorage is still updated as a fast same-device cache.
 
 export const TODAY_VISITED_KEY = 'today-visited';
 
@@ -51,7 +53,13 @@ export default function Today() {
     // shouldn't dismiss today's nav dot — the dot's whole job is to
     // signal that TODAY hasn't been opened yet.
     if (onToday) {
-      try { localStorage.setItem(TODAY_VISITED_KEY, todayStr()); } catch {}
+      const value = todayStr();
+      try { localStorage.setItem(TODAY_VISITED_KEY, value); } catch {}
+      fetch(`/api/settings/${TODAY_VISITED_KEY}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value }),
+      }).catch(() => {});
     }
   }, [onToday]);
 
