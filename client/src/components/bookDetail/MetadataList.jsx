@@ -153,11 +153,17 @@ export default function MetadataList({ book, location, linkState }) {
           {[book.acquisition_source, formatPartialDate(book.acquisition_date)].filter(Boolean).join(' · ')}
         </Row>
       )}
-      {book.date_started && (
-        <Row label="Started">{formatPartialDate(book.date_started)}</Row>
+      {/* Started/Finished show the *most recent* dates from the reads
+          table when present, falling back to the book-column values
+          during the Phase 2 transition. A re-read in 2025 should
+          display 'Finished 2025-…' on the card, not the original
+          first-finish date. Full per-read history lives in the READ
+          HISTORY section further down the page. */}
+      {(book.last_started || book.date_started) && (
+        <Row label="Started">{formatPartialDate(book.last_started || book.date_started)}</Row>
       )}
-      {book.date_finished && (
-        <Row label="Finished">{formatPartialDate(book.date_finished)}</Row>
+      {(book.last_finished || book.date_finished) && (
+        <Row label="Finished">{formatPartialDate(book.last_finished || book.date_finished)}</Row>
       )}
       {(() => {
         // Per-edition read_count is the canonical value (each edition owns
