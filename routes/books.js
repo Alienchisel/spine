@@ -228,11 +228,12 @@ function maybeAutoRollParent(book_id) {
     FROM stories WHERE book_id = ?
   `).get(book_id);
   if (!c.total || c.total !== c.accounted) return false;
+  // Phase 3: books.date_finished is gone — the finish date lives only
+  // on the reads row inserted just below.
   db.prepare(`
     UPDATE books
        SET status        = 'finished',
            read_count    = read_count + 1,
-           date_finished = date('now', 'localtime'),
            current_page    = CASE WHEN page_count       IS NOT NULL THEN page_count       ELSE current_page    END,
            current_minutes = CASE WHEN duration_minutes IS NOT NULL THEN duration_minutes ELSE current_minutes END,
            updated_at    = datetime('now', 'localtime')

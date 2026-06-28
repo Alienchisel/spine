@@ -79,7 +79,7 @@ export const ENUM_VALUES = Object.freeze({
 export const BOOK_TABLE_COLUMNS = Object.freeze([
   'title', 'status', 'owned', 'previously_owned', 'is_custom', 'is_stub', 'loved',
   'fiction', 'source_type', 'cover_path', 'rating',
-  'date_started', 'date_finished', 'acquisition_source', 'acquisition_date',
+  'acquisition_source', 'acquisition_date',
   'format', 'binding', 'condition',
   'description', 'notes', 'review',
   'page_count', 'duration_minutes',
