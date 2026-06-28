@@ -22,7 +22,7 @@ function clamp(v) {
   return Math.max(0, Math.min(5, v));
 }
 
-export default function StarRating({ value, onChange, readOnly = false, size = 'text-2xl', ariaLabel = 'Rating' }) {
+export default function StarRating({ value, onChange, readOnly = false, size = 'text-3xl', ariaLabel = 'Rating' }) {
   const [hover, setHover] = useState(null);
   const display = hover ?? value ?? 0;
 
