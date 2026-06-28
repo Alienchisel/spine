@@ -4389,6 +4389,50 @@ describe('books', () => {
       }
     });
 
+    it('sort=finished ranks by latest reads-row date, not book-column first-read', async () => {
+      // Reads-as-source-of-truth Phase 2: a re-read in 2027 of a book
+      // first finished in 2020 must outrank a book whose only finish
+      // is 2025. Pre-Phase-2 the book-column sort got this wrong —
+      // book.date_finished only ever held the first-read date, so the
+      // 2020-first book sorted below the 2025-only book.
+      const tag = 'reread-sort-' + Math.random().toString(36).slice(2, 8);
+      // The reread book: first finish 2020, then a re-read finishing in 2027.
+      const { body: reread } = await req('POST', '/api/books', {
+        title: `${tag} reread`, status: 'finished',
+        date_started: '2020-01-01', date_finished: '2020-02-01',
+      });
+      await req('POST', `/api/books/${reread.id}/reread`, {
+        date_started: '2027-05-01', date_finished: '2027-06-01',
+      });
+      // The control: a single 2025 finish.
+      const { body: control } = await req('POST', '/api/books', {
+        title: `${tag} control`, status: 'finished',
+        date_started: '2025-04-01', date_finished: '2025-05-01',
+      });
+      const { body: results } = await req('GET', `/api/books?sort=finished&q=${tag}&limit=10`);
+      const ids = results.books.map(b => b.id);
+      const iReread  = ids.indexOf(reread.id);
+      const iControl = ids.indexOf(control.id);
+      assert.ok(iReread >= 0 && iControl >= 0, 'both fixtures should appear');
+      assert.ok(iReread < iControl,
+        `expected the 2027-reread book before the 2025-only book; got positions reread=${iReread}, control=${iControl}`);
+    });
+
+    it('field=year_finished surfaces re-reads finished in the target year', async () => {
+      // Same principle as sort=finished: a book first finished in 2020
+      // and re-read in 2027 must appear under year=2027 even though
+      // the book column still says 2020.
+      const tag = 'reread-year-' + Math.random().toString(36).slice(2, 8);
+      const { body: reread } = await req('POST', '/api/books', {
+        title: `${tag} bookA`, status: 'finished', date_finished: '2020-08-15',
+      });
+      await req('POST', `/api/books/${reread.id}/reread`, { date_finished: '2027-09-10' });
+      const { body: results } = await req('GET', '/api/books?field=year_finished&value=2027&limit=200');
+      const ids = results.books.map(b => b.id);
+      assert.ok(ids.includes(reread.id),
+        'a 2027 re-read should appear in field=year_finished&value=2027 even when the book column still records 2020');
+    });
+
     it('sort=random returns the same order for the same seed (paginates stably)', async () => {
       const { body: page1 } = await req('GET', '/api/books?sort=random&seed=42&limit=50&offset=0');
       const { body: page2 } = await req('GET', '/api/books?sort=random&seed=42&limit=50&offset=50');
