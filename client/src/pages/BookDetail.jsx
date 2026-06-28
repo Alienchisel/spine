@@ -810,7 +810,7 @@ export default function BookDetail() {
             it. pt-1 matches the center/right columns' top alignment. */}
         <div className="flex-shrink-0 pt-1 self-center lg:self-start lg:sticky lg:top-[4.5rem]">
           <div
-            className={`relative w-full max-w-[280px] ${book.format === 'audiobook' ? 'h-[280px]' : 'h-[420px]'} bg-neutral-800 rounded overflow-hidden shadow-2xl ring-1 ring-white/5`}
+            className={`relative w-[280px] ${book.format === 'audiobook' ? 'h-[280px]' : 'h-[420px]'} bg-neutral-800 rounded overflow-hidden shadow-2xl ring-1 ring-white/5`}
             title="Paste an image to set the cover"
           >
             {book.cover_path ? (
