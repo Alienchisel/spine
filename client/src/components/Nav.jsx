@@ -215,15 +215,18 @@ export default function Nav() {
           Esc, route change, and locks body-scroll while open. The
           drawer is rendered always (just translated off-screen when
           closed) so the slide animation works in both directions.
-          Height uses dvh-based sizing so the backdrop tracks the iOS
-          Safari URL-bar collapse/expand cycle — without it, top-14
-          would stay pinned to the layout viewport and leave a gap as
-          the URL bar minimizes during scroll. */}
+          Positioning: `inset-0 top-14` anchors to the layout viewport.
+          A previous attempt to track the iOS Safari URL bar via an
+          inline `height: calc(100dvh - 3.5rem)` rendered the drawer
+          invisible in the field (1.244.2) — an explicit height
+          overrides the `bottom:0` from inset-0, so any browser that
+          failed to resolve dvh collapsed the parent to zero height.
+          The URL-bar gap is a cosmetic issue; an invisible drawer is
+          a functional regression — keep the layout-viewport anchor. */}
       <div
-        className={`sm:hidden fixed left-0 right-0 top-14 z-40 transition-[opacity,visibility] duration-200 ${
+        className={`sm:hidden fixed inset-0 top-14 z-40 transition-[opacity,visibility] duration-200 ${
           menuOpen ? 'opacity-100 visible' : 'opacity-0 invisible'
         }`}
-        style={{ height: 'calc(100dvh - 3.5rem)' }}
         aria-hidden={!menuOpen}
       >
         <div
