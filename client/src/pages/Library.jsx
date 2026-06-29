@@ -705,7 +705,15 @@ export default function Library() {
             to clip the search bar at borderline widths once Archived joined
             the tab strip in 1.20.0. */}
         <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-1.5">
+          {/* On phones the 6+ tabs (Reading / Finished / Unread / Owned /
+              Prev. owned / Never owned …) sum to ~600 px of nowrap flex
+              content — wider than the ~390 px iPhone viewport. Without
+              the `overflow-x-auto` here the flex children spilled past
+              the device width, expanded the page, and mobile browsers
+              auto-zoomed out to fit; the side effect was that any
+              `fixed right-0` overlay (the hamburger drawer) anchored
+              to the widened layout viewport and rendered offscreen. */}
+          <div className="flex items-center gap-1.5 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
             <div role="tablist" aria-label="Library view" className="flex gap-1 bg-neutral-900 p-1 rounded-lg w-fit">
               {TABS.map((t, i) => (
                 <button
