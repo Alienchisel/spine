@@ -827,7 +827,13 @@ export default function Library() {
                 {editMode ? 'Done' : enteringEdit ? 'Loading…' : 'Edit'}
               </button>
             )}
-            <div className="relative w-full sm:w-80">
+            {/* Search input + ?-help are desktop-only. On a phone the
+                input was getting shrunk to ~40 px under flex pressure
+                from the other toolbar items, leaving only the ?-help
+                icon visible and the field unusable. The keyboard-only
+                search-syntax help is also irrelevant on touch. Mobile
+                users can search via the global command palette. */}
+            <div className="relative w-80 hidden sm:block">
               <input
                 ref={searchRef}
                 type="search"
@@ -887,7 +893,9 @@ export default function Library() {
                 Clear all
               </button>
             )}
-            <span className="text-xs text-neutral-600 tabular-nums whitespace-nowrap">
+            {/* Redundant on mobile — the active tab already shows the
+                count next to its label. */}
+            <span className="hidden sm:inline text-xs text-neutral-600 tabular-nums whitespace-nowrap">
               {plural(total, 'book')}
             </span>
             {/* Desktop: cover-size slider inline. Mobile: a single

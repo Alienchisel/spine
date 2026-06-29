@@ -32,18 +32,22 @@
     --neutral-100: 237 229 219;   /* #ede5db */
   }
 
+  /* Defense-in-depth against horizontal page expansion. A flex
+     child with nowrap content that exceeds the viewport (e.g. a
+     toolbar tab strip) can push the document wider than the device,
+     which mobile browsers respond to by auto-zooming out. The side
+     effect is that `position: fixed` overlays (like the hamburger
+     drawer) anchor to the widened layout viewport and render
+     offscreen. Clipping at both html and body is needed on iOS
+     Safari — clipping only body leaves the html element scrollable
+     when there's a sticky header above the offending content, which
+     the user can still pan with a touch drag. */
+  html, body {
+    overflow-x: hidden;
+  }
+
   body {
     @apply bg-base text-parchment antialiased;
-    /* Defense-in-depth against horizontal page expansion. A flex
-       child with nowrap content that exceeds the viewport (e.g. a
-       toolbar tab strip) can push the body wider than the device,
-       which mobile browsers respond to by auto-zooming out. The side
-       effect is that `position: fixed` overlays (like the hamburger
-       drawer) anchor to the widened layout viewport and render
-       offscreen. Clipping horizontal overflow at the body means any
-       lone offender shows as truncated content rather than breaking
-       layout for the whole page. */
-    overflow-x: hidden;
   }
 
   input[type='date']::-webkit-calendar-picker-indicator {
