@@ -1101,6 +1101,55 @@ describe('books', () => {
       assert.equal(body.current_minutes, 120);
     });
 
+    it("a typo PATCH lowering current_minutes then corrected upward doesn't over-count the diary delta", async () => {
+      // Regression: the Sphere bug. User accidentally entered "at 5h 4m"
+      // when they meant "5h 4m remaining" — current_minutes went 359 →
+      // 304 (the wrong reading) → 476 (the correction). The naive
+      // delta model recorded 476-304 = 172 minutes for the day even
+      // though the actual progress was only 476-359 = 117 minutes,
+      // because the typo silently dropped the baseline. Today's
+      // reading_log row should reflect the true 117.
+      const { body: book } = await req('POST', '/api/books', {
+        title: 'Sphere Typo Regression', status: 'reading',
+        format: 'audiobook', duration_minutes: 780,
+      });
+      // Establish a baseline: previous current_minutes = 359 from
+      // earlier listening. We seed this via a PATCH and then clear
+      // today's reading_log row through the diary DELETE endpoint so
+      // the typo-then-correction sequence below starts with a clean
+      // log surface — semantically the seed represents progress from
+      // a prior day.
+      await req('PATCH', `/api/books/${book.id}`, { current_minutes: 359 });
+      const { body: diaryAfterSeed } = await req('GET', '/api/diary');
+      const today0 = new Date().toLocaleDateString('en-CA');
+      const seedEntry = diaryAfterSeed.days?.find(d => d.date === today0)?.entries
+        ?.find(e => e.book_id === book.id);
+      if (seedEntry) await req('DELETE', `/api/diary/${seedEntry.id}`);
+
+      // Typo: lower current_minutes to 304 (\"at 5h 4m\" misread as
+      // elapsed). Under the old code this dropped the baseline
+      // silently. Under the fix, current_minutes is clamped at 359
+      // and today's log stays at 0.
+      await req('PATCH', `/api/books/${book.id}`, { current_minutes: 304 });
+      const { body: afterTypo } = await req('GET', `/api/books/${book.id}`);
+      assert.equal(afterTypo.current_minutes, 359,
+        'a downward PATCH below yesterday-end must clamp to yesterday-end');
+
+      // Correction: 476 (5h 4m remaining = 304 remaining = 476 elapsed).
+      await req('PATCH', `/api/books/${book.id}`, { current_minutes: 476 });
+      const { body: afterFix } = await req('GET', `/api/books/${book.id}`);
+      assert.equal(afterFix.current_minutes, 476);
+
+      // The diary should record only the true 117-minute delta.
+      const { body: reads } = await req('GET', '/api/diary');
+      const today = new Date().toLocaleDateString('en-CA');
+      const todayEntry = reads.days?.find(d => d.date === today)?.entries
+        ?.find(e => e.book_id === book.id);
+      assert.ok(todayEntry, 'today diary entry for the regression book must exist');
+      assert.equal(todayEntry.minutes_read, 117,
+        'minutes_read must equal real progress (476 - 359), not the post-typo over-count (476 - 304)');
+    });
+
     it('rejects negative page number', async () => {
       const { body: created } = await req('POST', '/api/books', { title: 'Bad Page' });
       const { status } = await req('PATCH', `/api/books/${created.id}`, { current_page: -1 });
