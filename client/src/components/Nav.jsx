@@ -210,78 +210,71 @@ export default function Nav() {
         </Link>
       </div>
 
-      {/* Mobile drawer — slides in from the right under the sticky
-          header. Backdrop tap closes; the effect above also closes on
-          Esc, route change, and locks body-scroll while open. The
-          drawer is rendered always (just translated off-screen when
-          closed) so the slide animation works in both directions.
-          Positioning: `inset-0 top-14` anchors to the layout viewport.
-          A previous attempt to track the iOS Safari URL bar via an
-          inline `height: calc(100dvh - 3.5rem)` rendered the drawer
-          invisible in the field (1.244.2) — an explicit height
-          overrides the `bottom:0` from inset-0, so any browser that
-          failed to resolve dvh collapsed the parent to zero height.
-          The URL-bar gap is a cosmetic issue; an invisible drawer is
-          a functional regression — keep the layout-viewport anchor. */}
-      <div
-        className={`sm:hidden fixed inset-0 top-14 z-40 transition-[opacity,visibility] duration-200 ${
-          menuOpen ? 'opacity-100 visible' : 'opacity-0 invisible'
-        }`}
-        aria-hidden={!menuOpen}
-      >
-        <div
-          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-          onClick={() => setMenuOpen(false)}
-        />
-        <nav
-          id="mobile-nav-drawer"
-          aria-label="Main navigation"
-          className={`absolute top-0 right-0 bottom-0 w-64 max-w-[80vw] bg-neutral-950 border-l border-neutral-800/60 overflow-y-auto transform transition-transform duration-200 ${
-            menuOpen ? 'translate-x-0' : 'translate-x-full'
-          }`}
-        >
-          {/* Each link gets its own row with a generous tap target. The
-              accent stripe on the left mirrors each link's identity
-              colour from the desktop nav. */}
-          <ul className="py-2">
-            {[
-              { to: '/today',      label: 'Today',    active: onToday,     color: 'text-teal-400',    bar: 'bg-teal-400',    dot: showTodayDot },
-              { to: '/readlist',   label: 'Readlist', active: onReadlist,  color: 'text-sky-400',     bar: 'bg-sky-400'     },
-              { to: '/lists',      label: 'Lists',    active: onLists,     color: 'text-emerald-400', bar: 'bg-emerald-400' },
-              { to: '/loved',      label: 'Loved',    active: onLoved,     color: 'text-rose-400',    bar: 'bg-rose-400'    },
-              { to: '/diary',      label: 'Diary',    active: onDiary,     color: 'text-amber-400',   bar: 'bg-amber-400'   },
-              { to: '/notes',      label: 'Notes',    active: onNotes,     color: 'text-leather',     bar: 'bg-leather'     },
-              { to: '/stats',      label: 'Stats',    active: onStats,     color: 'text-violet-400',  bar: 'bg-violet-400'  },
-              { to: '/shelf-view', label: 'Shelves',  active: onShelfView, color: 'text-oak',         bar: 'bg-oak'         },
-            ].map(item => (
-              <li key={item.to}>
-                <Link
-                  to={item.to}
-                  aria-current={item.active ? 'page' : undefined}
-                  tabIndex={menuOpen ? 0 : -1}
-                  className={`relative flex items-center px-5 py-3.5 text-base transition-colors ${
-                    item.active ? item.color : 'text-neutral-300 hover:text-neutral-100'
-                  }`}
-                >
-                  {item.active && (
-                    <span
-                      aria-hidden="true"
-                      className={`absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-r ${item.bar}`}
-                    />
-                  )}
-                  {item.label}
-                  {item.dot && (
-                    <span
-                      aria-label="New today"
-                      className="ml-2 w-1.5 h-1.5 rounded-full bg-teal-400"
-                    />
-                  )}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
-      </div>
+      {/* Mobile drawer. Conditionally rendered — when closed, nothing
+          is in the DOM at all. The previous always-rendered + opacity/
+          translate toggle approach had multiple classes of fragility
+          (1.244.2 collapsed via a bad dvh inline height; 1.244.3 still
+          left the slide animation depending on `transform translate-x-*`
+          + transition-visibility resolving correctly in the field,
+          which the user reported still failed). Conditional rendering
+          eliminates that whole surface area: if menuOpen is true, the
+          drawer is in the DOM with a fixed positioned overlay; if not,
+          it isn't. We lose the slide animation in exchange for known-
+          working show/hide. */}
+      {menuOpen && (
+        <div className="sm:hidden fixed inset-0 top-14 z-40">
+          {/* Backdrop — tap to close. */}
+          <div
+            className="absolute inset-0 bg-black/60"
+            onClick={() => setMenuOpen(false)}
+          />
+          <nav
+            id="mobile-nav-drawer"
+            aria-label="Main navigation"
+            className="absolute top-0 right-0 bottom-0 w-64 max-w-[80vw] bg-neutral-900 border-l border-neutral-800/60 overflow-y-auto shadow-2xl"
+          >
+            {/* Each link gets its own row with a generous tap target.
+                The accent stripe on the left mirrors each link's
+                identity colour from the desktop nav. */}
+            <ul className="py-2">
+              {[
+                { to: '/today',      label: 'Today',    active: onToday,     color: 'text-teal-400',    bar: 'bg-teal-400',    dot: showTodayDot },
+                { to: '/readlist',   label: 'Readlist', active: onReadlist,  color: 'text-sky-400',     bar: 'bg-sky-400'     },
+                { to: '/lists',      label: 'Lists',    active: onLists,     color: 'text-emerald-400', bar: 'bg-emerald-400' },
+                { to: '/loved',      label: 'Loved',    active: onLoved,     color: 'text-rose-400',    bar: 'bg-rose-400'    },
+                { to: '/diary',      label: 'Diary',    active: onDiary,     color: 'text-amber-400',   bar: 'bg-amber-400'   },
+                { to: '/notes',      label: 'Notes',    active: onNotes,     color: 'text-leather',     bar: 'bg-leather'     },
+                { to: '/stats',      label: 'Stats',    active: onStats,     color: 'text-violet-400',  bar: 'bg-violet-400'  },
+                { to: '/shelf-view', label: 'Shelves',  active: onShelfView, color: 'text-oak',         bar: 'bg-oak'         },
+              ].map(item => (
+                <li key={item.to}>
+                  <Link
+                    to={item.to}
+                    aria-current={item.active ? 'page' : undefined}
+                    className={`relative flex items-center px-5 py-3.5 text-base transition-colors ${
+                      item.active ? item.color : 'text-neutral-300 hover:text-neutral-100'
+                    }`}
+                  >
+                    {item.active && (
+                      <span
+                        aria-hidden="true"
+                        className={`absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-r ${item.bar}`}
+                      />
+                    )}
+                    {item.label}
+                    {item.dot && (
+                      <span
+                        aria-label="New today"
+                        className="ml-2 w-1.5 h-1.5 rounded-full bg-teal-400"
+                      />
+                    )}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        </div>
+      )}
     </header>
   );
 }
