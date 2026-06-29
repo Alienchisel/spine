@@ -231,7 +231,7 @@ export default function Nav() {
           <nav
             id="mobile-nav-drawer"
             aria-label="Main navigation"
-            className="absolute top-0 right-0 bottom-0 w-64 max-w-[80vw] bg-neutral-900 border-l border-neutral-800/60 overflow-y-auto shadow-2xl"
+            className="absolute top-0 left-0 bottom-0 w-64 max-w-[80vw] bg-neutral-900 border-r border-neutral-800/60 overflow-y-auto shadow-2xl"
           >
             {/* Each link gets its own row with a generous tap target.
                 The accent stripe on the left mirrors each link's
