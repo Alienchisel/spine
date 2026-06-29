@@ -8,8 +8,49 @@ function todayStr() {
   return new Date().toLocaleDateString('en-CA');  // local YYYY-MM-DD
 }
 
+// Hamburger icon — 3 lines that morph to an X via aria-state. CSS-only
+// transition matches the focus-visible affordance on the button.
+function MenuIcon({ open }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="w-5 h-5">
+      {open ? (
+        <>
+          <line x1="6"  y1="6"  x2="18" y2="18" />
+          <line x1="18" y1="6"  x2="6"  y2="18" />
+        </>
+      ) : (
+        <>
+          <line x1="4"  y1="7"  x2="20" y2="7"  />
+          <line x1="4"  y1="12" x2="20" y2="12" />
+          <line x1="4"  y1="17" x2="20" y2="17" />
+        </>
+      )}
+    </svg>
+  );
+}
+
 export default function Nav() {
   const { pathname, search } = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  // Close the drawer on every route change. A tap on any drawer link
+  // navigates; the close happens here automatically rather than on
+  // each Link's onClick. Esc also closes (effect below).
+  useEffect(() => { setMenuOpen(false); }, [pathname, search]);
+
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    function onKey(e) { if (e.key === 'Escape') setMenuOpen(false); }
+    window.addEventListener('keydown', onKey);
+    // Lock body scroll while the drawer is open so the page underneath
+    // doesn't track the drawer's swipe gestures on iOS Safari.
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [menuOpen]);
   // `+ Add book` is always visible — it used to gate on Library / Browse
   // only, but discoverability suffered (users on Stats, Author, Loved
   // pages had to nav back to /. before they could add). Other surfaces
@@ -109,15 +150,39 @@ export default function Nav() {
         Skip to content
       </a>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between border-b border-neutral-800/60 bg-neutral-950/90 backdrop-blur-sm">
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-3 sm:gap-6">
+          {/* Hamburger toggle — mobile only. Sits before the brand so it
+              lands in the thumb-friendly top-left corner and doesn't
+              compete with the Add-book affordance on the right. The
+              showTodayDot indicator rides on the icon when the drawer
+              is closed so users see the "new today" cue without
+              opening the menu. */}
+          <button
+            type="button"
+            onClick={() => setMenuOpen(v => !v)}
+            aria-expanded={menuOpen}
+            aria-controls="mobile-nav-drawer"
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+            className="sm:hidden relative -ml-1 p-2 text-neutral-400 hover:text-neutral-200 transition-colors"
+          >
+            <MenuIcon open={menuOpen} />
+            {!menuOpen && showTodayDot && (
+              <span
+                aria-hidden="true"
+                className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-teal-400"
+              />
+            )}
+          </button>
           <Link
             to="/"
             className="font-slab text-xl tracking-wider text-parchment hover:text-leather transition-colors uppercase flex items-baseline gap-1.5"
           >
             Spine
-            <span className="text-[10px] tracking-normal text-neutral-700 font-normal normal-case">v{__APP_VERSION__}</span>
+            <span className="hidden sm:inline text-[10px] tracking-normal text-neutral-700 font-normal normal-case">v{__APP_VERSION__}</span>
           </Link>
-          <nav className="flex items-center gap-5">
+          {/* Inline nav — desktop only. Mobile users get the same items
+              behind the hamburger drawer below. */}
+          <nav className="hidden sm:flex items-center gap-5">
             {/* Today leads the nav (1.232+) — it's the only reflective
                 / ritual surface in the row, the natural entry point on
                 first-open, and leftmost matches the daily-first reading
@@ -143,6 +208,70 @@ export default function Nav() {
           <span aria-hidden="true">+</span>
           <span className="hidden sm:inline ml-1">Add book</span>
         </Link>
+      </div>
+
+      {/* Mobile drawer — slides in from the right under the sticky
+          header. Backdrop tap closes; the effect above also closes on
+          Esc, route change, and locks body-scroll while open. The
+          drawer is rendered always (just translated off-screen when
+          closed) so the slide animation works in both directions. */}
+      <div
+        className={`sm:hidden fixed inset-0 top-14 z-40 transition-[opacity,visibility] duration-200 ${
+          menuOpen ? 'opacity-100 visible' : 'opacity-0 invisible'
+        }`}
+        aria-hidden={!menuOpen}
+      >
+        <div
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          onClick={() => setMenuOpen(false)}
+        />
+        <nav
+          id="mobile-nav-drawer"
+          aria-label="Main navigation"
+          className={`absolute top-0 right-0 bottom-0 w-64 max-w-[80vw] bg-neutral-950 border-l border-neutral-800/60 overflow-y-auto transform transition-transform duration-200 ${
+            menuOpen ? 'translate-x-0' : 'translate-x-full'
+          }`}
+        >
+          {/* Each link gets its own row with a generous tap target. The
+              accent stripe on the left mirrors each link's identity
+              colour from the desktop nav. */}
+          <ul className="py-2">
+            {[
+              { to: '/today',      label: 'Today',    active: onToday,     color: 'text-teal-400',    bar: 'bg-teal-400',    dot: showTodayDot },
+              { to: '/readlist',   label: 'Readlist', active: onReadlist,  color: 'text-sky-400',     bar: 'bg-sky-400'     },
+              { to: '/lists',      label: 'Lists',    active: onLists,     color: 'text-emerald-400', bar: 'bg-emerald-400' },
+              { to: '/loved',      label: 'Loved',    active: onLoved,     color: 'text-rose-400',    bar: 'bg-rose-400'    },
+              { to: '/diary',      label: 'Diary',    active: onDiary,     color: 'text-amber-400',   bar: 'bg-amber-400'   },
+              { to: '/notes',      label: 'Notes',    active: onNotes,     color: 'text-leather',     bar: 'bg-leather'     },
+              { to: '/stats',      label: 'Stats',    active: onStats,     color: 'text-violet-400',  bar: 'bg-violet-400'  },
+              { to: '/shelf-view', label: 'Shelves',  active: onShelfView, color: 'text-oak',         bar: 'bg-oak'         },
+            ].map(item => (
+              <li key={item.to}>
+                <Link
+                  to={item.to}
+                  aria-current={item.active ? 'page' : undefined}
+                  className={`relative flex items-center px-5 py-3.5 text-base transition-colors ${
+                    item.active ? item.color : 'text-neutral-300 hover:text-neutral-100'
+                  }`}
+                >
+                  {item.active && (
+                    <span
+                      aria-hidden="true"
+                      className={`absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-r ${item.bar}`}
+                    />
+                  )}
+                  {item.label}
+                  {item.dot && (
+                    <span
+                      aria-label="New today"
+                      className="ml-2 w-1.5 h-1.5 rounded-full bg-teal-400"
+                    />
+                  )}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
       </div>
     </header>
   );
