@@ -46,20 +46,32 @@ function defaultSizeForViewport(isMobile) {
 // legacy value into BOTH new keys so the user's prior tuning carries
 // over on whichever device they next open Spine on. Leaves the legacy
 // key intact (harmless; would only matter if the user downgraded).
+//
+// The legacyMigrated flag is flipped AFTER the writes so a second hook
+// mount that fires within the same tick sees migration as not-yet-run
+// and re-attempts — which is idempotent since the writes are gated on
+// "key is null" and a successful first run would have populated them.
+// Flipping the flag first would let a near-simultaneous second mount
+// skip the migration before the first's writes had landed.
 let legacyMigrated = false;
 function migrateLegacyKey() {
   if (legacyMigrated) return;
-  legacyMigrated = true;
   try {
     const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
-    if (legacy === null) return;
-    if (localStorage.getItem(STORAGE_KEY_MOBILE) === null) {
-      localStorage.setItem(STORAGE_KEY_MOBILE, legacy);
+    if (legacy !== null) {
+      if (localStorage.getItem(STORAGE_KEY_MOBILE) === null) {
+        localStorage.setItem(STORAGE_KEY_MOBILE, legacy);
+      }
+      if (localStorage.getItem(STORAGE_KEY_DESKTOP) === null) {
+        localStorage.setItem(STORAGE_KEY_DESKTOP, legacy);
+      }
     }
-    if (localStorage.getItem(STORAGE_KEY_DESKTOP) === null) {
-      localStorage.setItem(STORAGE_KEY_DESKTOP, legacy);
-    }
-  } catch {}
+    legacyMigrated = true;
+  } catch {
+    // Storage unavailable (privacy-mode, quota, etc.). Leave the flag
+    // false so a later attempt can retry; the worst-case is repeated
+    // try/catch overhead, not data loss.
+  }
 }
 
 // Each stop maps to a column count at three breakpoints (mobile / sm /
@@ -113,11 +125,15 @@ export function useCoverSize() {
       const m = isMobileViewport();
       if (m !== mobileNow) {
         // Crossed the mobile/desktop boundary — switch to the other
-        // key's persisted value so a tablet rotating to landscape (or
-        // a dev tools viewport resize) picks up the right setting for
-        // the new device class.
+        // key's persisted value AND eagerly recompute cols with that
+        // value so the next render doesn't paint one frame of stale
+        // grid (the previous size against the new breakpoint). The
+        // useEffect re-fires after _setSize lands and would correct
+        // it, but eagerly setting cols here avoids the visible flash.
+        const next = loadSize(m);
         setMobileNow(m);
-        _setSize(loadSize(m));
+        _setSize(next);
+        setCols(computeCols(next));
         return;
       }
       setCols(computeCols(size));

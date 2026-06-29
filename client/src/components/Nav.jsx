@@ -214,11 +214,16 @@ export default function Nav() {
           header. Backdrop tap closes; the effect above also closes on
           Esc, route change, and locks body-scroll while open. The
           drawer is rendered always (just translated off-screen when
-          closed) so the slide animation works in both directions. */}
+          closed) so the slide animation works in both directions.
+          Height uses dvh-based sizing so the backdrop tracks the iOS
+          Safari URL-bar collapse/expand cycle — without it, top-14
+          would stay pinned to the layout viewport and leave a gap as
+          the URL bar minimizes during scroll. */}
       <div
-        className={`sm:hidden fixed inset-0 top-14 z-40 transition-[opacity,visibility] duration-200 ${
+        className={`sm:hidden fixed left-0 right-0 top-14 z-40 transition-[opacity,visibility] duration-200 ${
           menuOpen ? 'opacity-100 visible' : 'opacity-0 invisible'
         }`}
+        style={{ height: 'calc(100dvh - 3.5rem)' }}
         aria-hidden={!menuOpen}
       >
         <div
@@ -250,6 +255,7 @@ export default function Nav() {
                 <Link
                   to={item.to}
                   aria-current={item.active ? 'page' : undefined}
+                  tabIndex={menuOpen ? 0 : -1}
                   className={`relative flex items-center px-5 py-3.5 text-base transition-colors ${
                     item.active ? item.color : 'text-neutral-300 hover:text-neutral-100'
                   }`}
