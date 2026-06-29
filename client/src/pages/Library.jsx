@@ -108,6 +108,23 @@ function FilterIcon() {
   );
 }
 
+// Three horizontal sliders — the universal "adjustments / settings"
+// icon. Used for the mobile View-options button.
+function SlidersIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="w-3.5 h-3.5">
+      <line x1="2"  y1="4"  x2="9"  y2="4"  />
+      <line x1="13" y1="4"  x2="14" y2="4"  />
+      <circle cx="11" cy="4"  r="1.5" fill="currentColor" stroke="none" />
+      <line x1="2"  y1="8"  x2="4"  y2="8"  />
+      <line x1="8"  y1="8"  x2="14" y2="8"  />
+      <circle cx="6"  cy="8"  r="1.5" fill="currentColor" stroke="none" />
+      <line x1="2"  y1="12" x2="10" y2="12" />
+      <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 function DragHandle() {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
@@ -178,6 +195,11 @@ export default function Library() {
     return (prefs.sortByTab && typeof prefs.sortByTab === 'object') ? prefs.sortByTab : {};
   });
   const [filtersOpen, setFiltersOpen] = useState(() => typeof prefs.filtersOpen === 'boolean' ? prefs.filtersOpen : false);
+  // Mobile-only View options sheet — collapses set-and-forget controls
+  // (the cover-size slider, for now) behind a single button so the
+  // inline toolbar can fit on a ~390 px viewport without horizontal
+  // scroll. Desktop renders the slider inline as before.
+  const [viewOptionsOpen, setViewOptionsOpen] = useState(false);
   // Cover-size dial — Plex-style 9-stop slider. Stored under its own
   // localStorage key (not in library prefs) so other cover-first grids
   // (Loved, ShelfView, BrowsePage) can share it on a later pass.
@@ -868,7 +890,21 @@ export default function Library() {
             <span className="text-xs text-neutral-600 tabular-nums whitespace-nowrap">
               {plural(total, 'book')}
             </span>
-            <CoverSizeSlider size={coverSize} onChange={setCoverSize} min={coverMin} max={coverMax} />
+            {/* Desktop: cover-size slider inline. Mobile: a single
+                "View" button opens a sheet with the slider — keeps
+                the toolbar fittable on a phone viewport. */}
+            <div className="hidden sm:block">
+              <CoverSizeSlider size={coverSize} onChange={setCoverSize} min={coverMin} max={coverMax} />
+            </div>
+            <button
+              type="button"
+              onClick={() => setViewOptionsOpen(true)}
+              aria-label="View options"
+              className="sm:hidden h-9 inline-flex items-center gap-1.5 text-sm px-3 rounded-lg whitespace-nowrap bg-neutral-800 text-neutral-400 hover:text-neutral-200 transition-colors"
+            >
+              <SlidersIcon />
+              View
+            </button>
           </div>
         </div>
 
@@ -885,6 +921,41 @@ export default function Library() {
           </p>
         )}
       </div>
+
+      {/* Mobile View-options sheet. Centred modal containing the
+          cover-size slider. The slider lives inline on desktop; on
+          mobile the inline copy is hidden and the only way to adjust
+          cover size is here. Keep this list minimal — additions
+          should be "set-and-forget" only, not per-glance toggles
+          like Sort/Filters. */}
+      {viewOptionsOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="View options"
+          className="sm:hidden fixed inset-0 z-50 flex items-end justify-center p-4"
+          onMouseDown={(e) => { if (e.target === e.currentTarget) setViewOptionsOpen(false); }}
+        >
+          <div className="absolute inset-0 bg-black/70 pointer-events-none" />
+          <div className="relative w-full max-w-sm rounded-lg border border-neutral-700 bg-neutral-900 p-5 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm font-semibold text-parchment">View options</p>
+              <button
+                type="button"
+                onClick={() => setViewOptionsOpen(false)}
+                aria-label="Close"
+                className="text-neutral-500 hover:text-neutral-200 transition-colors text-lg leading-none px-1"
+              >
+                ×
+              </button>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-sm text-neutral-300">Cover size</span>
+              <CoverSizeSlider size={coverSize} onChange={setCoverSize} min={coverMin} max={coverMax} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <GridSkeleton
