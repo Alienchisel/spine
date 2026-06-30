@@ -384,6 +384,14 @@ export default function CommandPalette() {
     return () => document.removeEventListener('keydown', onKey);
   }, [open, close]);
 
+  // Non-keyboard entry point — phones can't fire Ctrl/Cmd+K, so Nav
+  // dispatches this event when the user taps the search icon.
+  useSpineEvent('spine:open-command-palette', () => {
+    if (open) return;
+    returnFocusRef.current = document.activeElement;
+    setOpen(true);
+  });
+
   // Focus the input once mounted.
   useEffect(() => {
     if (!open) return;

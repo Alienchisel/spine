@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { labelForPath } from '../utils.js';
+import { dispatchSpineEvent } from '../hooks/useSpineEvent.js';
 
 const TODAY_VISITED_KEY = 'today-visited';
 
@@ -25,6 +26,17 @@ function MenuIcon({ open }) {
           <line x1="4"  y1="17" x2="20" y2="17" />
         </>
       )}
+    </svg>
+  );
+}
+
+// Magnifying-glass icon for the mobile search button. Same stroke
+// weight as MenuIcon so the pair reads as a set in the top bar.
+function SearchIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+      <circle cx="11" cy="11" r="7" />
+      <line x1="20" y1="20" x2="16.5" y2="16.5" />
     </svg>
   );
 }
@@ -199,15 +211,30 @@ export default function Nav() {
             {navLink('/shelf-view', 'Shelves',  onShelfView, 'text-oak',         'hover:text-leather')}
           </nav>
         </div>
-        <Link
-          to="/books/new"
-          state={{ from: labelForPath(pathname), fromPath: pathname + search }}
-          aria-label="Add book"
-          className="text-sm font-medium bg-oak hover:bg-leather motion-safe:active:scale-[0.98] text-neutral-950 px-4 py-1.5 rounded-full whitespace-nowrap transition-[transform,background-color] ease-out duration-150"
-        >
-          <span aria-hidden="true">+</span>
-          <span className="hidden sm:inline ml-1">Add book</span>
-        </Link>
+        <div className="flex items-center gap-1">
+          {/* Mobile-only search button — opens the global command
+              palette. Desktop has Ctrl/Cmd+K for the same; phones
+              can't fire that, so they need a tap target. The
+              palette covers search, navigation, and quick actions
+              all at once. */}
+          <button
+            type="button"
+            onClick={() => dispatchSpineEvent('spine:open-command-palette')}
+            aria-label="Search"
+            className="sm:hidden -mr-1 p-2 text-neutral-400 hover:text-neutral-200 transition-colors"
+          >
+            <SearchIcon />
+          </button>
+          <Link
+            to="/books/new"
+            state={{ from: labelForPath(pathname), fromPath: pathname + search }}
+            aria-label="Add book"
+            className="text-sm font-medium bg-oak hover:bg-leather motion-safe:active:scale-[0.98] text-neutral-950 px-4 py-1.5 rounded-full whitespace-nowrap transition-[transform,background-color] ease-out duration-150"
+          >
+            <span aria-hidden="true">+</span>
+            <span className="hidden sm:inline ml-1">Add book</span>
+          </Link>
+        </div>
       </div>
 
       {/* Mobile drawer. Conditionally rendered — when closed, nothing
