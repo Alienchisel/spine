@@ -72,6 +72,24 @@ router.get('/', (req, res) => {
     });
   }
 
+  // A book may have BOTH a book-level row (story_id IS NULL) and one
+  // or more story-level rows (story_id IS NOT NULL) on the same date —
+  // the schema permits it, and users hit this naturally when they log
+  // story-by-story while ALSO running a book-level PATCH (current_page
+  // bump) on the same session. The two layers describe the same pages
+  // at different granularities; summing them would double-count.
+  //
+  // Mark each book-level row with `redundant: true` when story-level
+  // rows exist for the same (book_id, date). The client dims those
+  // rows so the duplication is visible, and the daily total below
+  // takes MAX(book-level, sum-of-stories) per book so the count is
+  // honest. We keep redundant rows in the response (rather than
+  // hiding them) so the user can still see and delete them.
+  const storyTuples = new Set();
+  for (const row of rows) {
+    if (row.story_id != null) storyTuples.add(`${row.book_id}|${row.date}`);
+  }
+
   const byDate = {};
   for (const row of rows) {
     if (!byDate[row.date]) byDate[row.date] = [];
@@ -82,7 +100,27 @@ router.get('/', (req, res) => {
       format: row.format, pages_read: row.pages_read, minutes_read: row.minutes_read,
       story_id: row.story_id, story_title: row.story_title, story_position: row.story_position,
       finished: Boolean(row.finished),
+      redundant: row.story_id == null && storyTuples.has(`${row.book_id}|${row.date}`),
     });
+  }
+
+  // Per (book_id, date) dedup: MAX(book-level total, sum of story-level
+  // totals) is the effective count for that book on that day. Sum the
+  // effective counts across books for the day's pages_total /
+  // minutes_total. Identical aggregation lives in the SQL stats query
+  // below — keep them in sync if either changes.
+  function effectiveDayTotal(entries, field) {
+    const byBook = new Map();
+    for (const e of entries) {
+      const v = e[field] || 0;
+      if (!byBook.has(e.book_id)) byBook.set(e.book_id, { book: 0, story: 0 });
+      const bucket = byBook.get(e.book_id);
+      if (e.story_id != null) bucket.story += v;
+      else                    bucket.book  += v;
+    }
+    let total = 0;
+    for (const { book, story } of byBook.values()) total += Math.max(book, story);
+    return total;
   }
 
   // Diary surfaces day/week streaks (current + longest) in its sidebar.
@@ -93,15 +131,34 @@ router.get('/', (req, res) => {
   // reading_log, NOT filtered by the selected year. Mirrors how streaks work:
   // the dropdown only affects the displayed entries, not the always-now stats.
   // SQLite's strftime '%w' returns 0=Sunday..6=Saturday; we anchor weeks Mon–Sun.
+  //
+  // Same (book_id, date) dedup as the per-day totals above: per book/day,
+  // effective pages = MAX(book-level sum, story-level sum). Without the
+  // dedup a user who logs both layers double-counts at the week/month/
+  // year scope just like at the day scope.
   const totalsRow = db.prepare(`
     SELECT
-      COALESCE(SUM(CASE WHEN date >= date('now','localtime','weekday 0','-6 days') AND date <= date('now','localtime','weekday 0') THEN pages_read   END), 0) AS week_pages,
-      COALESCE(SUM(CASE WHEN date >= date('now','localtime','weekday 0','-6 days') AND date <= date('now','localtime','weekday 0') THEN minutes_read END), 0) AS week_minutes,
-      COALESCE(SUM(CASE WHEN strftime('%Y-%m', date) = strftime('%Y-%m', 'now', 'localtime') THEN pages_read   END), 0) AS month_pages,
-      COALESCE(SUM(CASE WHEN strftime('%Y-%m', date) = strftime('%Y-%m', 'now', 'localtime') THEN minutes_read END), 0) AS month_minutes,
-      COALESCE(SUM(CASE WHEN strftime('%Y',    date) = strftime('%Y',    'now', 'localtime') THEN pages_read   END), 0) AS year_pages,
-      COALESCE(SUM(CASE WHEN strftime('%Y',    date) = strftime('%Y',    'now', 'localtime') THEN minutes_read END), 0) AS year_minutes
-    FROM reading_log
+      COALESCE(SUM(CASE WHEN date >= date('now','localtime','weekday 0','-6 days') AND date <= date('now','localtime','weekday 0') THEN effective_pages   END), 0) AS week_pages,
+      COALESCE(SUM(CASE WHEN date >= date('now','localtime','weekday 0','-6 days') AND date <= date('now','localtime','weekday 0') THEN effective_minutes END), 0) AS week_minutes,
+      COALESCE(SUM(CASE WHEN strftime('%Y-%m', date) = strftime('%Y-%m', 'now', 'localtime') THEN effective_pages   END), 0) AS month_pages,
+      COALESCE(SUM(CASE WHEN strftime('%Y-%m', date) = strftime('%Y-%m', 'now', 'localtime') THEN effective_minutes END), 0) AS month_minutes,
+      COALESCE(SUM(CASE WHEN strftime('%Y',    date) = strftime('%Y',    'now', 'localtime') THEN effective_pages   END), 0) AS year_pages,
+      COALESCE(SUM(CASE WHEN strftime('%Y',    date) = strftime('%Y',    'now', 'localtime') THEN effective_minutes END), 0) AS year_minutes
+    FROM (
+      SELECT
+        book_id,
+        date,
+        max(
+          SUM(CASE WHEN story_id IS NULL     THEN pages_read   ELSE 0 END),
+          SUM(CASE WHEN story_id IS NOT NULL THEN pages_read   ELSE 0 END)
+        ) AS effective_pages,
+        max(
+          SUM(CASE WHEN story_id IS NULL     THEN minutes_read ELSE 0 END),
+          SUM(CASE WHEN story_id IS NOT NULL THEN minutes_read ELSE 0 END)
+        ) AS effective_minutes
+      FROM reading_log
+      GROUP BY book_id, date
+    )
   `).get();
 
   res.json({
@@ -112,8 +169,8 @@ router.get('/', (req, res) => {
     days: Object.entries(byDate).map(([date, entries]) => ({
       date,
       entries,
-      pages_total:   entries.reduce((s, e) => s + (e.pages_read   || 0), 0),
-      minutes_total: entries.reduce((s, e) => s + (e.minutes_read || 0), 0),
+      pages_total:   effectiveDayTotal(entries, 'pages_read'),
+      minutes_total: effectiveDayTotal(entries, 'minutes_read'),
     })),
     years,
     stats: {

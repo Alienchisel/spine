@@ -119,6 +119,69 @@ describe('diary', () => {
     });
   });
 
+  describe('book-level + story-level dedup on the same date', () => {
+    // Regression coverage for the double-count bug — when a user logs
+    // both a book-level read (PATCH current_page) AND finishes one or
+    // more stories on the same day, the reading_log gets a book-level
+    // row AND story-level rows, all describing the same pages. The
+    // sum naive .reduce() double-counted. New rule: per (book_id,
+    // date), effective pages = MAX(book-level, sum-of-story-level);
+    // book-level entries are tagged redundant when stories cover them.
+    let bookId;
+    let storyId;
+
+    before(async () => {
+      const { body: book } = await req('POST', '/api/books', {
+        title: 'Dedup Test', status: 'reading', format: 'physical', page_count: 100,
+      });
+      bookId = book.id;
+      // Book-level reading_log row of 64 pages today.
+      await req('PATCH', `/api/books/${bookId}`, { current_page: 64 });
+      // Add a story covering pages 1-30, then finish it — creates a
+      // story-level reading_log row of 30 pages today.
+      const { body: story } = await req('POST', `/api/books/${bookId}/stories`, {
+        title: 'Story A', position: 1, status: 'unread', page_start: 1, page_end: 30,
+      });
+      storyId = story.id;
+      await req('PUT', `/api/books/${bookId}/stories/${storyId}`, {
+        title: 'Story A', position: 1, status: 'finished', page_start: 1, page_end: 30,
+      });
+    });
+
+    it('pages_total takes MAX(book-level, sum-of-stories), not sum', async () => {
+      const { body } = await req('GET', '/api/diary');
+      const day = body.days.find(d => d.entries.some(e => e.book_id === bookId));
+      assert.ok(day, 'expected a day with the dedup-test book');
+      const ourEntries = day.entries.filter(e => e.book_id === bookId);
+      // Sanity: both rows present, naive sum 64 + 30 = 94.
+      assert.equal(ourEntries.length, 2);
+      assert.equal(ourEntries.reduce((s, e) => s + e.pages_read, 0), 94);
+      // Day total includes the prior "Diary Test" book (30 pages, no
+      // stories). With dedup: 30 + max(64, 30) = 94. The naive bug
+      // would have produced 30 + 64 + 30 = 124.
+      assert.equal(day.pages_total, 94);
+    });
+
+    it('tags the book-level row as redundant when stories cover it', async () => {
+      const { body } = await req('GET', '/api/diary');
+      const entries = body.days.flatMap(d => d.entries).filter(e => e.book_id === bookId);
+      const bookLevel = entries.find(e => e.story_id == null);
+      const storyLevel = entries.find(e => e.story_id != null);
+      assert.ok(bookLevel && storyLevel, 'expected both row types');
+      assert.equal(bookLevel.redundant, true, 'book-level row should be marked redundant');
+      assert.equal(storyLevel.redundant, false, 'story-level row should not be redundant');
+    });
+
+    it('stats (week/month/year) dedup at SQL level too', async () => {
+      // Sanity: with the fixture's 30-page prior book + this 64-effective
+      // book, thisWeek.pages == 94, NOT 124 (the naive sum that
+      // double-counts the 30-page story on top of the 64-page book-level).
+      const { body } = await req('GET', '/api/diary');
+      assert.equal(body.stats.thisWeek.pages, 94, 'naive sum would be 124');
+      assert.equal(body.stats.thisYear.pages, 94, 'year-scope dedup');
+    });
+  });
+
   describe('finished flag', () => {
     // Local-date formatter mirrors how the server logs reading_log.date via
     // SQLite date('now','localtime'); using toISOString() would drift across

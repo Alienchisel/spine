@@ -403,8 +403,13 @@ function DiaryEntry({ entry, onDelete }) {
   const subParts = [];
   if (isStory) subParts.push(entry.title);
   if (entry.authors?.length > 0) subParts.push(formatAuthors(entry.authors));
+  // Redundant book-level row — story-level rows for the same book+date
+  // already cover the same pages. Dim it and tag it so the user can
+  // see the duplication and decide whether to remove it; the daily
+  // total dedups regardless, so leaving it visible is informational
+  // only. See diary.js for the MAX-per-book aggregation rule.
   return (
-    <div className="flex items-center gap-4 py-2.5 group">
+    <div className={`flex items-center gap-4 py-2.5 group ${entry.redundant ? 'opacity-40' : ''}`}>
       <div className="w-8 h-[46px] flex-shrink-0 rounded overflow-hidden bg-neutral-800">
         {entry.cover_path
           ? <img src={entry.cover_path} alt="" className="w-full h-full object-cover" />
@@ -419,6 +424,14 @@ function DiaryEntry({ entry, onDelete }) {
       {entry.finished && (
         <span className="text-[10px] uppercase tracking-wider text-leather border border-binding/40 rounded px-1 py-px flex-shrink-0">
           Finished
+        </span>
+      )}
+      {entry.redundant && (
+        <span
+          className="text-[10px] uppercase tracking-wider text-neutral-500 border border-neutral-700/40 rounded px-1 py-px flex-shrink-0"
+          title="The stories above already cover this row's pages; the daily total counts it once."
+        >
+          In stories
         </span>
       )}
       {progress && <span className="text-xs text-neutral-500 flex-shrink-0">{progress}</span>}
