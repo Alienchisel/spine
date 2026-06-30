@@ -392,6 +392,19 @@ export default function CommandPalette() {
     setOpen(true);
   });
 
+  // Lock body scroll while the palette is open. Without this iOS
+  // Safari "scroll chains" past the end of the results list straight
+  // into the page underneath, which is jarring under a modal. The
+  // hamburger drawer locks body overflow the same way; if both are
+  // somehow open at once, this restore-to-previous chain unwinds in
+  // reverse order without leaving the page stuck-scrollable.
+  useEffect(() => {
+    if (!open) return undefined;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prevOverflow; };
+  }, [open]);
+
   // Focus the input once mounted.
   useEffect(() => {
     if (!open) return;
@@ -1359,6 +1372,21 @@ export default function CommandPalette() {
     >
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm pointer-events-none" />
       <div className="relative w-full max-w-xl rounded-lg border border-neutral-700 bg-neutral-900 shadow-2xl overflow-hidden">
+        {/* Mobile-only close affordance. Desktop users have Esc and
+            the backdrop tap, both well-known. On a phone there's no
+            keyboard, the autofocused input draws the soft keyboard
+            which can hide the modal's edges, and backdrop-tap is
+            undiscoverable — so a visible × is the only reliable exit.
+            Sits above the input via z-10 with a touch-comfortable
+            44 × 44 px tap area. */}
+        <button
+          type="button"
+          onClick={close}
+          aria-label="Close"
+          className="sm:hidden absolute top-0 right-0 z-10 w-11 h-11 flex items-center justify-center text-neutral-500 hover:text-neutral-200 transition-colors text-xl leading-none"
+        >
+          ×
+        </button>
         {subPrompt && (
           <div className="px-4 py-1.5 border-b border-neutral-800 bg-neutral-950 text-[11px] text-neutral-500 flex items-center gap-1.5">
             <span className="text-oak">→</span>

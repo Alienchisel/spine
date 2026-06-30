@@ -219,7 +219,14 @@ export default function Nav() {
               all at once. */}
           <button
             type="button"
-            onClick={() => dispatchSpineEvent('spine:open-command-palette')}
+            onClick={() => {
+              // If the drawer was open, close it before opening the
+              // palette — otherwise it stays behind the modal, focus
+              // return on palette-close lands on a stale state, and
+              // both compete for body-scroll lock on iOS.
+              setMenuOpen(false);
+              dispatchSpineEvent('spine:open-command-palette');
+            }}
             aria-label="Search"
             className="sm:hidden -mr-1 p-2 text-neutral-400 hover:text-neutral-200 transition-colors"
           >
