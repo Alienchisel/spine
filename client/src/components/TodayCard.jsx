@@ -113,9 +113,15 @@ function CardBody({ card }) {
   );
 
   if (type === 'loved_resurface') {
+    // The number here is time since the last read finish, not time
+    // since the loved flag was set (Spine doesn't record when `loved`
+    // flipped — the column is a boolean, not a timestamp). Original
+    // copy said "marked as loved N ago", which read literally and
+    // could show pre-Spine dates for books added with historical
+    // reads. Wording now matches the underlying field.
     return (
       <p>
-        You marked {link} as loved {relativeMonths(card.days_since_finished)} ago. Worth a re-read?
+        You loved {link} — last read {relativeMonths(card.days_since_finished)} ago. Worth a re-read?
       </p>
     );
   }
