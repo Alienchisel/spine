@@ -3,6 +3,20 @@ import { useRefreshTick } from './useRefreshTick.js';
 import { useStaleGuard } from './useStaleGuard.js';
 import { useLatest } from './useLatest.js';
 
+// Deep-equal check for a fetch payload. JSON.stringify is fast enough
+// for typical Spine responses (Loved's 200-book grid is ~40 kB — under
+// 5 ms round-trip on the least capable device that runs the app), and
+// avoids adding a dependency on a real deep-equal library. Falls back
+// to reference equality on stringify failure (unlikely — payloads are
+// always JSON-safe if they came from an api.* call, but circular refs
+// or exotic values in some future call site shouldn't crash the diff).
+function isEqualPayload(a, b) {
+  if (a === b) return true;
+  if (a == null || b == null) return false;
+  try { return JSON.stringify(a) === JSON.stringify(b); }
+  catch { return false; }
+}
+
 // Standard "fetch on mount, deps change, and tab refocus" hook —
 // composes useRefreshTick + useStaleGuard so individual pages stop
 // hand-rolling the same boilerplate (and stop forgetting bits of it
@@ -74,7 +88,20 @@ export function useFreshFetch(fn, deps = [], options = {}) {
     const epoch = guard.next();
     setError(null);
     fnRef.current()
-      .then(d => { if (guard.isFresh(epoch)) setData(d); })
+      .then(d => {
+        if (!guard.isFresh(epoch)) return;
+        // Diff-and-skip: when the freshly-fetched payload is deep-equal
+        // to what we're already showing (the common case on tab-return
+        // refetches after inactivity), skip the setData call entirely
+        // so React doesn't re-render the tree. This is what preserves
+        // scroll position, image identity, and any local state trapped
+        // inside cell components (an open MoreMenu, a hover, an inline
+        // edit) during silent refetches. Using the functional setData
+        // form so we compare against the LATEST state — an in-flight
+        // optimistic update should still win over a stale server
+        // response.
+        setData(prev => isEqualPayload(prev, d) ? prev : d);
+      })
       .catch(e => { if (guard.isFresh(epoch)) setError(e); })
       .finally(() => { if (guard.isFresh(epoch)) setLoading(false); });
     // eslint-disable-next-line react-hooks/exhaustive-deps

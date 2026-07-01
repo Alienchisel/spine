@@ -11,11 +11,18 @@ import { useEffect, useRef, useState } from 'react';
 // window when tab visibility didn't actually change). Both gated on
 // `document.visibilityState === 'visible'` so we don't fire on hide.
 //
-// Coalesced via a 500ms guard: some browsers fire focus AND
-// visibilitychange together on the same gesture, and we don't want
-// two back-to-back refetches. Also short-circuits the very first
-// render's focus event, which would otherwise duplicate the mount
-// fetch.
+// Throttled to at most one tick per 30 seconds. Two roles: (1) still
+// coalesces the burst focus+visibilitychange fires on a single tab-
+// return gesture, and (2) skips the whole refetch pipeline when the
+// user tab-hops rapidly during research — the "I glanced at another
+// tab for 5s and came back" pattern that used to force a full re-
+// render + image reflow of pages like Loved (200 covers). The 30s
+// window is a compromise: long enough that quick tab hops feel
+// smooth, short enough that a proper break returns fresh data.
+// Paired with the diff-and-skip in useFreshFetch — if a refetch DOES
+// fire after 30s, the response is compared against current state and
+// setData is skipped when identical, avoiding the reflow even for
+// longer-absence returns where the data hasn't actually changed.
 export function useRefreshTick() {
   const [tick, setTick] = useState(0);
   const lastFireRef = useRef(Date.now());
@@ -23,7 +30,7 @@ export function useRefreshTick() {
     function fire() {
       if (document.visibilityState !== 'visible') return;
       const now = Date.now();
-      if (now - lastFireRef.current < 500) return;
+      if (now - lastFireRef.current < 30_000) return;
       lastFireRef.current = now;
       setTick(t => t + 1);
     }
