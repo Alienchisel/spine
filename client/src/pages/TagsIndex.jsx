@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { Link, useSearchParams, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
 import { nrm } from '../utils.js';
-import { useFreshFetch } from '../hooks/useFreshFetch.js';
+import { useQuery } from '@tanstack/react-query';
 import IncomingBackLink from '../components/IncomingBackLink.jsx';
 import PageHeading from '../components/PageHeading.jsx';
 import { TableSkeleton } from '../components/Skeleton.jsx';
@@ -36,11 +36,14 @@ function pickValidParams(src) {
 }
 
 export default function TagsIndex() {
-  const { data: tags, loading, error } = useFreshFetch(
-    () => api.getTags(),
-    [],
-    { initialData: [] },
-  );
+  const tagsQ = useQuery({
+    queryKey: ['tags', 'all'],
+    queryFn: () => api.getTags(),
+    placeholderData: (prev) => prev ?? [],
+  });
+  const tags    = tagsQ.data ?? [];
+  const loading = tagsQ.isPending;
+  const error   = tagsQ.error;
   const [params, setParams]   = useSearchParams();
   const { pathname, search, state }  = useLocation();
   // Back-link contract — '← Tags' on BrowsePage returns to the current

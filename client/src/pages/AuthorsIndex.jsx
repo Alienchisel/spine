@@ -1,8 +1,8 @@
 import { useEffect, useMemo } from 'react';
 import { Link, useSearchParams, useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { api } from '../api.js';
 import { nrm } from '../utils.js';
-import { useFreshFetch } from '../hooks/useFreshFetch.js';
 import IncomingBackLink from '../components/IncomingBackLink.jsx';
 import PageHeading from '../components/PageHeading.jsx';
 import { TableSkeleton } from '../components/Skeleton.jsx';
@@ -70,11 +70,14 @@ const GENDER_GLYPH = { male: 'm', female: 'f', other: 'o' };
 // slightly warmer hue so they pop on scan. Click a row to open the
 // detail page.
 export default function AuthorsIndex() {
-  const { data: authors, loading, error } = useFreshFetch(
-    () => api.getAuthors(),
-    [],
-    { initialData: [] },
-  );
+  const authorsQ = useQuery({
+    queryKey: ['authors', 'all'],
+    queryFn: () => api.getAuthors(),
+    placeholderData: (prev) => prev ?? [],
+  });
+  const authors = authorsQ.data ?? [];
+  const loading = authorsQ.isPending;
+  const error   = authorsQ.error;
   // URL is the source of truth for filter+sort so views like "Missing
   // photo + name=eg" survive refresh / back/forward / shareable links
   // (matches Library / Diary / Browse / Collage). Both updates use

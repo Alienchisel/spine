@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { formatAuthors, initialsFor, fmtHM, plural, pluralWord, FORMAT_LABEL } from '../utils.js';
-import { useFreshFetch } from '../hooks/useFreshFetch.js';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { GridSkeleton } from '../components/Skeleton.jsx';
 
 const FROM_READLIST = { from: 'Readlist', fromPath: '/readlist' };
@@ -85,18 +85,23 @@ function PickCard({ book }) {
 }
 
 export default function Readlist() {
-  const {
-    data: books,
-    setData: setBooks,
-    loading,
-    error: loadError,
-    setError: setLoadError,
-    refetch,
-  } = useFreshFetch(
-    () => api.getReadlist(),
-    [],
-    { initialData: [] },
-  );
+  const queryClient = useQueryClient();
+  const booksQ = useQuery({
+    queryKey: ['readlist'],
+    queryFn: () => api.getReadlist(),
+    placeholderData: (prev) => prev ?? [],
+  });
+  const books     = booksQ.data ?? [];
+  const loading   = booksQ.isPending;
+  const loadError = booksQ.error;
+  const refetch   = booksQ.refetch;
+  const setLoadError = () => { booksQ.refetch(); };
+  const setBooks = (updater) => {
+    queryClient.setQueryData(
+      ['readlist'],
+      typeof updater === 'function' ? updater : () => updater,
+    );
+  };
   // Action errors (failed remove) share the same UI slot as the load
   // error — the original implementation overloaded `setError` for both.
   // Keep them as separate state so the hook's load error doesn't carry

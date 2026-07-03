@@ -3,17 +3,27 @@ import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { plural } from '../utils.js';
 import { useConfirm } from '../components/ConfirmModal.jsx';
-import { useFreshFetch } from '../hooks/useFreshFetch.js';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useActionGuard } from '../hooks/useActionGuard.js';
 import PageHeading from '../components/PageHeading.jsx';
 import { primaryButton } from '../components/buttonStyles.js';
 
 export default function Lists() {
-  const { data: lists, setData: setLists, loading, error } = useFreshFetch(
-    () => api.getLists(),
-    [],
-    { initialData: [] },
-  );
+  const queryClient = useQueryClient();
+  const listsQ = useQuery({
+    queryKey: ['lists', 'all'],
+    queryFn: () => api.getLists(),
+    placeholderData: (prev) => prev ?? [],
+  });
+  const lists   = listsQ.data ?? [];
+  const loading = listsQ.isPending;
+  const error   = listsQ.error;
+  const setLists = (updater) => {
+    queryClient.setQueryData(
+      ['lists', 'all'],
+      typeof updater === 'function' ? updater : () => updater,
+    );
+  };
   const [newName, setNewName] = useState('');
   const createGuard = useActionGuard();
   const [createError, setCreateError] = useState(null);

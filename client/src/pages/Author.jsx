@@ -5,7 +5,7 @@ import { plural, initialsFor, MOD_KEY, formatPartialDate, FORMAT_LABEL } from '.
 import BookCard from '../components/BookCard.jsx';
 import { GridSkeleton } from '../components/Skeleton.jsx';
 import { useTextOverflow } from '../hooks/useTextOverflow.js';
-import { useFreshFetch } from '../hooks/useFreshFetch.js';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { dispatchSpineEvent, useSpineEvent } from '../hooks/useSpineEvent.js';
 
 // Inline gender picker. Stores 'male' | 'female' | 'other' | null;
@@ -159,19 +159,26 @@ export default function Author() {
   const userChangedSortRef = useRef(false);
   useEffect(() => { userChangedSortRef.current = false; }, [id]);
 
-  // Fetch the author. `key` includes sort so a sort change is treated
-  // as real navigation (skeleton flash); refresh-tick refetches at the
-  // same id+sort silently swap.
-  const {
-    data: rawAuthor,
-    setData: setAuthor,
-    loading: fetchLoading,
-    error: fetchError,
-  } = useFreshFetch(
-    () => api.getAuthor(id, { sort }),
-    [id, sort],
-    { key: `${id}::${sort}` },
-  );
+  // Fetch the author. queryKey includes sort so a sort change is
+  // treated as real navigation (new cache entry, skeleton flash);
+  // returning to a previously-fetched (id, sort) via nav or back
+  // button re-uses the cache with no fetch. No placeholderData: on
+  // key change we want the skeleton to flash, not the previous
+  // author's data to bleed through.
+  const queryClient = useQueryClient();
+  const authorQ = useQuery({
+    queryKey: ['author', id, sort],
+    queryFn:  () => api.getAuthor(id, { sort }),
+  });
+  const rawAuthor    = authorQ.data;
+  const fetchLoading = authorQ.isPending;
+  const fetchError   = authorQ.error;
+  const setAuthor = (updater) => {
+    queryClient.setQueryData(
+      ['author', id, sort],
+      typeof updater === 'function' ? updater : () => updater,
+    );
+  };
 
   // Server-stored default_sort adoption — if the author has a saved
   // preference and the user hasn't explicitly chosen during this visit,

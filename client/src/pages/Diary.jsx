@@ -4,7 +4,7 @@ import { api } from '../api.js';
 import { formatAuthors, fmtShortDate, plural, pluralWord, initialsFor, fmtHM } from '../utils.js';
 import { useConfirm } from '../components/ConfirmModal.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
-import { useFreshFetch } from '../hooks/useFreshFetch.js';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import PageHeading from '../components/PageHeading.jsx';
 import { sectionEyebrow } from '../components/textStyles.js';
 
@@ -469,13 +469,26 @@ export default function Diary() {
   const deletingEntryIdsRef = useRef(new Set());
   const confirm = useConfirm();
 
-  // key=year so a real year change flashes the skeleton; refresh-tick
-  // refetches at the same year silently swap (preserves scroll position).
-  const { data, setData, loading, error, setError } = useFreshFetch(
-    () => api.getDiary(year),
-    [year],
-    { key: year, initialData: { days: [], years: [], stats: EMPTY_STATS } },
-  );
+  // queryKey includes year — a year change is treated as real
+  // navigation (new cache entry, skeleton flash). No placeholderData
+  // for the same reason (don't bleed last year's entries through).
+  // The three query slots always exist so destructuring days/years/
+  // stats doesn't crash before the first fetch.
+  const queryClient = useQueryClient();
+  const diaryQ = useQuery({
+    queryKey: ['diary', year],
+    queryFn:  () => api.getDiary(year),
+  });
+  const data = diaryQ.data ?? { days: [], years: [], stats: EMPTY_STATS };
+  const loading = diaryQ.isPending;
+  const error   = diaryQ.error;
+  const setData = (updater) => {
+    queryClient.setQueryData(
+      ['diary', year],
+      typeof updater === 'function' ? updater : () => updater,
+    );
+  };
+  const setError = () => { diaryQ.refetch(); };
   const { days, years, stats } = data;
   // Clear any stale delete error when the year changes — a "Failed to
   // remove entry." from last year shouldn't hang over this year's freshly
@@ -557,7 +570,7 @@ export default function Diary() {
           dismissible inline banner alongside the existing days. Same
           shape as ShelfView's error banner. */}
       {days.length > 0 && (
-        <ErrorBanner message={error ? 'Failed to load diary.' : null} onDismiss={() => setError(null)} className="mb-4" />
+        <ErrorBanner message={error ? 'Failed to load diary.' : null} onDismiss={setError} className="mb-4" />
       )}
 
       {loading ? (

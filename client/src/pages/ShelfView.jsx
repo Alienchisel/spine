@@ -27,7 +27,7 @@ import CoverSizeSlider from '../components/CoverSizeSlider.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 import { ShelfViewSkeleton } from '../components/Skeleton.jsx';
 import { useCoverSize } from '../hooks/useCoverSize.js';
-import { useFreshFetch } from '../hooks/useFreshFetch.js';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSpineEvent, dispatchSpineEvent } from '../hooks/useSpineEvent.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import { useActionGuard } from '../hooks/useActionGuard.js';
@@ -486,32 +486,41 @@ export default function ShelfView() {
   // the stale [] from a superseded fetch, which caused the pruning
   // effect to walk an empty tree and strip valid b/r/u out of a deep
   // link (visible in dev under StrictMode's double-invoke).
-  const {
-    data: tree,
-    setData: setTree,
-    loading,
-    error: treeLoadError,
-    setError: setTreeLoadError,
-    refetch: refetchTree,
-  } = useFreshFetch(
-    () => api.getShelfTree(),
-    [],
-    { initialData: [] },
-  );
+  const queryClient = useQueryClient();
+  const treeQ = useQuery({
+    queryKey: ['shelfTree'],
+    queryFn: () => api.getShelfTree(),
+    placeholderData: (prev) => prev ?? [],
+  });
+  const tree = treeQ.data ?? [];
+  const loading = treeQ.isPending;
+  const treeLoadError = treeQ.error;
+  const refetchTree = treeQ.refetch;
+  const setTreeLoadError = () => { treeQ.refetch(); };
+  const setTree = (updater) => {
+    queryClient.setQueryData(
+      ['shelfTree'],
+      typeof updater === 'function' ? updater : () => updater,
+    );
+  };
   const treeLoaded = !loading && !treeLoadError;
   // Supplementary fetch: shouldn't gate the tree on its slowness, and
   // its failure renders a smaller-scope warning rather than wiping the
   // page.
-  const {
-    data: unshelfed,
-    setData: setUnshelfed,
-    error: unshelfedError,
-    refetch: refetchUnshelfed,
-  } = useFreshFetch(
-    () => api.getUnshelfedBooks(),
-    [],
-    { initialData: [] },
-  );
+  const unshelfedQ = useQuery({
+    queryKey: ['unshelfed'],
+    queryFn: () => api.getUnshelfedBooks(),
+    placeholderData: (prev) => prev ?? [],
+  });
+  const unshelfed = unshelfedQ.data ?? [];
+  const unshelfedError = unshelfedQ.error;
+  const refetchUnshelfed = unshelfedQ.refetch;
+  const setUnshelfed = (updater) => {
+    queryClient.setQueryData(
+      ['unshelfed'],
+      typeof updater === 'function' ? updater : () => updater,
+    );
+  };
   // Action errors (failed reorder, failed placement) share the
   // ErrorBanner with the tree/location-books load errors. setError wraps
   // all three so the ~10 callsites in action handlers stay identical
@@ -590,29 +599,32 @@ export default function ShelfView() {
   // deps changes, which is exactly what locationKey changes encode).
   const locationKeyRef = useLatest(locationKey);
 
-  const {
-    data: books,
-    setData: setBooks,
-    loading: booksLoading,
-    error: locationBooksError,
-    setError: setLocationBooksError,
-    refetch: refetchLocationBooks,
-  } = useFreshFetch(
-    () => {
-      // Returning Promise.resolve([]) for the non-fetch branches keeps
-      // the hook's lifecycle uniform — books wipe to [], loading goes
-      // false fast, no real API call fires. Mirrors the original effect's
-      // early-return-with-setBooks([]) branches.
-      if (!buildingId && !roomId && !unitId && !shelfId) return Promise.resolve([]);
-      if (!treeLoaded || !pathOk) return Promise.resolve([]);
-      return shelfId  ? api.getShelfBooks(shelfId)
-        : unitId      ? api.getUnitBooks(unitId)
-        : roomId      ? api.getRoomBooks(roomId)
-        :               api.getBuildingBooks(buildingId);
-    },
-    [buildingId, roomId, unitId, shelfId, treeLoaded, pathOk],
-    { key: locationKey, wipeOnKeyChange: true, initialData: [] },
-  );
+  const isLocationSelected = !!(buildingId || roomId || unitId || shelfId);
+  const locationBooksEnabled = isLocationSelected && treeLoaded && pathOk;
+  const locationBooksQ = useQuery({
+    queryKey: ['shelfLocation', buildingId, roomId, unitId, shelfId],
+    queryFn: () => (
+      shelfId  ? api.getShelfBooks(shelfId)
+      : unitId ? api.getUnitBooks(unitId)
+      : roomId ? api.getRoomBooks(roomId)
+      :          api.getBuildingBooks(buildingId)
+    ),
+    enabled: locationBooksEnabled,
+  });
+  // When no location is selected (root view) the query is disabled;
+  // books=[] and booksLoading=false so the render tree treats it as
+  // "no data to show yet" rather than "still loading".
+  const books = isLocationSelected ? (locationBooksQ.data ?? []) : [];
+  const booksLoading = locationBooksEnabled && locationBooksQ.isPending;
+  const locationBooksError = locationBooksQ.error;
+  const refetchLocationBooks = locationBooksQ.refetch;
+  const setLocationBooksError = () => { locationBooksQ.refetch(); };
+  const setBooks = (updater) => {
+    queryClient.setQueryData(
+      ['shelfLocation', buildingId, roomId, unitId, shelfId],
+      typeof updater === 'function' ? updater : () => updater,
+    );
+  };
 
   // Sync on any book mutation dispatched from another surface (most
   // notably MoreMenu's Location picker, which PATCHes shelf_id /

@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { api } from '../../../api.js';
-import { useFreshFetch } from '../../../hooks/useFreshFetch.js';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Section } from '../shared.jsx';
 import GoalCard from '../GoalCard.jsx';
 
@@ -9,11 +9,20 @@ import GoalCard from '../GoalCard.jsx';
 // the rest of Stats — a fetch failure here surfaces inline above the
 // row instead of replacing the whole page.
 export default function Goals({ todayPages, thisYearPages, thisYearBooks }) {
-  const {
-    data: settings,
-    setData: setSettings,
-    error: settingsError,
-  } = useFreshFetch(() => api.getSettings(), [], { initialData: {} });
+  const queryClient = useQueryClient();
+  const settingsQ = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => api.getSettings(),
+    placeholderData: (prev) => prev ?? {},
+  });
+  const settings      = settingsQ.data ?? {};
+  const settingsError = settingsQ.error;
+  const setSettings = (updater) => {
+    queryClient.setQueryData(
+      ['settings'],
+      typeof updater === 'function' ? updater : () => updater,
+    );
+  };
   // Separate from the load-time error: this only surfaces when a goal
   // save round-trips a failure that we then rolled back optimistically.
   const [actionError, setActionError] = useState(null);

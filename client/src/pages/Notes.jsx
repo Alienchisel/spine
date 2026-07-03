@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { initialsFor, plural, pluralWord } from '../utils.js';
-import { useFreshFetch } from '../hooks/useFreshFetch.js';
+import { useQuery } from '@tanstack/react-query';
 import { NotesSkeleton } from '../components/Skeleton.jsx';
 
 // Surfaces the reflective layer — user-authored prose (review + notes)
@@ -154,11 +154,14 @@ export default function Notes() {
   // Diary, Loved, …). Without this, edits made elsewhere (a review
   // tweaked on BookDetail, a tag toggled in BookForm) don't show in
   // Notes until full page reload.
-  const { data: books, loading, error } = useFreshFetch(
-    () => api.getBooks({ has_writing: 1, sort: 'updated', limit: 200 }).then(d => d.books || []),
-    [],
-    { initialData: [] },
-  );
+  const booksQ = useQuery({
+    queryKey: ['notes', 'books'],
+    queryFn: () => api.getBooks({ has_writing: 1, sort: 'updated', limit: 200 }).then(d => d.books || []),
+    placeholderData: (prev) => prev ?? [],
+  });
+  const books   = booksQ.data ?? [];
+  const loading = booksQ.isPending;
+  const error   = booksQ.error;
   // Filter state lives on the URL so a navigate-to-BookDetail-then-back
   // restores the user's exact filter selection (the alt-tab path is
   // already covered by useRefreshTick). Same shape as Library and

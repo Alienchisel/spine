@@ -57,32 +57,51 @@ export const queryClient = new QueryClient({
 
 // Bridge from the existing spine-event system into TanStack Query
 // cache invalidation. When a book is mutated anywhere in the app,
-// invalidate every query that carries that book's id in its key.
-// Also invalidate the coarser ['books'] / ['loved'] / ['authors']
-// list keys since a book edit can move it in or out of a list
-// cohort. Runs once at module import — no cleanup needed because
-// the queryClient lives for the app's whole lifetime.
+// invalidate every list-shaped query — book edits can move a book
+// in or out of Loved / Readlist / Notes / a tag / an author's
+// bibliography / the Audit gap buckets / the Diary if the edit
+// adds a reading_log row / the Stats aggregates. The blast radius
+// is broad enough that enumerating exact keys is worse than just
+// invalidating them all: invalidateQueries only refetches queries
+// that currently have observers (mounted pages), so unmounted keys
+// just get marked stale and re-fetch on next visit.
+//
+// The per-book ['book', id, ...] queries are invalidated by exact
+// key so an edit on book #123 doesn't invalidate all other books'
+// caches.
+//
+// Also fires on spine:reads-mutated (a POST/PATCH/DELETE against a
+// book's reads sub-resource) since reads flow into date_finished-
+// dependent surfaces (Stats, Diary, Author, Today).
 if (typeof window !== 'undefined') {
   function invalidateForBook(id) {
-    // Any per-book query with this id in the key.
+    // Per-book queries (['book', id], ['book', id, 'log'],
+    // ['book', id, 'reads']) — narrow invalidation so other books'
+    // caches are untouched.
+    queryClient.invalidateQueries({ queryKey: ['book', id] });
+    // Broad invalidation for every list-shaped surface. Covers
+    // Loved / Library / Author / Readlist / Notes / Diary / Audit /
+    // Stats / Tags / Series index / Authors index / etc. The
+    // predicate filters to the coarse list keys we know about; add
+    // to the set as new query keys join the codebase.
+    const LIST_KEYS = new Set([
+      'loved', 'authors', 'series', 'tags', 'lists', 'readlist',
+      'notes', 'diary', 'audit', 'stats', 'shelfTree', 'author',
+      'settings',
+    ]);
     queryClient.invalidateQueries({
-      predicate: (q) => Array.isArray(q.queryKey)
-        && q.queryKey.some(k => (
-          k === id
-          || (typeof k === 'object' && k !== null && Number(k.id) === id)
-        )),
+      predicate: (q) => Array.isArray(q.queryKey) && LIST_KEYS.has(q.queryKey[0]),
     });
-    // Coarse list keys — a mutation might change list membership.
-    queryClient.invalidateQueries({ queryKey: ['books']   });
-    queryClient.invalidateQueries({ queryKey: ['loved']   });
-    queryClient.invalidateQueries({ queryKey: ['authors'] });
-    queryClient.invalidateQueries({ queryKey: ['series']  });
   }
   window.addEventListener('spine:book-mutated', (e) => {
     const id = Number(e?.detail?.id);
     if (Number.isFinite(id)) invalidateForBook(id);
   });
   window.addEventListener('spine:book-deleted', (e) => {
+    const id = Number(e?.detail?.id);
+    if (Number.isFinite(id)) invalidateForBook(id);
+  });
+  window.addEventListener('spine:reads-mutated', (e) => {
     const id = Number(e?.detail?.id);
     if (Number.isFinite(id)) invalidateForBook(id);
   });

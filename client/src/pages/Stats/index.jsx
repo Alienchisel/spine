@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
 import { api } from '../../api.js';
-import { useFreshFetch } from '../../hooks/useFreshFetch.js';
-import { useSpineEvent } from '../../hooks/useSpineEvent.js';
+import { useQuery } from '@tanstack/react-query';
 import ErrorBanner from '../../components/ErrorBanner.jsx';
 import PageHeading from '../../components/PageHeading.jsx';
 import { StatsSkeleton } from '../../components/Skeleton.jsx';
@@ -21,39 +20,29 @@ import AcquiredByYear from './sections/AcquiredByYear.jsx';
 import Records from './sections/Records.jsx';
 import BarsGrid from './sections/BarsGrid.jsx';
 
-// Module-level cache so route changes within the SPA session don't pay
-// for a fresh /api/stats round-trip every time the user comes back to
-// /stats. Cached payload seeds useFreshFetch's initialData; the hook
-// still fires a fresh fetch in the background, so the user gets stale-
-// then-fresh semantics (instant paint, then atomic swap on resolve).
-// Invalidated by book mutations AND read-history mutations — the
-// latter (date_finished / read_count changes via ReadsSection) move
-// rows in/out of records.firstFinished/lastFinished/mostReread, byYear
-// finished counts, thisYearBooks, and avgDaysToFinish, none of which
-// go through the book-mutated path.
-let statsCache = null;
-
 // Top-level Stats page composer. Reads /api/stats once, then hands each
 // slice to its dedicated section component. Sections are deliberately
 // self-gating — they render nothing when their data slice is empty so
 // the composer here doesn't have to know about every section's empty
 // condition. Add a new section: drop a file under sections/, import it,
 // place it in the render tree.
+//
+// TanStack Query holds the /api/stats response in its own cache
+// (gcTime = 30 min) so route changes within the session don't refetch.
+// The global spine-event bridge in lib/queryClient.js invalidates the
+// ['stats'] key on any book / read mutation, so cache freshness is
+// covered without the module-level statsCache + hand-rolled
+// useSpineEvent nulls the old file needed.
 export default function Stats() {
-  const { data: stats, loading, error, setError } = useFreshFetch(
-    () => api.getStats().then(d => { statsCache = d; return d; }),
-    [],
-    { initialData: statsCache },
-  );
-
-  // Book mutations make the cached snapshot stale. Drop it so the next
-  // mount of /stats falls back to a real fetch instead of priming with
-  // a stale snapshot. The current mount keeps rendering its existing
-  // data — the user is on Stats, not the mutating surface. reads-mutated
-  // covers ReadsSection's add/update/delete/reread of read-history rows.
-  useSpineEvent('spine:book-mutated',  () => { statsCache = null; });
-  useSpineEvent('spine:book-deleted',  () => { statsCache = null; });
-  useSpineEvent('spine:reads-mutated', () => { statsCache = null; });
+  const statsQ = useQuery({
+    queryKey: ['stats'],
+    queryFn:  () => api.getStats(),
+    placeholderData: (prev) => prev,
+  });
+  const stats    = statsQ.data;
+  const loading  = statsQ.isPending;
+  const error    = statsQ.error;
+  const setError = () => { statsQ.refetch(); };
 
   // Only replace the whole page when there's no data to show. Once stats
   // are loaded, a subsequent refresh-tick failure surfaces as a dismissible
@@ -73,7 +62,7 @@ export default function Stats() {
         </Link>
       </div>
 
-      <ErrorBanner message={error ? 'Failed to load stats.' : null} onDismiss={() => setError(null)} />
+      <ErrorBanner message={error ? 'Failed to load stats.' : null} onDismiss={setError} />
 
       <Hero
         totals={stats.totals}

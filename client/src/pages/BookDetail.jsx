@@ -14,7 +14,7 @@ import EditionsSection from '../components/bookDetail/EditionsSection.jsx';
 import ReadingLog from '../components/bookDetail/ReadingLog.jsx';
 import BookRef from '../components/bookDetail/BookRef.jsx';
 import { BookDetailSkeleton } from '../components/Skeleton.jsx';
-import { useFreshFetch } from '../hooks/useFreshFetch.js';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTextOverflow } from '../hooks/useTextOverflow.js';
 import { useLatest } from '../hooks/useLatest.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
@@ -84,23 +84,45 @@ export default function BookDetail() {
   // rendering doesn't gate the cover/title/metadata behind `loading`, so
   // the previous book's data is visible during navigation unless wiped.
   // The hook's own stale guards cover each fetch independently.
-  const {
-    data: book,
-    setData: setBook,
-    loading,
-    error: bookError,
-  } = useFreshFetch(() => api.getBook(id), [id], { key: id, wipeOnKeyChange: true });
-  const {
-    data: log,
-    setData: setLog,
-    error: logError,
-    refetch: refetchLog,
-  } = useFreshFetch(() => api.getBookLog(id), [id], { key: id, initialData: [], wipeOnKeyChange: true });
-  const {
-    data: reads,
-    error: readsError,
-    refetch: loadReads,
-  } = useFreshFetch(() => api.getBookReads(id), [id], { key: id, initialData: [], wipeOnKeyChange: true });
+  // Book / log / reads all keyed on id. No placeholderData — a real
+  // navigation to a different book should skeleton, not bleed the
+  // previous book's cover/meta through (BookDetail's old
+  // wipeOnKeyChange behaviour). Returning to a book already visited
+  // this session shows cached data immediately.
+  const queryClient = useQueryClient();
+  const bookQ = useQuery({
+    queryKey: ['book', id],
+    queryFn:  () => api.getBook(id),
+  });
+  const logQ = useQuery({
+    queryKey: ['book', id, 'log'],
+    queryFn:  () => api.getBookLog(id),
+  });
+  const readsQ = useQuery({
+    queryKey: ['book', id, 'reads'],
+    queryFn:  () => api.getBookReads(id),
+  });
+  const book       = bookQ.data;
+  const loading    = bookQ.isPending;
+  const bookError  = bookQ.error;
+  const log        = logQ.data ?? [];
+  const logError   = logQ.error;
+  const refetchLog = logQ.refetch;
+  const reads      = readsQ.data ?? [];
+  const readsError = readsQ.error;
+  const loadReads  = readsQ.refetch;
+  const setBook = (updater) => {
+    queryClient.setQueryData(
+      ['book', id],
+      typeof updater === 'function' ? updater : () => updater,
+    );
+  };
+  const setLog = (updater) => {
+    queryClient.setQueryData(
+      ['book', id, 'log'],
+      typeof updater === 'function' ? updater : () => updater,
+    );
+  };
   const [location, setLocation] = useState(null);
   const [descExpanded, setDescExpanded] = useState(false);
   // Measured overflow on the description block — replaces the prior

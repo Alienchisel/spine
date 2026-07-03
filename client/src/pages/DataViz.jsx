@@ -1,17 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
-import { useFreshFetch } from '../hooks/useFreshFetch.js';
-import { useSpineEvent } from '../hooks/useSpineEvent.js';
+import { useQuery } from '@tanstack/react-query';
 import PageHeading from '../components/PageHeading.jsx';
 import { DataVizSkeleton } from '../components/Skeleton.jsx';
 
 // Module-level cache for the six-endpoint Promise.all payload. Saves
-// the round-trip on intra-session re-visits. Invalidated by any event
-// that could move a number on the page: book mutations and read-history
-// mutations both affect the underlying queries (acquisition counts,
-// reading calendar, library trajectory, top-tag composition, etc.).
-let dataVizCache = null;
+// Six panels fetched in parallel; TanStack Query caches the merged
+// payload (gcTime = 30 min) so route changes within the session don't
+// refetch. The global spine-event bridge in lib/queryClient.js
+// invalidates ['stats'] on book/read mutations — DataViz shares that
+// namespace via ['stats', 'dataviz'].
 
 const FROM_DV = { from: 'Data viz', fromPath: '/data-viz' };
 
@@ -879,27 +878,23 @@ export default function DataViz() {
   // shape-maps the array into a named object so the rest of the
   // component can keep destructuring `stats`/`calendar`/etc. directly
   // without `data[0]` indexing.
-  const { data, loading, error } = useFreshFetch(
-    () => Promise.all([
+  const dvQ = useQuery({
+    queryKey: ['stats', 'dataviz'],
+    queryFn: () => Promise.all([
       api.getStats(),
       api.getReadingCalendar(),
       api.getAuthors(),
       api.getLibraryTrajectory(),
       api.getSeriesCompletion(),
       api.getTags(),
-    ]).then(([s, c, a, t, sc, tg]) => {
-      const next = { stats: s, calendar: c, authors: a, trajectory: t, completion: sc, tags: tg };
-      dataVizCache = next;
-      return next;
-    }),
-    [],
-    { initialData: dataVizCache },
-  );
-
-  // Invalidate the cache on the events that could move a panel.
-  useSpineEvent('spine:book-mutated',  () => { dataVizCache = null; });
-  useSpineEvent('spine:book-deleted',  () => { dataVizCache = null; });
-  useSpineEvent('spine:reads-mutated', () => { dataVizCache = null; });
+    ]).then(([s, c, a, t, sc, tg]) => (
+      { stats: s, calendar: c, authors: a, trajectory: t, completion: sc, tags: tg }
+    )),
+    placeholderData: (prev) => prev,
+  });
+  const data    = dvQ.data;
+  const loading = dvQ.isPending;
+  const error   = dvQ.error;
   const stats      = data?.stats;
   const calendar   = data?.calendar;
   const authors    = data?.authors;

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
 import { nrm } from '../utils.js';
-import { useFreshFetch } from '../hooks/useFreshFetch.js';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import IncomingBackLink from '../components/IncomingBackLink.jsx';
 import PageHeading from '../components/PageHeading.jsx';
 import { TableSkeleton } from '../components/Skeleton.jsx';
@@ -51,11 +51,21 @@ function numberRange(min, max) {
 }
 
 export default function SeriesIndex() {
-  const { data: series, setData: setSeries, loading, error } = useFreshFetch(
-    () => api.getSeries(),
-    [],
-    { initialData: [] },
-  );
+  const queryClient = useQueryClient();
+  const seriesQ = useQuery({
+    queryKey: ['series', 'all'],
+    queryFn: () => api.getSeries(),
+    placeholderData: (prev) => prev ?? [],
+  });
+  const series  = seriesQ.data ?? [];
+  const loading = seriesQ.isPending;
+  const error   = seriesQ.error;
+  const setSeries = (updater) => {
+    queryClient.setQueryData(
+      ['series', 'all'],
+      typeof updater === 'function' ? updater : () => updater,
+    );
+  };
   const [params, setParams]   = useSearchParams();
   const { pathname, search, state }  = useLocation();
   // Back-link contract — '← Series' on BrowsePage returns to the current

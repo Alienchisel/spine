@@ -14,20 +14,29 @@ import { useConfirm } from '../components/ConfirmModal.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 import PageHeading from '../components/PageHeading.jsx';
 import { primaryButtonSm } from '../components/buttonStyles.js';
-import { useFreshFetch } from '../hooks/useFreshFetch.js';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 export default function ShelfManager() {
   // The hook's internal stale guard handles the "fast user interleaves
   // several mutations whose reload responses race" case natively — each
   // refetch() call captures its own epoch and only the latest response
   // sticks. Replaces the hand-rolled reload() + useStaleGuard pair.
-  const {
-    data: tree,
-    setData: setTree,
-    error: loadError,
-    setError: setLoadError,
-    refetch: reload,
-  } = useFreshFetch(() => api.getShelfTree(), [], { initialData: [] });
+  const queryClient = useQueryClient();
+  const treeQ = useQuery({
+    queryKey: ['shelfTree'],
+    queryFn: () => api.getShelfTree(),
+    placeholderData: (prev) => prev ?? [],
+  });
+  const tree      = treeQ.data ?? [];
+  const loadError = treeQ.error;
+  const reload    = treeQ.refetch;
+  const setLoadError = () => { treeQ.refetch(); };
+  const setTree = (updater) => {
+    queryClient.setQueryData(
+      ['shelfTree'],
+      typeof updater === 'function' ? updater : () => updater,
+    );
+  };
   const [addingBuilding, setAddingBuilding] = useState(false);
   const [newBuildingName, setNewBuildingName] = useState('');
   const [newBuildingProximity, setNewBuildingProximity] = useState('home');
