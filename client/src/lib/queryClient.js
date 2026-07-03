@@ -16,7 +16,9 @@
 //   * refetchOnWindowFocus: false — no automatic refetch when you
 //     tab back in. This is the whole reason for the port. Cross-tab
 //     freshness is instead handled by the mutation-driven event
-//     bridge (which fires spine:book-mutated events; see below).
+//     bridge: dispatchSpineEvent mirrors mutation events over a
+//     BroadcastChannel, other tabs replay them as window events,
+//     and the listeners below invalidate.
 //
 //   * refetchOnMount: false — a page you already visited keeps its
 //     cached data on re-navigation; no fetch fires. Same story.
