@@ -16,13 +16,12 @@ import { useEffect, useRef, useState } from 'react';
 // return gesture, and (2) skips the whole refetch pipeline when the
 // user tab-hops rapidly during research — the "I glanced at another
 // tab for 5s and came back" pattern that used to force a full re-
-// render + image reflow of pages like Loved (200 covers). The 30s
-// window is a compromise: long enough that quick tab hops feel
-// smooth, short enough that a proper break returns fresh data.
-// Paired with the diff-and-skip in useFreshFetch — if a refetch DOES
-// fire after 30s, the response is compared against current state and
-// setData is skipped when identical, avoiding the reflow even for
-// longer-absence returns where the data hasn't actually changed.
+// render + image reflow of the paginated Library / BrowsePage /
+// ListDetail surfaces (still on usePaginatedFetch — the non-
+// paginated pages are now on TanStack Query and don't refetch on
+// tab focus at all). The 30s window is a compromise: long enough
+// that quick tab hops feel smooth, short enough that a proper break
+// returns fresh data.
 export function useRefreshTick() {
   const [tick, setTick] = useState(0);
   const lastFireRef = useRef(Date.now());
