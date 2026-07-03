@@ -19,7 +19,6 @@ import { useTextOverflow } from '../hooks/useTextOverflow.js';
 import { useLatest } from '../hooks/useLatest.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import { useActionGuard } from '../hooks/useActionGuard.js';
-import { useSpineEvent } from '../hooks/useSpineEvent.js';
 
 const STATUS_LABEL = { reading: 'Reading', finished: 'Finished', unread: 'Unread' };
 const FORMAT_LABEL_LC = { physical: 'physical', ebook: 'digital', audiobook: 'audiobook' };
@@ -379,24 +378,6 @@ export default function BookDetail() {
   function isStillCurrent(reqId) {
     return String(reqId) === String(latestIdRef.current);
   }
-
-  // Listen for palette-driven mutations on this book (toggle loved /
-  // readlist / archive). The command palette fires its API call directly
-  // and dispatches spine:book-mutated so the detail page can refresh
-  // without a navigation. Same-id check guards against listening for
-  // mutations on other books while this page is mounted (e.g. background
-  // tabs sharing the same window).
-  useSpineEvent('spine:book-mutated', (e) => {
-    if (Number(e.detail?.id) !== Number(id)) return;
-    // Stale-navigation guard: api.getBook is async, and the user may
-    // have moved on to a different book before the response arrives.
-    // Without the check, book A's data could land as `book` state on
-    // book B's page. Mirrors the guards on every other async path
-    // below.
-    api.getBook(id)
-      .then(b => { if (isStillCurrent(id)) setBook(b); })
-      .catch(() => {});
-  });
 
   // Both finishError and actionError render inside the action panel, so a
   // stale message from one handler can sit next to a successful action from

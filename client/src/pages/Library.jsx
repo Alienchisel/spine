@@ -466,37 +466,6 @@ export default function Library() {
   // them via closure. JS hoists the const bindings and the closures only
   // read .current after commit, by which point useLatest has populated it.
 
-  // Local-remove-on-delete: BookCard's MoreMenu (and the command
-  // palette's book.delete action) dispatch spine:book-deleted after a
-  // successful api.deleteBook. Filtering in place is much cheaper than
-  // refetching the whole page, and keeps the user's scroll position.
-  useSpineEvent('spine:book-deleted', (e) => {
-    const id = Number(e.detail?.id);
-    if (!id) return;
-    setBooks(prev => prev.filter(b => b.id !== id));
-    setTotal(prev => Math.max(0, prev - 1));
-    setLoadedCount(n => Math.max(0, n - 1));
-  });
-
-  // Refetch-and-replace on mutation: BookCard's MoreMenu (and the
-  // command palette's status toggles, list adds, etc.) dispatch
-  // spine:book-mutated after a successful PATCH or PUT. We refetch the
-  // single book and swap it into the books array so the card re-renders
-  // with its new state in place. Note: if the new state no longer fits
-  // the current tab/filter (e.g. user marked reading→finished while on
-  // Reading tab), the book stays visible until the next full refetch
-  // — minor inconsistency we accept in exchange for not nuking scroll
-  // position on every mutation.
-  useSpineEvent('spine:book-mutated', (e) => {
-    const id = Number(e.detail?.id);
-    if (!id) return;
-    api.getBook(id)
-      .then(updated => {
-        setBooks(prev => prev.map(b => b.id === id ? updated : b));
-      })
-      .catch(() => {});
-  });
-
   // Bridge to the command palette: respond to a paging-state request and
   // wire its Load more / Load all entries to the hook's loadMore/loadAll.
   // The hook's handlers have stable identity (useCallback'd internally),

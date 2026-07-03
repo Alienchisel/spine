@@ -6,7 +6,7 @@ import BookCard from '../components/BookCard.jsx';
 import { GridSkeleton } from '../components/Skeleton.jsx';
 import { useTextOverflow } from '../hooks/useTextOverflow.js';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { dispatchSpineEvent, useSpineEvent } from '../hooks/useSpineEvent.js';
+import { dispatchSpineEvent } from '../hooks/useSpineEvent.js';
 
 // Inline gender picker. Stores 'male' | 'female' | 'other' | null;
 // empty string in the select maps back to null so the user can clear
@@ -216,30 +216,6 @@ export default function Author() {
       dispatchSpineEvent('spine:author-deleted', { id: Number(id) });
     }
   }, [fetchError, id]);
-
-  // Refetch-and-swap on book mutations from other surfaces (MoreMenu's
-  // Location picker, palette toggles, etc.). The card prop carries
-  // book.shelf_id / .owned / .status etc.; without this the MoreMenu's
-  // 'Currently on' header and the cover's status glyph would stay
-  // stale until full page reload. Mirrors Library / BrowsePage.
-  useSpineEvent('spine:book-mutated', (e) => {
-    const bookId = Number(e.detail?.id);
-    if (!bookId) return;
-    api.getBook(bookId)
-      .then(updated => {
-        setAuthor(a => a
-          ? { ...a, books: (a.books || []).map(b => b.id === bookId ? updated : b) }
-          : a);
-      })
-      .catch(() => {});
-  });
-  useSpineEvent('spine:book-deleted', (e) => {
-    const bookId = Number(e.detail?.id);
-    if (!bookId) return;
-    setAuthor(a => a
-      ? { ...a, books: (a.books || []).filter(b => b.id !== bookId) }
-      : a);
-  });
 
   const [bioExpanded, setBioExpanded] = useState(false);
   // Measured overflow replaces the previous `author.bio.length > 280`

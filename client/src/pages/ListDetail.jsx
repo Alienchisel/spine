@@ -26,7 +26,6 @@ import BookCard from '../components/BookCard.jsx';
 import CompletionIndicator from '../components/CompletionIndicator.jsx';
 import { GridSkeleton } from '../components/Skeleton.jsx';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSpineEvent } from '../hooks/useSpineEvent.js';
 import { useLatest } from '../hooks/useLatest.js';
 import { useActionGuard } from '../hooks/useActionGuard.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
@@ -513,30 +512,6 @@ export default function ListDetail() {
   // skeleton-return at the render head fires first, downstream code
   // never sees a half-populated list.
   const list = (loading || meta.name === undefined) ? null : { ...meta, books, total };
-
-  // Refetch-and-swap on book mutations from other surfaces. Without this
-  // a location change via MoreMenu's Location picker would leave the
-  // card's book prop stale — the "Currently on" header in the picker
-  // would show the pre-mutation placement. Mirrors Library / BrowsePage.
-  useSpineEvent('spine:book-mutated', (e) => {
-    const id = Number(e.detail?.id);
-    if (!id) return;
-    api.getBook(id)
-      .then(updated => {
-        setBooks(prev => prev.map(b => b.id === id ? updated : b));
-      })
-      .catch(() => {});
-  });
-  // Local-remove-on-delete. Counts on the header derive from meta —
-  // refetch the full list metadata if the deleted book skews owned/
-  // finished percentages; otherwise just filter and decrement.
-  useSpineEvent('spine:book-deleted', (e) => {
-    const id = Number(e.detail?.id);
-    if (!id) return;
-    setBooks(prev => prev.filter(b => b.id !== id));
-    setTotal(prev => Math.max(0, prev - 1));
-    setLoadedCount(n => Math.max(0, n - 1));
-  });
 
   // Reset rename / description editor UI on real navigation. Originally
   // lived in the load effect's isRealChange block; moved out so the hook

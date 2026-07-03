@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, Link, useLocation, useSearchParams } from 'react-router-dom';
-import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { api } from '../api.js';
 import { plural, FORMAT_LABEL } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
@@ -8,7 +8,6 @@ import CoverSizeSlider from '../components/CoverSizeSlider.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 import { GridSkeleton } from '../components/Skeleton.jsx';
 import { useCoverSize } from '../hooks/useCoverSize.js';
-import { useSpineEvent } from '../hooks/useSpineEvent.js';
 
 const FIELD_LABEL = {
   author: 'Author', translator: 'Translator', publisher: 'Publisher',
@@ -216,7 +215,6 @@ export default function BrowsePage() {
   // the first page when counts=owned is passed; the hook's meta merges
   // across pages within the same key so subsequent loadMore calls don't
   // wipe it.
-  const queryClient = useQueryClient();
   const booksQKey = ['browse', field, decoded, ownedTab ?? '', format ?? ''];
   const booksQ = useInfiniteQuery({
     queryKey: booksQKey,
@@ -260,63 +258,10 @@ export default function BrowsePage() {
     catch (e) { setActionError(e); }
     finally { setLoadingAll(false); }
   }, [booksQ, loadingAll]);
-  const setBooks = useCallback((updater) => {
-    queryClient.setQueryData(booksQKey, (data) => {
-      if (!data) return data;
-      const flat = data.pages.flatMap(p => p.books);
-      const newFlat = typeof updater === 'function' ? updater(flat) : updater;
-      const last = data.pages.at(-1);
-      return {
-        pages: [{ books: newFlat, total: last?.total ?? newFlat.length, offset: 0, unowned_total: last?.unowned_total }],
-        pageParams: [0],
-      };
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryClient, ...booksQKey]);
-  const setTotal = useCallback((updater) => {
-    queryClient.setQueryData(booksQKey, (data) => {
-      if (!data) return data;
-      const flat = data.pages.flatMap(p => p.books);
-      const last = data.pages.at(-1);
-      const lastTotal = last?.total ?? 0;
-      const newTotal = typeof updater === 'function' ? updater(lastTotal) : updater;
-      return {
-        pages: [{ books: flat, total: newTotal, offset: 0, unowned_total: last?.unowned_total }],
-        pageParams: [0],
-      };
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryClient, ...booksQKey]);
-  // No-op — loadedCount derives from books.length now.
-  const setLoadedCount = useCallback(() => {}, []);
   // unowned_total is captured on the first-page response and carried
   // forward through every subsequent page (see queryFn) so meta.pages[*]
   // all agree — read off page 0.
   const unownedCount = usesOwnedToggle ? (booksQ.data?.pages[0]?.unowned_total ?? 0) : 0;
-
-  // Refetch-and-swap on book mutations from other surfaces (MoreMenu's
-  // Location picker, the command palette, etc.). Without this, after a
-  // user changes a book's shelf/rating/status the local props stay
-  // stale — most visibly, the MoreMenu's "Currently on" header would
-  // show the pre-mutation placement until a full page reload. Mirrors
-  // Library's pattern.
-  useSpineEvent('spine:book-mutated', (e) => {
-    const id = Number(e.detail?.id);
-    if (!id) return;
-    api.getBook(id)
-      .then(updated => {
-        setBooks(prev => prev.map(b => b.id === id ? updated : b));
-      })
-      .catch(() => {});
-  });
-  // Local-remove-on-delete — same shape as Library.
-  useSpineEvent('spine:book-deleted', (e) => {
-    const id = Number(e.detail?.id);
-    if (!id) return;
-    setBooks(prev => prev.filter(b => b.id !== id));
-    setTotal(prev => Math.max(0, prev - 1));
-    setLoadedCount(n => Math.max(0, n - 1));
-  });
 
   // Parallel cohort fetch — same key shape as the paginated books
   // above so a real navigation invalidates both in step.
@@ -429,9 +374,9 @@ export default function BrowsePage() {
       {/* First-load failure (no books yet) replaces the view with an
           error message; a refresh-tick failure on an already-loaded
           page surfaces as a dismissible banner above the existing
-          books. The books-fetch effect's same-target branch already
-          skips setBooks([]), so books survive a failed refetch — the
-          render just has to acknowledge them. */}
+          books. TanStack Query keeps the last loaded pages when a
+          refetch fails, so books survive — the render just has to
+          acknowledge them. */}
       {books.length > 0 && (
         <ErrorBanner
           message={fetchError ? 'Failed to refresh. Showing the last loaded results.' : null}

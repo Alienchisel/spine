@@ -28,7 +28,7 @@ import ErrorBanner from '../components/ErrorBanner.jsx';
 import { ShelfViewSkeleton } from '../components/Skeleton.jsx';
 import { useCoverSize } from '../hooks/useCoverSize.js';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSpineEvent, dispatchSpineEvent } from '../hooks/useSpineEvent.js';
+import { dispatchSpineEvent } from '../hooks/useSpineEvent.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import { useActionGuard } from '../hooks/useActionGuard.js';
 import { useLatest } from '../hooks/useLatest.js';
@@ -495,7 +495,6 @@ export default function ShelfView() {
   const tree = treeQ.data ?? [];
   const loading = treeQ.isPending;
   const treeLoadError = treeQ.error;
-  const refetchTree = treeQ.refetch;
   const setTreeLoadError = () => { treeQ.refetch(); };
   const setTree = (updater) => {
     queryClient.setQueryData(
@@ -625,26 +624,6 @@ export default function ShelfView() {
       (prev) => (typeof updater === 'function' ? updater(prev ?? []) : updater),
     );
   };
-
-  // Sync on any book mutation dispatched from another surface (most
-  // notably MoreMenu's Location picker, which PATCHes shelf_id /
-  // unit_id / room_id / building_id from the card's three-dot menu).
-  // Three things can drift: the tree's per-level book_counts, the
-  // unshelfed-books list (book just joined or left it), and the
-  // current location's visible books (book may have entered or left
-  // this grid). Refetching all three is cheap and keeps the page
-  // honest. Same idiom Library uses for spine:book-mutated.
-  useSpineEvent('spine:book-mutated', () => {
-    refetchTree();
-    refetchUnshelfed();
-    refetchLocationBooks();
-  });
-  // Book-deleted from anywhere — same surfaces drift, same response.
-  useSpineEvent('spine:book-deleted', () => {
-    refetchTree();
-    refetchUnshelfed();
-    refetchLocationBooks();
-  });
 
   // Three error sources share the ErrorBanner slot. Priority: action
   // (most recent user-driven failure) → tree (page-level) → location
@@ -814,9 +793,9 @@ export default function ShelfView() {
     // from. The root view's source is unshelfed; deeper views' source is
     // the per-location books list. Both setters are called — the absent
     // one is a no-op since filter on a missing id returns the array
-    // unchanged. The dispatched event triggers the existing
-    // spine:book-mutated listener (refetchTree + refetchUnshelfed +
-    // refetchLocationBooks), which reconciles to canonical state.
+    // unchanged. The dispatched event triggers the queryClient bridge's
+    // spine:book-mutated invalidation (shelfTree / unshelfed /
+    // shelfLocation), which reconciles to canonical state.
     setUnshelfed(prev => prev.filter(b => b.id !== bookId));
     setBooks(prev => prev.filter(b => b.id !== bookId));
     try {

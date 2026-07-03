@@ -9,7 +9,6 @@ import ErrorBanner from '../components/ErrorBanner.jsx';
 import { GridSkeleton } from '../components/Skeleton.jsx';
 import PageHeading from '../components/PageHeading.jsx';
 import { sectionEyebrow } from '../components/textStyles.js';
-import { useSpineEvent } from '../hooks/useSpineEvent.js';
 import { useCoverSize } from '../hooks/useCoverSize.js';
 import { initialsFor, FORMAT_LABEL } from '../utils.js';
 
@@ -71,14 +70,11 @@ export default function Loved() {
   // mapping. On retry failure the banner re-appears with the same
   // error.
   const dismissBookError = () => { booksQ.refetch(); };
-  // Optimistic setter for the useSpineEvent handlers below —
-  // mirrors what useFreshFetch.setData did. setQueryData accepts a
-  // functional updater directly.
-  // Guard the updater against an undefined cache — TanStack Query's
-  // cache starts as undefined until the first fetch lands, unlike
-  // useFreshFetch's useState(initialData). A useSpineEvent handler
-  // firing before the initial fetch would otherwise crash on
-  // `prev.map/.filter(undefined)`.
+  // Optimistic setter for handleBookUpdate below — mirrors what
+  // useFreshFetch.setData did. setQueryData accepts a functional
+  // updater directly. Guard the updater against an undefined cache —
+  // TanStack Query's cache starts as undefined until the first fetch
+  // lands, unlike useFreshFetch's useState(initialData).
   const setBooks = (updater) => {
     queryClient.setQueryData(
       ['loved', 'books'],
@@ -92,28 +88,6 @@ export default function Loved() {
   // localStorage-backed: a loved-format browse is exploratory, not a
   // standing preference.
   const [formatFilter, setFormatFilter] = useState(null);
-
-  // Refetch-and-swap on book mutations from other surfaces (MoreMenu's
-  // Location picker, palette toggles, etc.). Only the books grid here
-  // renders cards with MoreMenus; authors/series sections render their
-  // own portrait/spine cards that don't need swapping. spine:book-deleted
-  // filters in place — the loved tab is naturally going to drop the
-  // book from its server-side result on next mount anyway, this just
-  // keeps the local view consistent until then. Mirrors Library shape.
-  useSpineEvent('spine:book-mutated', (e) => {
-    const id = Number(e.detail?.id);
-    if (!id) return;
-    api.getBook(id)
-      .then(updated => {
-        setBooks(prev => prev.map(b => b.id === id ? updated : b));
-      })
-      .catch(() => {});
-  });
-  useSpineEvent('spine:book-deleted', (e) => {
-    const id = Number(e.detail?.id);
-    if (!id) return;
-    setBooks(prev => prev.filter(b => b.id !== id));
-  });
 
   function handleBookUpdate(updated) {
     // Loved sorts by updated_at DESC (no UI selector). Splice the updated

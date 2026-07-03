@@ -617,6 +617,11 @@ describe('today', () => {
       // production path once the type is selected. The cohort SQL is
       // covered indirectly by the tiebreaker test below, which only
       // passes when the personal cohort is non-empty.
+      //
+      // OR REPLACE (here and in the other pre-seed tests): the suite's
+      // current-date sweeps (recent_acquisition, snooze) persist cards
+      // for today..+6, so whenever the real calendar approaches one of
+      // these hard-coded dates a plain INSERT hits the date PK.
       const { body: created } = await req('POST', '/api/books', {
         title:         'PA Meta Finished',
         authors:       ['PA Meta Solo F'],
@@ -625,7 +630,7 @@ describe('today', () => {
       });
       const db = (await import('../db.js')).default;
       db.prepare(
-        'INSERT INTO today_card_history (date, type, book_id) VALUES (?, ?, ?)'
+        'INSERT OR REPLACE INTO today_card_history (date, type, book_id) VALUES (?, ?, ?)'
       ).run('2026-04-12', 'personal_anniversary', created.id);
       const { body } = await req('GET', '/api/today/card?date=2026-04-12');
       assert.equal(body.card?.type,    'personal_anniversary');
@@ -647,7 +652,7 @@ describe('today', () => {
       });
       const db = (await import('../db.js')).default;
       db.prepare(
-        'INSERT INTO today_card_history (date, type, book_id) VALUES (?, ?, ?)'
+        'INSERT OR REPLACE INTO today_card_history (date, type, book_id) VALUES (?, ?, ?)'
       ).run('2026-07-04', 'personal_anniversary', created.id);
       const { body } = await req('GET', '/api/today/card?date=2026-07-04');
       assert.equal(body.card?.type,    'personal_anniversary');
@@ -756,7 +761,7 @@ describe('today', () => {
       });
       const db = (await import('../db.js')).default;
       db.prepare(
-        'INSERT INTO today_card_history (date, type, book_id) VALUES (?, ?, ?)'
+        'INSERT OR REPLACE INTO today_card_history (date, type, book_id) VALUES (?, ?, ?)'
       ).run('2026-08-08', 'series_next_volume', vol2.id);
       const { body } = await req('GET', '/api/today/card?date=2026-08-08');
       assert.equal(body.card?.type,    'series_next_volume');

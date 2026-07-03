@@ -88,6 +88,9 @@ if (typeof window !== 'undefined') {
       'loved', 'authors', 'series', 'tags', 'lists', 'readlist',
       'notes', 'diary', 'audit', 'stats', 'shelfTree', 'author',
       'settings', 'today', 'collage', 'collage-facets',
+      // ShelfView surfaces — tree counts, unshelfed list, and the
+      // current location's book grid all drift on shelf/location edits
+      'unshelfed', 'shelfLocation',
       // Library-specific keys (paginated fetch + supporting queries)
       'library', 'library-counts', 'library-facets', 'library-cohort',
       // Browse / ListDetail — same shape
