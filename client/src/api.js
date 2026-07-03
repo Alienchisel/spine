@@ -147,4 +147,5 @@ export const api = {
   getSeriesCompletion: () => request('/series/completion'),
   getSettings: () => request('/settings'),
   setSetting: (key, value) => request(`/settings/${key}`, { method: 'PUT', body: JSON.stringify({ value }) }),
+  getDataVersion: () => request('/version'),
 };

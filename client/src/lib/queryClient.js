@@ -115,4 +115,71 @@ if (typeof window !== 'undefined') {
     const id = Number(e?.detail?.id);
     if (Number.isFinite(id)) invalidateForBook(id);
   });
+
+  // ── Cross-DEVICE staleness check ──────────────────────────────────
+  // The event bridge (and its BroadcastChannel mirror) only reaches
+  // tabs of THIS browser. Spine is also used from the phone over
+  // Tailscale — a write there never fires an event here, and with
+  // staleTime: Infinity this browser would show stale data forever.
+  // So on tab focus, ask the server's data-version beacon (bumped by
+  // every successful mutation, see lib/dataVersion.js) whether
+  // anything was written since we last looked, and invalidate
+  // everything only if the answer is yes. The common case — nothing
+  // changed — costs one tiny GET and zero refetches, preserving the
+  // no-refetch-on-alt-tab behaviour this config exists for.
+  let lastSeenVersion = null;
+  let versionCheckInFlight = false;
+
+  async function fetchDataVersion() {
+    const res = await fetch('/api/version');
+    if (!res.ok) throw new Error(`version check: ${res.status}`);
+    return (await res.json()).version;
+  }
+
+  async function checkDataVersion() {
+    // focus and visibilitychange often fire back-to-back; one check
+    // per burst is plenty.
+    if (versionCheckInFlight) return;
+    versionCheckInFlight = true;
+    try {
+      const version = await fetchDataVersion();
+      // First sighting just records the baseline — invalidating on an
+      // unknown version would refetch everything on every page load.
+      if (lastSeenVersion !== null && version !== lastSeenVersion) {
+        queryClient.invalidateQueries();
+      }
+      lastSeenVersion = version;
+    } catch {
+      // Network hiccup — keep the old baseline; the next focus retries.
+    } finally {
+      versionCheckInFlight = false;
+    }
+  }
+
+  // Local mutations bump the server version too, but this browser
+  // already invalidated precisely via the event bridge — so quietly
+  // re-baseline after each mutation burst, otherwise the next focus
+  // would see a "changed" version and redundantly invalidate all.
+  // Debounced: a multi-step action (finish book + log read) fires
+  // several events but needs only one re-baseline. The window between
+  // a remote write and this sync adopting its version unseen is
+  // sub-second — accepted.
+  let versionSyncTimer = null;
+  function rebaselineVersionSoon() {
+    clearTimeout(versionSyncTimer);
+    versionSyncTimer = setTimeout(async () => {
+      try { lastSeenVersion = await fetchDataVersion(); } catch {}
+    }, 500);
+  }
+  for (const evt of ['spine:book-mutated', 'spine:book-deleted', 'spine:reads-mutated']) {
+    window.addEventListener(evt, rebaselineVersionSoon);
+  }
+
+  window.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') checkDataVersion();
+  });
+  window.addEventListener('focus', () => checkDataVersion());
+  // Prime the baseline so the FIRST focus check has something to
+  // compare against instead of silently re-baselining.
+  checkDataVersion();
 }

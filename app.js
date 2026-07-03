@@ -16,12 +16,29 @@ import shelfRouter from './routes/shelf.js';
 import tagsRouter from './routes/tags.js';
 import seriesRouter from './routes/series.js';
 import todayRouter from './routes/today.js';
+import { bumpDataVersion, getDataVersion } from './lib/dataVersion.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 
 app.use(express.json({ limit: '1mb' }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Any successful mutation bumps the data version (see lib/dataVersion.js).
+// Method-based rather than per-route so new routers are covered by
+// default; 'finish' + status check means failed writes don't bump.
+// Known blind spot: GET /api/today/card persists the day's card as a
+// side effect — harmless, since every device converges on the same
+// persisted row for a given date anyway.
+app.use('/api', (req, res, next) => {
+  if (req.method !== 'GET') {
+    res.on('finish', () => { if (res.statusCode < 400) bumpDataVersion(); });
+  }
+  next();
+});
+app.get('/api/version', (_req, res) => {
+  res.json({ version: getDataVersion() });
+});
 
 app.use('/api/books', booksRouter);
 app.use('/api/authors', authorsRouter);

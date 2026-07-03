@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { api } from '../api.js';
 import { labelForPath } from '../utils.js';
 import { dispatchSpineEvent } from '../hooks/useSpineEvent.js';
@@ -93,11 +93,11 @@ export default function Nav() {
   // a synchronous cache so first paint doesn't flash a stale dot; the
   // server value overrides it once loaded. Same-device visits update
   // the cache directly (Today.jsx setQueryData), so no per-navigation
-  // fetch is needed; cross-device drift is caught by an explicit
-  // invalidate on visibilitychange — coming back to the PC tab after
-  // visiting Today on the phone refreshes the dot.
+  // fetch is needed; cross-device drift is caught by the global
+  // data-version check in lib/queryClient.js — visiting Today on the
+  // phone bumps the server version, and the PC's next tab-focus check
+  // invalidates ['settings'] along with everything else.
   const onTodayCurrent = pathname === '/today' && !search;
-  const queryClient = useQueryClient();
   const settingsQ = useQuery({
     queryKey: ['settings'],
     queryFn: () => api.getSettings(),
@@ -112,16 +112,6 @@ export default function Nav() {
     if (!serverVisited) return;
     try { localStorage.setItem(TODAY_VISITED_KEY, serverVisited); } catch {}
   }, [serverVisited]);
-
-  useEffect(() => {
-    function onVisibility() {
-      if (document.visibilityState === 'visible') {
-        queryClient.invalidateQueries({ queryKey: ['settings'] });
-      }
-    }
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => document.removeEventListener('visibilitychange', onVisibility);
-  }, [queryClient]);
 
   const showTodayDot = !onTodayCurrent && visitedTodayStr !== todayStr();
 
