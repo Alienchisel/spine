@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useSearchParams, useLocation } from 'react-router-dom';
 import IncomingBackLink from '../components/IncomingBackLink.jsx';
 import {
@@ -33,6 +34,8 @@ import { useInfiniteQuery, useQueryClient, useQuery } from '@tanstack/react-quer
 import { useLatest } from '../hooks/useLatest.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import { useSpineEvent, dispatchSpineEvent } from '../hooks/useSpineEvent.js';
+import { useClickOutside } from '../hooks/useClickOutside.js';
+import { useEscapeKey } from '../hooks/useEscapeKey.js';
 
 const TABS = [
   { key: 'reading',     label: 'Reading' },
@@ -44,6 +47,15 @@ const TABS = [
   { key: 'all',         label: 'All' },
   { key: 'archived',    label: 'Archived' },
 ];
+
+// Archival views folded into the mobile "More ▾" menu. Below sm the
+// full 8-tab strip sums to ~600 px against a ~390 px viewport — the
+// overflow-x-auto backstop made it scrollable, but the folded tabs
+// lived off-screen with no affordance that they existed. Desktop (sm+)
+// still shows the full strip; the fold is presentation-only, so URL
+// state, per-tab sort memory, and VALID_TABS are untouched.
+const MORE_TAB_KEYS = new Set(['prev_owned', 'never_owned', 'archived']);
+const MORE_TABS = TABS.filter(t => MORE_TAB_KEYS.has(t.key));
 
 // localStorage holds only UI preferences that aren't part of "this
 // view": per-tab sort memory, filter-panel open state. Cover-size
@@ -420,6 +432,35 @@ export default function Library() {
   const reorderSeqRef = useRef(0);
   const tabRefs = useRef([]);
 
+  // Mobile "More ▾" tab menu — portal + fixed positioning + mousedown/
+  // scroll/Escape close, mirroring MoreMenu's popover idiom (the strip's
+  // overflow-x-auto wrapper would clip an absolutely-positioned child).
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [morePos, setMorePos]   = useState(null);
+  const moreBtnRef  = useRef(null);
+  const moreMenuRef = useRef(null);
+  useClickOutside([moreBtnRef, moreMenuRef], () => setMoreOpen(false), moreOpen);
+  useEscapeKey(() => { setMoreOpen(false); moreBtnRef.current?.focus(); }, moreOpen);
+  useEffect(() => {
+    if (!moreOpen) return;
+    function onScroll(e) {
+      if (moreMenuRef.current?.contains(e.target)) return;
+      setMoreOpen(false);
+    }
+    window.addEventListener('scroll', onScroll, true);
+    return () => window.removeEventListener('scroll', onScroll, true);
+  }, [moreOpen]);
+  function toggleMoreMenu() {
+    if (moreOpen) { setMoreOpen(false); return; }
+    const rect = moreBtnRef.current.getBoundingClientRect();
+    // Right-align the menu to the trigger (it sits at the strip's right
+    // edge), clamped inside the viewport. Width mirrors min-w-40.
+    const MENU_WIDTH = 160;
+    const left = Math.min(Math.max(rect.right - MENU_WIDTH, 8), window.innerWidth - MENU_WIDTH - 8);
+    setMorePos({ top: rect.bottom + 4, left });
+    setMoreOpen(true);
+  }
+
   function switchTab(key) {
     setTab(key);
     setExpandedSeries(new Set());
@@ -430,20 +471,30 @@ export default function Library() {
   }
 
   function handleTabKey(e, idx) {
+    // Arrow/Home/End roving moves through VISIBLE tabs only — below sm
+    // the MORE_TAB_KEYS buttons are display:none (folded into the More
+    // menu) and focus() on a hidden element silently no-ops, which
+    // would strand the roving tabindex. offsetParent is null for
+    // display:none elements, so it doubles as the visibility probe.
+    const visible = TABS.map((_, i) => i)
+      .filter(i => tabRefs.current[i]?.offsetParent !== null);
+    if (visible.length === 0) return;
+    const pos = visible.indexOf(idx);
     if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
       e.preventDefault();
       const dir = e.key === 'ArrowRight' ? 1 : -1;
-      const next = (idx + dir + TABS.length) % TABS.length;
+      const next = visible[(pos + dir + visible.length) % visible.length];
       switchTab(TABS[next].key);
       tabRefs.current[next]?.focus();
     } else if (e.key === 'Home') {
       e.preventDefault();
-      switchTab(TABS[0].key);
-      tabRefs.current[0]?.focus();
+      switchTab(TABS[visible[0]].key);
+      tabRefs.current[visible[0]]?.focus();
     } else if (e.key === 'End') {
       e.preventDefault();
-      switchTab(TABS[TABS.length - 1].key);
-      tabRefs.current[TABS.length - 1]?.focus();
+      const last = visible[visible.length - 1];
+      switchTab(TABS[last].key);
+      tabRefs.current[last]?.focus();
     }
   }
   // Refs mirroring the latest tab + sort. handleProgressUpdate is invoked
@@ -760,15 +811,18 @@ export default function Library() {
             to clip the search bar at borderline widths once Archived joined
             the tab strip in 1.20.0. */}
         <div className="flex flex-col gap-3">
-          {/* On phones the 6+ tabs (Reading / Finished / Unread / Owned /
-              Prev. owned / Never owned …) sum to ~600 px of nowrap flex
-              content — wider than the ~390 px iPhone viewport. Without
-              the `overflow-x-auto` here the flex children spilled past
-              the device width, expanded the page, and mobile browsers
-              auto-zoomed out to fit; the side effect was that any
-              `fixed right-0` overlay (the hamburger drawer) anchored
-              to the widened layout viewport and rendered offscreen. */}
-          <div className="flex items-center gap-1.5 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          {/* On phones the full tab strip sums to well past the ~390 px
+              iPhone viewport, so the strip scrolls horizontally inside
+              its own min-w-0 wrapper (overflow containment also keeps
+              the page from expanding and breaking `fixed right-0`
+              overlays — the original 1.20.x bug). Below sm the three
+              archival tabs fold into the More menu and the trigger is
+              pinned OUTSIDE the scroll wrapper, so it stays visible at
+              the right edge no matter how far the strip scrolls —
+              inside the strip it would live off-screen, exactly the
+              discoverability hole it exists to fix. */}
+          <div className="flex items-center gap-1.5 -mx-4 px-4 sm:mx-0 sm:px-0">
+            <div className="overflow-x-auto min-w-0">
             <div role="tablist" aria-label="Library view" className="flex gap-1 bg-neutral-900 p-1 rounded-lg w-fit">
               {TABS.map((t, i) => (
                 <button
@@ -780,7 +834,9 @@ export default function Library() {
                   tabIndex={tab === t.key ? 0 : -1}
                   onClick={() => switchTab(t.key)}
                   onKeyDown={e => handleTabKey(e, i)}
-                  className={`h-9 inline-flex items-center px-5 text-sm rounded-md whitespace-nowrap transition-[transform,background-color,color] ease-out duration-150 motion-safe:active:scale-[0.98] ${
+                  className={`h-9 items-center px-5 text-sm rounded-md whitespace-nowrap transition-[transform,background-color,color] ease-out duration-150 motion-safe:active:scale-[0.98] ${
+                    MORE_TAB_KEYS.has(t.key) ? 'hidden sm:inline-flex' : 'inline-flex'
+                  } ${
                     tab === t.key
                       ? 'bg-binding/25 text-parchment font-semibold'
                       : 'font-medium text-neutral-400 hover:text-neutral-200'
@@ -790,12 +846,62 @@ export default function Library() {
                 </button>
               ))}
             </div>
+            </div>
+            {/* Mobile-only trigger for the folded tabs, in its own pill
+                so it reads as part of the strip. When the active tab is
+                a folded one, the trigger wears its label and the active
+                style so the selection is never invisible — the real
+                (display:none) tab button still carries aria-selected. */}
+            <div className="sm:hidden flex-none bg-neutral-900 p-1 rounded-lg">
+              <button
+                ref={moreBtnRef}
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded={moreOpen}
+                onClick={toggleMoreMenu}
+                className={`h-9 inline-flex items-center px-4 text-sm rounded-md whitespace-nowrap transition-[transform,background-color,color] ease-out duration-150 motion-safe:active:scale-[0.98] ${
+                  MORE_TAB_KEYS.has(tab)
+                    ? 'bg-binding/25 text-parchment font-semibold'
+                    : 'font-medium text-neutral-400 hover:text-neutral-200'
+                }`}
+              >
+                {MORE_TAB_KEYS.has(tab) ? TABS.find(t => t.key === tab)?.label : 'More'}
+                <span aria-hidden="true" className="ml-1 text-xs opacity-60">▾</span>
+              </button>
+            </div>
             {countsError && (
               // Counts fetch failed — badge numbers are missing. A small ⚠
               // glyph next to the tab strip explains why on hover without
               // shifting layout for the common case where counts succeeded.
               <span title="Failed to load tab counts" aria-label="Failed to load tab counts"
                     className="text-warn/70 text-xs leading-none cursor-help select-none">⚠</span>
+            )}
+            {moreOpen && morePos && createPortal(
+              <div
+                ref={moreMenuRef}
+                role="menu"
+                aria-label="More library views"
+                className="z-50 min-w-40 bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl py-1"
+                style={{ position: 'fixed', top: morePos.top, left: morePos.left }}
+              >
+                {MORE_TABS.map(t => (
+                  <button
+                    key={t.key}
+                    type="button"
+                    role="menuitem"
+                    onClick={() => { switchTab(t.key); setMoreOpen(false); }}
+                    className={`w-full flex items-center justify-between gap-4 px-4 py-2 text-sm text-left transition-colors ${
+                      tab === t.key
+                        ? 'text-parchment font-semibold bg-binding/25'
+                        : 'text-neutral-300 hover:bg-neutral-800'
+                    }`}
+                  >
+                    {t.label}
+                    {counts[t.key] != null && <span className="text-xs opacity-50 tabular-nums">{counts[t.key]}</span>}
+                  </button>
+                ))}
+              </div>,
+              document.body
             )}
           </div>
 
