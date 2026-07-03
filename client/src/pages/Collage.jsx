@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams, useLocation, Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import html2canvas from 'html2canvas-pro';
 import { api } from '../api.js';
 import { initialsFor } from '../utils.js';
-import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import { useActionGuard } from '../hooks/useActionGuard.js';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 import PageHeading from '../components/PageHeading.jsx';
@@ -73,11 +73,9 @@ export default function Collage() {
   // finishes); year_in_review has its own year picker instead.
   const usesPeriod  = !needsYear && mode !== 'recently_finished';
 
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Export/download errors only — load errors are derived from the
+  // collage query below and clear themselves on a successful refetch.
   const [error, setError] = useState(null);
-  const [facets, setFacets] = useState({ years: [] });
-  const loadGuard = useStaleGuard();
   // Single-flight guard on the PNG export so a double-click can't fire
   // two parallel html2canvas passes (each is heavy — ~1 MB raster).
   const exportGuard = useActionGuard();
@@ -123,37 +121,33 @@ export default function Collage() {
     setParams(new URLSearchParams(), { replace: true, state });
   }
 
-  // Lazy-fetch facets on first mount. Cached for the session — a long-
-  // lived tab will see stale data if the user logs a new year mid-
-  // session, but the cost (one-off refetch) isn't worth a refresh-
-  // tick subscription. Failure is silent — the year dropdown falls
-  // back to just the current year (always injected by the
+  // Facet years for the year_in_review dropdown. Both collage keys
+  // sit in the event bridge's LIST_KEYS, so any book/read mutation
+  // invalidates them. Failure is silent — the year dropdown falls back to
+  // just the current year (always injected by the
   // `!facets.years.includes(...)` guard below), so the page stays
   // operable; the user just can't switch years from the UI.
-  useEffect(() => {
-    api.getCollageFacets().then(setFacets).catch(() => {});
-  }, []);
+  const facetsQ = useQuery({
+    queryKey: ['collage-facets'],
+    queryFn: () => api.getCollageFacets(),
+  });
+  const facets = facetsQ.data ?? { years: [] };
 
-  useEffect(() => {
-    // Skip the fetch when the mode needs a parameter that isn't set
-    // yet — would otherwise hit the server with an inevitable 400.
-    const epoch = loadGuard.next();
-    setLoading(true);
-    api.getCollage({
+  // One cache entry per knob combination — revisiting a previously
+  // viewed config renders instantly from cache; new configs show the
+  // skeleton while fetching.
+  const collageQ = useQuery({
+    queryKey: ['collage', mode, period, size, needsYear ? year : null],
+    queryFn: () => api.getCollage({
       mode, period, size,
       year: needsYear ? year : undefined,
-    })
-      .then(d => {
-        if (!loadGuard.isFresh(epoch)) return;
-        setData(d);
-        setError(null);
-      })
-      .catch(err => {
-        if (!loadGuard.isFresh(epoch)) return;
-        setError(`Failed to load collage${err?.message ? `: ${err.message}` : '.'}`);
-      })
-      .finally(() => { if (loadGuard.isFresh(epoch)) setLoading(false); });
-  }, [mode, period, size, year]);
+    }),
+  });
+  const data = collageQ.data ?? null;
+  const loading = collageQ.isPending;
+  const loadError = collageQ.isError
+    ? `Failed to load collage${collageQ.error?.message ? `: ${collageQ.error.message}` : '.'}`
+    : null;
 
   function update(key, value) {
     // Defense-in-depth: rebuild the params from only-whitelisted keys
@@ -351,7 +345,7 @@ export default function Collage() {
         </button>
       </div>
 
-      <ErrorBanner message={error} onDismiss={() => setError(null)} />
+      <ErrorBanner message={error ?? loadError} onDismiss={() => setError(null)} />
 
       {loading ? (
         <GridSkeleton count={size * size} compact gridStyle={gridStyle} gridClassName="grid gap-2" />

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import IncomingBackLink from '../components/IncomingBackLink.jsx';
 import TodayCard from '../components/TodayCard.jsx';
 import TodayCarousel from '../components/TodayCarousel.jsx';
@@ -39,6 +40,7 @@ function isValidDateParam(s) {
 
 export default function Today() {
   const [params] = useSearchParams();
+  const queryClient = useQueryClient();
   const [todayCard, setTodayCard] = useState(null);
 
   const currentDate = todayStr();
@@ -55,13 +57,17 @@ export default function Today() {
     if (onToday) {
       const value = todayStr();
       try { localStorage.setItem(TODAY_VISITED_KEY, value); } catch {}
+      // Write through the shared ['settings'] cache so the Nav dot
+      // clears immediately without waiting on (or firing) a refetch.
+      queryClient.setQueryData(['settings'], (prev) =>
+        ({ ...(prev || {}), [TODAY_VISITED_KEY]: value }));
       fetch(`/api/settings/${TODAY_VISITED_KEY}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ value }),
       }).catch(() => {});
     }
-  }, [onToday]);
+  }, [onToday, queryClient]);
 
   // Both queue-driven archives need to know whether today's surface
   // is one of theirs, so they can hide that row from the past list.

@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api } from '../api.js';
+import { useQuery } from '@tanstack/react-query';
+import { todayCardQuery } from './TodayCard.jsx';
 import { fmtShortDate } from '../utils.js';
 
 // Horizontal day-card carousel for /today (1.226+). Replaces the
@@ -84,16 +84,12 @@ function SliverShell({ to, side, type, label, ariaLabel }) {
 // Past-day sliver. Peeks the card type without persisting (peek=true)
 // so a sliver-only glance doesn't fill in history for days the user
 // never opened. The neutral stripe shows during the fetch, then
-// swaps in the type accent once the peek resolves.
+// swaps in the type accent once the peek resolves. Shares its query
+// key with the full TodayCard for the same date, so clicking through
+// renders the peeked card straight from cache.
 function PastSliver({ date }) {
-  const [type, setType] = useState(null);
-  useEffect(() => {
-    let cancelled = false;
-    api.getTodayCard({ date, peek: 'true' })
-      .then(d => { if (!cancelled) setType(d?.card?.type || null); })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [date]);
+  const { data: card } = useQuery(todayCardQuery(date, true));
+  const type = card?.type || null;
   return (
     <SliverShell
       to={`/today?date=${date}`}
@@ -111,15 +107,10 @@ function PastSliver({ date }) {
 // path rather than recompute.
 function FutureSliver({ date, currentDate }) {
   const isToday = date === currentDate;
-  const [type, setType] = useState(null);
-  useEffect(() => {
-    let cancelled = false;
-    const params = isToday ? {} : { date, peek: 'true' };
-    api.getTodayCard(params)
-      .then(d => { if (!cancelled) setType(d?.card?.type || null); })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [date, isToday]);
+  const { data: card } = useQuery(
+    todayCardQuery(isToday ? undefined : date, !isToday)
+  );
+  const type = card?.type || null;
   const to = isToday ? '/today' : `/today?date=${date}`;
   const label = isToday ? 'Today' : fmtShortDate(date);
   return (

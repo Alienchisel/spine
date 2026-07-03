@@ -89,17 +89,24 @@ export default function BookDetail() {
   // previous book's cover/meta through (BookDetail's old
   // wipeOnKeyChange behaviour). Returning to a book already visited
   // this session shows cached data immediately.
+  //
+  // Keys use the NUMERIC id, not the useParams string — the event
+  // bridge in lib/queryClient.js invalidates ['book', Number(id)],
+  // and 123 !== "123" under the key matcher's deep equality, so a
+  // string-keyed query would never see bridge invalidations. The
+  // CommandPalette's current-book query shares these keys too.
+  const bookId = Number(id);
   const queryClient = useQueryClient();
   const bookQ = useQuery({
-    queryKey: ['book', id],
+    queryKey: ['book', bookId],
     queryFn:  () => api.getBook(id),
   });
   const logQ = useQuery({
-    queryKey: ['book', id, 'log'],
+    queryKey: ['book', bookId, 'log'],
     queryFn:  () => api.getBookLog(id),
   });
   const readsQ = useQuery({
-    queryKey: ['book', id, 'reads'],
+    queryKey: ['book', bookId, 'reads'],
     queryFn:  () => api.getBookReads(id),
   });
   const book       = bookQ.data;
@@ -117,13 +124,13 @@ export default function BookDetail() {
   // fallback since the caller sites gate on `book` being loaded.
   const setBook = (updater) => {
     queryClient.setQueryData(
-      ['book', id],
+      ['book', bookId],
       (prev) => (typeof updater === 'function' ? updater(prev) : updater),
     );
   };
   const setLog = (updater) => {
     queryClient.setQueryData(
-      ['book', id, 'log'],
+      ['book', bookId, 'log'],
       (prev) => (typeof updater === 'function' ? updater(prev ?? []) : updater),
     );
   };

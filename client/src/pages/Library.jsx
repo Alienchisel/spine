@@ -382,17 +382,20 @@ export default function Library() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [books, sort, expandedSeries, coverCols, hasMore, loading, loadingMore, loadingAll]);
-  // Library-wide series totals, keyed by series name → book_count. Fetched
-  // once on mount from /api/series so the SeriesCard badge can render
-  // "13/25" when the current view has only loaded part of a series instead
-  // of misleadingly showing just "13" as if that were the series' size.
-  // Failure is silent — the badge falls back to the loaded count.
-  const [seriesTotals, setSeriesTotals] = useState(new Map());
-  useEffect(() => {
-    api.getSeries().then(rows => {
-      setSeriesTotals(new Map(rows.map(r => [r.name, r.book_count])));
-    }).catch(() => {});
-  }, []);
+  // Library-wide series totals, keyed by series name → book_count, so the
+  // SeriesCard badge can render "13/25" when the current view has only
+  // loaded part of a series instead of misleadingly showing just "13" as
+  // if that were the series' size. Shares its cache with SeriesIndex's
+  // ['series', 'all'] query. Failure is silent — the badge falls back to
+  // the loaded count.
+  const seriesTotalsQ = useQuery({
+    queryKey: ['series', 'all'],
+    queryFn: () => api.getSeries(),
+  });
+  const seriesTotals = useMemo(
+    () => new Map((seriesTotalsQ.data || []).map(r => [r.name, r.book_count])),
+    [seriesTotalsQ.data]
+  );
   // Edit mode toggles drag handles on cards for the Custom-order rank on the
   // Never owned tab. Mirrors ListDetail.editMode. Only meaningful when
   // tab='never_owned' && sort='custom' — entering edit mode coerces both.

@@ -1,12 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { api } from '../api.js';
 
 // Low-queue indicator for /today (1.233+). Fires only when either
 // queue type drops below LOW_THRESHOLD unserved rows — silent the
 // rest of the time. Matches how the Nav "new today" dot works: only
-// surfaces signal, never noise. Polled once per mount; the queue
-// changes only when the user (or a curation script) inserts new rows
-// or the daily seed serves an unserved one, so per-mount is enough.
+// surfaces signal, never noise. Cached under the 'today' bridge key;
+// the queue changes only when the user (or a curation script) inserts
+// new rows or the daily seed serves an unserved one, so mutation-
+// driven invalidation is enough.
 
 const LOW_THRESHOLD = 3;
 
@@ -16,15 +17,10 @@ const TYPE_LABEL = {
 };
 
 export default function TodayQueueBanner() {
-  const [depth, setDepth] = useState(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    api.getTodayQueueDepth()
-      .then(d => { if (!cancelled) setDepth(d?.depth || null); })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, []);
+  const { data: depth } = useQuery({
+    queryKey: ['today', 'queue-depth'],
+    queryFn: async () => (await api.getTodayQueueDepth())?.depth || null,
+  });
 
   if (!depth) return null;
   const low = Object.entries(depth)

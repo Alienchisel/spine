@@ -87,7 +87,7 @@ if (typeof window !== 'undefined') {
     const LIST_KEYS = new Set([
       'loved', 'authors', 'series', 'tags', 'lists', 'readlist',
       'notes', 'diary', 'audit', 'stats', 'shelfTree', 'author',
-      'settings',
+      'settings', 'today', 'collage', 'collage-facets',
       // Library-specific keys (paginated fetch + supporting queries)
       'library', 'library-counts', 'library-facets', 'library-cohort',
       // Browse / ListDetail — same shape

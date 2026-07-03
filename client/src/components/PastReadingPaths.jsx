@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { api } from '../api.js';
 import PastQueueList from './PastQueueList.jsx';
 
@@ -8,15 +8,10 @@ import PastQueueList from './PastQueueList.jsx';
 // PastQueueList so the two archives behave identically.
 
 export default function PastReadingPaths({ excludeQueueId }) {
-  const [items, setItems] = useState(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    api.getPastReadingPaths()
-      .then(d => { if (!cancelled) setItems(d?.readingPaths || []); })
-      .catch(() => { if (!cancelled) setItems([]); });
-    return () => { cancelled = true; };
-  }, []);
+  const { data: items } = useQuery({
+    queryKey: ['today', 'reading-paths'],
+    queryFn: async () => (await api.getPastReadingPaths())?.readingPaths || [],
+  });
 
   if (items == null) return null;
   const filtered = excludeQueueId

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { api } from '../api.js';
 import PastQueueList from './PastQueueList.jsx';
 
@@ -9,15 +9,10 @@ import PastQueueList from './PastQueueList.jsx';
 // when it's already showing above as today's card).
 
 export default function PastConnections({ excludeQueueId }) {
-  const [items, setItems] = useState(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    api.getPastConnections()
-      .then(d => { if (!cancelled) setItems(d?.connections || []); })
-      .catch(() => { if (!cancelled) setItems([]); });
-    return () => { cancelled = true; };
-  }, []);
+  const { data: items } = useQuery({
+    queryKey: ['today', 'connections'],
+    queryFn: async () => (await api.getPastConnections())?.connections || [],
+  });
 
   if (items == null) return null;
   const filtered = excludeQueueId

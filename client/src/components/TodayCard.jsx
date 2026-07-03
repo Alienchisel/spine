@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
 import { api } from '../api.js';
 import { initialsFor } from '../utils.js';
@@ -326,53 +327,60 @@ export function FeedbackBar({ queueId, current }) {
   );
 }
 
+// Shared query descriptor for a day's card. The centre TodayCard and
+// the carousel slivers (which only need card.type for the accent
+// stripe) use the same key, so a sliver's peek warms the cache the
+// full card reads from when you click through — day navigation is
+// instant. queryFn returns null (not undefined — TanStack treats
+// undefined as an error) when no card was served for the day.
+export function todayCardQuery(date, peek = false) {
+  return {
+    queryKey: ['today', 'card', date || 'current', !!peek],
+    queryFn: async () => {
+      const params = {};
+      if (date) params.date = date;
+      if (peek) params.peek = 'true';
+      const d = await api.getTodayCard(params);
+      return d?.card || null;
+    },
+  };
+}
+
 // Optional `date` and `peek` props power the /today day-navigation
 // surface (1.223+). Default (no date) fetches the current day and
 // goes through pickTodayCard's compute path. Setting `date` to a
 // past YYYY-MM-DD with `peek` lets the page render historical cards
 // without retroactively filling in days the user never visited.
 export default function TodayCard({ date, peek = false, onCardLoaded }) {
-  const [card, setCard] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const { data: card, isPending, isError, isPlaceholderData } = useQuery({
+    ...todayCardQuery(date, peek),
+    // Keep the previous day's card on screen while a date-navigation
+    // fetch is in flight, so arrowing between days doesn't flash an
+    // empty surface mid-transition. First-ever load has no previous
+    // data, so isPending stays true and the skeleton shows instead.
+    placeholderData: (prev) => prev,
+  });
 
+  // The parent (Today.jsx) tracks the resolved card to derive the
+  // archive exclude-ids. Fire only when a real fetch resolves — the
+  // placeholder carry-over from the previous day would feed the
+  // parent a stale card mid-navigation.
   useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(false);
-    const params = {};
-    if (date) params.date = date;
-    if (peek) params.peek = 'true';
-    api.getTodayCard(params)
-      .then(d => {
-        if (cancelled) return;
-        const next = d?.card || null;
-        setCard(next);
-        setLoading(false);
-        if (onCardLoaded) onCardLoaded(next);
-      })
-      .catch(() => { if (!cancelled) { setError(true); setLoading(false); } });
-    return () => { cancelled = true; };
-    // onCardLoaded comes from useState's setter in the parent (stable
-    // reference) so including it in deps is safe and the lint can
-    // be satisfied without ceremony.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, peek]);
+    if (!onCardLoaded || isPending || isPlaceholderData) return;
+    onCardLoaded(card ?? null);
+  }, [card, isPending, isPlaceholderData, onCardLoaded]);
 
-  // Only blank during the very first load — once we've shown a card,
-  // keep it on screen during subsequent refetches (date navigation,
-  // etc.) so arrowing between days doesn't flash an empty surface
-  // mid-transition. The new card replaces the old one the moment
-  // the fetch resolves. The skeleton shell holds vertical space
-  // during that first load so the carousel slivers (items-stretch)
-  // have something to size against — a bare null collapsed the row
-  // to ~0px for a few frames — and adds light pulse-shapes so a
-  // slightly-longer fetch reads as "loading" rather than "empty."
-  if (loading && !card) {
+  // Skeleton only during the very first load (no cached or placeholder
+  // card yet). The skeleton shell holds vertical space so the carousel
+  // slivers (items-stretch) have something to size against — a bare
+  // null collapsed the row to ~0px for a few frames — and adds light
+  // pulse-shapes so a slightly-longer fetch reads as "loading" rather
+  // than "empty."
+  if (isPending) {
     return <TodayCardSkeleton />;
   }
 
-  if (error) {
+  if (isError) {
     return (
       <div className="p-6 rounded-lg border border-neutral-800/60 text-sm text-neutral-500">
         Couldn't load today's card.

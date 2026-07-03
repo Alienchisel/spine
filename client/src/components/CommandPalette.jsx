@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate, useLocation, useSearchParams, useMatch } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api.js';
 import { plural, pluralWord, initialsFor, MOD_KEY, labelForPath } from '../utils.js';
 import { useConfirm } from './ConfirmModal.jsx';
@@ -251,13 +252,7 @@ export default function CommandPalette() {
   const [bookResults, setBookResults] = useState([]);
   const [bookLoading, setBookLoading] = useState(false);
   const [authorResults, setAuthorResults] = useState([]);
-  const [lists, setLists] = useState([]);
-  // Cached facet data for qualifier-value autocomplete (tag:, author:,
-  // series:, narrator:, translator:, publisher:). Fetched on every
-  // palette open from /api/books/facets — same endpoint FilterPanel uses,
-  // no new backend surface needed. Previous facets stay visible during
-  // each refetch so newly-added tags/authors etc. surface without flicker.
-  const [facets, setFacets] = useState(null);
+  const queryClient = useQueryClient();
   // Cursor position inside the search input. Re-synced via onChange,
   // onKeyUp, onClick, onFocus — covers typing, arrow navigation, mouse
   // clicks, and focus restoration. parseCursorContext consumes this
@@ -291,7 +286,6 @@ export default function CommandPalette() {
   const currentBookId = bookMatch && /^\d+$/.test(bookMatch.params.id)
     ? Number(bookMatch.params.id)
     : null;
-  const [currentBook, setCurrentBook] = useState(null);
   // Same shape for /lists/:id — the palette already caches `lists` for
   // the navigation section, so the list's name is free to look up. Used
   // by pick() to produce an accurate from-label when navigating away.
@@ -299,7 +293,6 @@ export default function CommandPalette() {
   const currentListId = listMatch && /^\d+$/.test(listMatch.params.id)
     ? Number(listMatch.params.id)
     : null;
-  const [reading, setReading] = useState([]);
   const [recent, setRecent] = useState(loadMRU);
   // Sub-prompt state. null when in root mode; otherwise { action,
   // bookId, bookTitle } describing the parameter-picker currently
@@ -411,77 +404,63 @@ export default function CommandPalette() {
     requestAnimationFrame(() => inputRef.current?.focus());
   }, [open]);
 
-  // Refetch user lists on every open so renames/creates/deletes in
-  // ListDetail or Lists surface immediately. CommandPalette is mounted
-  // for the whole session — a once-per-mount fetch would never pick up
-  // those mutations. Prior `lists` stays rendered through the refetch
-  // (no setLists([]) on failure) so a transient blip doesn't wipe the
-  // visible names and a successful response silently swaps the array.
+  // User lists for the navigation section. Shares Lists page's
+  // ['lists', 'all'] cache. List renames in ListDetail don't fire a
+  // spine:book-* event (nothing book-shaped mutated), so the bridge
+  // can't catch them — the invalidate-on-open below preserves the old
+  // refetch-per-open freshness contract while also fixing up the
+  // Lists page's cache as a side effect. Prior lists stay rendered
+  // through the refetch (TanStack keeps last data on error/refetch)
+  // so a transient blip doesn't wipe the visible names.
+  const listsQ = useQuery({
+    queryKey: ['lists', 'all'],
+    queryFn:  () => api.getLists().then(d => (Array.isArray(d) ? d : [])),
+    enabled:  open,
+  });
+  const lists = listsQ.data ?? [];
   useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const data = await api.getLists();
-        if (cancelled) return;
-        setLists(Array.isArray(data) ? data : []);
-      } catch { /* keep prior lists on failure */ }
-    })();
-    return () => { cancelled = true; };
-  }, [open]);
+    if (open) queryClient.invalidateQueries({ queryKey: ['lists'] });
+  }, [open, queryClient]);
 
-  // Refetch facets on every palette open so tags/authors/series added
-  // elsewhere surface in qualifier autocomplete. The previous eager-on-
-  // mount pre-fetch was dropped — it kept stale facets for the whole
-  // session, which is the wrong tradeoff for a single-user local app
-  // where the round-trip is sub-50ms anyway. Empty params → corpus-wide
-  // facets (every tag/author/etc. in the library), which is what
-  // autocomplete wants. Prior facets stay rendered on failure.
-  useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const data = await api.getBookFacets();
-        if (cancelled) return;
-        setFacets(data || null);
-      } catch { /* keep prior facets on failure */ }
-    })();
-    return () => { cancelled = true; };
-  }, [open]);
+  // Facet data for qualifier-value autocomplete (tag:, author:,
+  // series:, narrator:, translator:, publisher:) — same endpoint
+  // FilterPanel uses. Facets only change through book mutations, and
+  // the 'library-facets' prefix sits in the bridge's LIST_KEYS, so
+  // any mutation marks this stale and the next open refetches; opens
+  // with nothing changed serve straight from cache. Empty params →
+  // corpus-wide facets, which is what autocomplete wants. Prior
+  // facets stay rendered on failure.
+  const facetsQ = useQuery({
+    queryKey: ['library-facets', 'palette'],
+    queryFn:  () => api.getBookFacets().then(d => d || null),
+    enabled:  open,
+  });
+  const facets = facetsQ.data ?? null;
 
-  // Fetch the current book whenever the palette opens on /books/:id.
-  // Re-fetching per open (rather than caching) keeps the loved /
-  // readlist / archive labels accurate after the user mutates state
-  // on the detail page itself. Clear `currentBook` synchronously
-  // before the fetch — without that, navigating /books/A → /books/B
-  // with the palette open leaves the bookActions perform()s targeting
-  // book A's id until book B's fetch resolves.
-  useEffect(() => {
-    setCurrentBook(null);
-    if (!open || currentBookId == null) return;
-    let cancelled = false;
-    api.getBook(currentBookId)
-      .then(b => { if (!cancelled) setCurrentBook(b); })
-      .catch(() => { if (!cancelled) setCurrentBook(null); });
-    return () => { cancelled = true; };
-  }, [open, currentBookId]);
+  // Current book when the palette opens on /books/:id. Shares
+  // BookDetail's ['book', id] cache (numeric id), so detail-page
+  // mutations (setBook writes + bridge invalidations) keep the loved
+  // / readlist / archive labels accurate without a per-open refetch.
+  // Keying on the id also fixes the old A→B navigation hazard for
+  // free — a key change never shows the previous key's data.
+  const currentBookQ = useQuery({
+    queryKey: ['book', currentBookId],
+    queryFn:  () => api.getBook(currentBookId),
+    enabled:  open && currentBookId != null,
+  });
+  const currentBook = currentBookId != null ? (currentBookQ.data ?? null) : null;
 
-  // Continue-reading: fetch once on mount, then refetch when any book
-  // mutates or is deleted. Cheaper than the prior per-open fetch (which
-  // hit the endpoint even when no book had moved into or out of reading
-  // status between opens), and freshness is unchanged because every
-  // status change goes through spine:book-mutated.
-  const readingGuard = useStaleGuard();
-  const refetchReading = useCallback(() => {
-    const epoch = readingGuard.next();
-    api.getBooks({ statuses: 'reading', sort: 'updated', limit: 3 })
-      .then(d => { if (readingGuard.isFresh(epoch)) setReading(d.books || []); })
-      .catch(() => { if (readingGuard.isFresh(epoch)) setReading([]); });
-  }, [readingGuard]);
-  useEffect(() => { refetchReading(); }, [refetchReading]);
-  useSpineEvent('spine:book-mutated', refetchReading);
-  useSpineEvent('spine:book-deleted', refetchReading);
+  // Continue-reading: always enabled (palette is mounted for the whole
+  // session) so the first open renders instantly, mirroring the old
+  // fetch-on-mount. The 'library' prefix is bridge-invalidated on
+  // every book mutation/deletion, which replaces the old per-event
+  // refetch handlers with identical freshness.
+  const readingQ = useQuery({
+    queryKey: ['library', 'palette-reading'],
+    queryFn:  () => api.getBooks({ statuses: 'reading', sort: 'updated', limit: 3 })
+      .then(d => d.books || []),
+  });
+  const reading = readingQ.data ?? [];
 
   const remember = useCallback((entry) => {
     if (!entry || !isPersistableForRecent(entry)) return;
@@ -1046,10 +1025,12 @@ export default function CommandPalette() {
             try {
               const created = await api.createList(trimmed);
               await api.addToList(created.id, subPrompt.bookId);
-              // Splice into alphabetical position so a subsequent palette
-              // open sees the new list where it'd land on a refetch
-              // (server returns lists ORDER BY name ASC).
-              setLists(curr => [...curr, created].sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+              // Splice into alphabetical position in the shared cache
+              // so both the palette and the Lists page see the new
+              // list where it'd land on a refetch (server returns
+              // lists ORDER BY name ASC).
+              queryClient.setQueryData(['lists', 'all'], (curr) =>
+                [...(curr ?? []), created].sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
               dispatchSpineEvent('spine:book-mutated', { id: subPrompt.bookId });
             } catch (err) {
               setSubPromptError(`Failed to create "${trimmed}". Name may already be taken.`);
