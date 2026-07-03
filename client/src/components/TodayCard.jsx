@@ -333,9 +333,21 @@ export function FeedbackBar({ queueId, current }) {
 // full card reads from when you click through — day navigation is
 // instant. queryFn returns null (not undefined — TanStack treats
 // undefined as an error) when no card was served for the day.
+//
+// The no-date ("current day") variant keys on the actual calendar
+// date rather than a 'current' literal — with staleTime: Infinity a
+// dateless key would keep serving yesterday's card after midnight
+// (late-night visit within gcTime, or a tab remounting /today the
+// next morning) until some unrelated book mutation invalidated it.
+// The date param is still omitted from the request so the server
+// takes pickTodayCard's compute path.
+function localTodayStr() {
+  return new Date().toLocaleDateString('en-CA');  // local YYYY-MM-DD
+}
+
 export function todayCardQuery(date, peek = false) {
   return {
-    queryKey: ['today', 'card', date || 'current', !!peek],
+    queryKey: ['today', 'card', date || localTodayStr(), !!peek],
     queryFn: async () => {
       const params = {};
       if (date) params.date = date;

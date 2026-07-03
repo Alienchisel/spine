@@ -345,7 +345,13 @@ export default function Collage() {
         </button>
       </div>
 
-      <ErrorBanner message={error ?? loadError} onDismiss={() => setError(null)} />
+      {/* Export errors are dismissible; a load error is derived from
+          the query and clears itself on a successful refetch, so it
+          gets no dead × (ErrorBanner hides it when onDismiss is absent). */}
+      <ErrorBanner
+        message={error ?? loadError}
+        onDismiss={error ? () => setError(null) : undefined}
+      />
 
       {loading ? (
         <GridSkeleton count={size * size} compact gridStyle={gridStyle} gridClassName="grid gap-2" />

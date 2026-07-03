@@ -65,7 +65,15 @@ export default function Today() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ value }),
-      }).catch(() => {});
+      })
+        // Invalidate after the PUT lands. Covers the direct-load race:
+        // Nav's initial ['settings'] GET can be in flight while the
+        // optimistic write above happens, and its (pre-PUT, stale)
+        // response would then overwrite the write-through — the dot
+        // would wrongly reappear on the next navigation. The post-PUT
+        // refetch restores server truth, which now includes today.
+        .then(() => queryClient.invalidateQueries({ queryKey: ['settings'] }))
+        .catch(() => {});
     }
   }, [onToday, queryClient]);
 
