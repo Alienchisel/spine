@@ -482,10 +482,16 @@ export default function Diary() {
   const data = diaryQ.data ?? { days: [], years: [], stats: EMPTY_STATS };
   const loading = diaryQ.isPending;
   const error   = diaryQ.error;
+  // Guarded against undefined cache — Diary's setData callers touch
+  // prev.days, so a mutation firing before the initial fetch would
+  // crash. Fall back to the same shape as the display default.
   const setData = (updater) => {
     queryClient.setQueryData(
       ['diary', year],
-      typeof updater === 'function' ? updater : () => updater,
+      (prev) => {
+        const p = prev ?? { days: [], years: [], stats: EMPTY_STATS };
+        return typeof updater === 'function' ? updater(p) : updater;
+      },
     );
   };
   const setError = () => { diaryQ.refetch(); };

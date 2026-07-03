@@ -500,7 +500,7 @@ export default function ShelfView() {
   const setTree = (updater) => {
     queryClient.setQueryData(
       ['shelfTree'],
-      typeof updater === 'function' ? updater : () => updater,
+      (prev) => (typeof updater === 'function' ? updater(prev ?? []) : updater),
     );
   };
   const treeLoaded = !loading && !treeLoadError;
@@ -518,7 +518,7 @@ export default function ShelfView() {
   const setUnshelfed = (updater) => {
     queryClient.setQueryData(
       ['unshelfed'],
-      typeof updater === 'function' ? updater : () => updater,
+      (prev) => (typeof updater === 'function' ? updater(prev ?? []) : updater),
     );
   };
   // Action errors (failed reorder, failed placement) share the
@@ -622,7 +622,7 @@ export default function ShelfView() {
   const setBooks = (updater) => {
     queryClient.setQueryData(
       ['shelfLocation', buildingId, roomId, unitId, shelfId],
-      typeof updater === 'function' ? updater : () => updater,
+      (prev) => (typeof updater === 'function' ? updater(prev ?? []) : updater),
     );
   };
 

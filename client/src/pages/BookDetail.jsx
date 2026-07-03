@@ -111,16 +111,20 @@ export default function BookDetail() {
   const reads      = readsQ.data ?? [];
   const readsError = readsQ.error;
   const loadReads  = readsQ.refetch;
+  // Functional setters guard against undefined cache — see Loved.jsx
+  // for the rationale (TanStack Query's cache starts undefined,
+  // unlike useFreshFetch's useState(initialData)). setBook has no
+  // fallback since the caller sites gate on `book` being loaded.
   const setBook = (updater) => {
     queryClient.setQueryData(
       ['book', id],
-      typeof updater === 'function' ? updater : () => updater,
+      (prev) => (typeof updater === 'function' ? updater(prev) : updater),
     );
   };
   const setLog = (updater) => {
     queryClient.setQueryData(
       ['book', id, 'log'],
-      typeof updater === 'function' ? updater : () => updater,
+      (prev) => (typeof updater === 'function' ? updater(prev ?? []) : updater),
     );
   };
   const [location, setLocation] = useState(null);

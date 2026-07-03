@@ -99,7 +99,7 @@ export default function Readlist() {
   const setBooks = (updater) => {
     queryClient.setQueryData(
       ['readlist'],
-      typeof updater === 'function' ? updater : () => updater,
+      (prev) => (typeof updater === 'function' ? updater(prev ?? []) : updater),
     );
   };
   // Action errors (failed remove) share the same UI slot as the load

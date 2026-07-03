@@ -173,10 +173,12 @@ export default function Author() {
   const rawAuthor    = authorQ.data;
   const fetchLoading = authorQ.isPending;
   const fetchError   = authorQ.error;
+  // No fallback on prev: setAuthor is only called after the query
+  // has resolved (all sites gate on `author` being non-null).
   const setAuthor = (updater) => {
     queryClient.setQueryData(
       ['author', id, sort],
-      typeof updater === 'function' ? updater : () => updater,
+      (prev) => (typeof updater === 'function' ? updater(prev) : updater),
     );
   };
 

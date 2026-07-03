@@ -63,7 +63,7 @@ export default function SeriesIndex() {
   const setSeries = (updater) => {
     queryClient.setQueryData(
       ['series', 'all'],
-      typeof updater === 'function' ? updater : () => updater,
+      (prev) => (typeof updater === 'function' ? updater(prev ?? []) : updater),
     );
   };
   const [params, setParams]   = useSearchParams();

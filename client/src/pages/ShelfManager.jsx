@@ -34,7 +34,7 @@ export default function ShelfManager() {
   const setTree = (updater) => {
     queryClient.setQueryData(
       ['shelfTree'],
-      typeof updater === 'function' ? updater : () => updater,
+      (prev) => (typeof updater === 'function' ? updater(prev ?? []) : updater),
     );
   };
   const [addingBuilding, setAddingBuilding] = useState(false);

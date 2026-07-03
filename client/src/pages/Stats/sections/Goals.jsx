@@ -20,7 +20,7 @@ export default function Goals({ todayPages, thisYearPages, thisYearBooks }) {
   const setSettings = (updater) => {
     queryClient.setQueryData(
       ['settings'],
-      typeof updater === 'function' ? updater : () => updater,
+      (prev) => (typeof updater === 'function' ? updater(prev ?? {}) : updater),
     );
   };
   // Separate from the load-time error: this only surfaces when a goal

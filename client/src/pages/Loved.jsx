@@ -74,10 +74,15 @@ export default function Loved() {
   // Optimistic setter for the useSpineEvent handlers below —
   // mirrors what useFreshFetch.setData did. setQueryData accepts a
   // functional updater directly.
+  // Guard the updater against an undefined cache — TanStack Query's
+  // cache starts as undefined until the first fetch lands, unlike
+  // useFreshFetch's useState(initialData). A useSpineEvent handler
+  // firing before the initial fetch would otherwise crash on
+  // `prev.map/.filter(undefined)`.
   const setBooks = (updater) => {
     queryClient.setQueryData(
       ['loved', 'books'],
-      typeof updater === 'function' ? updater : () => updater
+      (prev) => (typeof updater === 'function' ? updater(prev ?? []) : updater)
     );
   };
   const { size: coverSize, setSize: setCoverSize, compact, gridStyle, gridClassName, MIN: coverMin, MAX: coverMax } = useCoverSize();

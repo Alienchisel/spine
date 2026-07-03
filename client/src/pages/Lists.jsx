@@ -21,7 +21,7 @@ export default function Lists() {
   const setLists = (updater) => {
     queryClient.setQueryData(
       ['lists', 'all'],
-      typeof updater === 'function' ? updater : () => updater,
+      (prev) => (typeof updater === 'function' ? updater(prev ?? []) : updater),
     );
   };
   const [newName, setNewName] = useState('');
