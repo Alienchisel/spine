@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import IncomingBackLink from '../components/IncomingBackLink.jsx';
 import { api } from '../api.js';
 import BookCard from '../components/BookCard.jsx';
@@ -8,7 +9,6 @@ import ErrorBanner from '../components/ErrorBanner.jsx';
 import { GridSkeleton } from '../components/Skeleton.jsx';
 import PageHeading from '../components/PageHeading.jsx';
 import { sectionEyebrow } from '../components/textStyles.js';
-import { useFreshFetch } from '../hooks/useFreshFetch.js';
 import { useSpineEvent } from '../hooks/useSpineEvent.js';
 import { useCoverSize } from '../hooks/useCoverSize.js';
 import { initialsFor, FORMAT_LABEL } from '../utils.js';
@@ -19,40 +19,67 @@ import { initialsFor, FORMAT_LABEL } from '../utils.js';
 // the books grid, and an empty section still renders its own
 // "no loved X yet" hint instead of collapsing the page.
 export default function Loved() {
-  // Three independent hooks rather than one Promise.all so a flaky
+  const queryClient = useQueryClient();
+  // Three independent queries rather than one Promise.all so a flaky
   // section can't take down the others — each surface fails alone.
   // limit=200 on books is the /api/books cap. Without it, the server
   // default of 50 truncates the cohort that flows into BookDetail's
   // prev/next.
-  const {
-    data: books,
-    setData: setBooks,
-    loading: loadingBooks,
-    error: bookError,
-    setError: setBookError,
-  } = useFreshFetch(
-    () => api.getBooks({ tab: 'loved', limit: 200 }).then(d => d.books),
-    [],
-    { initialData: [] },
-  );
-  const {
-    data: authors,
-    loading: loadingAuthors,
-    error: authorError,
-  } = useFreshFetch(
-    () => api.getAuthors({ loved: 1 }).then(rows => Array.isArray(rows) ? rows : []),
-    [],
-    { initialData: [] },
-  );
-  const {
-    data: series,
-    loading: loadingSeries,
-    error: seriesError,
-  } = useFreshFetch(
-    () => api.getSeries({ loved: 1 }).then(rows => Array.isArray(rows) ? rows : []),
-    [],
-    { initialData: [] },
-  );
+  //
+  // staleTime: Infinity + no focus/mount/reconnect refetch is set
+  // globally by queryClient.js — cache is invalidated instead by
+  // (a) the spine:book-mutated / spine:book-deleted event bridge in
+  // queryClient.js when a book is edited or deleted anywhere, and
+  // (b) the optimistic setQueryData below when this page toggles a
+  // book's loved status. Between mutations, tabbing away and back is
+  // a no-op: cache is consulted, nothing refetches.
+  // NOTE on placeholderData vs initialData: with staleTime: Infinity
+  // (set globally in queryClient.js), initialData would seed the
+  // cache as "fresh" and no fetch would ever fire. placeholderData
+  // shows a value during the initial pending state but keeps
+  // status='pending' so the queryFn does run. Passing (prev) => prev
+  // also keeps the previous real data visible during any refetch
+  // (invalidation from a mutation event) — the exact behaviour that
+  // useFreshFetch's silent-refetch path provided.
+  const booksQ = useQuery({
+    queryKey: ['loved', 'books'],
+    queryFn:  () => api.getBooks({ tab: 'loved', limit: 200 }).then(d => d.books),
+    placeholderData: (prev) => prev ?? [],
+  });
+  const authorsQ = useQuery({
+    queryKey: ['loved', 'authors'],
+    queryFn:  () => api.getAuthors({ loved: 1 }).then(rows => Array.isArray(rows) ? rows : []),
+    placeholderData: (prev) => prev ?? [],
+  });
+  const seriesQ = useQuery({
+    queryKey: ['loved', 'series'],
+    queryFn:  () => api.getSeries({ loved: 1 }).then(rows => Array.isArray(rows) ? rows : []),
+    placeholderData: (prev) => prev ?? [],
+  });
+  const books   = booksQ.data   ?? [];
+  const authors = authorsQ.data ?? [];
+  const series  = seriesQ.data  ?? [];
+  const loadingBooks   = booksQ.isPending;
+  const loadingAuthors = authorsQ.isPending;
+  const loadingSeries  = seriesQ.isPending;
+  const bookError   = booksQ.error;
+  const authorError = authorsQ.error;
+  const seriesError = seriesQ.error;
+  // ErrorBanner's dismiss is wired to refetch. In useQuery, error
+  // state clears only on a successful refetch — no way to "just hide"
+  // the error without retrying — so dismiss = retry is the honest
+  // mapping. On retry failure the banner re-appears with the same
+  // error.
+  const dismissBookError = () => { booksQ.refetch(); };
+  // Optimistic setter for the useSpineEvent handlers below —
+  // mirrors what useFreshFetch.setData did. setQueryData accepts a
+  // functional updater directly.
+  const setBooks = (updater) => {
+    queryClient.setQueryData(
+      ['loved', 'books'],
+      typeof updater === 'function' ? updater : () => updater
+    );
+  };
   const { size: coverSize, setSize: setCoverSize, compact, gridStyle, gridClassName, MIN: coverMin, MAX: coverMax } = useCoverSize();
   // Format chip — single-value local state, filters the Books section only.
   // Authors and Series sections are unaffected (an author / series isn't
@@ -122,7 +149,7 @@ export default function Loved() {
           <section className="mb-12">
             <h2 className={`${sectionEyebrow} mb-4`}>Books</h2>
             {books.length > 0 && (
-              <ErrorBanner message={bookError ? 'Failed to load loved books.' : null} onDismiss={() => setBookError(null)} className="mb-4" />
+              <ErrorBanner message={bookError ? 'Failed to load loved books.' : null} onDismiss={dismissBookError} className="mb-4" />
             )}
             {loadingBooks ? (
               <GridSkeleton count={10} compact={compact} gridStyle={gridStyle} gridClassName={gridClassName} />

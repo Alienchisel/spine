@@ -1,10 +1,12 @@
 import { Suspense, useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { QueryClientProvider } from '@tanstack/react-query';
 import Nav from './components/Nav.jsx';
 import { ConfirmModalProvider } from './components/ConfirmModal.jsx';
 import CommandPalette from './components/CommandPalette.jsx';
 import { api } from './api.js';
 import { labelForPath } from './utils.js';
+import { queryClient } from './lib/queryClient.js';
 
 // Layout route for the data router defined in main.jsx — renders the
 // shared shell (Nav + main wrapper) and the per-route page via <Outlet/>.
@@ -219,6 +221,7 @@ export default function App() {
   }, []);
 
   return (
+    <QueryClientProvider client={queryClient}>
     <ConfirmModalProvider>
       <div className="min-h-screen bg-neutral-950">
         {/* Gutter atmosphere art. ONE source image at
@@ -301,5 +304,6 @@ export default function App() {
         <CommandPalette />
       </div>
     </ConfirmModalProvider>
+    </QueryClientProvider>
   );
 }
