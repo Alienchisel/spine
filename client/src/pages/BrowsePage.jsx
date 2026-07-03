@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, Link, useLocation, useSearchParams } from 'react-router-dom';
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api.js';
 import { plural, FORMAT_LABEL } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
@@ -7,8 +8,6 @@ import CoverSizeSlider from '../components/CoverSizeSlider.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 import { GridSkeleton } from '../components/Skeleton.jsx';
 import { useCoverSize } from '../hooks/useCoverSize.js';
-import { useRefreshTick } from '../hooks/useRefreshTick.js';
-import { usePaginatedFetch } from '../hooks/usePaginatedFetch.js';
 import { useSpineEvent } from '../hooks/useSpineEvent.js';
 
 const FIELD_LABEL = {
@@ -142,10 +141,6 @@ export default function BrowsePage() {
     [fromLabel, pathname, search],
   );
 
-  // Cohort fetch — independent of the paginated visible-books fetch so
-  // BookDetail's prev/next can walk past the first PAGE_SIZE books in
-  // this browse view. Server caps at 200; oversize views truncate there.
-  const [cohort, setCohort] = useState([]);
   // Owned/unowned toggle for collection-scoping slices. Default off so the
   // page reads as "what I own under this slice"; resets per-target so a
   // stuck toggle doesn't carry between browse views.
@@ -164,21 +159,21 @@ export default function BrowsePage() {
   const [seriesLoved, setSeriesLoved] = useState(null);
   const [seriesLoveBusy, setSeriesLoveBusy] = useState(false);
   const [seriesLoveError, setSeriesLoveError] = useState(null);
-  // Hoisted ahead of the seriesLoved useEffect below so it can list
-  // refreshTick in its deps; the other consumers of refreshTick (the
-  // main books fetch + the cohort fetch) sit further down and would
-  // otherwise have prompted leaving the declaration in the lower
-  // hook cluster, but that lower position would have hit the TDZ
-  // when the seriesLoved effect tried to subscribe.
-  const refreshTick = useRefreshTick();
+  // seriesLoved membership check — a synthetic derived value from
+  // the global loved-series query (['loved', 'series']), which is
+  // already invalidated by the spine-event bridge on book mutations.
+  const lovedSeriesQ = useQuery({
+    queryKey: ['loved', 'series'],
+    queryFn: () => api.getSeries({ loved: 1 }),
+    placeholderData: (prev) => prev ?? [],
+    enabled: field === 'series',
+  });
   useEffect(() => {
     if (field !== 'series') { setSeriesLoved(null); return; }
-    let stale = false;
-    api.getSeries({ loved: 1 })
-      .then(rows => { if (!stale) setSeriesLoved(Array.isArray(rows) && rows.some(r => r.name === decoded)); })
-      .catch(() => { /* silent — button defaults to unhearted, click will retry via PATCH */ });
-    return () => { stale = true; };
-  }, [field, decoded, refreshTick]);
+    const rows = lovedSeriesQ.data;
+    if (!Array.isArray(rows)) return;
+    setSeriesLoved(rows.some(r => r.name === decoded));
+  }, [field, decoded, lovedSeriesQ.data]);
   async function toggleSeriesLoved() {
     if (seriesLoveBusy) return;
     setSeriesLoveBusy(true);
@@ -206,15 +201,14 @@ export default function BrowsePage() {
   // audiobook-only, the chip is just noise. Uses the unfiltered cohort
   // (no `formats` param) so picking a filter doesn't collapse the chip
   // row to a single pill.
-  const [availableFormats, setAvailableFormats] = useState([]);
-  useEffect(() => {
-    if (!usesFormatChip) { setAvailableFormats([]); return; }
-    let cancelled = false;
-    api.getBookFacets({ field, value: decoded })
-      .then(f => { if (!cancelled) setAvailableFormats(Array.isArray(f?.formats) ? f.formats : []); })
-      .catch(() => { if (!cancelled) setAvailableFormats([]); });
-    return () => { cancelled = true; };
-  }, [usesFormatChip, field, decoded, refreshTick]);
+  const availableFormatsQ = useQuery({
+    queryKey: ['browse-facets', field, decoded],
+    queryFn: () => api.getBookFacets({ field, value: decoded })
+      .then(f => Array.isArray(f?.formats) ? f.formats : []),
+    placeholderData: (prev) => prev ?? [],
+    enabled: !!usesFormatChip,
+  });
+  const availableFormats = usesFormatChip ? (availableFormatsQ.data ?? []) : [];
 
   // Paginated visible-books fetch. key includes the owned-toggle so
   // flipping it is treated as a real navigation (skeleton flash) the
@@ -222,39 +216,83 @@ export default function BrowsePage() {
   // the first page when counts=owned is passed; the hook's meta merges
   // across pages within the same key so subsequent loadMore calls don't
   // wipe it.
-  const {
-    items: books, setItems: setBooks,
-    total, setTotal, meta,
-    loading, loadingMore, loadingAll,
-    hasMore, loadedCount, setLoadedCount,
-    error: fetchError,
-    setError: setFetchError,
-    actionError,
-    loadMore, loadAll,
-  } = usePaginatedFetch(
-    (offset, limit) => api.getBooks({
+  const queryClient = useQueryClient();
+  const booksQKey = ['browse', field, decoded, ownedTab ?? '', format ?? ''];
+  const booksQ = useInfiniteQuery({
+    queryKey: booksQKey,
+    queryFn: ({ pageParam = 0 }) => api.getBooks({
       field, value: decoded, tab: ownedTab, sort: browseSort(field),
       formats: format ?? undefined,
-      limit, offset,
-      counts: offset === 0 && usesOwnedToggle ? 'owned' : undefined,
+      limit: PAGE_SIZE, offset: pageParam,
+      counts: pageParam === 0 && usesOwnedToggle ? 'owned' : undefined,
     }).then(r => ({
-      items: r.books,
-      total: r.total,
-      // Only include unowned_total on the first page (when we passed
-      // counts=owned). meta merges within the same key, so this value
-      // survives loadMore / loadAll until the next key change.
-      ...(r.unowned_total !== undefined ? { unowned_total: r.unowned_total } : {}),
+      books: r.books, total: r.total, offset: pageParam,
+      // unowned_total is only on the first-page response — carry it
+      // forward on subsequent pages so the meta accessor below finds it.
+      unowned_total: r.unowned_total,
     })),
-    [field, decoded, ownedTab, usesOwnedToggle, format],
-    {
-      key: `${field}|${decoded}|${ownedTab ?? ''}|${format ?? ''}`,
-      pageSize: PAGE_SIZE,
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => {
+      const loaded = lastPage.offset + lastPage.books.length;
+      return loaded < lastPage.total ? loaded : undefined;
     },
-  );
-  // No unowned_total when usesOwnedToggle is false (we don't pass
-  // counts=owned for non-toggle browses); the original setUnownedCount(0)
-  // branch survives here as a default.
-  const unownedCount = usesOwnedToggle ? (meta.unowned_total ?? 0) : 0;
+  });
+  const books       = useMemo(() => booksQ.data?.pages.flatMap(p => p.books) ?? [], [booksQ.data]);
+  const total       = booksQ.data?.pages.at(-1)?.total ?? 0;
+  const loading     = booksQ.isPending;
+  const loadingMore = booksQ.isFetchingNextPage;
+  const hasMore     = !!booksQ.hasNextPage;
+  const loadedCount = books.length;
+  const fetchError  = booksQ.error;
+  const setFetchError = () => { booksQ.refetch(); };
+  const [actionError, setActionError] = useState(null);
+  const [loadingAll,  setLoadingAll]  = useState(false);
+  const loadMore = useCallback(async () => {
+    if (booksQ.isFetchingNextPage) return;
+    setActionError(null);
+    try { await booksQ.fetchNextPage(); }
+    catch (e) { setActionError(e); }
+  }, [booksQ]);
+  const loadAll = useCallback(async () => {
+    if (loadingAll || booksQ.isFetchingNextPage) return;
+    setLoadingAll(true); setActionError(null);
+    try { while (booksQ.hasNextPage) await booksQ.fetchNextPage(); }
+    catch (e) { setActionError(e); }
+    finally { setLoadingAll(false); }
+  }, [booksQ, loadingAll]);
+  const setBooks = useCallback((updater) => {
+    queryClient.setQueryData(booksQKey, (data) => {
+      if (!data) return data;
+      const flat = data.pages.flatMap(p => p.books);
+      const newFlat = typeof updater === 'function' ? updater(flat) : updater;
+      const last = data.pages.at(-1);
+      return {
+        pages: [{ books: newFlat, total: last?.total ?? newFlat.length, offset: 0, unowned_total: last?.unowned_total }],
+        pageParams: [0],
+      };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryClient, ...booksQKey]);
+  const setTotal = useCallback((updater) => {
+    queryClient.setQueryData(booksQKey, (data) => {
+      if (!data) return data;
+      const flat = data.pages.flatMap(p => p.books);
+      const last = data.pages.at(-1);
+      const lastTotal = last?.total ?? 0;
+      const newTotal = typeof updater === 'function' ? updater(lastTotal) : updater;
+      return {
+        pages: [{ books: flat, total: newTotal, offset: 0, unowned_total: last?.unowned_total }],
+        pageParams: [0],
+      };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryClient, ...booksQKey]);
+  // No-op — loadedCount derives from books.length now.
+  const setLoadedCount = useCallback(() => {}, []);
+  // unowned_total is captured on the first-page response and carried
+  // forward through every subsequent page (see queryFn) so meta.pages[*]
+  // all agree — read off page 0.
+  const unownedCount = usesOwnedToggle ? (booksQ.data?.pages[0]?.unowned_total ?? 0) : 0;
 
   // Refetch-and-swap on book mutations from other surfaces (MoreMenu's
   // Location picker, the command palette, etc.). Without this, after a
@@ -280,23 +318,17 @@ export default function BrowsePage() {
     setLoadedCount(n => Math.max(0, n - 1));
   });
 
-  // Parallel cohort fetch — see [cohort] declaration above for rationale.
-  // Mirrors the visible-books fetch's format filter so prev/next walks
-  // the same slice the user is currently looking at.
-  useEffect(() => {
-    setCohort([]);
-    let cancelled = false;
-    api.getBooks({
+  // Parallel cohort fetch — same key shape as the paginated books
+  // above so a real navigation invalidates both in step.
+  const cohortQ = useQuery({
+    queryKey: ['browse-cohort', field, decoded, ownedTab ?? '', format ?? ''],
+    queryFn: () => api.getBooks({
       field, value: decoded, tab: ownedTab, sort: browseSort(field), limit: 200,
       formats: format ?? undefined,
-    })
-      .then(({ books: b }) => {
-        if (cancelled) return;
-        setCohort(b.map(x => ({ id: x.id, title: x.title })));
-      })
-      .catch(() => { /* fall back to the visible-books shape in linkState */ });
-    return () => { cancelled = true; };
-  }, [field, decoded, ownedTab, format, refreshTick]);
+    }).then(({ books: b }) => b.map(x => ({ id: x.id, title: x.title }))),
+    placeholderData: (prev) => prev ?? [],
+  });
+  const cohort = cohortQ.data ?? [];
 
   const label = FIELD_LABEL[field] ?? field;
 

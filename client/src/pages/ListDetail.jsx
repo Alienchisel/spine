@@ -25,8 +25,7 @@ import { plural } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
 import CompletionIndicator from '../components/CompletionIndicator.jsx';
 import { GridSkeleton } from '../components/Skeleton.jsx';
-import { useRefreshTick } from '../hooks/useRefreshTick.js';
-import { usePaginatedFetch } from '../hooks/usePaginatedFetch.js';
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSpineEvent } from '../hooks/useSpineEvent.js';
 import { useLatest } from '../hooks/useLatest.js';
 import { useActionGuard } from '../hooks/useActionGuard.js';
@@ -315,7 +314,6 @@ export default function ListDetail() {
   // lists, breaks navigation on anything longer. Falls back to the
   // visible-books shape until the cohort fetch lands so the cohort is
   // present from the first paint, just possibly short.
-  const [cohort, setCohort] = useState([]);
   const [sort, setSort] = useState('added');
   // Format chip — single-value, local state. Hidden in edit mode (drag
   // positions are absolute over the unfiltered list; reordering inside
@@ -373,7 +371,6 @@ export default function ListDetail() {
   // handlers, and a blur immediately after a submit could fire a second
   // PUT before the first resolves.
   const descInFlightRef = useRef(false);
-  const refreshTick = useRefreshTick();
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -400,37 +397,100 @@ export default function ListDetail() {
     userChangedSortRef.current = false;
   }, [id]);
 
-  // Paginated visible-books fetch. The list metadata (name, description,
-  // owned_count, finished_count, default_sort) comes back in meta and
-  // merges across pages within the same key. sort==='added' returns the
-  // whole list unpaginated; the hook's loop sees items.length >= total
-  // on first response and stops naturally, so Load more is hidden via
-  // hasMore=false.
-  const {
-    items: books, setItems: setBooks,
-    total, setTotal,
-    meta, setMeta,
-    loading: fetchLoading,
-    loadingMore, loadingAll,
-    hasMore, loadedCount, setLoadedCount,
-    error,
-    setError,
-    actionError, setActionError,
-    loadMore, loadAll,
-  } = usePaginatedFetch(
-    (offset, limit) => {
-      const base = sort === 'added' ? { sort } : { sort, limit, offset };
+  // Paginated visible-books fetch, on useInfiniteQuery. List metadata
+  // (name, description, owned_count, finished_count, default_sort)
+  // comes back on the first-page response and rides through on every
+  // subsequent page (see queryFn); meta is read off the FIRST page so
+  // the value stays stable through pagination.
+  //
+  // sort==='added' returns the whole list unpaginated; the response
+  // says items.length === total on page 1, so getNextPageParam returns
+  // undefined and hasNextPage stays false.
+  const queryClient = useQueryClient();
+  const listQKey = ['list', id, sort, formatFilter ?? ''];
+  const listQ = useInfiniteQuery({
+    queryKey: listQKey,
+    queryFn: async ({ pageParam = 0 }) => {
+      const base = sort === 'added' ? { sort } : { sort, limit: PAGE_SIZE, offset: pageParam };
       const params = formatFilter ? { ...base, formats: formatFilter } : base;
-      return api.getList(id, params).then(({ books: bs, total: t, ...rest }) => ({
-        items: bs, total: t, ...rest,
-      }));
+      const { books: bs, total: t, ...rest } = await api.getList(id, params);
+      return { books: bs, total: t, offset: pageParam, meta: rest };
     },
-    [id, sort, formatFilter],
-    {
-      key: `${id}|${sort}|${formatFilter ?? ''}`,
-      pageSize: PAGE_SIZE,
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => {
+      const loaded = lastPage.offset + lastPage.books.length;
+      return loaded < lastPage.total ? loaded : undefined;
     },
-  );
+  });
+  const books = useMemo(() => listQ.data?.pages.flatMap(p => p.books) ?? [], [listQ.data]);
+  const total = listQ.data?.pages.at(-1)?.total ?? 0;
+  const meta  = listQ.data?.pages[0]?.meta ?? {};
+  const fetchLoading = listQ.isPending;
+  const loadingMore  = listQ.isFetchingNextPage;
+  const hasMore      = !!listQ.hasNextPage;
+  const loadedCount  = books.length;
+  const error        = listQ.error;
+  const setError     = () => { listQ.refetch(); };
+  const [actionError, setActionError] = useState(null);
+  const [loadingAll,  setLoadingAll]  = useState(false);
+  const loadMore = useCallback(async () => {
+    if (listQ.isFetchingNextPage) return;
+    setActionError(null);
+    try { await listQ.fetchNextPage(); }
+    catch (e) { setActionError(e); }
+  }, [listQ]);
+  const loadAll = useCallback(async () => {
+    if (loadingAll || listQ.isFetchingNextPage) return;
+    setLoadingAll(true); setActionError(null);
+    try { while (listQ.hasNextPage) await listQ.fetchNextPage(); }
+    catch (e) { setActionError(e); }
+    finally { setLoadingAll(false); }
+  }, [listQ, loadingAll]);
+  const setBooks = useCallback((updater) => {
+    queryClient.setQueryData(listQKey, (data) => {
+      if (!data) return data;
+      const flat = data.pages.flatMap(p => p.books);
+      const newFlat = typeof updater === 'function' ? updater(flat) : updater;
+      const first = data.pages[0];
+      const last  = data.pages.at(-1);
+      return {
+        pages: [{ books: newFlat, total: last?.total ?? newFlat.length, offset: 0, meta: first?.meta ?? {} }],
+        pageParams: [0],
+      };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryClient, ...listQKey]);
+  const setTotal = useCallback((updater) => {
+    queryClient.setQueryData(listQKey, (data) => {
+      if (!data) return data;
+      const flat  = data.pages.flatMap(p => p.books);
+      const first = data.pages[0];
+      const last  = data.pages.at(-1);
+      const lastTotal = last?.total ?? 0;
+      const newTotal = typeof updater === 'function' ? updater(lastTotal) : updater;
+      return {
+        pages: [{ books: flat, total: newTotal, offset: 0, meta: first?.meta ?? {} }],
+        pageParams: [0],
+      };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryClient, ...listQKey]);
+  const setMeta = useCallback((updater) => {
+    queryClient.setQueryData(listQKey, (data) => {
+      if (!data) return data;
+      const flat  = data.pages.flatMap(p => p.books);
+      const first = data.pages[0];
+      const last  = data.pages.at(-1);
+      const currentMeta = first?.meta ?? {};
+      const newMeta = typeof updater === 'function' ? updater(currentMeta) : updater;
+      return {
+        pages: [{ books: flat, total: last?.total ?? flat.length, offset: 0, meta: newMeta }],
+        pageParams: [0],
+      };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryClient, ...listQKey]);
+  const setLoadedCount = useCallback(() => {}, []);
 
   // Default-sort adoption — same shape as Author.jsx. When the server's
   // saved default_sort differs from current sort and the user hasn't
@@ -521,17 +581,13 @@ export default function ListDetail() {
   // cohort doesn't leak into the new view's first paint. Deliberately
   // unfiltered (no `formats` param) — drives the format-chip availability
   // detection, so it needs the full distinct-format set of the list.
-  useEffect(() => {
-    setCohort([]);
-    let cancelled = false;
-    api.getList(id, { sort, limit: 500 })
-      .then(data => {
-        if (cancelled) return;
-        setCohort((data.books || []).map(b => ({ id: b.id, title: b.title, format: b.format })));
-      })
-      .catch(() => { /* fall back to the visible-books cohort */ });
-    return () => { cancelled = true; };
-  }, [id, sort, refreshTick]);
+  const cohortQ = useQuery({
+    queryKey: ['list-cohort', id, sort],
+    queryFn: () => api.getList(id, { sort, limit: 500 })
+      .then(data => (data.books || []).map(b => ({ id: b.id, title: b.title, format: b.format }))),
+    placeholderData: (prev) => prev ?? [],
+  });
+  const cohort = cohortQ.data ?? [];
 
   function handleAdded(book, submittedListId) {
     // Guard against the QuickAdd-cross-navigation race: if the user

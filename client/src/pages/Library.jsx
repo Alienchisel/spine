@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Link, useSearchParams, useLocation } from 'react-router-dom';
 import IncomingBackLink from '../components/IncomingBackLink.jsx';
 import {
@@ -29,8 +29,7 @@ import { buildDisplayItems } from '../components/library/grouping.js';
 import { useCoverSize } from '../hooks/useCoverSize.js';
 import CoverSizeSlider from '../components/CoverSizeSlider.jsx';
 import { GridSkeleton } from '../components/Skeleton.jsx';
-import { useRefreshTick } from '../hooks/useRefreshTick.js';
-import { usePaginatedFetch } from '../hooks/usePaginatedFetch.js';
+import { useInfiniteQuery, useQueryClient, useQuery } from '@tanstack/react-query';
 import { useLatest } from '../hooks/useLatest.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import { useSpineEvent, dispatchSpineEvent } from '../hooks/useSpineEvent.js';
@@ -269,53 +268,120 @@ export default function Library() {
   // responsive; a 300ms debounce flushes the value to the URL. URL
   // writes use replace:true so typing doesn't spam the history stack.
   const [queryRaw, setQueryRaw] = useState(query);
-
-  // Cohort fetch is independent of the paginated visible-books fetch so
-  // BookDetail's prev/next can walk the current filter+sort view past the
-  // first 48 books. Server caps at 200; libraries / filtered views larger
-  // than that truncate the cohort there. Refreshes on the same triggers
-  // as the main load (tab/sort/filters/query/randomSeed/refreshTick).
-  const [cohort, setCohort] = useState([]);
-  // Paginated visible-books fetch — handles tab/sort/filter/query/
-  // randomSeed state changes (key drives wipe + skeleton), refresh-tick
-  // depth restoration (Load-all'd views come back at the same depth on
-  // alt-tab), and Load more / Load all.
-  //
-  // stopWhen lets the initial load keep fetching beyond pageSize when
-  // the visible grid would otherwise be too sparse — a bulk-add of
-  // N≥PAGE_SIZE books sharing a series collapses into a single
-  // SeriesCard, leaving the grid visually empty even though page 1
-  // loaded fully. After hitting the natural page floor, keep going
-  // until at least one full grid row of display items would render.
-  // Custom sort bypasses grouping so the density check returns true
-  // immediately (first page is always enough).
-  const {
-    items: books, setItems: setBooks,
-    total, setTotal,
-    loading, loadingMore, loadingAll,
-    hasMore, loadedCount, setLoadedCount,
-    error: fetchError,
-    actionError, setActionError,
-    loadMore, loadAll,
-  } = usePaginatedFetch(
-    (offset, limit) => api.getBooks(buildApiParams(tab, sort, filters, query, offset, randomSeed, limit))
-      .then(r => ({ items: r.books, total: r.total })),
-    [tab, sort, filters, query, randomSeed],
-    {
-      key: `${tab}|${sort}|${JSON.stringify(filters)}|${query}|${randomSeed}`,
-      pageSize: PAGE_SIZE,
-      stopWhen: (collected) => {
-        if (sort === 'custom') return true;
-        const visible = buildDisplayItems(collected, expandedSeries).length;
-        return visible >= Math.max(coverCols, 1);
-      },
-    },
-  );
-  const [facets,      setFacets]      = useState(null);
-  const [facetsError, setFacetsError] = useState(false);
-  const [counts,      setCounts]      = useState({});
-  const [countsError, setCountsError] = useState(false);
+  // Series expansion state — set of series names the user has clicked
+  // open. Declared here (before the paginated fetch) so the density
+  // effect below can read the current value when it decides whether
+  // to keep fetching to fill a sparse grid.
   const [expandedSeries, setExpandedSeries] = useState(new Set());
+
+  // Paginated visible-books fetch, powered by TanStack Query's
+  // useInfiniteQuery. Cache is keyed on the full view state
+  // (tab / sort / filters / query / randomSeed) — a real change of
+  // any of them is a new cache entry (skeleton flash on first mount
+  // of that key, instant restore on revisit within the 30-min
+  // gcTime). Tabbing away and back is a no-op on the same view.
+  //
+  // The density-based stopWhen from the old usePaginatedFetch is
+  // replaced by the sparse-view density effect below — after the
+  // initial page lands, keep fetching until the visible grid has
+  // enough display items to fill at least one row.
+  const queryClient = useQueryClient();
+  const queryKey = ['library', tab, sort, filters, query, randomSeed];
+  const booksQ = useInfiniteQuery({
+    queryKey,
+    queryFn: ({ pageParam = 0 }) =>
+      api.getBooks(buildApiParams(tab, sort, filters, query, pageParam, randomSeed, PAGE_SIZE))
+        .then(r => ({ books: r.books, total: r.total, offset: pageParam })),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => {
+      const loaded = lastPage.offset + lastPage.books.length;
+      return loaded < lastPage.total ? loaded : undefined;
+    },
+  });
+  const books = useMemo(
+    () => booksQ.data?.pages.flatMap(p => p.books) ?? [],
+    [booksQ.data],
+  );
+  const total       = booksQ.data?.pages.at(-1)?.total ?? 0;
+  const loading     = booksQ.isPending;
+  const loadingMore = booksQ.isFetchingNextPage;
+  const hasMore     = !!booksQ.hasNextPage;
+  const loadedCount = books.length;
+  const fetchError  = booksQ.error;
+  const [actionError, setActionError] = useState(null);
+  const [loadingAll,  setLoadingAll]  = useState(false);
+  const loadMore = useCallback(async () => {
+    if (booksQ.isFetchingNextPage) return;
+    setActionError(null);
+    try { await booksQ.fetchNextPage(); }
+    catch (e) { setActionError(e); }
+  }, [booksQ]);
+  const loadAll = useCallback(async () => {
+    if (loadingAll || booksQ.isFetchingNextPage) return;
+    setLoadingAll(true);
+    setActionError(null);
+    try {
+      // Loop until getNextPageParam returns undefined. Reading
+      // hasNextPage directly off the query is safe here because
+      // fetchNextPage awaits its own state settle before returning.
+      while (booksQ.hasNextPage) {
+        await booksQ.fetchNextPage();
+      }
+    } catch (e) {
+      setActionError(e);
+    } finally {
+      setLoadingAll(false);
+    }
+  }, [booksQ, loadingAll]);
+  // Optimistic setters mirror the old usePaginatedFetch API shape.
+  // useInfiniteQuery stores data as { pages: [...], pageParams: [...] };
+  // we collapse into a single synthetic page since the paginated
+  // structure isn't observable to consumers of `books`. Guards
+  // against undefined cache (see the setter-shims commit).
+  const setBooks = useCallback((updater) => {
+    queryClient.setQueryData(queryKey, (data) => {
+      if (!data) return data;
+      const flat = data.pages.flatMap(p => p.books);
+      const newFlat = typeof updater === 'function' ? updater(flat) : updater;
+      const lastTotal = data.pages.at(-1)?.total ?? newFlat.length;
+      return {
+        pages: [{ books: newFlat, total: lastTotal, offset: 0 }],
+        pageParams: [0],
+      };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryClient, ...queryKey]);
+  const setTotal = useCallback((updater) => {
+    queryClient.setQueryData(queryKey, (data) => {
+      if (!data) return data;
+      const flat = data.pages.flatMap(p => p.books);
+      const lastTotal = data.pages.at(-1)?.total ?? 0;
+      const newTotal = typeof updater === 'function' ? updater(lastTotal) : updater;
+      return {
+        pages: [{ books: flat, total: newTotal, offset: 0 }],
+        pageParams: [0],
+      };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryClient, ...queryKey]);
+  // setLoadedCount is a no-op — the count derives from books.length now.
+  // Kept as an identity for callers that still invoke it after in-place
+  // deletion (which already shrinks books via setBooks).
+  const setLoadedCount = useCallback(() => {}, []);
+  // Sparse-view density effect — replaces the old usePaginatedFetch
+  // stopWhen. After the initial page lands, keep fetching until the
+  // visible grid has at least one full row of display items. Custom
+  // sort bypasses grouping so the effect never fires there.
+  useEffect(() => {
+    if (loading || loadingMore || loadingAll) return;
+    if (!hasMore) return;
+    if (sort === 'custom') return;
+    const visible = buildDisplayItems(books, expandedSeries).length;
+    if (visible < Math.max(coverCols, 1)) {
+      booksQ.fetchNextPage();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [books, sort, expandedSeries, coverCols, hasMore, loading, loadingMore, loadingAll]);
   // Library-wide series totals, keyed by series name → book_count. Fetched
   // once on mount from /api/series so the SeriesCard badge can render
   // "13/25" when the current view has only loaded part of a series instead
@@ -390,10 +456,6 @@ export default function Library() {
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
-
-  // Refetch counter — bumps when the tab regains focus so newly-added
-  // books from another window/process appear without a manual reload.
-  const refreshTick = useRefreshTick();
 
   // Bridge for the command palette's Load more / Load all entries — the
   // refs themselves are declared further down (where the handler /
@@ -500,46 +562,45 @@ export default function Library() {
     localStorage.setItem(PREFS_KEY, JSON.stringify({ sortByTab, filtersOpen }));
   }, [sortByTab, filtersOpen]);
 
-  // Tab counts badge
-  useEffect(() => {
-    let stale = false;
-    setCountsError(false);
-    api.getBookCounts()
-      .then(c => { if (!stale) setCounts(c); })
-      .catch(() => { if (!stale) setCountsError(true); });
-    return () => { stale = true; };
-  }, [refreshTick]);
+  // Tab counts badge — one query per session, invalidated by the
+  // global spine-event bridge on any book mutation. No focus refetch
+  // (staleTime: Infinity in queryClient.js).
+  const countsQ = useQuery({
+    queryKey: ['library-counts'],
+    queryFn: () => api.getBookCounts(),
+    placeholderData: (prev) => prev ?? {},
+  });
+  const counts      = countsQ.data ?? {};
+  const countsError = countsQ.isError;
 
-  // Fetch facets on tab / filter / query change; prune only on tab change
+  // Facets — cached per view. Keeps previous facets visible during
+  // transitions (no flicker on filter change). Tab-change prune runs
+  // in a side effect once the new facets land.
+  const facetsQ = useQuery({
+    queryKey: ['library-facets', tab, sort, filters, query, randomSeed],
+    queryFn: () => api.getBookFacets(buildApiParams(tab, sort, filters, query, 0, randomSeed)),
+    placeholderData: (prev) => prev,
+  });
+  const facets      = facetsQ.data ?? null;
+  const facetsError = facetsQ.isError;
   useEffect(() => {
-    let stale = false;
+    if (!facetsQ.data) return;
     const isTabChange = prevTabRef.current !== tab;
     prevTabRef.current = tab;
-    setFacetsError(false);
-    api.getBookFacets(buildApiParams(tab, sort, filters, query, 0, randomSeed))
-      .then(f => {
-        if (stale) return;
-        setFacets(f);
-        if (isTabChange) setFilters(prev => pruneFilters(prev, f));
-      })
-      .catch(() => { if (!stale) setFacetsError(true); });
-    return () => { stale = true; };
-  }, [tab, filters, query, refreshTick]);
+    if (isTabChange) setFilters(prev => pruneFilters(prev, facetsQ.data));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [facetsQ.data, tab]);
 
-  // Parallel cohort fetch — see [cohort] declaration above for rationale.
-  // Cleared on every fire so a stale slow response can't stamp the new
-  // view's cohort.
-  useEffect(() => {
-    setCohort([]);
-    let cancelled = false;
-    api.getBooks(buildApiParams(tab, sort, filters, query, 0, randomSeed, 200))
-      .then(({ books: b }) => {
-        if (cancelled) return;
-        setCohort(b.map(x => ({ id: x.id, title: x.title })));
-      })
-      .catch(() => { /* fall back to the visible-books shape in fromState */ });
-    return () => { cancelled = true; };
-  }, [tab, sort, filters, query, refreshTick, randomSeed]);
+  // Cohort — the full view up to the 200 server cap, used by
+  // BookDetail's prev/next threading. Same cache key shape as the
+  // paginated fetch, so a view transition invalidates it in step.
+  const cohortQ = useQuery({
+    queryKey: ['library-cohort', tab, sort, filters, query, randomSeed],
+    queryFn: () => api.getBooks(buildApiParams(tab, sort, filters, query, 0, randomSeed, 200))
+      .then(({ books: b }) => b.map(x => ({ id: x.id, title: x.title }))),
+    placeholderData: (prev) => prev ?? [],
+  });
+  const cohort = cohortQ.data ?? [];
 
   function handleProgressUpdate(updated) {
     // Read tab/sort from refs rather than closure: BookCard's PUT can

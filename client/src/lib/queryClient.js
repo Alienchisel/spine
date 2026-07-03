@@ -88,6 +88,11 @@ if (typeof window !== 'undefined') {
       'loved', 'authors', 'series', 'tags', 'lists', 'readlist',
       'notes', 'diary', 'audit', 'stats', 'shelfTree', 'author',
       'settings',
+      // Library-specific keys (paginated fetch + supporting queries)
+      'library', 'library-counts', 'library-facets', 'library-cohort',
+      // Browse / ListDetail — same shape
+      'browse', 'browse-facets', 'browse-cohort',
+      'list', 'list-cohort',
     ]);
     queryClient.invalidateQueries({
       predicate: (q) => Array.isArray(q.queryKey) && LIST_KEYS.has(q.queryKey[0]),
