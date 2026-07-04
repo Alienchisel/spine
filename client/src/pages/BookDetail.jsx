@@ -275,6 +275,13 @@ export default function BookDetail() {
     setRatingPrompt(false);
     setDescExpanded(false);
     setSaveAck(false);
+    setCoverError(null);
+    // The final-session prompt must not survive navigation: its save
+    // handler PATCHes book.id, so a prompt left open across an id change
+    // would log a reading session against the wrong book.
+    setFinalSessionVisible(false);
+    setFinalSessionDraft('');
+    setFinalSessionError(null);
   }, [id]);
 
   // One-shot consumption of navState (justFinished / justSaved) — only

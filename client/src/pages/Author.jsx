@@ -257,10 +257,17 @@ export default function Author() {
   useEffect(() => { setFormatFilter(null); }, [id]);
   const fileInputRef = useRef(null);
 
-  // Reset bio collapse + edit state when navigating to a different
-  // author — otherwise we'd carry the previous author's expanded state
-  // into a new visit.
-  useEffect(() => { setBioExpanded(false); setBioEditing(false); setBioError(null); }, [id]);
+  // Reset bio collapse + edit state (and the photo/love action errors)
+  // when navigating to a different author — otherwise we'd carry the
+  // previous author's expanded state or a stale failure banner into a
+  // new visit.
+  useEffect(() => {
+    setBioExpanded(false);
+    setBioEditing(false);
+    setBioError(null);
+    setPhotoError(null);
+    setLoveError(null);
+  }, [id]);
 
   function startBioEdit() {
     setBioDraft(author?.bio ?? '');
