@@ -429,7 +429,6 @@ export default function ListDetail() {
   const hasMore      = !!listQ.hasNextPage;
   const loadedCount  = books.length;
   const error        = listQ.error;
-  const setError     = () => { listQ.refetch(); };
   const [actionError, setActionError] = useState(null);
   const [loadingAll,  setLoadingAll]  = useState(false);
   const loadMore = useCallback(async () => {

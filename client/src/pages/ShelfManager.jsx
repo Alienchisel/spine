@@ -30,7 +30,12 @@ export default function ShelfManager() {
   const tree      = treeQ.data ?? [];
   const loadError = treeQ.error;
   const reload    = treeQ.refetch;
-  const setLoadError = () => { treeQ.refetch(); };
+  // Error-clear shim: retry the fetch only when there's an error to
+  // clear — setError(null) runs at the start of every action handler,
+  // and an unguarded refetch would re-fetch the tree on each one.
+  const setLoadError = () => {
+    if (treeQ.error) treeQ.refetch();
+  };
   const setTree = (updater) => {
     queryClient.setQueryData(
       ['shelfTree'],

@@ -95,7 +95,13 @@ export default function Readlist() {
   const loading   = booksQ.isPending;
   const loadError = booksQ.error;
   const refetch   = booksQ.refetch;
-  const setLoadError = () => { booksQ.refetch(); };
+  // Error-clear shim: retry the fetch only when there's an error to
+  // clear. handleRemove calls this BEFORE its PATCH lands — an unguarded
+  // refetch there races the optimistic removal and can flash the removed
+  // book back into the list until the mutation settles.
+  const setLoadError = () => {
+    if (booksQ.error) booksQ.refetch();
+  };
   const setBooks = (updater) => {
     queryClient.setQueryData(
       ['readlist'],

@@ -495,7 +495,13 @@ export default function ShelfView() {
   const tree = treeQ.data ?? [];
   const loading = treeQ.isPending;
   const treeLoadError = treeQ.error;
-  const setTreeLoadError = () => { treeQ.refetch(); };
+  // Error-clear shim: a query error only clears on a successful fetch,
+  // so retry-on-clear — but only when errored, since setError(null) runs
+  // at the start of every action handler and an unguarded refetch here
+  // would re-fetch the whole tree on every drag/reorder.
+  const setTreeLoadError = () => {
+    if (treeQ.error) treeQ.refetch();
+  };
   const setTree = (updater) => {
     queryClient.setQueryData(
       ['shelfTree'],
