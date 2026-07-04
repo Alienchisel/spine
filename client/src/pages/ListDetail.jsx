@@ -525,6 +525,21 @@ export default function ListDetail() {
     setDescValue('');
   }, [id, sort]);
 
+  // Full-cohort fetch — independent of the paginated visible-books fetch.
+  // limit=500 is the server's cap; for lists larger than that, prev/next
+  // truncates at the cap (acceptable tradeoff vs streaming or a separate
+  // ids-only endpoint). Cleared on id/sort change so the previous list's
+  // cohort doesn't leak into the new view's first paint. Deliberately
+  // unfiltered (no `formats` param) — drives the format-chip availability
+  // detection, so it needs the full distinct-format set of the list.
+  const cohortQ = useQuery({
+    queryKey: ['list-cohort', id, sort],
+    queryFn: () => api.getList(id, { sort, limit: 500 })
+      .then(data => (data.books || []).map(b => ({ id: b.id, title: b.title, format: b.format }))),
+    placeholderData: (prev) => prev ?? [],
+  });
+  const cohort = cohortQ.data ?? [];
+
   // fromState + listBookIds need the derived list and the cohort fetch.
   // Co-located here so changes to either source flow through cleanly.
   const fromState = useMemo(
@@ -548,21 +563,6 @@ export default function ListDetail() {
     const src = cohort.length > 0 ? cohort : books;
     return new Set(src.map(b => b.id));
   }, [cohort, books]);
-
-  // Full-cohort fetch — independent of the paginated visible-books fetch.
-  // limit=500 is the server's cap; for lists larger than that, prev/next
-  // truncates at the cap (acceptable tradeoff vs streaming or a separate
-  // ids-only endpoint). Cleared on id/sort change so the previous list's
-  // cohort doesn't leak into the new view's first paint. Deliberately
-  // unfiltered (no `formats` param) — drives the format-chip availability
-  // detection, so it needs the full distinct-format set of the list.
-  const cohortQ = useQuery({
-    queryKey: ['list-cohort', id, sort],
-    queryFn: () => api.getList(id, { sort, limit: 500 })
-      .then(data => (data.books || []).map(b => ({ id: b.id, title: b.title, format: b.format }))),
-    placeholderData: (prev) => prev ?? [],
-  });
-  const cohort = cohortQ.data ?? [];
 
   function handleAdded(book, submittedListId) {
     // Guard against the QuickAdd-cross-navigation race: if the user
