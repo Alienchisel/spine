@@ -26,6 +26,35 @@ lean on data that exists historically (reads, reading_log, ratings,
 acquisitions), not on anything only captured going forward. Design
 the report first, then the generation trigger.
 
+### Author merge
+Duplicate author rows (initial-spacing variants, typo'd names from
+ingest) have no in-app merge today — cleanup means manual SQL. Build
+a merge: re-point `book_authors` (and story authors) to the survivor,
+keep the richer bio/portrait/dates/ol_key, delete the loser. Surface
+TBD — an action on the Author page, an Audit Wizard mode, or both.
+
+### Import / export
+First-class library import/export for portability: a full export of
+the library (books + reads + reading_log + tags + people + lists) in
+a re-importable format (JSON and/or CSV), and the matching importer.
+Distinct from the backup pipeline (raw DB files) and from the one-off
+Amazon CSV scripts in `scripts/` — this is user-facing interop and
+"get my data out" insurance.
+
+### Duplicate / edition sweep as an Audit Wizard mode
+The duplicate-cluster scan in CLAUDE.md (same title + author across
+records) is "run periodically" with no trigger — a remembered chore.
+Turn it into an Audit Wizard mode: surface candidate clusters, offer
+work-link (alternate edition) or merge-and-delete (true duplicate)
+per cluster, following the merge conventions in CLAUDE.md.
+
+### Client bundle code-splitting
+Every build warns about a >500 kB main chunk (~619 kB minified).
+Routes are already lazy; the win is carving vendor weight (recharts
+is the likely bulk) out of the index chunk via manualChunks or
+narrower imports. Pure cold-load perf — nothing user-visible beyond
+first paint.
+
 ### Docker / docker-compose
 Containerize Spine for a reliable "works on any box" install. Would
 eliminate native-module build pain (better-sqlite3) and make setup
