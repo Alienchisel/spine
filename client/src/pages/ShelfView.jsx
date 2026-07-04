@@ -616,8 +616,20 @@ export default function ShelfView() {
   const books = isLocationSelected ? (locationBooksQ.data ?? []) : [];
   const booksLoading = locationBooksEnabled && locationBooksQ.isPending;
   const locationBooksError = locationBooksQ.error;
-  const refetchLocationBooks = locationBooksQ.refetch;
-  const setLocationBooksError = () => { locationBooksQ.refetch(); };
+  // refetch() bypasses `enabled: false` — at the root view the location
+  // query is disabled and every id is null, so an unguarded refetch
+  // fires getBuildingBooks(undefined), 404s, and manufactures the very
+  // "Failed to load books at this location" error these paths exist to
+  // recover from. Guard every refetch on the query actually being live.
+  const refetchLocationBooks = () => {
+    if (locationBooksEnabled) locationBooksQ.refetch();
+  };
+  // Query errors can only be cleared by a successful fetch; only worth
+  // attempting when there IS an error (setError(null) calls this on
+  // every action, errored or not).
+  const setLocationBooksError = () => {
+    if (locationBooksQ.error) refetchLocationBooks();
+  };
   const setBooks = (updater) => {
     queryClient.setQueryData(
       ['shelfLocation', buildingId, roomId, unitId, shelfId],
