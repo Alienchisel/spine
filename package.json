@@ -1,6 +1,6 @@
 {
   "name": "spine",
-  "version": "1.257.4",
+  "version": "1.257.5",
   "type": "module",
   "scripts": {
     "setup": "npm install && cd client && npm install && npm run build",
@@ -10,7 +10,8 @@
     "build": "cd client && npm run build",
     "start": "NODE_ENV=production scripts/with-toolchain.sh node server.js",
     "test": "scripts/with-toolchain.sh node --test test/*.test.js",
-    "check": "npm test && npm run build"
+    "lint": "cd client && npm run lint",
+    "check": "npm test && npm run lint && npm run build"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.2",
