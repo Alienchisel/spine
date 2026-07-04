@@ -1087,6 +1087,37 @@ describe('books', () => {
   });
 
   describe('PATCH /api/books/:id', () => {
+    it('normalizes acquisition_source, description, and publisher like PUT does', async () => {
+      // Regression: PATCH used to store these three raw while PUT ran
+      // them through t()/tProse(), so the same input produced different
+      // stored shapes depending on verb.
+      const { body: created } = await req('POST', '/api/books', { title: 'Patch Normalization Book' });
+      const { status, body } = await req('PATCH', `/api/books/${created.id}`, {
+        acquisition_source: '  Audible  ',
+        description: '  A fine blurb.  ',
+        publisher: '  Penguin‑Random  ',
+      });
+      assert.equal(status, 200);
+      assert.equal(body.acquisition_source, 'Audible');
+      assert.equal(body.description, 'A fine blurb.');
+      // exotic-hyphen fold applies to identifier fields on PATCH too
+      assert.equal(body.publisher, 'Penguin-Random');
+    });
+
+    it('collapses empty-string acquisition_source / description / publisher to null', async () => {
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Patch Nulling Book',
+        acquisition_source: 'Audible', description: 'Blurb', publisher: 'Penguin',
+      });
+      const { status, body } = await req('PATCH', `/api/books/${created.id}`, {
+        acquisition_source: '  ', description: '', publisher: ' ',
+      });
+      assert.equal(status, 200);
+      assert.equal(body.acquisition_source, null);
+      assert.equal(body.description, null);
+      assert.equal(body.publisher, null);
+    });
+
     it('updates current_page', async () => {
       const { body: created } = await req('POST', '/api/books', { title: 'Progress Book' });
       const { status, body } = await req('PATCH', `/api/books/${created.id}`, { current_page: 42 });
@@ -3791,6 +3822,22 @@ describe('books', () => {
         `expected earlier (#${earlier.id} Mar) before later (#${later.id} Sep); got positions ${earlierIdx}, ${laterIdx}`);
     });
 
+    it('field=year_finished breaks same-day ties by title, not insertion order', async () => {
+      // Regression: the year_finished ORDER BY ended at MAX(date_finished),
+      // so books finished the same day fell to undefined storage order.
+      const { body: zebra } = await req('POST', '/api/books', {
+        title: 'Zebra tie — finished same day', date_finished: '2028-05-05',
+      });
+      const { body: aard } = await req('POST', '/api/books', {
+        title: 'Aardvark tie — finished same day', date_finished: '2028-05-05',
+      });
+      const { body: results } = await req('GET', '/api/books?field=year_finished&value=2028&limit=200');
+      const ids = results.books.map(b => b.id);
+      assert.ok(ids.indexOf(aard.id) >= 0 && ids.indexOf(zebra.id) >= 0, 'both fixtures should be in result');
+      assert.ok(ids.indexOf(aard.id) < ids.indexOf(zebra.id),
+        'same-day finishes should fall back to title order');
+    });
+
     it('field=year_finished filters by date_finished year prefix', async () => {
       // Branch: date_finished LIKE 'YYYY%'. Different dates within the year
       // should match; dates in other years should not.
@@ -3830,6 +3877,24 @@ describe('books', () => {
         // Keep the in-memory test DB below the 200-row cap that the
         // downstream sort=author test relies on.
         for (const id of [later.id, earlier.id]) await req('DELETE', `/api/books/${id}`);
+      }
+    });
+
+    it('field=year_acquired breaks same-day ties by title, not insertion order', async () => {
+      const { body: zebra } = await req('POST', '/api/books', {
+        title: 'Zebra tie — acquired same day', acquisition_date: '2030-03-03', owned: true,
+      });
+      const { body: aard } = await req('POST', '/api/books', {
+        title: 'Aardvark tie — acquired same day', acquisition_date: '2030-03-03', owned: true,
+      });
+      try {
+        const { body: results } = await req('GET', '/api/books?field=year_acquired&value=2030&limit=200');
+        const ids = results.books.map(b => b.id);
+        assert.ok(ids.indexOf(aard.id) >= 0 && ids.indexOf(zebra.id) >= 0, 'both fixtures should be in result');
+        assert.ok(ids.indexOf(aard.id) < ids.indexOf(zebra.id),
+          'same-day acquisitions should fall back to title order');
+      } finally {
+        for (const id of [zebra.id, aard.id]) await req('DELETE', `/api/books/${id}`);
       }
     });
 

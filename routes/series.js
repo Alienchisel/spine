@@ -86,7 +86,7 @@ router.get('/completion', (_req, res) => {
     WHERE series IS NOT NULL AND series != ''
       AND series_number IS NOT NULL
       AND COALESCE(archived, 0) = 0
-    ORDER BY nrm(series), series_number
+    ORDER BY nrm(series), series_number, nrm(title), id
   `).all();
   res.json(rows);
 });
