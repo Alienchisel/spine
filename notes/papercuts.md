@@ -15,7 +15,7 @@ Categories worth using: `[ux]`, `[perf]`, `[a11y]`, `[copy]`, `[edge]`,
 
 ## Open
 
-_(nothing right now — harvest swept the queue on 2026-06-09)_
+- `[edge]` 2026-07-04 — GET /api/today/card with a future `?date=` computes and persists a history row; only past dates get the `peek` guard. 88 future-locked days (from dev experimentation) were hand-deleted from the live DB on 2026-07-04; the route should refuse or peek-only future dates so it can't recur.
 
 ## Done
 
