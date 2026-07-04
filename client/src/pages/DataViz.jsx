@@ -201,13 +201,17 @@ function CalendarYearRow({ year, byDate, cellSize = 10, gap = 2 }) {
   // Day-of-week offset of Jan 1 in the year-start display grid.
   const startOffset = jan1.getDay();
 
+  // Running day counter, not ms division — local-midnight Dates differ
+  // by 23h across a spring-forward DST boundary, which floored every
+  // post-March day to the previous column.
+  let dayOfYear = 0;
   for (let m = 0; m < 12; m++) {
     const daysInMonth = new Date(year, m + 1, 0).getDate();
     for (let d = 1; d <= daysInMonth; d++) {
       const dt = new Date(year, m, d);
-      const dayOfYear = Math.floor((dt - jan1) / (24 * 60 * 60 * 1000));
       const col = Math.floor((dayOfYear + startOffset) / 7);
       const row = dt.getDay();
+      dayOfYear++;
       const iso = `${year}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       const cell = byDate.get(iso) || { pages: 0, minutes: 0 };
       const level = intensityLevel(cell.pages, cell.minutes);
