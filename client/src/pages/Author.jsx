@@ -231,6 +231,12 @@ export default function Author() {
   const [refreshError, setRefreshError] = useState(null);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoError, setPhotoError] = useState(null);
+  // Synchronous re-entry guard alongside the render state. The document
+  // paste listener captures photoBusy in a closure that only refreshes on
+  // author change, so a second paste during an in-flight upload would read
+  // a stale false and fire a duplicate upload. Mirrors BookDetail's
+  // coverBusyRef.
+  const photoBusyRef = useRef(false);
   // Loved toggle — single boolean, optimistic flip with rollback on
   // failure. Matches the books-side toggle on BookDetail.
   const [loveBusy, setLoveBusy] = useState(false);
@@ -324,11 +330,12 @@ export default function Author() {
   }
 
   async function uploadPhoto(file) {
-    if (photoBusy || !author || !file) return;
+    if (photoBusyRef.current || !author || !file) return;
     if (!file.type?.startsWith('image/')) {
       setPhotoError('That doesn’t look like an image.');
       return;
     }
+    photoBusyRef.current = true;
     setPhotoBusy(true);
     setPhotoError(null);
     try {
@@ -337,12 +344,14 @@ export default function Author() {
     } catch {
       setPhotoError('Failed to upload portrait.');
     } finally {
+      photoBusyRef.current = false;
       setPhotoBusy(false);
     }
   }
 
   async function removePhoto() {
-    if (photoBusy || !author) return;
+    if (photoBusyRef.current || !author) return;
+    photoBusyRef.current = true;
     setPhotoBusy(true);
     setPhotoError(null);
     try {
@@ -351,6 +360,7 @@ export default function Author() {
     } catch {
       setPhotoError('Failed to remove portrait.');
     } finally {
+      photoBusyRef.current = false;
       setPhotoBusy(false);
     }
   }

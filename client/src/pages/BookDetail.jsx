@@ -376,8 +376,13 @@ export default function BookDetail() {
       api.getBooks({ series: book.series, field: 'series', limit: 100 })
         .then(r => { if (bookGuard.isFresh(epoch)) setSeriesSiblings(r.books || []); })
         .catch(() => { if (bookGuard.isFresh(epoch)) setSeriesError('Failed to load series navigation.'); });
+    } else {
+      setSeriesSiblings([]);
     }
-  }, [book?.id]);
+    // book?.series is a real dep: an in-place edit (spine:book-mutated
+    // refetch) can change the series without an id change, and the
+    // prev/next strip must follow.
+  }, [book?.id, book?.series]);
 
   // Helper for the four async handlers below — drops the response if the
   // user has navigated away to another book by the time the await resolves.

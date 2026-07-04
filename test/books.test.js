@@ -271,8 +271,8 @@ describe('books', () => {
       // the 2026-06-21 incident. Em-dash (U+2014) stays as-is — visually
       // distinct, used at sentence level, not the same trap.
       const { status, body } = await req('POST', '/api/books', {
-        title:     'K‑punk – 1970–­‒1980 — a survey',
-        publisher: 'Penguin‑Random',
+        title:     'K\u2011punk \u2013 1970\u2013\u00AD\u20121980 — a survey',
+        publisher: 'Penguin\u2011Random',
       });
       assert.equal(status, 201);
       assert.equal(body.title, 'K-punk - 1970--1980 — a survey');
@@ -1095,7 +1095,7 @@ describe('books', () => {
       const { status, body } = await req('PATCH', `/api/books/${created.id}`, {
         acquisition_source: '  Audible  ',
         description: '  A fine blurb.  ',
-        publisher: '  Penguin‑Random  ',
+        publisher: '  Penguin\u2011Random  ',
       });
       assert.equal(status, 200);
       assert.equal(body.acquisition_source, 'Audible');

@@ -242,7 +242,10 @@ export default function BrowsePage() {
   const hasMore     = !!booksQ.hasNextPage;
   const loadedCount = books.length;
   const fetchError  = booksQ.error;
-  const setFetchError = () => { booksQ.refetch(); };
+  // Dismiss-as-retry, guarded so a future caller at an action start can't
+  // trigger a phantom refetch (the ShelfView 1.256.3 bug class). Named
+  // dismiss*, not set*, so it doesn't read as an error-state setter.
+  const dismissFetchError = () => { if (booksQ.error) booksQ.refetch(); };
   const [actionError, setActionError] = useState(null);
   const [loadingAll,  setLoadingAll]  = useState(false);
   const loadMore = useCallback(async () => {
@@ -380,7 +383,7 @@ export default function BrowsePage() {
       {books.length > 0 && (
         <ErrorBanner
           message={fetchError ? 'Failed to refresh. Showing the last loaded results.' : null}
-          onDismiss={() => setFetchError(null)}
+          onDismiss={dismissFetchError}
           className="mb-4"
         />
       )}
