@@ -23,6 +23,12 @@ export function makeReq(url) {
 // the same JSON fetch wrapper file by file.
 export async function createTestServer() {
   process.env.DB_PATH = ':memory:';
+  // Pin the Today-card future-date guard's clock beyond every sweep
+  // fixture in the suite (2026-11, 2027-03, 2027-10, …) so those
+  // tests keep exercising the persistence path. Requests dated past
+  // THIS value hit the guard — the future-guard regression test uses
+  // a 2031 date deliberately.
+  process.env.TODAY_NOW_OVERRIDE = '2030-01-01';
   const { default: app } = await import('../app.js');
 
   return new Promise((resolve) => {

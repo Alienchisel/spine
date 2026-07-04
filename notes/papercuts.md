@@ -15,10 +15,11 @@ Categories worth using: `[ux]`, `[perf]`, `[a11y]`, `[copy]`, `[edge]`,
 
 ## Open
 
-- `[edge]` 2026-07-04 — GET /api/today/card with a future `?date=` computes and persists a history row; only past dates get the `peek` guard. 88 future-locked days (from dev experimentation) were hand-deleted from the live DB on 2026-07-04; the route should refuse or peek-only future dates so it can't recur.
+_(nothing right now)_
 
 ## Done
 
+- `[edge]` 2026-07-04 — future-dated /api/today/card requests persisted history rows → shipped in 1.257.8 (pickTodayCard skips both persistence writes when the requested date is past "today"; TODAY_NOW_OVERRIDE test clock keeps the suite's date-sweep fixtures on the persistence path; 88 pre-locked rows were hand-deleted from the live DB same day)
 - `[a11y]` 2026-06-09 — BookDetail cover lightbox focus management → shipped in 1.205.8 (capture `document.activeElement` on open, focus dialog via tabIndex=-1, restore previous focus on close, mirrors ConfirmModal pattern)
 - `[edge]` 2026-06-09 — `PartialDateInput` year max widened 2099 → 2199 → shipped in 1.205.9 (won't bite the spinner until 2200; min stayed at 1800 since no user acquires a book before that)
 - `[ux]` 2026-06-09 — BookForm save success ack → shipped in 1.205.10 (justSaved flag in navState, BookDetail renders inline "✓ Saved." aria-live=polite with 2.5s auto-dismiss; same plumbing shape as the existing justFinished flag)

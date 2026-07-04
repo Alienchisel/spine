@@ -110,6 +110,48 @@ describe('today', () => {
       }
     });
 
+    it('future-dated requests return a card but persist nothing', async () => {
+      // Exploratory ?date= requests against the live DB used to lock
+      // each future day to whatever card they computed (88 pre-locked
+      // rows hand-deleted 2026-07-04). Future dates must stay
+      // side-effect-free previews: card computed and returned, but no
+      // today_card_history row and no queue served_at stamp.
+      const { body: fixture } = await req('POST', '/api/books', {
+        title:        'Future Guard Slow Burn',
+        status:       'reading',
+        date_started: '2025-01-01',  // guarantees an eligible cohort
+      });
+      const directDb = (await import('../db.js')).default;
+      const queueId = directDb.prepare(
+        "INSERT INTO today_card_queue (title, body) VALUES ('Future Guard Conn', 'a [#1](spine-book:1) b')"
+      ).run().lastInsertRowid;
+
+      try {
+        // Past the TODAY_NOW_OVERRIDE test clock (2030-01-01), so this
+        // is the one request in the suite the guard classifies future.
+        const dateStr = '2031-06-15';
+        const { status, body } = await req('GET', `/api/today/card?date=${dateStr}`);
+        assert.equal(status, 200);
+        assert.ok(body.card, 'expected an eligible cohort to yield a card');
+
+        const hist = directDb.prepare(
+          'SELECT COUNT(*) AS n FROM today_card_history WHERE date = ?'
+        ).get(dateStr);
+        assert.equal(hist.n, 0, 'future date must not write today_card_history');
+        const stamped = directDb.prepare(
+          'SELECT COUNT(*) AS n FROM today_card_queue WHERE served_date = ?'
+        ).get(dateStr);
+        assert.equal(stamped.n, 0, 'future date must not stamp queue rows served');
+      } finally {
+        // Remove both fixtures: precisely because they were NOT
+        // consumed (the point of the test), a lingering queue row
+        // would keep 'connection' eligible and skew every later
+        // date-sweep's seeded type rotation.
+        directDb.prepare('DELETE FROM today_card_queue WHERE id = ?').run(queueId);
+        await req('DELETE', `/api/books/${fixture.id}`);
+      }
+    });
+
     it('surfaces slow_burn for a reading book started more than 30 days ago', async () => {
       // Cohort SQL: status='reading' AND date_started < now-30d. Post
       // a fixture matching that shape and confirm it surfaces in a
