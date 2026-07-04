@@ -18,6 +18,14 @@ Open question: placement. Options discussed — its own page
 (ceremonial), a pinned strip on Library, or a sidebar spot. Undecided;
 settle this before building.
 
+### Yearly review report
+A year-in-review report generated at the start of each new year,
+covering the year just ended. Once the format is nailed down, also
+generate retroactive reports for past years — so the format needs to
+lean on data that exists historically (reads, reading_log, ratings,
+acquisitions), not on anything only captured going forward. Design
+the report first, then the generation trigger.
+
 ### Docker / docker-compose
 Containerize Spine for a reliable "works on any box" install. Would
 eliminate native-module build pain (better-sqlite3) and make setup
