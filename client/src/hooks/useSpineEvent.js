@@ -17,6 +17,13 @@ import { useLatest } from './useLatest.js';
 //                                          book-mutated so Stats can drop its
 //                                          cache without surfaces that don't
 //                                          care (e.g. Audit) needing to listen.
+//   spine:data-mutated                   — fired by api.js on ANY successful
+//                                          non-GET request. Safety net: the
+//                                          queryClient bridge invalidates every
+//                                          list-shaped query so mutation surfaces
+//                                          that fire no precise event still keep
+//                                          other pages fresh. Precise events above
+//                                          remain the ['book', id] targeting layer.
 //   spine:library-paging        { hasMore, loadingMore, loadingAll, loaded, total }
 //   spine:library-paging-request         — ask Library to re-publish paging state
 //   spine:library-load-more              — invoke Library's load-more
@@ -46,8 +53,12 @@ const CROSS_TAB_EVENTS = new Set([
   'spine:book-deleted',
   'spine:reads-mutated',
   'spine:author-deleted',
+  'spine:data-mutated',
 ]);
-const channel = typeof BroadcastChannel !== 'undefined'
+// The window check matters: Node 18+ has a global BroadcastChannel
+// whose mere construction keeps the event loop alive, which would
+// hang any node test that transitively imports this module.
+const channel = typeof window !== 'undefined' && typeof BroadcastChannel !== 'undefined'
   ? new BroadcastChannel('spine-events')
   : null;
 if (channel) {
@@ -65,6 +76,7 @@ if (channel) {
 // Companion dispatcher. Wraps the `new CustomEvent(...)` boilerplate;
 // pass a detail object when listeners read e.detail.
 export function dispatchSpineEvent(name, detail) {
+  if (typeof window === 'undefined') return;
   window.dispatchEvent(new CustomEvent(name, detail !== undefined ? { detail } : undefined));
   if (channel && CROSS_TAB_EVENTS.has(name)) {
     channel.postMessage({ name, detail });

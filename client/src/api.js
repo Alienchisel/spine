@@ -1,3 +1,5 @@
+import { dispatchSpineEvent } from './hooks/useSpineEvent.js';
+
 async function request(path, options = {}) {
   // FormData bodies need the browser to set Content-Type (so it can
   // include the multipart boundary string). Skip our JSON default in
@@ -15,6 +17,13 @@ async function request(path, options = {}) {
     // switch to the right tab / highlight the input inline.
     if (err.field) e.field = err.field;
     throw e;
+  }
+  // Any successful write, announced from the single choke point. The
+  // queryClient bridge turns this into a broad list-key invalidation,
+  // so a mutation surface that forgets its precise spine:book-mutated
+  // dispatch can no longer leave other pages' caches stale.
+  if ((options.method || 'GET').toUpperCase() !== 'GET') {
+    dispatchSpineEvent('spine:data-mutated');
   }
   if (res.status === 204) return null;
   return res.json();
@@ -100,6 +109,7 @@ export const api = {
     return fetch('/api/upload', { method: 'POST', body: fd }).then(async r => {
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || 'Upload failed');
+      dispatchSpineEvent('spine:data-mutated');
       return data;
     });
   },

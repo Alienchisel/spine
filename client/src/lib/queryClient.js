@@ -76,33 +76,42 @@ export const queryClient = new QueryClient({
 // book's reads sub-resource) since reads flow into date_finished-
 // dependent surfaces (Stats, Diary, Author, Today).
 if (typeof window !== 'undefined') {
+  // Broad invalidation for every list-shaped surface. Covers
+  // Loved / Library / Author / Readlist / Notes / Diary / Audit /
+  // Stats / Tags / Series index / Authors index / etc. The
+  // predicate filters to the coarse list keys we know about; add
+  // to the set as new query keys join the codebase.
+  const LIST_KEYS = new Set([
+    'loved', 'authors', 'series', 'tags', 'lists', 'readlist',
+    'notes', 'diary', 'audit', 'stats', 'shelfTree', 'author',
+    'settings', 'today', 'collage', 'collage-facets',
+    // ShelfView surfaces — tree counts, unshelfed list, and the
+    // current location's book grid all drift on shelf/location edits
+    'unshelfed', 'shelfLocation',
+    // Library-specific keys (paginated fetch + supporting queries)
+    'library', 'library-counts', 'library-facets', 'library-cohort',
+    // Browse / ListDetail — same shape
+    'browse', 'browse-facets', 'browse-cohort',
+    'list', 'list-cohort',
+  ]);
+  function invalidateListKeys() {
+    queryClient.invalidateQueries({
+      predicate: (q) => Array.isArray(q.queryKey) && LIST_KEYS.has(q.queryKey[0]),
+    });
+  }
   function invalidateForBook(id) {
     // Per-book queries (['book', id], ['book', id, 'log'],
     // ['book', id, 'reads']) — narrow invalidation so other books'
     // caches are untouched.
     queryClient.invalidateQueries({ queryKey: ['book', id] });
-    // Broad invalidation for every list-shaped surface. Covers
-    // Loved / Library / Author / Readlist / Notes / Diary / Audit /
-    // Stats / Tags / Series index / Authors index / etc. The
-    // predicate filters to the coarse list keys we know about; add
-    // to the set as new query keys join the codebase.
-    const LIST_KEYS = new Set([
-      'loved', 'authors', 'series', 'tags', 'lists', 'readlist',
-      'notes', 'diary', 'audit', 'stats', 'shelfTree', 'author',
-      'settings', 'today', 'collage', 'collage-facets',
-      // ShelfView surfaces — tree counts, unshelfed list, and the
-      // current location's book grid all drift on shelf/location edits
-      'unshelfed', 'shelfLocation',
-      // Library-specific keys (paginated fetch + supporting queries)
-      'library', 'library-counts', 'library-facets', 'library-cohort',
-      // Browse / ListDetail — same shape
-      'browse', 'browse-facets', 'browse-cohort',
-      'list', 'list-cohort',
-    ]);
-    queryClient.invalidateQueries({
-      predicate: (q) => Array.isArray(q.queryKey) && LIST_KEYS.has(q.queryKey[0]),
-    });
+    invalidateListKeys();
   }
+  // Safety net: api.js fires this on EVERY successful non-GET request,
+  // so mutation surfaces without a precise spine:book-mutated dispatch
+  // still invalidate the list-shaped caches. Surfaces that do dispatch
+  // precisely get a redundant second blast — harmless, invalidation is
+  // idempotent within a tick and only mounted observers refetch.
+  window.addEventListener('spine:data-mutated', () => invalidateListKeys());
   window.addEventListener('spine:book-mutated', (e) => {
     const id = Number(e?.detail?.id);
     if (Number.isFinite(id)) invalidateForBook(id);
@@ -171,7 +180,11 @@ if (typeof window !== 'undefined') {
       try { lastSeenVersion = await fetchDataVersion(); } catch {}
     }, 500);
   }
-  for (const evt of ['spine:book-mutated', 'spine:book-deleted', 'spine:reads-mutated']) {
+  // spine:data-mutated covers every api.js write, including surfaces
+  // that fire no precise event — without it those writes would look
+  // like remote changes on the next focus and trigger a full
+  // invalidation.
+  for (const evt of ['spine:book-mutated', 'spine:book-deleted', 'spine:reads-mutated', 'spine:data-mutated']) {
     window.addEventListener(evt, rebaselineVersionSoon);
   }
 
