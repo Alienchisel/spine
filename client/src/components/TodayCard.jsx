@@ -273,6 +273,7 @@ export function ConnectionBody({ body }) {
 export function FeedbackBar({ queueId, current }) {
   const [value, setValue] = useState(current || null);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
 
   // Sync internal state when the `current` prop changes — e.g., a
   // PastConnections re-render after a refetch surfaces a server-side
@@ -290,11 +291,15 @@ export function FeedbackBar({ queueId, current }) {
     const prior = value;
     const target = prior === next ? null : next;
     setSaving(true);
+    setError(null);
     setValue(target);  // optimistic
     try {
       await api.postTodayFeedback(queueId, target);
     } catch {
       setValue(prior); // rollback to actual pre-click value
+      // The rollback alone can be invisible (a failed toggle-off lands on
+      // the exact state the user aimed for), so say something.
+      setError('Couldn’t save.');
     } finally {
       setSaving(false);
     }
@@ -323,6 +328,7 @@ export function FeedbackBar({ queueId, current }) {
       {btn('signal',   'Signal',   'text-emerald-400')}
       {btn('knew',     'Knew it',  'text-neutral-300')}
       {btn('reaching', 'Reaching', 'text-amber-400')}
+      {error && <span role="alert" className="text-[11px] text-warn">{error}</span>}
     </div>
   );
 }
@@ -478,24 +484,29 @@ const READLIST_OMITTED_TYPES = new Set([
 
 function CardActionBar({ card }) {
   const book = card?.book;
-  if (!book) return null;
-  const showReadlist = !READLIST_OMITTED_TYPES.has(card.type);
-  const removeMode   = card.type === 'forgotten_readlist';
-  const [onReadlist, setOnReadlist] = useState(!!book.on_readlist);
+  const [onReadlist, setOnReadlist] = useState(!!book?.on_readlist);
   const [snoozedUntil, setSnoozedUntil] = useState(null);
   const [savingReadlist, setSavingReadlist] = useState(false);
   const [savingSnooze, setSavingSnooze] = useState(false);
+  const [error, setError] = useState(null);
+  // Guard AFTER the hooks — a hook call below a conditional return breaks
+  // the Rules of Hooks if the condition ever flips between renders.
+  if (!book) return null;
+  const showReadlist = !READLIST_OMITTED_TYPES.has(card.type);
+  const removeMode   = card.type === 'forgotten_readlist';
 
   async function toggleReadlist() {
     const prior = onReadlist;
     const target = removeMode ? false : true;
     if (prior === target) return;  // already in target state, no work
     setSavingReadlist(true);
+    setError(null);
     setOnReadlist(target);  // optimistic
     try {
       await api.patchBook(book.id, { on_readlist: target ? 1 : 0 });
     } catch {
       setOnReadlist(prior);  // rollback
+      setError('Couldn’t update readlist.');
     } finally {
       setSavingReadlist(false);
     }
@@ -503,6 +514,7 @@ function CardActionBar({ card }) {
 
   async function snooze() {
     setSavingSnooze(true);
+    setError(null);
     const prior = snoozedUntil;
     setSnoozedUntil('pending');  // optimistic placeholder
     try {
@@ -510,6 +522,7 @@ function CardActionBar({ card }) {
       setSnoozedUntil(res?.snoozed_until || 'until next week');
     } catch {
       setSnoozedUntil(prior);
+      setError('Couldn’t snooze.');
     } finally {
       setSavingSnooze(false);
     }
@@ -537,6 +550,7 @@ function CardActionBar({ card }) {
           saving={savingSnooze}
           onClick={snooze}
         />
+        {error && <span role="alert" className="text-[11px] text-warn">{error}</span>}
       </div>
     );
   }
@@ -554,6 +568,7 @@ function CardActionBar({ card }) {
         saving={savingSnooze}
         onClick={snooze}
       />
+      {error && <span role="alert" className="text-[11px] text-warn">{error}</span>}
     </div>
   );
 }

@@ -364,6 +364,10 @@ function AddBookHere({ targetPatch, targetLabel, resolveLocation, onAdded }) {
   const [q, setQ] = useState('');
   const [matches, setMatches] = useState([]);
   const [searching, setSearching] = useState(false);
+  // Distinguishes a failed search from "no matches" — otherwise the
+  // dropdown simply doesn't appear and the user concludes the book
+  // isn't in the library.
+  const [searchFailed, setSearchFailed] = useState(false);
   const [error, setError] = useState(null);
   const searchGuard = useStaleGuard();
   const pickGuard = useActionGuard();
@@ -377,9 +381,11 @@ function AddBookHere({ targetPatch, targetLabel, resolveLocation, onAdded }) {
       searchGuard.next();
       setMatches([]);
       setSearching(false);
+      setSearchFailed(false);
       return;
     }
     setSearching(true);
+    setSearchFailed(false);
     const epoch = searchGuard.next();
     debounce.current = setTimeout(async () => {
       try {
@@ -392,6 +398,7 @@ function AddBookHere({ targetPatch, targetLabel, resolveLocation, onAdded }) {
       } catch {
         if (!searchGuard.isFresh(epoch)) return;
         setMatches([]);
+        setSearchFailed(true);
       } finally {
         if (searchGuard.isFresh(epoch)) setSearching(false);
       }
@@ -430,9 +437,13 @@ function AddBookHere({ targetPatch, targetLabel, resolveLocation, onAdded }) {
         {error && <span role="alert" className="text-xs text-warn">{error}</span>}
       </div>
 
-      {q.trim() && (matches.length > 0 || searching) && (
+      {q.trim() && (matches.length > 0 || searching || searchFailed) && (
         <div className="absolute z-30 top-full left-0 right-0 mt-1.5 bg-neutral-900 border border-neutral-800 rounded-lg shadow-lg max-h-80 overflow-y-auto">
-          {searching && matches.length === 0 ? (
+          {searchFailed && !searching ? (
+            <div role="alert" className="px-3 py-3 text-xs text-warn">
+              Library search failed — retype to retry.
+            </div>
+          ) : searching && matches.length === 0 ? (
             <div className="px-3 py-3 text-xs text-neutral-500">Searching the library…</div>
           ) : (
             matches.map(b => {

@@ -1113,7 +1113,10 @@ export default function BookDetail() {
                   if (justRolledToFinished && !b.rating) setRatingPrompt(true);
                   if (justRolledToFinished) maybeShowFinalSession(b);
                   setBook(b);
-                }).catch(() => {})}
+                  // A failed refresh here leaves the header status stale and
+                  // suppresses the finish-transition prompts — say so instead
+                  // of swallowing.
+                }).catch(() => setActionError('Saved, but refreshing the page data failed.'))}
               />
             );
           })()}

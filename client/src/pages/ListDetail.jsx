@@ -109,6 +109,10 @@ function QuickAdd({ listId, listBookIds, onAdded }) {
   const [expanded, setExpanded] = useState(false);
   const [matches, setMatches] = useState([]);
   const [searching, setSearching] = useState(false);
+  // A failed search must be distinguishable from "no matches" — a user
+  // whose search silently failed concludes the book isn't in the library
+  // and creates a duplicate stub via the + Stub path.
+  const [searchFailed, setSearchFailed] = useState(false);
   const saveGuard = useActionGuard();
   // Synchronous in-flight guard on row clicks. Without it, a fast double-
   // click on the same row would fire two addToList POSTs and (more
@@ -139,9 +143,11 @@ function QuickAdd({ listId, listBookIds, onAdded }) {
       searchGuard.next();
       setMatches([]);
       setSearching(false);
+      setSearchFailed(false);
       return;
     }
     setSearching(true);
+    setSearchFailed(false);
     const epoch = searchGuard.next();
     debounce.current = setTimeout(async () => {
       try {
@@ -151,6 +157,7 @@ function QuickAdd({ listId, listBookIds, onAdded }) {
       } catch {
         if (!searchGuard.isFresh(epoch)) return;
         setMatches([]);
+        setSearchFailed(true);
       } finally {
         // Spinner only flips off for the LATEST request (matches LookupPanel).
         if (searchGuard.isFresh(epoch)) setSearching(false);
@@ -255,9 +262,13 @@ function QuickAdd({ listId, listBookIds, onAdded }) {
           hidden) so the user understands the duplicate they'd otherwise
           try to stub. The "+ Stub" button stays available throughout for
           the no-match / wishlist case. */}
-      {title.trim() && (matches.length > 0 || searching) && (
+      {title.trim() && (matches.length > 0 || searching || searchFailed) && (
         <div className="absolute z-30 top-full left-0 right-0 mt-1.5 bg-neutral-900 border border-neutral-800 rounded-lg shadow-lg max-h-80 overflow-y-auto">
-          {searching && matches.length === 0 ? (
+          {searchFailed && !searching ? (
+            <div role="alert" className="px-3 py-3 text-xs text-warn">
+              Library search failed — existing copies may not be shown. Retype to retry before stubbing.
+            </div>
+          ) : searching && matches.length === 0 ? (
             <div className="px-3 py-3 text-xs text-neutral-500">Searching the library…</div>
           ) : (
             matches.map(b => {

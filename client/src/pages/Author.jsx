@@ -228,6 +228,7 @@ export default function Author() {
   const [bioSaving, setBioSaving] = useState(false);
   const [bioError, setBioError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState(null);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoError, setPhotoError] = useState(null);
   // Loved toggle — single boolean, optimistic flip with rollback on
@@ -267,6 +268,7 @@ export default function Author() {
     setBioError(null);
     setPhotoError(null);
     setLoveError(null);
+    setRefreshError(null);
   }, [id]);
 
   function startBioEdit() {
@@ -310,12 +312,12 @@ export default function Author() {
   async function handleManualRefresh() {
     if (refreshing) return;
     setRefreshing(true);
+    setRefreshError(null);
     try {
       const updated = await api.refreshAuthor(author.id);
       setAuthor(a => a ? { ...a, ...updated } : a);
     } catch {
-      // No-op; the prior cached state stays visible. A future iteration
-      // could surface a small inline error here.
+      setRefreshError('Open Library refresh failed.');
     } finally {
       setRefreshing(false);
     }
@@ -624,6 +626,9 @@ export default function Author() {
             >
               {refreshing ? '↻ Refreshing…' : '↻ Refresh from Open Library'}
             </button>
+          )}
+          {refreshError && (
+            <p role="alert" className="text-[11px] text-warn mt-1">{refreshError}</p>
           )}
         </div>
       </div>
