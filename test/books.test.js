@@ -3374,6 +3374,14 @@ describe('books', () => {
     describe('Stories bug-sweep regressions', () => {
       const todayIso = () => new Date().toLocaleDateString('en-CA');
 
+      it('normalizes story titles through t(): trims and folds exotic hyphens', async () => {
+        const { body: b } = await req('POST', '/api/books', { title: 'Fold Host' });
+        const { body: s } = await req('POST', `/api/books/${b.id}/stories`, {
+          title: '  Weird\u2011Tale  ',
+        });
+        assert.equal(s.title, 'Weird-Tale', 'U+2011 folds to ASCII hyphen, ends trimmed');
+      });
+
       it('partial date_finished falls back to today in reading_log', async () => {
         const { body: b } = await req('POST', '/api/books', { title: 'Bug A Year-Only' });
         const { body: s } = await req('POST', `/api/books/${b.id}/stories`, {
@@ -4470,6 +4478,51 @@ describe('books', () => {
       assert.ok(iA >= 0 && iB >= 0, 'both fixtures should appear');
       assert.ok(iA < iB,
         `expected updated bookA before untouched bookB; got positions A=${iA}, B=${iB}`);
+    });
+
+    it('breaks updated_at ties by title on the default sort', async () => {
+      // updated_at is second-precision, so back-to-back creates usually
+      // tie; the fallback sort must resolve the tie by title, not leave
+      // it to scan order. Created Zebra-first so id order and title
+      // order disagree. If the creates straddle a second boundary,
+      // Aardvark's later timestamp puts it first anyway — the assertion
+      // holds on both paths, but only the tie path exercises the fix.
+      const stem = 'deftie' + Math.random().toString(36).slice(2, 6);
+      const { body: zebra } = await req('POST', '/api/books', { title: `${stem}-Zebra` });
+      const { body: aard }  = await req('POST', '/api/books', { title: `${stem}-Aardvark` });
+      try {
+        const { body } = await req('GET', '/api/books?sort=not-a-real-sort&limit=200');
+        const ids = body.books.map(b => b.id);
+        const iZ = ids.indexOf(zebra.id);
+        const iA = ids.indexOf(aard.id);
+        assert.ok(iZ >= 0 && iA >= 0, 'both fixtures should appear');
+        assert.ok(iA < iZ, `expected Aardvark before Zebra; got A=${iA}, Z=${iZ}`);
+      } finally {
+        await req('DELETE', `/api/books/${zebra.id}`);
+        await req('DELETE', `/api/books/${aard.id}`);
+      }
+    });
+
+    it('sort=last_logged breaks same-day, same-second ties by title', async () => {
+      // PATCHing current_page writes a reading_log row dated today, so
+      // both fixtures tie on log date; updated_at usually ties too
+      // (second precision). The chain must then fall to title.
+      const stem = 'lltie' + Math.random().toString(36).slice(2, 6);
+      const { body: zebra } = await req('POST', '/api/books', { title: `${stem}-Zebra`, page_count: 100 });
+      const { body: aard }  = await req('POST', '/api/books', { title: `${stem}-Aardvark`, page_count: 100 });
+      try {
+        await req('PATCH', `/api/books/${zebra.id}`, { current_page: 10 });
+        await req('PATCH', `/api/books/${aard.id}`, { current_page: 10 });
+        const { body } = await req('GET', '/api/books?sort=last_logged&limit=200');
+        const ids = body.books.map(b => b.id);
+        const iZ = ids.indexOf(zebra.id);
+        const iA = ids.indexOf(aard.id);
+        assert.ok(iZ >= 0 && iA >= 0, 'both fixtures should appear');
+        assert.ok(iA < iZ, `expected Aardvark before Zebra; got A=${iA}, Z=${iZ}`);
+      } finally {
+        await req('DELETE', `/api/books/${zebra.id}`);
+        await req('DELETE', `/api/books/${aard.id}`);
+      }
     });
 
     it('clamps out-of-range limit and offset', async () => {

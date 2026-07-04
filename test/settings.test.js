@@ -43,6 +43,15 @@ describe('settings', () => {
     assert.equal(all[key], '7500');
   });
 
+  it('PUT /api/settings/:key trims whitespace from the stored value', async () => {
+    const key = 'trim_check';
+    const { body: putBody } = await req('PUT', `/api/settings/${key}`, { value: '  42  ' });
+    assert.equal(putBody.value, '42');
+
+    const { body: all } = await req('GET', '/api/settings');
+    assert.equal(all[key], '42');
+  });
+
   it('PUT /api/settings/:key returns 400 when value is missing', async () => {
     const { status, body } = await req('PUT', '/api/settings/some_key', {});
     assert.equal(status, 400);

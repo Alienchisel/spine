@@ -168,7 +168,7 @@ export default function CoverModeGrid({ cfg, current, busy, onPick, onSkip }) {
                 type="button"
                 onClick={() => onPick(c)}
                 disabled={busy}
-                aria-label={`Use image: ${c.label || 'unlabeled candidate'}`}
+                aria-label={`Use image: ${c.label || 'unlabelled candidate'}`}
                 title={c.label || ''}
                 className={`bg-neutral-800 rounded overflow-hidden ring-1 ring-transparent hover:ring-oak focus:outline-none focus:ring-2 focus:ring-oak/70 transition-all disabled:opacity-60 disabled:cursor-wait ${cfg.kind === 'author' ? 'aspect-square' : 'aspect-[2/3]'}`}
               >

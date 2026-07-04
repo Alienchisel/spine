@@ -6,6 +6,7 @@ import { syncStoryAuthors, pruneOrphanPeople } from '../lib/books/people.js';
 import { buildFilterConditions } from '../lib/books/filters.js';
 import { ENUM_VALUES } from '../shared/bookFields.js';
 import { downloadCoverByUrl, CoverFetchError, deleteLocalCover } from '../lib/books/covers.js';
+import { t } from '../lib/books/normalization.js';
 
 const router = express.Router();
 
@@ -159,7 +160,9 @@ function validateStory(body) {
 
 function storyValues(body) {
   return {
-    title:          body.title.trim(),
+    // t() rather than bare trim so story titles fold exotic hyphens and
+    // unwrap quotes the same way book titles do.
+    title:          t(body.title),
     position:       isBlank(body.position)       ? null : Number(body.position),
     status:         body.status?.trim() || 'unread',
     date_finished:  body.date_finished?.trim() || null,
