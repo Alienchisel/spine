@@ -228,8 +228,10 @@ export default function Audit() {
                   );
                   // Path defaults to '/' for backward compatibility; author
                   // audits supply '/authors' so the click-through lands on
-                  // the right index.
-                  const href = `${row.path || '/'}?${row.query}`;
+                  // the right index. Rows with no query (the duplicates
+                  // row points straight at its wizard) link to the bare
+                  // path.
+                  const href = row.query ? `${row.path || '/'}?${row.query}` : (row.path || '/');
                   // Wand slot — fixed width so the ✨ button (or its
                   // absence) lands at the same x-position on every row.
                   // The Link sits outside the row Link so clicking the

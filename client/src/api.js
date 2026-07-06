@@ -104,6 +104,8 @@ export const api = {
   setBookCoverFromUrl: (id, url) => request(`/books/${id}/cover/url`, { method: 'POST', body: JSON.stringify({ url }) }),
   linkEdition: (id, otherId) => request(`/books/${id}/work-link`, { method: 'POST', body: JSON.stringify({ other_id: otherId }) }),
   unlinkEdition: (id) => request(`/books/${id}/work-link`, { method: 'DELETE' }),
+  getDuplicateClusters: () => request('/books/duplicate-clusters'),
+  mergeBook: (survivorId, loserId) => request(`/books/${survivorId}/merge`, { method: 'POST', body: JSON.stringify({ other_id: loserId }) }),
   uploadCover: (file) => {
     const fd = new FormData();
     fd.append('cover', file);

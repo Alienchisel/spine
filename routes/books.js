@@ -6,6 +6,7 @@ import { syncStoryAuthors, pruneOrphanPeople } from '../lib/books/people.js';
 import { buildFilterConditions } from '../lib/books/filters.js';
 import { ENUM_VALUES } from '../shared/bookFields.js';
 import { downloadCoverByUrl, CoverFetchError, deleteLocalCover } from '../lib/books/covers.js';
+import { findDuplicateClusters, mergeBooks } from '../lib/books/duplicates.js';
 import { t } from '../lib/books/normalization.js';
 
 const router = express.Router();
@@ -57,6 +58,13 @@ router.get('/random', (req, res) => {
   const row = db.prepare(`SELECT id FROM books ${where} ORDER BY RANDOM() LIMIT 1`).get(...params);
   if (!row) return res.status(404).json({ error: 'No matching books' });
   res.json({ id: row.id });
+});
+
+// Unresolved duplicate / edition clusters (same normalised title +
+// author set, not all linked into one work group). Backs the Audit
+// duplicates wizard. Must sit above /:id like /random.
+router.get('/duplicate-clusters', (_req, res) => {
+  res.json(findDuplicateClusters());
 });
 
 router.get('/:id', (req, res) => {
@@ -603,6 +611,21 @@ router.post('/:id/work-link', (req, res) => {
   if (!Number.isInteger(otherId) || otherId < 1) return res.status(400).json({ error: 'Invalid other_id' });
   if (id === otherId) return res.status(400).json({ error: 'Cannot link a book to itself' });
   const book = linkEditions(id, otherId);
+  if (!book) return res.status(404).json({ error: 'Not found' });
+  res.json(book);
+});
+
+// Merge a true-duplicate record into this book. :id is the survivor,
+// other_id the loser: survivor keeps every field it has, the loser
+// fills the blanks, join tables union, reads/log move with dedupe,
+// then the loser is deleted. See mergeBooks for the full semantics.
+router.post('/:id/merge', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
+  const otherId = Number(req.body?.other_id);
+  if (!Number.isInteger(otherId) || otherId < 1) return res.status(400).json({ error: 'Invalid other_id' });
+  if (id === otherId) return res.status(400).json({ error: 'Cannot merge a book into itself' });
+  const book = mergeBooks(id, otherId);
   if (!book) return res.status(404).json({ error: 'Not found' });
   res.json(book);
 });

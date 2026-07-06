@@ -34,14 +34,6 @@ Distinct from the backup pipeline (raw DB files) and from the one-off
 Amazon CSV scripts in `scripts/` — this is user-facing interop and
 "get my data out" insurance.
 
-### Duplicate / edition sweep as an Audit Wizard mode
-The duplicate-cluster scan in CLAUDE.md (same title + author across
-records) is "run periodically" with no trigger — a remembered chore.
-Turn it into an Audit Wizard mode: surface candidate clusters, offer
-work-link (alternate edition) or merge-and-delete (true duplicate)
-per cluster, following the merge conventions in CLAUDE.md. Matching
-must normalise leading articles ("Odyssey" vs "The Odyssey" split one
-work across two work groups until the 2026-07-05 sweep).
 
 ### Client bundle code-splitting
 Every build warns about a >500 kB main chunk (~619 kB minified).
@@ -66,6 +58,18 @@ Motion-based affordances stay out. The cover-first grid recipe
 any new card surface.
 
 ## Done
+
+### Duplicate / edition sweep as an Audit Wizard mode — shipped 1.261.0 (2026-07-06)
+`GET /api/books/duplicate-clusters` buckets books by article-stripped
+title + author set and returns clusters not fully resolved into one
+work group; `POST /api/books/:id/merge {other_id}` collapses a true
+duplicate into the :id survivor (survivor-first field fill, join-table
+union, reads move with exact-dup skip, reading-log same-day
+aggregation, work-group inheritance, loser deleted). Surface: a
+computed "Same-work duplicates are linked or merged" row under Library
+mechanics on /audit, wanding into /audit/wizard/duplicates — one
+cluster per card, Link as editions / two-click Merge with survivor
+pick / Skip. The scan-recipe chore in CLAUDE.md is now a wizard visit.
 
 ### Author merge — shipped 1.259.0 (2026-07-05)
 `POST /api/authors/:id/merge {other_id}` merges the duplicate into

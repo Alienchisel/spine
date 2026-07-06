@@ -324,12 +324,26 @@ Sweep performed 2026-06-20 brought the linkage count from 7 groups to
 64; subsequent ingests should keep editions linked at the moment of
 ingest rather than collecting another backlog.
 
+The sweep is automated as of 1.261.0: `GET /api/books/duplicate-clusters`
+returns the unresolved clusters (article-normalised title + author
+bucketing; clusters whose members all share one non-null `work_id`
+count as resolved), the Audit page surfaces the count as "Same-work
+duplicates are linked or merged", and `/audit/wizard/duplicates`
+offers Link-as-editions / Merge / Skip per cluster. The SQL recipe
+above stays useful for ad-hoc variants of the scan.
+
 ### Merging duplicate book records
 
 When a duplicate record is not an alternate edition but a true
 duplicate (same physical book ingested twice, identical title +
 publisher + year + format and no distinguishing field), merge rather
-than link. Pattern:
+than link. As of 1.261.0 there's a dedicated endpoint —
+`POST /api/books/:id/merge {other_id}` merges the loser (`other_id`)
+into the `:id` survivor in one transaction: survivor-first field fill,
+join-table union, reads moved with exact-duplicate skip, reading-log
+same-day aggregation, work-group inheritance, loser deleted. The
+duplicates wizard drives it in-app. The manual pattern below remains
+the reference for what "merge" means (and for partial/custom merges):
 
 1. **Inspect both records for unique fields.** The columns most
    likely to differ in a real-vs-phantom split are
@@ -362,7 +376,7 @@ Precedent runs:
   #2365) was flagged for the user to verify before deletion —
   reserve this for genuinely ambiguous cases.
 
-Run the duplicate-cluster scan above periodically; the same query
-that surfaces edition candidates surfaces ingestion duplicates, just
-filtered the other way (identical publisher + year + format with
-multiple records).
+The duplicates wizard (`/audit/wizard/duplicates`) surfaces edition
+candidates and ingestion duplicates alike — the audit row's count is
+the standing trigger that used to be a "run the scan periodically"
+chore.

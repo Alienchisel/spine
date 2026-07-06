@@ -6442,4 +6442,154 @@ describe('books', () => {
       assert.ok(!ids.has(notTome.id), 'short book should not appear');
     });
   });
+
+  describe('duplicate clusters + merge', () => {
+    async function mkBook(payload) {
+      const { body } = await req('POST', '/api/books', payload);
+      return body;
+    }
+
+    // The clusters endpoint scans the whole (shared) test DB, so every
+    // assertion targets the specific cluster containing our fixture ids
+    // rather than the overall cluster count.
+    async function clusterWith(id) {
+      const { body } = await req('GET', '/api/books/duplicate-clusters');
+      return body.find(c => c.members.some(m => m.id === id)) || null;
+    }
+
+    describe('GET /api/books/duplicate-clusters', () => {
+      it('surfaces an unlinked same-title+author pair as a cluster', async () => {
+        const a = await mkBook({ title: 'Cluster Pair', authors: ['Dupauthor Alpha'] });
+        const b = await mkBook({ title: 'Cluster Pair', authors: ['Dupauthor Alpha'] });
+        const cluster = await clusterWith(a.id);
+        assert.ok(cluster, 'expected a cluster containing the pair');
+        const ids = cluster.members.map(m => m.id).sort((x, y) => x - y);
+        assert.deepEqual(ids, [a.id, b.id].sort((x, y) => x - y));
+      });
+
+      it('strips leading articles when clustering titles', async () => {
+        const a = await mkBook({ title: 'The Odyssey Sweep', authors: ['Dupauthor Homer'] });
+        const b = await mkBook({ title: 'Odyssey Sweep', authors: ['Dupauthor Homer'] });
+        const cluster = await clusterWith(a.id);
+        assert.ok(cluster, 'article variant should land in the same cluster');
+        assert.ok(cluster.members.some(m => m.id === b.id));
+      });
+
+      it('excludes clusters whose members all share one work group', async () => {
+        const a = await mkBook({ title: 'Linked Cluster', authors: ['Dupauthor Beta'] });
+        const b = await mkBook({ title: 'Linked Cluster', authors: ['Dupauthor Beta'] });
+        assert.ok(await clusterWith(a.id), 'unlinked pair should cluster first');
+        await req('POST', `/api/books/${a.id}/work-link`, { other_id: b.id });
+        assert.equal(await clusterWith(a.id), null,
+          'fully-linked cluster should be treated as resolved');
+      });
+
+      it('does not cluster same-title books by different authors', async () => {
+        const a = await mkBook({ title: 'Shared Title Solo', authors: ['Dupauthor Gamma'] });
+        await mkBook({ title: 'Shared Title Solo', authors: ['Dupauthor Delta'] });
+        assert.equal(await clusterWith(a.id), null);
+      });
+    });
+
+    describe('POST /api/books/:id/merge', () => {
+      it('fills survivor blanks from the loser and keeps survivor values', async () => {
+        const s = await mkBook({ title: 'Merge Fill', publisher: 'Keep Press', rating: 4 });
+        const l = await mkBook({ title: 'Merge Fill', publisher: 'Lose Press', description: 'Loser blurb', owned: 1, acquisition_source: 'Thrift' });
+        const { status, body } = await req('POST', `/api/books/${s.id}/merge`, { other_id: l.id });
+        assert.equal(status, 200);
+        assert.equal(body.publisher, 'Keep Press', 'survivor value must win');
+        assert.equal(body.rating, 4);
+        assert.equal(body.description, 'Loser blurb', 'loser fills the blank');
+        assert.equal(body.acquisition_source, 'Thrift');
+      });
+
+      it('deletes the loser', async () => {
+        const s = await mkBook({ title: 'Merge Delete' });
+        const l = await mkBook({ title: 'Merge Delete' });
+        await req('POST', `/api/books/${s.id}/merge`, { other_id: l.id });
+        const { status } = await req('GET', `/api/books/${l.id}`);
+        assert.equal(status, 404);
+      });
+
+      it('unions tags and appends the loser\'s extra authors after the survivor\'s', async () => {
+        const s = await mkBook({ title: 'Merge Joins', authors: ['Mergeauthor One'], tags: ['MergeTagA'] });
+        const l = await mkBook({ title: 'Merge Joins', authors: ['Mergeauthor One', 'Mergeauthor Two'], tags: ['MergeTagA', 'MergeTagB'] });
+        const { body } = await req('POST', `/api/books/${s.id}/merge`, { other_id: l.id });
+        assert.deepEqual(body.authors.map(a => a.name), ['Mergeauthor One', 'Mergeauthor Two']);
+        const tagNames = body.tags.filter(t => !t.virtual).map(t => t.name).sort();
+        assert.deepEqual(tagNames, ['MergeTagA', 'MergeTagB']);
+      });
+
+      it('moves the loser\'s reads, skipping exact duplicates', async () => {
+        const s = await mkBook({ title: 'Merge Reads' });
+        const l = await mkBook({ title: 'Merge Reads' });
+        await req('POST', `/api/books/${s.id}/reads`, { date_finished: '2020-01-01' });
+        await req('POST', `/api/books/${l.id}/reads`, { date_finished: '2020-01-01' });
+        await req('POST', `/api/books/${l.id}/reads`, { date_finished: '2021-05-05' });
+        await req('POST', `/api/books/${s.id}/merge`, { other_id: l.id });
+        const { body: reads } = await req('GET', `/api/books/${s.id}/reads`);
+        assert.deepEqual(reads.map(r => r.date_finished), ['2020-01-01', '2021-05-05'],
+          'identical completion skipped, distinct one moved');
+      });
+
+      it('sums colliding reading_log days instead of violating the unique index', async () => {
+        const s = await mkBook({ title: 'Merge Log', page_count: 100 });
+        const l = await mkBook({ title: 'Merge Log', page_count: 100 });
+        await req('PATCH', `/api/books/${s.id}`, { current_page: 50 });
+        await req('PATCH', `/api/books/${l.id}`, { current_page: 20 });
+        const { status } = await req('POST', `/api/books/${s.id}/merge`, { other_id: l.id });
+        assert.equal(status, 200);
+        const { body: log } = await req('GET', `/api/books/${s.id}/log`);
+        assert.equal(log.length, 1, 'same-day rows should aggregate into one');
+        assert.equal(log[0].pages_read, 70);
+      });
+
+      it('inherits the loser\'s work group, replacing it among the siblings', async () => {
+        const a = await mkBook({ title: 'Merge Group Survivor' });
+        const b = await mkBook({ title: 'Merge Group Loser' });
+        const c = await mkBook({ title: 'Merge Group Sibling' });
+        await req('POST', `/api/books/${b.id}/work-link`, { other_id: c.id });
+        const { body } = await req('POST', `/api/books/${a.id}/merge`, { other_id: b.id });
+        assert.ok(body.work_id != null, 'survivor should join the loser\'s group');
+        assert.deepEqual(body.editions.map(e => e.id), [c.id]);
+      });
+
+      it('dissolves the phantom group left by absorbing the only sibling', async () => {
+        const a = await mkBook({ title: 'Merge Group Collapse A' });
+        const b = await mkBook({ title: 'Merge Group Collapse B' });
+        await req('POST', `/api/books/${a.id}/work-link`, { other_id: b.id });
+        const { body } = await req('POST', `/api/books/${a.id}/merge`, { other_id: b.id });
+        assert.equal(body.work_id, null, 'a one-member group is a phantom and should dissolve');
+      });
+
+      it('concatenates notes when both sides have different prose', async () => {
+        const s = await mkBook({ title: 'Merge Notes', notes: 'First note' });
+        const l = await mkBook({ title: 'Merge Notes', notes: 'Second note' });
+        const { body } = await req('POST', `/api/books/${s.id}/merge`, { other_id: l.id });
+        assert.equal(body.notes, 'First note\n\nSecond note');
+      });
+
+      it('takes the further-along status and stays unarchived when one side is live', async () => {
+        const s = await mkBook({ title: 'Merge Status' });
+        const l = await mkBook({ title: 'Merge Status' });
+        await req('PATCH', `/api/books/${l.id}`, { status: 'reading', archived: true });
+        const { body } = await req('POST', `/api/books/${s.id}/merge`, { other_id: l.id });
+        assert.equal(body.status, 'reading');
+        assert.equal(body.archived, 0);
+      });
+
+      it('rejects merging a book into itself', async () => {
+        const a = await mkBook({ title: 'Merge Self' });
+        const { status, body } = await req('POST', `/api/books/${a.id}/merge`, { other_id: a.id });
+        assert.equal(status, 400);
+        assert.match(body.error, /itself/i);
+      });
+
+      it('404s when the loser does not exist', async () => {
+        const a = await mkBook({ title: 'Merge Missing Loser' });
+        const { status } = await req('POST', `/api/books/${a.id}/merge`, { other_id: 999999 });
+        assert.equal(status, 404);
+      });
+    });
+  });
 });

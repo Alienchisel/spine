@@ -8,6 +8,7 @@ import { WIZARDS, shuffle, clearDraft, clearAllDrafts } from './wizards.js';
 import EnumModeButtons from './EnumModeButtons.jsx';
 import TextModeForm from './TextModeForm.jsx';
 import CoverModeGrid from './CoverModeGrid.jsx';
+import DuplicatesWizard from './DuplicatesWizard.jsx';
 
 // Deck-of-cards data-entry wizard. Drives bulk-clearing of a single
 // audit row by presenting one missing-data book at a time with a small
@@ -29,6 +30,16 @@ import CoverModeGrid from './CoverModeGrid.jsx';
 // three mode subcomponents own their own per-card UI state.
 export default function AuditWizard() {
   const { wizardKey } = useParams();
+  // The duplicates sweep is cluster-shaped (n records per card, two
+  // resolutions) rather than field-fill-shaped, so it gets a sibling
+  // component instead of a WIZARDS config. Branching on element type
+  // here (instead of an early return inside FillWizard) keeps hook
+  // order stable when the route param changes in place.
+  if (wizardKey === 'duplicates') return <DuplicatesWizard />;
+  return <FillWizard wizardKey={wizardKey} />;
+}
+
+function FillWizard({ wizardKey }) {
   const cfg = WIZARDS[wizardKey];
 
   const [pool, setPool] = useState(null);     // null = loading
