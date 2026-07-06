@@ -139,6 +139,147 @@ function DatesPicker({ birth, death, onChange }) {
   );
 }
 
+// Merge-a-duplicate control. Quiet text button (same register as the
+// OL refresh) that unfolds into a search picker over the author corpus
+// (GET /authors?q=), then a confirm step spelling out the direction:
+// the picked author's credits move HERE and their row is deleted, the
+// current page's author survives. For ingest duplicates — deliberate
+// pen names should use alias-link semantics instead, which this panel
+// notes. Keyed on author id by the caller so all state resets when
+// navigating between authors.
+function MergeControl({ author, onMerged }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [candidates, setCandidates] = useState([]);
+  const [target, setTarget] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  // Debounced candidate search. The endpoint caps at 20 rows; filter
+  // out the survivor itself so it can't be picked as its own loser.
+  useEffect(() => {
+    const q = query.trim();
+    if (!q) { setCandidates([]); return; }
+    const timer = setTimeout(async () => {
+      try {
+        const rows = await api.getAuthors({ q });
+        setCandidates(rows.filter(r => r.id !== author.id));
+      } catch {
+        setCandidates([]);
+      }
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [query, author.id]);
+
+  async function confirmMerge() {
+    if (busy || !target) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.mergeAuthor(author.id, target.id);
+      setOpen(false);
+      setQuery('');
+      setTarget(null);
+      onMerged();
+    } catch (err) {
+      setError(err?.message || 'Merge failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => { setOpen(true); setError(null); }}
+        className="text-[11px] text-neutral-700 hover:text-neutral-400 transition-colors"
+        title="Merge a duplicate author record into this one"
+      >
+        ⇆ Merge a duplicate into this author
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-1 max-w-md rounded border border-neutral-800 bg-neutral-900/60 p-3 space-y-2">
+      {target ? (
+        <>
+          <p className="text-xs text-neutral-300">
+            Merge <span className="text-parchment">{target.name}</span> into{' '}
+            <span className="text-parchment">{author.name}</span>?
+          </p>
+          <p className="text-[11px] text-neutral-500">
+            Moves {plural(target.book_count, 'book')}{target.story_count > 0 ? ` and ${plural(target.story_count, 'story', 'stories')}` : ''} here;{' '}
+            <span className="text-neutral-400">{target.name}</span> is deleted. Blank fields fill from the deleted record.
+            For deliberate pen names, use an alias link instead.
+          </p>
+          <div className="flex items-center gap-3 text-xs">
+            <button
+              type="button"
+              onClick={confirmMerge}
+              disabled={busy}
+              className="text-warn hover:text-red-300 transition-colors disabled:opacity-60 disabled:cursor-wait"
+            >
+              {busy ? 'Merging…' : 'Merge'}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setTarget(null); setError(null); }}
+              disabled={busy}
+              className="text-neutral-600 hover:text-neutral-300 transition-colors"
+            >
+              Back
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Escape') { setOpen(false); setQuery(''); setError(null); } }}
+              autoFocus
+              placeholder="Search for the duplicate author…"
+              aria-label="Search for the duplicate author to merge"
+              className="flex-1 bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20"
+            />
+            <button
+              type="button"
+              onClick={() => { setOpen(false); setQuery(''); setError(null); }}
+              className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+          {candidates.length > 0 && (
+            <ul className="max-h-48 overflow-y-auto divide-y divide-neutral-800/60">
+              {candidates.map(c => (
+                <li key={c.id}>
+                  <button
+                    type="button"
+                    onClick={() => { setTarget(c); setError(null); }}
+                    className="w-full text-left px-1 py-1.5 text-xs text-neutral-300 hover:text-parchment hover:bg-neutral-800/40 rounded transition-colors"
+                  >
+                    {c.name}
+                    <span className="text-neutral-600"> · {plural(c.book_count, 'book')}{c.story_count > 0 ? ` · ${plural(c.story_count, 'story', 'stories')}` : ''}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {query.trim() && candidates.length === 0 && (
+            <p className="text-[11px] text-neutral-600">No other authors match.</p>
+          )}
+        </>
+      )}
+      {error && <p role="alert" className="text-[11px] text-warn">{error}</p>}
+    </div>
+  );
+}
+
 // Author entity page: lists all books bylined under this specific
 // author plus an "also writes as" section linking to alias siblings.
 // Distinct from /browse/author/:name which is a name-based filter view —
@@ -627,15 +768,30 @@ export default function Author() {
             </div>
           )}
           {!loading && author && (
-            <button
-              type="button"
-              onClick={handleManualRefresh}
-              disabled={refreshing}
-              className="text-[11px] text-neutral-700 hover:text-neutral-400 mt-3 transition-colors disabled:opacity-60 disabled:cursor-wait"
-              title="Re-fetch bio + portrait from Open Library"
-            >
-              {refreshing ? '↻ Refreshing…' : '↻ Refresh from Open Library'}
-            </button>
+            <div className="mt-3 flex items-start gap-4 flex-wrap">
+              <button
+                type="button"
+                onClick={handleManualRefresh}
+                disabled={refreshing}
+                className="text-[11px] text-neutral-700 hover:text-neutral-400 transition-colors disabled:opacity-60 disabled:cursor-wait"
+                title="Re-fetch bio + portrait from Open Library"
+              >
+                {refreshing ? '↻ Refreshing…' : '↻ Refresh from Open Library'}
+              </button>
+              {/* Keyed on id so all merge-panel state resets when
+                  navigating between authors. */}
+              <MergeControl
+                key={author.id}
+                author={author}
+                onMerged={() => {
+                  // The merge changed this author's bibliography and
+                  // deleted another author row — refetch this page and
+                  // drop every cached author list/detail.
+                  queryClient.invalidateQueries({ queryKey: ['author'] });
+                  queryClient.invalidateQueries({ queryKey: ['authors'] });
+                }}
+              />
+            </div>
           )}
           {refreshError && (
             <p role="alert" className="text-[11px] text-warn mt-1">{refreshError}</p>

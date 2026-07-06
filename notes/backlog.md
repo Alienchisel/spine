@@ -26,13 +26,6 @@ lean on data that exists historically (reads, reading_log, ratings,
 acquisitions), not on anything only captured going forward. Design
 the report first, then the generation trigger.
 
-### Author merge
-Duplicate author rows (initial-spacing variants, typo'd names from
-ingest) have no in-app merge today — cleanup means manual SQL. Build
-a merge: re-point `book_authors` (and story authors) to the survivor,
-keep the richer bio/portrait/dates/ol_key, delete the loser. Surface
-TBD — an action on the Author page, an Audit Wizard mode, or both.
-
 ### Import / export
 First-class library import/export for portability: a full export of
 the library (books + reads + reading_log + tags + people + lists) in
@@ -72,4 +65,12 @@ any new card surface.
 
 ## Done
 
-_(nothing yet)_
+### Author merge — shipped 1.259.0 (2026-07-05)
+`POST /api/authors/:id/merge {other_id}` merges the duplicate into
+:id: re-points `book_authors` + `story_authors` (dropping the loser's
+row where both variants were bylined together), COALESCE-fills blank
+metadata, ORs loved, inherits alias-group membership, deletes the
+loser. Surface: "⇆ Merge a duplicate into this author" on the Author
+page (search picker + confirm step). The Audit Wizard surface can
+come with the duplicate/edition sweep mode, which should reuse this
+endpoint.

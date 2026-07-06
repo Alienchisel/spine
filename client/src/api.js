@@ -69,6 +69,7 @@ export const api = {
   getAuthor: (id, params = {}) => request(`/authors/${id}${buildQuery(params)}`),
   updateAuthor: (id, data) => request(`/authors/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   refreshAuthor: (id) => request(`/authors/${id}/refresh`, { method: 'POST' }),
+  mergeAuthor: (id, otherId) => request(`/authors/${id}/merge`, { method: 'POST', body: JSON.stringify({ other_id: otherId }) }),
   searchAuthorsOL: (q) => request(`/authors/search-ol?${new URLSearchParams({ q })}`),
   setAuthorPhotoFromUrl: (id, url) => request(`/authors/${id}/photo/url`, { method: 'POST', body: JSON.stringify({ url }) }),
   deleteAuthorPhoto: (id) => request(`/authors/${id}/photo`, { method: 'DELETE' }),

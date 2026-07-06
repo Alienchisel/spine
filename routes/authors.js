@@ -1,7 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import db, { nrm } from '../db.js';
-import { linkAuthorAliases, unlinkAuthorAlias } from '../lib/books/people.js';
+import { linkAuthorAliases, unlinkAuthorAlias, mergeAuthors } from '../lib/books/people.js';
 import { listBooks } from '../lib/books/repository.js';
 import { lookupAuthor, searchAuthorsMulti, downloadAuthorPhotoByUrl } from '../lib/authors/openLibrary.js';
 import { saveAuthorPhotoFromBuffer, deleteAuthorPhoto } from '../lib/authors/photos.js';
@@ -399,6 +399,26 @@ router.post('/:id/alias-link', (req, res) => {
   const ok = linkAuthorAliases(id, other);
   if (ok === null) return res.status(404).json({ error: 'Author not found' });
   res.json({ ok: true });
+});
+
+// Merge a duplicate author row into this one: {other_id: N} moves N's
+// book/story credits onto :id, fills :id's blank metadata from N, and
+// deletes N. For ingest duplicates (initial-spacing variants, typos) —
+// use alias-link instead when both names are deliberate (pen names).
+// Direction matters: :id survives. Returns the refreshed survivor.
+router.post('/:id/merge', async (req, res) => {
+  const id = Number(req.params.id);
+  const other = Number(req.body?.other_id);
+  if (!Number.isInteger(id) || id < 1 || !Number.isInteger(other) || other < 1) {
+    return res.status(400).json({ error: 'Invalid author id' });
+  }
+  if (id === other) return res.status(400).json({ error: 'Cannot merge an author with themselves' });
+  const result = mergeAuthors(id, other);
+  if (result === null) return res.status(404).json({ error: 'Author not found' });
+  // File cleanup happens after the transaction committed; a failure here
+  // just strands one image file, it can't corrupt the merge.
+  if (result.orphanPhotoPath) await deleteAuthorPhoto(result.orphanPhotoPath).catch(() => {});
+  res.json(loadAuthor(id));
 });
 
 // Remove the author from their alias group. Dissolves the group if only

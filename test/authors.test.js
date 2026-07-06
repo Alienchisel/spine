@@ -854,3 +854,139 @@ describe('authors — index', () => {
     }
   });
 });
+
+describe('authors — merge', () => {
+  let close;
+  let req;
+
+  before(async () => {
+    const server = await createTestServer();
+    close = server.close;
+    req = server.req;
+  });
+
+  after(() => close());
+
+  // Each test builds its own author pair via book POSTs (authors are
+  // created through book payloads, never directly) and cleans its books
+  // up, letting pruneOrphanPeople drop the surviving author rows.
+
+  it('re-points book credits to the survivor and deletes the loser', async () => {
+    const stem = 'mrg' + Math.random().toString(36).slice(2, 6);
+    const { body: ba } = await req('POST', '/api/books', { title: `${stem}-A`, authors: [`J. R. Variant ${stem}`] });
+    const { body: bb } = await req('POST', '/api/books', { title: `${stem}-B`, authors: [`J.R. Variant ${stem}`] });
+    const survivorId = ba.authors[0].id;
+    const loserId = bb.authors[0].id;
+    try {
+      const { status, body: merged } = await req('POST', `/api/authors/${survivorId}/merge`, { other_id: loserId });
+      assert.equal(status, 200);
+      assert.equal(merged.id, survivorId);
+      assert.equal(merged.name, `J. R. Variant ${stem}`, 'survivor keeps its own name');
+
+      const { status: gone } = await req('GET', `/api/authors/${loserId}`);
+      assert.equal(gone, 404, 'loser row is deleted');
+
+      // Both books now carry the survivor's byline.
+      const { body: bookB } = await req('GET', `/api/books/${bb.id}`);
+      assert.deepEqual(bookB.authors.map(a => a.id), [survivorId]);
+      const { body: detail } = await req('GET', `/api/authors/${survivorId}`);
+      assert.equal(detail.total, 2, 'survivor page lists both books');
+    } finally {
+      await req('DELETE', `/api/books/${ba.id}`);
+      await req('DELETE', `/api/books/${bb.id}`);
+    }
+  });
+
+  it('handles a book bylined under BOTH variants without a PK collision', async () => {
+    const stem = 'mrg' + Math.random().toString(36).slice(2, 6);
+    const { body: b } = await req('POST', '/api/books', {
+      title: `${stem}-Both`, authors: [`First Var ${stem}`, `Second Var ${stem}`],
+    });
+    const [survivorId, loserId] = b.authors.map(a => a.id);
+    try {
+      const { status } = await req('POST', `/api/authors/${survivorId}/merge`, { other_id: loserId });
+      assert.equal(status, 200);
+      const { body: after } = await req('GET', `/api/books/${b.id}`);
+      assert.deepEqual(after.authors.map(a => a.id), [survivorId], 'survivor credited exactly once');
+    } finally {
+      await req('DELETE', `/api/books/${b.id}`);
+    }
+  });
+
+  it('fills survivor blanks from the loser but never overwrites (loved ORs)', async () => {
+    const stem = 'mrg' + Math.random().toString(36).slice(2, 6);
+    const { body: ba } = await req('POST', '/api/books', { title: `${stem}-A`, authors: [`Meta Keep ${stem}`] });
+    const { body: bb } = await req('POST', '/api/books', { title: `${stem}-B`, authors: [`Meta Fill ${stem}`] });
+    const survivorId = ba.authors[0].id;
+    const loserId = bb.authors[0].id;
+    try {
+      await req('PATCH', `/api/authors/${survivorId}`, { bio: 'Survivor bio.' });
+      await req('PATCH', `/api/authors/${loserId}`, {
+        bio: 'Loser bio.', gender: 'female', birth_date: '1920-05-02', loved: true,
+      });
+      const { body: merged } = await req('POST', `/api/authors/${survivorId}/merge`, { other_id: loserId });
+      assert.equal(merged.bio, 'Survivor bio.', 'existing bio wins');
+      assert.equal(merged.gender, 'female', 'blank gender filled from loser');
+      assert.equal(merged.birth_date, '1920-05-02', 'blank birth_date filled from loser');
+      assert.equal(merged.loved, 1, 'loved is OR-merged');
+    } finally {
+      await req('DELETE', `/api/books/${ba.id}`);
+      await req('DELETE', `/api/books/${bb.id}`);
+    }
+  });
+
+  it('moves story-level credits to the survivor', async () => {
+    const stem = 'mrg' + Math.random().toString(36).slice(2, 6);
+    const { body: anth } = await req('POST', '/api/books', { title: `${stem}-Anthology` });
+    const { body: bb }   = await req('POST', '/api/books', { title: `${stem}-B`, authors: [`Story Surv ${stem}`] });
+    try {
+      const { body: story } = await req('POST', `/api/books/${anth.id}/stories`, {
+        title: 'The Duplicated Tale', authors: [`Story Loser ${stem}`],
+      });
+      const loserId = story.authors[0].id;
+      const survivorId = bb.authors[0].id;
+      await req('POST', `/api/authors/${survivorId}/merge`, { other_id: loserId });
+      const { body: detail } = await req('GET', `/api/authors/${survivorId}`);
+      assert.deepEqual(detail.stories.map(s => s.story_title), ['The Duplicated Tale']);
+    } finally {
+      await req('DELETE', `/api/books/${anth.id}`);
+      await req('DELETE', `/api/books/${bb.id}`);
+    }
+  });
+
+  it('survivor inherits the loser alias-group membership', async () => {
+    const stem = 'mrg' + Math.random().toString(36).slice(2, 6);
+    const { body: ba } = await req('POST', '/api/books', { title: `${stem}-A`, authors: [`Alias Surv ${stem}`] });
+    const { body: bb } = await req('POST', '/api/books', { title: `${stem}-B`, authors: [`Alias Loser ${stem}`] });
+    const { body: bc } = await req('POST', '/api/books', { title: `${stem}-C`, authors: [`Pen Name ${stem}`] });
+    const survivorId = ba.authors[0].id;
+    const loserId = bb.authors[0].id;
+    const penId = bc.authors[0].id;
+    try {
+      await req('POST', `/api/authors/${loserId}/alias-link`, { other_id: penId });
+      await req('POST', `/api/authors/${survivorId}/merge`, { other_id: loserId });
+      const { body: detail } = await req('GET', `/api/authors/${survivorId}`);
+      assert.deepEqual(detail.aliases.map(a => a.id), [penId], 'survivor sees the pen name as alias');
+    } finally {
+      await req('DELETE', `/api/books/${ba.id}`);
+      await req('DELETE', `/api/books/${bb.id}`);
+      await req('DELETE', `/api/books/${bc.id}`);
+    }
+  });
+
+  it('rejects self-merge and unknown ids', async () => {
+    const stem = 'mrg' + Math.random().toString(36).slice(2, 6);
+    const { body: ba } = await req('POST', '/api/books', { title: `${stem}-A`, authors: [`Solo ${stem}`] });
+    const id = ba.authors[0].id;
+    try {
+      const self = await req('POST', `/api/authors/${id}/merge`, { other_id: id });
+      assert.equal(self.status, 400);
+      const missing = await req('POST', `/api/authors/${id}/merge`, { other_id: 999999 });
+      assert.equal(missing.status, 404);
+      const badId = await req('POST', '/api/authors/abc/merge', { other_id: id });
+      assert.equal(badId.status, 400);
+    } finally {
+      await req('DELETE', `/api/books/${ba.id}`);
+    }
+  });
+});
