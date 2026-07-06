@@ -6169,6 +6169,60 @@ describe('books', () => {
     });
   });
 
+  describe('article-tolerant search', () => {
+    // Titles live in the library both with and without leading articles
+    // ("Odyssey" vs "The Odyssey"). Bare article terms are dropped at
+    // tokenize time so they can't AND-out the article-less variant, and
+    // phrase / title-qualifier literals get an article-stripped title
+    // match so quoted searches cross the divide too.
+
+    async function search(q) {
+      const { body } = await req('GET', `/api/books?q=${encodeURIComponent(q)}&limit=200`);
+      return new Set(body.books.map(b => b.id));
+    }
+
+    it('bare "The X" matches a record titled "X"', async () => {
+      const stem = 'art' + Math.random().toString(36).slice(2, 8);
+      const { body: bare } = await req('POST', '/api/books', { title: `${stem} Voyage` });
+      const ids = await search(`The ${stem} Voyage`);
+      assert.ok(ids.has(bare.id));
+    });
+
+    it('phrase "The X" and title:"The X" match a record titled "X"', async () => {
+      const stem = 'artp' + Math.random().toString(36).slice(2, 8);
+      const { body: bare } = await req('POST', '/api/books', { title: `${stem} Voyage` });
+      const phrase = await search(`"The ${stem} Voyage"`);
+      assert.ok(phrase.has(bare.id));
+      const qualified = await search(`title:"The ${stem} Voyage"`);
+      assert.ok(qualified.has(bare.id));
+    });
+
+    it('article-carrying stored title still matches both query forms', async () => {
+      const stem = 'artc' + Math.random().toString(36).slice(2, 8);
+      const { body: titled } = await req('POST', '/api/books', { title: `The ${stem} Voyage` });
+      const withArticle = await search(`The ${stem} Voyage`);
+      assert.ok(withArticle.has(titled.id));
+      const withoutArticle = await search(`${stem} Voyage`);
+      assert.ok(withoutArticle.has(titled.id));
+      const phrase = await search(`"The ${stem} Voyage"`);
+      assert.ok(phrase.has(titled.id));
+    });
+
+    it('a / an are dropped like the', async () => {
+      const stem = 'arta' + Math.random().toString(36).slice(2, 8);
+      const { body: bare } = await req('POST', '/api/books', { title: `${stem} Parable` });
+      const a = await search(`A ${stem} Parable`);
+      assert.ok(a.has(bare.id));
+      const an = await search(`An ${stem} Parable`);
+      assert.ok(an.has(bare.id));
+    });
+
+    it('article-only query degrades to unfiltered rather than erroring', async () => {
+      const { status } = await fetch(`${url}/api/books?q=the&limit=1`).then(r => ({ status: r.status }));
+      assert.equal(status, 200);
+    });
+  });
+
   describe('search qualifiers', () => {
     // `qualifier:value` pins a search atom to a single surface (title /
     // series / tag / author / narrator / translator / publisher) instead
