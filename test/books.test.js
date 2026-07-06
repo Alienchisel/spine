@@ -1421,18 +1421,59 @@ describe('books', () => {
     });
 
     it('PATCH status to finished a second time bumps read_count and inserts another reads row', async () => {
-      // The N>=2 path: a re-read PATCH ('reading' → 'finished') bumps
-      // again and logs another reads row. Catches a bug where
-      // isFinishTransition only fired on the first finish.
+      // The N>=2 path: a re-read PATCH ('reading' → 'finished') with a
+      // NEW finish date bumps again and logs another reads row. Catches
+      // a bug where isFinishTransition only fired on the first finish.
+      // Distinct dates matter — an identical completion is deliberately
+      // collapsed by the duplicate guard (next test).
       const { body: created } = await req('POST', '/api/books', {
         title: 'Zzz Status ReRead', authors: ['Z status_reread'],
       });
-      await req('PATCH', `/api/books/${created.id}`, { status: 'finished' });
+      await req('PATCH', `/api/books/${created.id}`, { status: 'finished', date_finished: '2023-05-01' });
       await req('PATCH', `/api/books/${created.id}`, { status: 'reading' });
-      const { body: refinished } = await req('PATCH', `/api/books/${created.id}`, { status: 'finished' });
+      const { body: refinished } = await req('PATCH', `/api/books/${created.id}`, { status: 'finished', date_finished: '2024-06-01' });
       assert.equal(refinished.read_count, 2);
       const { body: reads } = await req('GET', `/api/books/${created.id}/reads`);
       assert.equal(reads.length, 2);
+    });
+
+    it('PATCH re-finish with identical dates collapses to one reads row and no double bump', async () => {
+      // Idempotency guard: flipping finished → unread → finished on the
+      // same day with no new dates records the SAME completion, so the
+      // cascade must not stack a second identical reads row or push
+      // read_count to 2 (the #491 Agamemnon shape from the Goodreads
+      // backfill).
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Zzz Status Refinish Dup', authors: ['Z status_refinish_dup'],
+      });
+      await req('PATCH', `/api/books/${created.id}`, { status: 'finished' });
+      await req('PATCH', `/api/books/${created.id}`, { status: 'unread' });
+      const { body: refinished } = await req('PATCH', `/api/books/${created.id}`, { status: 'finished' });
+      assert.equal(refinished.read_count, 1, 'identical completion must not double-bump');
+      const { body: reads } = await req('GET', `/api/books/${created.id}/reads`);
+      assert.equal(reads.length, 1, 'identical completion must not stack a second reads row');
+    });
+
+    it('PATCH finish over a pre-logged identical read keeps one row and sets read_count to 1', async () => {
+      // The #491 shape: a reads row was POSTed first (backfill), then the
+      // book is flipped to finished with the same dates. The cascade must
+      // recognise the completion is already logged — no duplicate row —
+      // but still lift read_count from 0 to 1 (Math.max path, not a
+      // blind skip).
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Zzz Prelogged Finish', authors: ['Z prelogged_finish'],
+      });
+      await req('POST', `/api/books/${created.id}/reads`, {
+        date_started: '2019-09-15', date_finished: '2019-09-28',
+      });
+      const { body: finished } = await req('PATCH', `/api/books/${created.id}`, {
+        status: 'finished', date_finished: '2019-09-28',
+      });
+      assert.equal(finished.read_count, 1);
+      const { body: reads } = await req('GET', `/api/books/${created.id}/reads`);
+      assert.equal(reads.length, 1);
+      assert.equal(reads[0].date_started, '2019-09-15');
+      assert.equal(reads[0].date_finished, '2019-09-28');
     });
 
     it('PATCH rejects invalid status', async () => {
@@ -1877,6 +1918,36 @@ describe('books', () => {
       assert.equal(status, 201);
       assert.equal(body.date_started, '2024-02-01');
       assert.equal(body.date_finished, null);
+    });
+
+    it('POST with identical dates returns the existing row with 200, not a duplicate', async () => {
+      // The endpoint's idempotency guard: re-running a backfill script
+      // must not stack identical reads rows (2026-06-23 incident: 3
+      // duplicate pairs from a re-run).
+      const { body: first } = await req('POST', `/api/books/${bookId}/reads`, {
+        date_started: '2022-07-01', date_finished: '2022-07-20',
+      });
+      const { body: before } = await req('GET', `/api/books/${bookId}/reads`);
+      const { status, body: second } = await req('POST', `/api/books/${bookId}/reads`, {
+        date_started: '2022-07-01', date_finished: '2022-07-20',
+      });
+      assert.equal(status, 200, 'duplicate should return 200, not 201');
+      assert.equal(second.id, first.id, 'should return the existing row');
+      const { body: after } = await req('GET', `/api/books/${bookId}/reads`);
+      assert.equal(after.length, before.length, 'no new row for a duplicate');
+    });
+
+    it('POST with allow_duplicate bypasses the guard and creates a second row', async () => {
+      // Two genuinely separate undated re-listens are legitimate
+      // (Altered Carbon shape) — allow_duplicate opts out of the guard.
+      const { body: first } = await req('POST', `/api/books/${bookId}/reads`, {
+        date_started: '2021-04-01', date_finished: '2021-04-10',
+      });
+      const { status, body: second } = await req('POST', `/api/books/${bookId}/reads`, {
+        date_started: '2021-04-01', date_finished: '2021-04-10', allow_duplicate: true,
+      });
+      assert.equal(status, 201);
+      assert.notEqual(second.id, first.id);
     });
 
     it('rejects date_finished before date_started on POST', async () => {

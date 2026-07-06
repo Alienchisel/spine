@@ -1,7 +1,7 @@
 import express from 'express';
 import db from '../db.js';
 import { validateBook, isValidDate, isValidPartialDate, partialDateBefore } from '../lib/books/validation.js';
-import { getBook, getBookCounts, getBookFacets, listBooks, createBook, updateBook, patchBook, deleteBook, updateBookCover, linkEditions, unlinkEdition } from '../lib/books/repository.js';
+import { getBook, getBookCounts, getBookFacets, listBooks, createBook, updateBook, patchBook, deleteBook, updateBookCover, linkEditions, unlinkEdition, findDuplicateRead } from '../lib/books/repository.js';
 import { syncStoryAuthors, pruneOrphanPeople } from '../lib/books/people.js';
 import { buildFilterConditions } from '../lib/books/filters.js';
 import { ENUM_VALUES } from '../shared/bookFields.js';
@@ -94,6 +94,13 @@ router.post('/:id/reads', (req, res) => {
   if (date_finished && !isValidPartialDate(date_finished)) return res.status(400).json({ error: 'Invalid date_finished' });
   if (date_started && date_finished && partialDateBefore(date_finished, date_started)) return res.status(400).json({ error: 'date_finished cannot be before date_started' });
   const dnf = did_not_finish ? 1 : 0;
+  // Idempotency guard: an identical completion (same dates, NULL-safe)
+  // returns the existing row with 200 instead of stacking a duplicate.
+  // Deliberate duplicates (two undated re-listens) pass allow_duplicate.
+  if (!req.body.allow_duplicate) {
+    const dup = findDuplicateRead(id, date_started || null, date_finished || null, dnf);
+    if (dup) return res.status(200).json(dup);
+  }
   const result = db.prepare("INSERT INTO reads (book_id, date_started, date_finished, did_not_finish, created_at) VALUES (?, ?, ?, ?, datetime('now', 'localtime'))")
     .run(id, date_started || null, date_finished || null, dnf);
   res.status(201).json(db.prepare('SELECT * FROM reads WHERE id = ?').get(result.lastInsertRowid));
@@ -232,7 +239,10 @@ function maybeAutoRollParent(book_id) {
   `).get(book_id);
   if (!c.total || c.total !== c.accounted) return false;
   // Phase 3: books.date_finished is gone — the finish date lives only
-  // on the reads row inserted just below.
+  // on the reads row inserted just below. No duplicate guard here: the
+  // roll early-returns when the parent is already finished, so it can
+  // only re-fire after a deliberate parent revert + story re-finish —
+  // a genuine re-read, even same-day.
   db.prepare(`
     UPDATE books
        SET status        = 'finished',
