@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
+import Markdown, { spineUrlTransform } from './Markdown.jsx';
 import { api } from '../api.js';
 import { initialsFor } from '../utils.js';
 import BookRef from './bookDetail/BookRef.jsx';
@@ -249,7 +249,7 @@ function CardBody({ card }) {
 // archive list below today's card on /today.
 export function ConnectionBody({ body }) {
   const md = useMemo(() => ({
-    urlTransform: (url) => url.startsWith('spine-book:') ? url : defaultUrlTransform(url),
+    urlTransform: spineUrlTransform,
     components: {
       a: ({ href, children, node: _node, ...props }) => {
         if (href?.startsWith('spine-book:')) {
@@ -265,7 +265,7 @@ export function ConnectionBody({ body }) {
       strong: ({ children }) => <strong className="text-parchment">{children}</strong>,
     },
   }), []);
-  return <ReactMarkdown {...md}>{body}</ReactMarkdown>;
+  return <Markdown {...md}>{body}</Markdown>;
 }
 
 // Exported so PastConnections can re-grade archived rows without

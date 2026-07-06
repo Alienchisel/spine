@@ -35,13 +35,6 @@ Amazon CSV scripts in `scripts/` — this is user-facing interop and
 "get my data out" insurance.
 
 
-### Client bundle code-splitting
-Every build warns about a >500 kB main chunk (~619 kB minified).
-Routes are already lazy; the win is carving vendor weight (recharts
-is the likely bulk) out of the index chunk via manualChunks or
-narrower imports. Pure cold-load perf — nothing user-visible beyond
-first paint.
-
 ### Docker / docker-compose
 Containerize Spine for a reliable "works on any box" install. Would
 eliminate native-module build pain (better-sqlite3) and make setup
@@ -58,6 +51,20 @@ Motion-based affordances stay out. The cover-first grid recipe
 any new card surface.
 
 ## Done
+
+### Client bundle code-splitting — shipped 1.262.0 (2026-07-06)
+The >500 kB warning wasn't recharts (that was already isolated in the
+lazy Stats chunk, misleadingly named `index-*.js` after
+`Stats/index.jsx`); the entry bulk was react-markdown's
+micromark/remark tree, pulled in eagerly via BookDetail. Fixes:
+`components/Markdown.jsx` lazy-loads react-markdown (exports
+`spineUrlTransform` for the spine-book: scheme; BookDetail, TodayCard,
+ListDetail migrated), and `manualChunks` in vite.config.js pins
+react/react-dom/scheduler/react-router/@tanstack into a cache-stable
+`vendor` chunk (deliberately no node_modules catch-all — that would
+drag lazy-only libs back onto the cold path). Entry went 619 kB →
+254 kB app + 248 kB vendor; markdown stack (118 kB) loads on first
+markdown render; warning cleared.
 
 ### Duplicate / edition sweep as an Audit Wizard mode — shipped 1.261.0 (2026-07-06)
 `GET /api/books/duplicate-clusters` buckets books by article-stripped

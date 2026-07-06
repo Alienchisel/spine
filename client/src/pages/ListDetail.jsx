@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import ReactMarkdown from 'react-markdown';
+import Markdown from '../components/Markdown.jsx';
 import { submitOnModEnter } from '../components/bookForm/styles.js';
 import { primaryButton } from '../components/buttonStyles.js';
 import { MOD_KEY, FORMAT_LABEL } from '../utils.js';
@@ -789,7 +789,7 @@ export default function ListDetail() {
           title="Click to edit"
           onClick={() => { setDescError(null); setDescValue(list.description || ''); setEditingDesc(true); }}
         >
-          <ReactMarkdown>{list.description}</ReactMarkdown>
+          <Markdown>{list.description}</Markdown>
         </div>
       ) : (
         <button

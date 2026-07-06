@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
-import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
+import Markdown, { spineUrlTransform } from '../components/Markdown.jsx';
 import { api } from '../api.js';
 import StarRating from '../components/StarRating.jsx';
 import ListPicker from '../components/ListPicker.jsx';
@@ -600,12 +600,10 @@ export default function BookDetail() {
   // to `spine-book:NNN` (inserted by the @ picker as
   // `[#NNN](spine-book:NNN)`) get swapped for a BookRef that resolves
   // the current title; real http(s) markdown links pass through
-  // untouched. The custom urlTransform is required because
-  // react-markdown's default sanitiser strips any scheme outside the
-  // http(s)/mailto/xmpp/irc(s) allow-list, which would leave an empty
-  // href that reloads the page on click.
+  // untouched (why the scheme needs spineUrlTransform is documented in
+  // components/Markdown.jsx).
   const proseMarkdown = useMemo(() => ({
-    urlTransform: (url) => url.startsWith('spine-book:') ? url : defaultUrlTransform(url),
+    urlTransform: spineUrlTransform,
     components: {
       a: ({ href, children, node: _node, ...props }) => {
         if (href?.startsWith('spine-book:')) {
@@ -1050,7 +1048,7 @@ export default function BookDetail() {
               <div ref={descRef} className={`text-neutral-400 text-sm leading-relaxed prose-sm prose-invert prose-neutral max-w-none
                 [&_strong]:text-neutral-300 [&_em]:text-neutral-400 [&_p]:mb-2 [&_p:last-child]:mb-0
                 ${!descExpanded ? 'line-clamp-4' : ''}`}>
-                <ReactMarkdown {...proseMarkdown}>{book.description}</ReactMarkdown>
+                <Markdown {...proseMarkdown}>{book.description}</Markdown>
               </div>
               {descOverflows && (
                 <button
@@ -1180,7 +1178,7 @@ export default function BookDetail() {
               <p className="font-slab text-xs text-neutral-500 uppercase tracking-wider mb-3">Review</p>
               <div className="text-neutral-300 text-sm leading-relaxed prose-sm prose-invert prose-neutral max-w-none
                 [&_strong]:text-neutral-200 [&_em]:text-neutral-400 [&_p]:mb-2 [&_p:last-child]:mb-0">
-                <ReactMarkdown {...proseMarkdown}>{book.review}</ReactMarkdown>
+                <Markdown {...proseMarkdown}>{book.review}</Markdown>
               </div>
             </div>
           )}
@@ -1190,7 +1188,7 @@ export default function BookDetail() {
               <p className="font-slab text-xs text-neutral-500 uppercase tracking-wider mb-3">Notes</p>
               <div className="text-neutral-400 text-sm leading-relaxed prose-sm prose-invert prose-neutral max-w-none
                 [&_strong]:text-neutral-300 [&_em]:text-neutral-400 [&_p]:mb-2 [&_p:last-child]:mb-0">
-                <ReactMarkdown {...proseMarkdown}>{book.notes}</ReactMarkdown>
+                <Markdown {...proseMarkdown}>{book.notes}</Markdown>
               </div>
             </div>
           )}
