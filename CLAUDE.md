@@ -314,10 +314,15 @@ FROM books b WHERE b.archived = 0
 ORDER BY lower(b.title), b.id;
 ```
 
-Group rows in app code, link via the API. Sweep performed 2026-06-20
-brought the linkage count from 7 groups to 64; subsequent ingests
-should keep editions linked at the moment of ingest rather than
-collecting another backlog.
+Group rows in app code, link via the API. **Normalise leading
+articles when clustering** — strip `^(the|a|an)\s+` from the lowered
+title before grouping. "Odyssey" vs "The Odyssey" evaded the
+exact-title match and left the same work split across two work groups
+until the 2026-07-05 sweep caught it.
+
+Sweep performed 2026-06-20 brought the linkage count from 7 groups to
+64; subsequent ingests should keep editions linked at the moment of
+ingest rather than collecting another backlog.
 
 ### Merging duplicate book records
 

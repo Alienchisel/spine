@@ -39,7 +39,9 @@ The duplicate-cluster scan in CLAUDE.md (same title + author across
 records) is "run periodically" with no trigger — a remembered chore.
 Turn it into an Audit Wizard mode: surface candidate clusters, offer
 work-link (alternate edition) or merge-and-delete (true duplicate)
-per cluster, following the merge conventions in CLAUDE.md.
+per cluster, following the merge conventions in CLAUDE.md. Matching
+must normalise leading articles ("Odyssey" vs "The Odyssey" split one
+work across two work groups until the 2026-07-05 sweep).
 
 ### Client bundle code-splitting
 Every build warns about a >500 kB main chunk (~619 kB minified).
