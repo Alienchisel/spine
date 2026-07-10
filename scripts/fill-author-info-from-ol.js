@@ -1,38 +1,42 @@
-// One-off: walk every Spine author missing birth_date OR death_date,
-// look them up on Open Library, and PATCH back whichever of the two
-// dates is unquestionable. "Unquestionable" here means we confirm
-// author *identity*, not just name — a match on name alone would
-// happily attach Joseph Goodman (b. 1918) to the modern RPG publisher.
+// One-off: walk every Spine author missing birth_date, death_date, OR
+// bio, look them up on Open Library, and PATCH back whichever fields
+// come back reliable. "Reliable" means we confirm author *identity*,
+// not just name — a match on name alone would happily attach Joseph
+// Goodman (b. 1918) to the modern RPG publisher.
 //
 //   1. OL's top-8 search hits must contain at least one entry whose
 //      display name is an EXACT case-insensitive match for the Spine
 //      author.
 //   2. That candidate's `top_work` must match (case-insensitive,
-//      leading-article normalised) one of the book titles Spine has
-//      byline-linked to this author. This is the identity check —
-//      if OL's top-ranked work for this candidate is one of ours,
-//      it's the same person.
-//   3. We only touch fields that are currently NULL. birth_date/
-//      death_date already filled are left alone (COALESCE-style).
-//   4. Bio, photo, and ol_key are never written — the user picks
-//      photos manually and keeps bio curation under the /:id/refresh
-//      flow.
+//      leading-article + subtitle normalised) one of the book titles
+//      Spine has byline-linked to this author. This is the identity
+//      check — if OL's top-ranked work for this candidate is one of
+//      ours, it's the same person.
+//   3. We only touch fields that are currently NULL. birth_date /
+//      death_date / bio already filled are left alone (COALESCE-style).
+//   4. Photos and ol_key are never written — the user picks photos
+//      manually, and skipping ol_key keeps future manual /refresh
+//      runs decoupled from whatever this script guessed.
+//   5. Bios shorter than the MIN_BIO_CHARS floor are skipped as
+//      not-worth-the-noise (OL is full of "American writer." stubs);
+//      the user can hand-curate to a proper 60–150-word bio later.
+//     Date sanity: OL bare-year death_date within 3 years of today
+//      reads as unverified vandalism (Dan Simmons's OL record hit
+//      d='2026' on the 2026-07-09 date-fill run despite being alive).
+//      Skip that shape; the user can apply it by hand if it's real.
 //
 // Run with `--apply` to write; without it, prints a dry-run plan.
 // Polite 800ms delay between OL requests.
 //
-// Uses lib/authors/openLibrary.js helpers so the date-parsing quirks
-// (BCE years, "July 18, 1938", "1938-07-18", etc.) stay consistent
-// with the existing refresh path.
+// Uses lib/authors/openLibrary.js helpers so the date-parsing and
+// bio-normalisation quirks stay consistent with the interactive
+// /authors/:id/refresh path.
 
 import db from '../db.js';
 import { searchAuthorsMulti, fetchAuthorDetails } from '../lib/authors/openLibrary.js';
 
-// Title normaliser for the identity cross-reference. Strips a leading
-// article (dup-sweep convention), and lops off a subtitle after ": "
-// or " - " so "Whole Earth Discipline" and OL's "Whole earth
-// discipline: an ecopragmatist manifesto" collide. Lowercases and
-// collapses whitespace.
+const MIN_BIO_CHARS = 100;
+
 function normTitle(s) {
   return String(s || '')
     .toLowerCase()
@@ -57,9 +61,13 @@ function pickExactMatches(candidates, name) {
 }
 
 const rows = db.prepare(`
-  SELECT id, name, birth_date, death_date, ol_key
+  SELECT id, name, birth_date, death_date, bio, ol_key
   FROM authors
-  WHERE (birth_date IS NULL OR birth_date = '' OR death_date IS NULL OR death_date = '')
+  WHERE (
+       birth_date IS NULL OR birth_date = ''
+    OR death_date IS NULL OR death_date = ''
+    OR bio        IS NULL OR bio        = ''
+  )
     AND (ol_key IS NULL OR ol_key = '')
   ORDER BY id
 `).all();
@@ -82,7 +90,7 @@ const titlesByAuthor = new Map();
   }
 }
 
-console.log(`${rows.length} authors missing at least one date (no prior OL fetch)`);
+console.log(`${rows.length} authors missing at least one of {birth_date, death_date, bio} (no prior OL fetch)`);
 console.log(APPLY ? 'Mode: APPLY (writing changes)' : 'Mode: dry-run (re-run with --apply to write)');
 if (Number.isFinite(LIMIT)) console.log(`Limit: first ${LIMIT}`);
 console.log('');
@@ -102,9 +110,6 @@ for (const author of rows) {
       await sleep(800);
       continue;
     }
-    // Identity check: OL exact-name matches with the wrong person are
-    // common for common names. Require the candidate's `top_work` to
-    // match a Spine book title we've byline-linked to this author.
     const spineTitles = titlesByAuthor.get(author.id) || new Set();
     const confirmed = exact.filter(c => c.top_work && spineTitles.has(normTitle(c.top_work)));
     if (confirmed.length === 0) {
@@ -114,35 +119,32 @@ for (const author of rows) {
       await sleep(800);
       continue;
     }
-    // Prefer the confirmed candidate with the fullest date pair.
     const pick = confirmed.find(e => e.birth_date && e.death_date)
               || confirmed.find(e => e.birth_date)
               || confirmed[0];
-    // Fetch the detail record — dates on the search endpoint are
-    // sometimes stringy ("15 April 1930") vs the /authors/OLxxA.json
-    // canonical shape. openLibrary.parseDate normalises both.
     const details = await fetchAuthorDetails(pick.ol_key);
     const body = {};
     if (!author.birth_date && details.birth_date) body.birth_date = details.birth_date;
     if (!author.death_date && details.death_date) {
-      // Guard against OL vandalism / unverified recent deaths: a
-      // bare-year death_date within the last 3 years is exactly the
-      // shape "someone edited '2026' with no source" takes. Dan
-      // Simmons's OL record returned death_date '2026' during the
-      // 2026-07-09 dry run despite being alive; skip and let the
-      // user apply it manually if it's real.
       const y = details.death_date.match(/^(\d{4})$/);
       const currentYear = new Date().getFullYear();
       if (y && currentYear - Number(y[1]) < 3) {
         console.log(`  ?? ${author.name}  (OL ${pick.ol_key}) death_date='${details.death_date}' looks unverified — skipping`);
-        skippedNoData++;
-        await sleep(800);
-        continue;
+      } else {
+        body.death_date = details.death_date;
       }
-      body.death_date = details.death_date;
     }
-    if (!body.birth_date && !body.death_date) {
-      console.log(`  -- ${author.name}  (OL match ${pick.ol_key} has no new dates)`);
+    if (!author.bio && details.bio) {
+      if (details.bio.length >= MIN_BIO_CHARS) {
+        body.bio = details.bio;
+      } else {
+        // Log short-bio skip inline so the user can eyeball the sub-100-char
+        // stubs and decide whether any are worth writing by hand.
+        console.log(`  .. ${author.name}  (OL ${pick.ol_key}) bio ${details.bio.length}<${MIN_BIO_CHARS} chars: "${details.bio.slice(0, 80)}"`);
+      }
+    }
+    if (Object.keys(body).length === 0) {
+      console.log(`  -- ${author.name}  (OL match ${pick.ol_key} has no new usable data)`);
       skippedNoData++;
       await sleep(800);
       continue;
@@ -150,6 +152,7 @@ for (const author of rows) {
     const tag = [
       body.birth_date ? `b=${body.birth_date}` : null,
       body.death_date ? `d=${body.death_date}` : null,
+      body.bio        ? `bio=${body.bio.length}c` : null,
     ].filter(Boolean).join(' ');
     if (APPLY) {
       const res = await fetch(`http://localhost:${PORT}/api/authors/${author.id}`, {
