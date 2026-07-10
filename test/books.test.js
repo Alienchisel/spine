@@ -6489,6 +6489,25 @@ describe('books', () => {
         await mkBook({ title: 'Shared Title Solo', authors: ['Dupauthor Delta'] });
         assert.equal(await clusterWith(a.id), null);
       });
+
+      it('folds diacritics and ligatures the same way the search layer does', async () => {
+        // Without nrm() applied to cluster keys, "Thermæ" and "Thermae"
+        // hashed to different buckets and split editions of the same work.
+        const a = await mkBook({ title: 'Cluster Thermæ Rōmæ', authors: ['Dupauthor Ligature'] });
+        const b = await mkBook({ title: 'Cluster Thermae Romae', authors: ['Dupauthor Ligature'] });
+        const cluster = await clusterWith(a.id);
+        assert.ok(cluster, 'ligature and diacritic variants must share one cluster');
+        assert.ok(cluster.members.some(m => m.id === b.id));
+      });
+
+      it('excludes archived books from clustering (no forever-stuck rows)', async () => {
+        const a = await mkBook({ title: 'Cluster Archived Pair', authors: ['Dupauthor Attic'] });
+        const b = await mkBook({ title: 'Cluster Archived Pair', authors: ['Dupauthor Attic'] });
+        await req('PATCH', `/api/books/${a.id}`, { archived: true });
+        await req('PATCH', `/api/books/${b.id}`, { archived: true });
+        assert.equal(await clusterWith(a.id), null,
+          'two archived duplicates should not appear as an unresolved cluster');
+      });
     });
 
     describe('POST /api/books/:id/merge', () => {
@@ -6576,6 +6595,45 @@ describe('books', () => {
         const { body } = await req('POST', `/api/books/${s.id}/merge`, { other_id: l.id });
         assert.equal(body.status, 'reading');
         assert.equal(body.archived, 0);
+      });
+
+      it('rewrites spine-book: refs on OTHER books to point at the survivor', async () => {
+        // The @ picker inserts `[#N](spine-book:N)` refs into
+        // description/notes/review. Post-merge, refs to the loser turn
+        // into dead links because the loser row is deleted.
+        const s = await mkBook({ title: 'Merge Ref Survivor' });
+        const l = await mkBook({ title: 'Merge Ref Survivor' });
+        const witness = await mkBook({
+          title: 'Merge Ref Witness',
+          description: `See [#${l.id}](spine-book:${l.id}) for context.`,
+          notes: `[#${l.id}](spine-book:${l.id})`,
+          review: `Related: [#${l.id}](spine-book:${l.id}).`,
+        });
+        await req('POST', `/api/books/${s.id}/merge`, { other_id: l.id });
+        const { body: after } = await req('GET', `/api/books/${witness.id}`);
+        assert.ok(after.description.includes(`spine-book:${s.id})`), 'description URL rewritten');
+        assert.ok(after.description.includes(`[#${s.id}]`),             'description label rewritten');
+        assert.ok(!after.description.includes(`spine-book:${l.id})`),   'no dangling loser URL');
+        assert.ok(after.notes.includes(`spine-book:${s.id})`),          'notes URL rewritten');
+        assert.ok(after.review.includes(`spine-book:${s.id})`),         'review URL rewritten');
+      });
+
+      it('sums read_count across sides minus dedup (not Math.max)', async () => {
+        // Survivor had 1 finish, loser had 2 non-overlapping finishes → 3
+        // total. Previous Math.max(1, 2) = 2 silently lost one completion.
+        // Use the finish-cascade (PATCH status=finished with a date) to
+        // bump read_count naturally — POST /reads is a raw insert that
+        // doesn't touch the counter.
+        const s = await mkBook({ title: 'Merge Read Count' });
+        const l = await mkBook({ title: 'Merge Read Count' });
+        await req('PATCH', `/api/books/${s.id}`, { status: 'finished', date_finished: '2020-01-01' });
+        await req('PATCH', `/api/books/${l.id}`, { status: 'finished', date_finished: '2021-06-06' });
+        await req('PATCH', `/api/books/${l.id}`, { status: 'unread' });
+        await req('PATCH', `/api/books/${l.id}`, { status: 'finished', date_finished: '2022-07-07' });
+        const { body } = await req('POST', `/api/books/${s.id}/merge`, { other_id: l.id });
+        assert.equal(body.read_count, 3, 'read_count is s + l − dedup, not max');
+        const { body: reads } = await req('GET', `/api/books/${s.id}/reads`);
+        assert.equal(reads.length, 3, 'reads rowcount matches read_count');
       });
 
       it('rejects merging a book into itself', async () => {

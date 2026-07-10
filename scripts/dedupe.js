@@ -15,15 +15,16 @@
 // IDs / strings — the operator chooses which row wins. Always
 // snapshots first (backups/spine-pre-dedup-<label>-<ts>.db).
 
-import Database from 'better-sqlite3';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import readline from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import fs from 'fs';
+import db from '../db.js';
+import { mergeAuthors } from '../lib/books/people.js';
+import { deleteAuthorPhoto } from '../lib/authors/photos.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dbPath = process.env.DB_PATH || path.join(__dirname, '..', 'spine.db');
 
 const PARTICLES = new Set([
   'de', 'von', 'van', 'der', 'le', 'la', 'du', 'di', 'da', 'del', 'della',
@@ -86,9 +87,6 @@ async function confirm(msg, autoYes) {
   rl.close();
   return answer === 'y' || answer === 'yes';
 }
-
-const db = new Database(dbPath);
-db.pragma('foreign_keys = ON');
 
 function scanAuthors() {
   const rows = db.prepare(`
@@ -225,6 +223,12 @@ function scanPublishers() {
   console.log('Rename with:  node scripts/dedupe.js rename-publisher "<old>" "<new>"');
 }
 
+// Author merge delegates to lib/books/people.js#mergeAuthors — the same
+// transaction the POST /api/authors/:id/merge endpoint uses. Previously
+// the CLI reimplemented the merge and drifted from the canonical logic
+// (missed story_authors → silent story-credit loss on delete-cascade,
+// missed bio_fetched_at / default_sort / showcase_position / OR-merged
+// loved, missed alias-group dissolution, orphaned photo files on disk).
 async function mergeAuthor(keepIdStr, dropIdStr, autoYes) {
   const keepId = parseInt(keepIdStr, 10);
   const dropId = parseInt(dropIdStr, 10);
@@ -241,28 +245,42 @@ async function mergeAuthor(keepIdStr, dropIdStr, autoYes) {
     process.exit(1);
   }
 
-  const keepBooks = db.prepare('SELECT book_id, position FROM book_authors WHERE author_id = ?').all(keepId);
-  const dropBooks = db.prepare('SELECT book_id, position FROM book_authors WHERE author_id = ?').all(dropId);
-  const keepBookIds = new Set(keepBooks.map(b => b.book_id));
-  const overlap = dropBooks.filter(b => keepBookIds.has(b.book_id));
-  const exclusive = dropBooks.filter(b => !keepBookIds.has(b.book_id));
+  const keepBooks = db.prepare('SELECT COUNT(*) AS n FROM book_authors WHERE author_id = ?').get(keepId).n;
+  const dropBooks = db.prepare('SELECT COUNT(*) AS n FROM book_authors WHERE author_id = ?').get(dropId).n;
+  const keepStories = db.prepare('SELECT COUNT(*) AS n FROM story_authors WHERE author_id = ?').get(keepId).n;
+  const dropStories = db.prepare('SELECT COUNT(*) AS n FROM story_authors WHERE author_id = ?').get(dropId).n;
+  const bookOverlap = db.prepare(`
+    SELECT COUNT(*) AS n FROM book_authors
+    WHERE author_id = ? AND book_id IN (SELECT book_id FROM book_authors WHERE author_id = ?)
+  `).get(dropId, keepId).n;
+  const storyOverlap = db.prepare(`
+    SELECT COUNT(*) AS n FROM story_authors
+    WHERE author_id = ? AND story_id IN (SELECT story_id FROM story_authors WHERE author_id = ?)
+  `).get(dropId, keepId).n;
 
-  const willCopy = [];
-  for (const f of ['bio', 'photo_path', 'birth_date', 'death_date', 'gender', 'ol_key']) {
-    if (!keep[f] && drop[f]) willCopy.push(f);
-  }
+  // mergeAuthors COALESCEs every metadata field survivor-first. Preview
+  // which of keep's blanks the drop will fill.
+  const FIELDS = ['bio', 'photo_path', 'birth_date', 'death_date', 'gender',
+                  'ol_key', 'bio_fetched_at', 'default_sort', 'showcase_position'];
+  const willFill = FIELDS.filter(f => (keep[f] == null || keep[f] === '') && drop[f] != null && drop[f] !== '');
+  const willLove = !keep.loved && drop.loved;
   const inheritAlias = drop.alias_group_id && !keep.alias_group_id;
+  const orphansPhoto = keep.photo_path && drop.photo_path && keep.photo_path !== drop.photo_path;
 
   console.log(`\nMerging two authors:`);
   console.log(`  KEEP  #${keep.id}  ${keep.name}`);
-  console.log(`        ${keepBooks.length} books · bio=${keep.bio ? 'Y' : '·'} · photo=${keep.photo_path ? 'Y' : '·'} · dates=${keep.birth_date || keep.death_date ? 'Y' : '·'}`);
+  console.log(`        ${keepBooks} books · ${keepStories} stories · bio=${keep.bio ? 'Y' : '·'} · photo=${keep.photo_path ? 'Y' : '·'} · dates=${keep.birth_date || keep.death_date ? 'Y' : '·'}`);
   console.log(`  DROP  #${drop.id}  ${drop.name}`);
-  console.log(`        ${dropBooks.length} books · bio=${drop.bio ? 'Y' : '·'} · photo=${drop.photo_path ? 'Y' : '·'} · dates=${drop.birth_date || drop.death_date ? 'Y' : '·'}`);
+  console.log(`        ${dropBooks} books · ${dropStories} stories · bio=${drop.bio ? 'Y' : '·'} · photo=${drop.photo_path ? 'Y' : '·'} · dates=${drop.birth_date || drop.death_date ? 'Y' : '·'}`);
   console.log(`\nPlan:`);
-  console.log(`  • re-attribute ${exclusive.length} book row(s) from drop → keep`);
-  if (overlap.length) console.log(`  • drop ${overlap.length} duplicate attribution row(s) (book already credits keep)`);
-  if (willCopy.length) console.log(`  • copy fields where keep is empty: ${willCopy.join(', ')}`);
+  console.log(`  • re-attribute ${dropBooks - bookOverlap} book row(s) from drop → keep`);
+  if (bookOverlap) console.log(`  • drop ${bookOverlap} duplicate book-attribution row(s) (book already credits keep)`);
+  if (dropStories) console.log(`  • re-attribute ${dropStories - storyOverlap} story row(s) from drop → keep`);
+  if (storyOverlap) console.log(`  • drop ${storyOverlap} duplicate story-attribution row(s) (story already credits keep)`);
+  if (willFill.length) console.log(`  • fill keep's blanks with drop's: ${willFill.join(', ')}`);
+  if (willLove)        console.log(`  • OR-merge loved onto keep`);
   if (inheritAlias)    console.log(`  • inherit alias_group_id=${drop.alias_group_id} onto keep`);
+  if (orphansPhoto)    console.log(`  • delete drop's orphaned photo file (${drop.photo_path})`);
   console.log(`  • delete authors row #${drop.id}\n`);
 
   if (!await confirm('Proceed?', autoYes)) { console.log('Aborted.'); return; }
@@ -270,22 +288,9 @@ async function mergeAuthor(keepIdStr, dropIdStr, autoYes) {
   const snap = snapshot(db, `author-${dropId}-into-${keepId}`);
   console.log(`Snapshot:  ${snap}`);
 
-  db.transaction(() => {
-    if (overlap.length) {
-      db.prepare(`DELETE FROM book_authors WHERE author_id = ? AND book_id IN (${overlap.map(() => '?').join(',')})`)
-        .run(dropId, ...overlap.map(b => b.book_id));
-    }
-    db.prepare('UPDATE book_authors SET author_id = ? WHERE author_id = ?').run(keepId, dropId);
-    const sets = [];
-    const params = [];
-    for (const f of willCopy) { sets.push(`${f} = ?`); params.push(drop[f]); }
-    if (inheritAlias)        { sets.push('alias_group_id = ?'); params.push(drop.alias_group_id); }
-    if (sets.length) {
-      params.push(keepId);
-      db.prepare(`UPDATE authors SET ${sets.join(', ')} WHERE id = ?`).run(...params);
-    }
-    db.prepare('DELETE FROM authors WHERE id = ?').run(dropId);
-  })();
+  const result = mergeAuthors(keepId, dropId);
+  if (result === null) { console.error('Merge failed — author disappeared between preview and commit.'); process.exit(1); }
+  if (result.orphanPhotoPath) await deleteAuthorPhoto(result.orphanPhotoPath).catch(() => {});
 
   console.log(`Merged. #${dropId} (${drop.name}) → #${keepId} (${keep.name}).`);
 }

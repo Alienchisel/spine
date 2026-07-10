@@ -130,7 +130,7 @@ Kindle parallel to the Audible listening importer. Groups CSV rows by (ASIN, dat
 
 ```bash
 node scripts/dedupe.js scan-authors          # also scan-narrators, scan-translators, scan-publishers
-node scripts/dedupe.js merge-author <keep_id> <drop_id>
+node scripts/dedupe.js merge-author <keep_id> <drop_id>       # also merge-narrator, merge-translator
 node scripts/dedupe.js rename-publisher "<old>" "<new>"
 ```
 
@@ -139,7 +139,11 @@ stripped, name particles like "de"/"von" removed for people, imprint suffixes
 like "Press"/"Publishing" stripped for publishers) and print candidate
 clusters. Merge and rename actions take exact IDs / strings, prompt for
 confirmation (skip with `--yes`), and snapshot the database to
-`backups/spine-pre-dedup-<label>-<ts>.db` before writing anything.
+`backups/spine-pre-dedup-<label>-<ts>.db` before writing anything. Author
+merges delegate to `lib/books/people.js#mergeAuthors` — the same
+transaction the `POST /api/authors/:id/merge` endpoint uses, covering
+both `book_authors` and `story_authors` and OR-merging `loved` /
+COALESCE-merging every metadata field.
 
 ## Backfill scripts
 
