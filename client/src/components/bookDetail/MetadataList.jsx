@@ -170,11 +170,14 @@ export default function MetadataList({ book, location, linkState }) {
         // its own state per the 1.49.0 design). The cross-edition total is
         // a derived hint that surfaces when a linked-edition group exists,
         // so "I've read this work" reads true at the work level without
-        // sacrificing the per-edition granularity.
+        // sacrificing the per-edition granularity. The row shows whenever
+        // there's at least one read on this edition — hiding the "1" case
+        // silently confused users who watched the row vanish when they
+        // corrected 2 → 1 (2026-07-10 Broken Angels report).
         const own = book.read_count || 0;
         const siblingReads = (book.editions || []).reduce((s, e) => s + (e.read_count || 0), 0);
         const total = own + siblingReads;
-        if (own < 2 && !(own >= 1 && siblingReads > 0)) return null;
+        if (own < 1) return null;
         return (
           <Row label="Times read">
             {own}
