@@ -20,8 +20,17 @@
 //     BroadcastChannel, other tabs replay them as window events,
 //     and the listeners below invalidate.
 //
-//   * refetchOnMount: false — a page you already visited keeps its
-//     cached data on re-navigation; no fetch fires. Same story.
+//   * refetchOnMount left at the default (true): with staleTime
+//     Infinity, non-invalidated queries stay fresh on remount and
+//     don't refetch. But invalidateQueries flips isInvalidated,
+//     which makes isStaleByTime return true even under staleTime
+//     Infinity — so an invalidated query DOES refetch on next
+//     mount. Setting refetchOnMount: false here would suppress
+//     that too (see query-core/src/queryObserver.ts shouldFetchOn:
+//     value === false short-circuits before isStale is consulted),
+//     stranding stale cover_path / titles / etc. on unmounted-then-
+//     revisited list pages after any mutation. 2026-07-10 Wheels-
+//     of-Commerce cover incident.
 //
 //   * refetchOnReconnect: false — network drop → recover shouldn't
 //     spontaneously refetch either.
@@ -50,7 +59,6 @@ export const queryClient = new QueryClient({
       staleTime: Infinity,
       gcTime: 30 * 60 * 1000,
       refetchOnWindowFocus: false,
-      refetchOnMount: false,
       refetchOnReconnect: false,
       retry: 1,
     },
