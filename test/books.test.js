@@ -6129,6 +6129,37 @@ describe('books', () => {
       assert.equal(body.total, 0);
     });
 
+    it('folds exotic dashes symmetrically (em-dash query finds hyphen-stored, and vice versa)', async () => {
+      // Ingest's t() already folds en-dash / minus / figure-dash to
+      // hyphen at storage time; nrm() has to fold em-dash + all the
+      // rest on the search side or a query typed with an em-dash
+      // misses hyphen-stored titles. 2026-07-10 sweep regression.
+      const stem = 'dash' + Math.random().toString(36).slice(2, 8);
+      // stored plain, queried em-dash
+      await req('POST', '/api/books', { title: `Alpha${stem}-Bravo` });
+      const emQ = await req('GET', `/api/books?q=Alpha${stem}%E2%80%94Bravo`);
+      assert.equal(emQ.body.books.length, 1, 'em-dash query finds hyphen-stored');
+      // stored em-dash, queried plain
+      const stem2 = 'dsh' + Math.random().toString(36).slice(2, 8);
+      await req('POST', '/api/books', { title: `Alpha${stem2}—Bravo` });
+      const hyphQ = await req('GET', `/api/books?q=Alpha${stem2}-Bravo`);
+      assert.equal(hyphQ.body.books.length, 1, 'hyphen query finds em-dash-stored');
+    });
+
+    it('folds ellipsis and three-period sequences symmetrically', async () => {
+      // Both directions: title stored with U+2026 findable via "..."
+      // and vice versa. Common on Amazon-pasted titles like
+      // "Wait Wait... Don't Tell Me".
+      const stem = 'elp' + Math.random().toString(36).slice(2, 8);
+      await req('POST', '/api/books', { title: `Wait ${stem}… Suffix` });
+      const dots = await req('GET', `/api/books?q=Wait%20${stem}...%20Suffix`);
+      assert.equal(dots.body.books.length, 1, '"..." query finds ellipsis-stored');
+      const stem2 = 'elp' + Math.random().toString(36).slice(2, 8);
+      await req('POST', '/api/books', { title: `Wait ${stem2}... Suffix` });
+      const ell = await req('GET', `/api/books?q=Wait%20${stem2}%E2%80%A6%20Suffix`);
+      assert.equal(ell.body.books.length, 1, 'ellipsis query finds "..." stored');
+    });
+
     it('folds curly apostrophes to straight (Albion’s Seed found via Albion\'s Seed)', async () => {
       // Stored titles typically use ASCII apostrophes; users pasting
       // from Amazon / Google Books surface a curly U+2019. Both should
