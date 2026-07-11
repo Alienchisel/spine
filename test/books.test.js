@@ -6129,6 +6129,24 @@ describe('books', () => {
       assert.equal(body.total, 0);
     });
 
+    it('folds curly apostrophes to straight (Albion’s Seed found via Albion\'s Seed)', async () => {
+      // Stored titles typically use ASCII apostrophes; users pasting
+      // from Amazon / Google Books surface a curly U+2019. Both should
+      // hit the same rows. Regression: 2026-07-10 Albion's Seed miss.
+      const stem = 'apos' + Math.random().toString(36).slice(2, 8);
+      await req('POST', '/api/books', { title: `Albion's ${stem} Seed` });
+      const straight = await req('GET', `/api/books?q=Albion%27s%20${stem}`);
+      assert.equal(straight.body.books.length, 1, 'straight matches stored');
+      const curly = await req('GET', `/api/books?q=Albion%E2%80%99s%20${stem}`);
+      assert.equal(curly.body.books.length, 1, 'curly matches stored');
+      // And in the other direction: title stored WITH the curly form
+      // should still be findable via a straight-apostrophe query.
+      const stem2 = 'aps' + Math.random().toString(36).slice(2, 8);
+      await req('POST', '/api/books', { title: `Palmer’s ${stem2} Voyage` });
+      const back = await req('GET', `/api/books?q=Palmer%27s%20${stem2}`);
+      assert.equal(back.body.books.length, 1, 'straight query finds curly-stored');
+    });
+
     it('folds across people surfaces (author / narrator)', async () => {
       const stem = 'people' + Math.random().toString(36).slice(2, 8);
       await req('POST', '/api/books', {
