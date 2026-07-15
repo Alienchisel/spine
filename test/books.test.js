@@ -5239,6 +5239,28 @@ describe('books', () => {
       assert.deepEqual(otherPill.body.books.map(b => b.id).sort(), [ot.id].sort());
     });
 
+    it('formats + bindings short-circuit to no filter when every value is selected', async () => {
+      // Fixture: three books that between them span all four buckets
+      // for BOTH format (physical/ebook/audiobook + implicit null) and
+      // binding (paperback/hardcover/other + empty for the ebook).
+      // Selecting all four for either dimension should return every
+      // fixture — the shape-inconsistency-cleanup that unified
+      // formats[] / bindings[] with fictions[] / sourceTypes[] on the
+      // "all selected = no-op" short-circuit.
+      const stem = 'allsel' + Math.random().toString(36).slice(2, 8);
+      const { body: pb } = await req('POST', '/api/books', { title: `${stem} PB`, format: 'physical', binding: 'paperback' });
+      const { body: hc } = await req('POST', '/api/books', { title: `${stem} HC`, format: 'physical', binding: 'hardcover' });
+      const { body: eb } = await req('POST', '/api/books', { title: `${stem} EB`, format: 'ebook' });
+      const allFmt = await req('GET', `/api/books?q=${stem}&formats[]=physical&formats[]=ebook&formats[]=audiobook&formats[]=empty&limit=100`);
+      assert.deepEqual(allFmt.body.books.map(b => b.id).sort((a,b)=>a-b),
+                       [pb.id, hc.id, eb.id].sort((a,b)=>a-b),
+                       'all four format tokens → no filter → every fixture returned');
+      const allBnd = await req('GET', `/api/books?q=${stem}&bindings[]=paperback&bindings[]=hardcover&bindings[]=other&bindings[]=empty&limit=100`);
+      assert.deepEqual(allBnd.body.books.map(b => b.id).sort((a,b)=>a-b),
+                       [pb.id, hc.id, eb.id].sort((a,b)=>a-b),
+                       'all four binding tokens → no filter → every fixture returned');
+    });
+
     it('stub=true filter shows only wishlist placeholders; stub=false excludes them', async () => {
       const stem = 'stb' + Math.random().toString(36).slice(2, 8);
       const { body: wish } = await req('POST', '/api/books', { title: `${stem} Wanted`, is_stub: true });
