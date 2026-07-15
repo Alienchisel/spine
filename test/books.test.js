@@ -5165,6 +5165,43 @@ describe('books', () => {
                        [fic.id, nonfic.id, unset.id].sort((a,b) => a-b));
     });
 
+    it('sourceTypes filter partitions non-fiction into primary / secondary / unset', async () => {
+      const stem = 'src' + Math.random().toString(36).slice(2, 8);
+      const { body: prim } = await req('POST', '/api/books', { title: `${stem} P`, fiction: false, source_type: 'primary' });
+      const { body: sec }  = await req('POST', '/api/books', { title: `${stem} S`, fiction: false, source_type: 'secondary' });
+      const { body: nix }  = await req('POST', '/api/books', { title: `${stem} U`, fiction: false });
+      const onlyP = await req('GET', `/api/books?q=${stem}&sourceTypes[]=primary&limit=100`);
+      assert.deepEqual(onlyP.body.books.map(b => b.id).sort(), [prim.id].sort());
+      const onlyS = await req('GET', `/api/books?q=${stem}&sourceTypes[]=secondary&limit=100`);
+      assert.deepEqual(onlyS.body.books.map(b => b.id).sort(), [sec.id].sort());
+      const onlyEmpty = await req('GET', `/api/books?q=${stem}&sourceTypes[]=empty&limit=100`);
+      assert.deepEqual(onlyEmpty.body.books.map(b => b.id).sort(), [nix.id].sort());
+    });
+
+    it('bindings filter partitions physical books', async () => {
+      const stem = 'bnd' + Math.random().toString(36).slice(2, 8);
+      const { body: pb } = await req('POST', '/api/books', { title: `${stem} PB`, format: 'physical', binding: 'paperback' });
+      const { body: hc } = await req('POST', '/api/books', { title: `${stem} HC`, format: 'physical', binding: 'hardcover' });
+      const { body: ot } = await req('POST', '/api/books', { title: `${stem} OT`, format: 'physical', binding: 'other' });
+      const { body: nb } = await req('POST', '/api/books', { title: `${stem} NB`, format: 'ebook' });
+      const pbHc = await req('GET', `/api/books?q=${stem}&bindings[]=paperback&bindings[]=hardcover&limit=100`);
+      assert.deepEqual(pbHc.body.books.map(b => b.id).sort((a,b)=>a-b), [pb.id, hc.id].sort((a,b)=>a-b));
+      const empty = await req('GET', `/api/books?q=${stem}&bindings[]=empty&limit=100`);
+      assert.deepEqual(empty.body.books.map(b => b.id).sort(), [nb.id].sort());
+      const otherPill = await req('GET', `/api/books?q=${stem}&bindings[]=other&limit=100`);
+      assert.deepEqual(otherPill.body.books.map(b => b.id).sort(), [ot.id].sort());
+    });
+
+    it('stub=true filter shows only wishlist placeholders; stub=false excludes them', async () => {
+      const stem = 'stb' + Math.random().toString(36).slice(2, 8);
+      const { body: wish } = await req('POST', '/api/books', { title: `${stem} Wanted`, is_stub: true });
+      const { body: real } = await req('POST', '/api/books', { title: `${stem} Have`, owned: true });
+      const onlyStub = await req('GET', `/api/books?q=${stem}&stub=true&limit=100`);
+      assert.deepEqual(onlyStub.body.books.map(b => b.id).sort(), [wish.id].sort());
+      const notStub = await req('GET', `/api/books?q=${stem}&stub=false&limit=100`);
+      assert.deepEqual(notStub.body.books.map(b => b.id).sort(), [real.id].sort());
+    });
+
     it('saves acquisition_source and acquisition_date', async () => {
       // owned: true so the acquisition fields aren't nulled by the
       // (!owned && !previously_owned) → null-acquisition gate in bookColumns.

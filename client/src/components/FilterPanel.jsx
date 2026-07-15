@@ -109,6 +109,10 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
     onChange({ ...filters, custom: filters.custom === val ? null : val });
   }
 
+  function toggleStub(val) {
+    onChange({ ...filters, stub: filters.stub === val ? null : val });
+  }
+
   function toggleLoved(val) {
     onChange({ ...filters, loved: filters.loved === val ? null : val });
   }
@@ -147,6 +151,26 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
         </FilterSection>
       )}
 
+      <FilterSection key="binding" label="Binding" active={(filters.bindings?.length || 0) > 0}>
+        {/* Physical-only partition (ebooks / audiobooks report empty).
+            Static value set: paperback / hardcover / other, plus the —
+            unset pill. Slotted right after Format because both are
+            book-object attributes. */}
+        <button type="button" onClick={() => toggle('bindings', 'paperback')}
+          aria-pressed={(filters.bindings || []).includes('paperback')}
+          className={pill((filters.bindings || []).includes('paperback'))}>Paperback</button>
+        <button type="button" onClick={() => toggle('bindings', 'hardcover')}
+          aria-pressed={(filters.bindings || []).includes('hardcover')}
+          className={pill((filters.bindings || []).includes('hardcover'))}>Hardcover</button>
+        <button type="button" onClick={() => toggle('bindings', 'other')}
+          aria-pressed={(filters.bindings || []).includes('other')}
+          className={pill((filters.bindings || []).includes('other'))}>Other</button>
+        <button type="button" onClick={() => toggle('bindings', 'empty')}
+          aria-pressed={(filters.bindings || []).includes('empty')}
+          aria-label="Binding unset"
+          className={pill((filters.bindings || []).includes('empty'))}>—</button>
+      </FilterSection>
+
       <FilterSection key="fiction" label="Fiction/NF" active={(filters.fictions?.length || 0) > 0}>
         {/* Small tristate over the fiction column — mirrors the Format
             section's shape. Values are fixed (no facet-driven pruning
@@ -162,6 +186,23 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
           aria-pressed={(filters.fictions || []).includes('empty')}
           aria-label="Fiction status unset"
           className={pill((filters.fictions || []).includes('empty'))}>—</button>
+      </FilterSection>
+
+      <FilterSection key="source-type" label="Source" active={(filters.sourceTypes?.length || 0) > 0}>
+        {/* Primary vs secondary source distinction — only meaningful for
+            non-fiction (validation nulls source_type on fiction rows). Not
+            gated here, so primary + fiction filter returns zero and reads
+            as an honest result. */}
+        <button type="button" onClick={() => toggle('sourceTypes', 'primary')}
+          aria-pressed={(filters.sourceTypes || []).includes('primary')}
+          className={pill((filters.sourceTypes || []).includes('primary'))}>Primary</button>
+        <button type="button" onClick={() => toggle('sourceTypes', 'secondary')}
+          aria-pressed={(filters.sourceTypes || []).includes('secondary')}
+          className={pill((filters.sourceTypes || []).includes('secondary'))}>Secondary</button>
+        <button type="button" onClick={() => toggle('sourceTypes', 'empty')}
+          aria-pressed={(filters.sourceTypes || []).includes('empty')}
+          aria-label="Source type unset"
+          className={pill((filters.sourceTypes || []).includes('empty'))}>—</button>
       </FilterSection>
 
       {!STATUS_TABS_HIDING_STATUS_FILTER.has(tab) && (
@@ -207,13 +248,21 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
           className={pill(filters.previouslyOwned === true)}>Previously owned</button>
       </FilterSection>
 
-      <FilterSection key="type" label="Type" active={filters.custom !== null}>
+      <FilterSection key="type" label="Type" active={filters.custom !== null || filters.stub !== null}>
         <button type="button" onClick={() => toggleCustom(true)}
           aria-pressed={filters.custom === true}
           className={pill(filters.custom === true)}>✦ Custom</button>
         <button type="button" onClick={() => toggleCustom(false)}
           aria-pressed={filters.custom === false}
           className={pill(filters.custom === false)}>Standard</button>
+        {/* Wishlist stub — is_stub=1 is a placeholder for a book the user
+            wants to own; the flag auto-clears the moment owned flips to 1.
+            Single pill for the true side; the "exclude stubs" case is
+            better served by the Owned filter. */}
+        <button type="button" onClick={() => toggleStub(true)}
+          aria-pressed={filters.stub === true}
+          title="Wishlist placeholders — records for books not yet owned"
+          className={pill(filters.stub === true)}>On wishlist</button>
       </FilterSection>
 
       <FilterSection key="loved" label="Loved" active={filters.loved !== null}>

@@ -14,6 +14,13 @@ export const EMPTY_FILTERS = {
   // shape parallel to formats — the fiction column is a small tristate
   // and the filter is a subset of {fic, non-fic, unset}.
   fictions:          [],
+  // sourceTypes: 'primary' | 'secondary' | 'empty'. Only meaningful for
+  // non-fiction (validation nulls source_type on fiction rows); the
+  // filter is not gated, so a primary+fiction combo returns zero.
+  sourceTypes:       [],
+  // bindings: 'paperback' | 'hardcover' | 'other' | 'empty'. Physical-
+  // book partition; ebooks/audiobooks all report empty.
+  bindings:          [],
   ratings:           [],
   publishers:        [],
   sources:           [],
@@ -31,14 +38,18 @@ export const EMPTY_FILTERS = {
   previouslyOwned: null,
   custom:          null,
   loved:           null,
+  // is_stub = wishlist placeholder. true = filter to stubs only,
+  // false = exclude stubs. UI exposes only the true side as a single
+  // "On wishlist" pill (mirrors the Loved / Custom convention).
+  stub:            null,
   // 'any' = books with any logged reading activity (finished, in-progress,
   // or prior read on record). null = no filter. Currently only set by the
   // Stats-page hero strip's URL — no FilterPanel control yet.
   progress:        null,
 };
 
-const FILTER_ARRAY_KEYS = ['missing', 'formats', 'fictions', 'ratings', 'publishers', 'sources', 'series', 'originalLanguages', 'editionLanguages', 'tags', 'statuses'];
-const TRISTATE_KEYS = ['owned', 'previouslyOwned', 'custom', 'loved'];
+const FILTER_ARRAY_KEYS = ['missing', 'formats', 'fictions', 'sourceTypes', 'bindings', 'ratings', 'publishers', 'sources', 'series', 'originalLanguages', 'editionLanguages', 'tags', 'statuses'];
+const TRISTATE_KEYS = ['owned', 'previouslyOwned', 'custom', 'loved', 'stub'];
 
 // Hardens persisted filter shape against (a) future schema migrations
 // where a field type changes and the saved blob predates the change,
@@ -62,13 +73,15 @@ export function normalizeFilters(saved) {
 }
 
 export function countFilters(f) {
-  return f.missing.length + f.formats.length + (f.fictions?.length || 0) + f.ratings.length +
+  return f.missing.length + f.formats.length + (f.fictions?.length || 0) +
+    (f.sourceTypes?.length || 0) + (f.bindings?.length || 0) + f.ratings.length +
     f.publishers.length + f.sources.length + f.series.length +
     (f.originalLanguages?.length || 0) + (f.editionLanguages?.length || 0) +
     f.tags.length +
     (f.statuses?.length || 0) +
     (f.owned !== null ? 1 : 0) + (f.previouslyOwned !== null ? 1 : 0) +
     (f.custom !== null ? 1 : 0) + (f.loved !== null ? 1 : 0) +
+    (f.stub !== null ? 1 : 0) +
     (f.progress != null ? 1 : 0);
 }
 
@@ -108,6 +121,8 @@ export function buildApiParams(tab, sort, filters, q, offset, seed, limit = PAGE
   if (filters.missing.length)    p.missing        = filters.missing;
   if (filters.formats.length)    p.formats        = filters.formats;
   if (filters.fictions?.length)  p.fictions       = filters.fictions;
+  if (filters.sourceTypes?.length) p.sourceTypes  = filters.sourceTypes;
+  if (filters.bindings?.length)  p.bindings       = filters.bindings;
   if (filters.sources?.length)   p.sources        = filters.sources;
   if (filters.ratings.length)    p.ratings        = filters.ratings.map(String);
   if (filters.publishers.length) p.publishers     = filters.publishers;
@@ -121,6 +136,7 @@ export function buildApiParams(tab, sort, filters, q, offset, seed, limit = PAGE
   if (filters.previouslyOwned !== null) p.previouslyOwned = String(filters.previouslyOwned);
   if (filters.custom !== null)          p.custom          = String(filters.custom);
   if (filters.loved !== null)           p.loved           = String(filters.loved);
+  if (filters.stub !== null)            p.stub            = String(filters.stub);
   if (filters.progress)                 p.progress        = filters.progress;
   return p;
 }
