@@ -25,7 +25,12 @@ nightly run (truncate-and-overwrite, not `mv` — preserves cron's open fd).
 - `backups/daily-db/` → `spine-b2:spine-backups/db/` — one ~3 MB DB
   snapshot per day, mirroring the local 30-day retention.
 - `uploads/` → `spine-b2:spine-backups/uploads/` — per-file incremental
-  mirror. Only changed/added files upload each night.
+  mirror. Only changed/added files upload each night. `uploads/thumbs/`
+  is excluded via `--exclude 'thumbs/**'`: those are max-400 px JPGs
+  regenerated from originals on save (via `writeThumbForCover` in
+  `lib/books/covers.js`) or in bulk via `scripts/backfill-cover-thumbs.js`,
+  so shipping them off-VM would only waste ~112 MB of B2 storage without
+  buying any state we can't reproduce locally in ~2 minutes.
 
 The **daily tarballs are not pushed**. They're ~1 GB each and 95%+
 redundant day-over-day (uploads/ dominates and barely changes); pushing
@@ -92,9 +97,14 @@ git clone git@github.com:Alienchisel/spine.git
 cd spine
 # Pull the DB snapshot for the day you want to restore to
 rclone copy spine-b2:spine-backups/db/spine-2026-MM-DD.db ./spine.db
-# Mirror the covers/photos
+# Mirror the covers/photos (thumbs are excluded from B2 — regenerated below)
 rclone sync spine-b2:spine-backups/uploads ./uploads
-npm run setup && npm start
+npm run setup
+# Regenerate the /uploads/thumbs/ companions that BookCard grids serve.
+# Skipped in the B2 sync because they're derived data (~112 MB) — regen
+# takes ~2 min on the current library and is idempotent.
+./scripts/with-toolchain.sh node scripts/backfill-cover-thumbs.js
+npm start
 ```
 
 **Key rotation:**

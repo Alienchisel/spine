@@ -269,6 +269,15 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
               draggable={false}
               loading="lazy"
               decoding="async"
+              // Intrinsic-size hint (matches THUMB_MAX_WIDTH × its 2:3
+              // aspect-ratio companion in covers.js). CSS still drives
+              // rendered size via aspect-[2/3] + object-cover; the hint
+              // lets the browser reserve layout space and, more
+              // importantly, evict decoded pixel buffers for offscreen
+              // tiles instead of holding them all for the life of the
+              // page — the win on top of the thumb switch itself.
+              width={400}
+              height={600}
               className="w-full h-full object-cover"
             />
           ) : (
