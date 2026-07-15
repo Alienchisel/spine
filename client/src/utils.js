@@ -247,13 +247,20 @@ export function initialsFor(label) {
 // "bohm" finds "Böhm-Bawerk", "lem" finds "Stanisław Lem", "etienne"
 // finds "Étienne de La Boétie". NFD + strip combining marks handles most
 // cases; the explicit fold list covers a handful of non-decomposing
-// ligatures and stroke-letters (Slavic ł / đ, etc.). Cheap enough to run
-// per-row at this scale.
+// ligatures and stroke-letters (Slavic ł / đ, etc.), plus the
+// typographic look-alikes (curly quotes, exotic hyphens including em-
+// dash, ellipsis) added server-side in 1.265.3 / 1.265.4 so the two
+// implementations don't drift. Cheap enough to run per-row at this scale.
 export function nrm(s) {
   if (s == null) return '';
   return String(s).toLowerCase()
     .normalize('NFD').replace(/\p{Diacritic}/gu, '')
     .replace(/æ/g, 'ae').replace(/œ/g, 'oe').replace(/ß/g, 'ss')
     .replace(/ø/g, 'o').replace(/ð/g, 'd').replace(/þ/g, 'th')
-    .replace(/ł/g, 'l').replace(/đ/g, 'd');
+    .replace(/ł/g, 'l').replace(/đ/g, 'd')
+    .replace(/[\u2018\u2019\u02BC]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2010\u2011\u2012\u2013\u2014\u2015\u2212]/g, '-')
+    .replace(/\u00AD/g, '')
+    .replace(/\u2026/g, '...');
 }

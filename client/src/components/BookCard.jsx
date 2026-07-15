@@ -264,7 +264,17 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
               // for pre-backfill covers and any where thumb generation
               // failed on ingest.
               src={toThumbUrl(book.cover_path)}
-              onError={(e) => { if (e.currentTarget.src !== book.cover_path) e.currentTarget.src = book.cover_path; }}
+              // Compare via URL().pathname because currentTarget.src
+              // returns an absolute URL (`http://host/uploads/foo.jpg`)
+              // while book.cover_path is stored relative
+              // (`/uploads/foo.jpg`) — the previous `!==` was always
+              // true, so a doubly-missing thumb + original would keep
+              // reassigning src and hammer the network. One retry, one
+              // 404 max, decoy loop closed.
+              onError={(e) => {
+                const currentPath = new URL(e.currentTarget.src, window.location.origin).pathname;
+                if (currentPath !== book.cover_path) e.currentTarget.src = book.cover_path;
+              }}
               alt={book.title}
               draggable={false}
               loading="lazy"
