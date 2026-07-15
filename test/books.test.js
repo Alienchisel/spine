@@ -555,6 +555,31 @@ describe('books', () => {
         for (const id of stubs) await req('DELETE', `/api/books/${id}`);
       }
     });
+
+    it('honours ?stub=true — picks from the wishlist pool instead of 404ing', async () => {
+      // Companion to the exclude-stubs test above. When the caller
+      // explicitly asks for stubs (the On-wishlist FilterPanel pill
+      // shipped in 1.267.0), the default hard-exclude would AND with
+      // the filter's `is_stub = 1` and always empty the pool — 1.269.2
+      // gates the exclude on `?stub !== 'true'`.
+      const stem = 'stubwant' + Math.random().toString(36).slice(2, 6);
+      const stubs = [];
+      for (let i = 0; i < 3; i++) {
+        const { body } = await req('POST', '/api/books', {
+          title: `${stem}-${i}`, authors: [`${stem}-Author`], owned: 0, is_stub: true,
+        });
+        stubs.push(body.id);
+      }
+      try {
+        for (let i = 0; i < 3; i++) {
+          const { status, body } = await req('GET', `/api/books/random?q=${stem}&stub=true`);
+          assert.equal(status, 200, 'stub=true should keep the wishlist pool available');
+          assert.ok(stubs.includes(body.id), `expected a stub id from the ${stem} pool, got ${body.id}`);
+        }
+      } finally {
+        for (const id of stubs) await req('DELETE', `/api/books/${id}`);
+      }
+    });
   });
 
   describe('PUT /api/books/:id', () => {

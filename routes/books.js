@@ -50,10 +50,14 @@ router.put('/desire-order', (req, res) => {
 // in; archived='any' includes both).
 router.get('/random', (req, res) => {
   const { conditions, params } = buildFilterConditions(req.query);
-  // Random pick is "show me a book from my library" — a wishlist
-  // placeholder isn't readable yet, so it's not a useful suggestion.
-  // Always exclude, regardless of the filter view the caller is on.
-  conditions.push("COALESCE(is_stub,0) = 0");
+  // Random pick defaults to "show me a book from my library" — a
+  // wishlist placeholder isn't readable yet, so it's not a useful
+  // suggestion. Exclude unless the caller explicitly asked for stubs
+  // via `?stub=true` (the On-wishlist filter shipped in 1.267.0): in
+  // that case the filter is already `is_stub = 1`, and blindly ANDing
+  // the exclude would empty the pool and 404 the shortcut. Companion
+  // to the same-shape fix in 1.269.1 on the FilterPanel pill.
+  if (req.query.stub !== 'true') conditions.push("COALESCE(is_stub,0) = 0");
   const where = `WHERE ${conditions.join(' AND ')}`;
   const row = db.prepare(`SELECT id FROM books ${where} ORDER BY RANDOM() LIMIT 1`).get(...params);
   if (!row) return res.status(404).json({ error: 'No matching books' });
