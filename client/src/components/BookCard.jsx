@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { useActionGuard } from '../hooks/useActionGuard.js';
-import { realTagNames, initialsFor, fmtHM } from '../utils.js';
+import { realTagNames, initialsFor, fmtHM, toThumbUrl } from '../utils.js';
 import { getModeKey, initialProgressMode, computeProgressPatch, savePatchAndMaybeAutoFinish, syncProgressInputs, progressDerived, clampMinutes } from './progressMode.js';
 import MoreMenu from './MoreMenu.jsx';
 
@@ -257,7 +257,14 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
         <div className={`relative bg-neutral-800 overflow-hidden ${compact ? 'aspect-[2/3] rounded-sm' : 'aspect-[2/3] rounded shadow-lg'}`}>
           {book.cover_path ? (
             <img
-              src={book.cover_path}
+              // Serve the /uploads/thumbs/{stem}.jpg variant — grid tiles
+              // are ~150-220 px wide and a 2 MB native cover decodes to
+              // ~24 MB of pixel buffer per tile; a page of 48 tiles used
+              // to freeze the browser. onError falls back to the original
+              // for pre-backfill covers and any where thumb generation
+              // failed on ingest.
+              src={toThumbUrl(book.cover_path)}
+              onError={(e) => { if (e.currentTarget.src !== book.cover_path) e.currentTarget.src = book.cover_path; }}
               alt={book.title}
               draggable={false}
               loading="lazy"

@@ -22,6 +22,21 @@ export function sortTitle(title) {
   return (title || '').replace(/^(the|a|an)\s+/i, '');
 }
 
+// Derive the thumb URL from a cover_path. Server writes a max-400-wide
+// JPG to /uploads/thumbs/{basename}.jpg for every saved cover; grids
+// display the thumb and fall back to the original via onError when the
+// thumb is missing (older covers pre-backfill, or one whose generation
+// step failed). Returns null when there's no cover at all.
+export function toThumbUrl(coverPath) {
+  if (!coverPath) return null;
+  if (!coverPath.startsWith('/uploads/')) return coverPath;
+  const filename = coverPath.slice('/uploads/'.length);
+  if (filename.includes('/')) return coverPath;
+  const dot = filename.lastIndexOf('.');
+  const stem = dot > 0 ? filename.slice(0, dot) : filename;
+  return `/uploads/thumbs/${stem}.jpg`;
+}
+
 // "5 books", "1 book". Default pluralForm appends "s"; pass an explicit
 // override for irregulars (shelves, matches, etc.).
 export function plural(n, singular, pluralForm) {

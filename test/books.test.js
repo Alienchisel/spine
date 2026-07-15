@@ -717,10 +717,15 @@ describe('books', () => {
         });
         assert.equal(status, 200);
         assert.equal(body.cover_path, null);
-        assert.equal(unlinkMock.mock.callCount(), 1, 'old cover should be unlinked exactly once');
-        const unlinkPath = unlinkMock.mock.calls[0].arguments[0];
-        assert.ok(unlinkPath.endsWith(oldFilename),
-          `expected unlink path to end in ${oldFilename}, got: ${unlinkPath}`);
+        // deleteLocalCover unlinks both the original and its companion
+        // /uploads/thumbs/{stem}.jpg (best-effort, ENOENT-swallowed) —
+        // two fs.unlink calls per cover replacement/clear.
+        assert.equal(unlinkMock.mock.callCount(), 2, 'cover + thumb should each be unlinked');
+        const paths = unlinkMock.mock.calls.map(c => c.arguments[0]);
+        assert.ok(paths.some(p => p.endsWith(`/${oldFilename}`) && !p.includes('/thumbs/')),
+          `expected cover unlink for ${oldFilename}, got: ${paths.join(', ')}`);
+        assert.ok(paths.some(p => p.includes('/thumbs/')),
+          `expected thumb unlink alongside cover, got: ${paths.join(', ')}`);
       } finally {
         unlinkMock.mock.restore();
       }
@@ -767,10 +772,13 @@ describe('books', () => {
           ...created, cover_path: `/uploads/${newFilename}`, tags: [],
         });
         assert.equal(status, 200);
-        assert.equal(unlinkMock.mock.callCount(), 1, 'old cover should be unlinked exactly once');
-        const unlinkPath = unlinkMock.mock.calls[0].arguments[0];
-        assert.ok(unlinkPath.endsWith(oldFilename),
-          `expected unlink path to end in ${oldFilename}, got: ${unlinkPath}`);
+        // Cover swap unlinks the old original + its thumb (best-effort).
+        assert.equal(unlinkMock.mock.callCount(), 2, 'old cover + old thumb should each be unlinked');
+        const paths = unlinkMock.mock.calls.map(c => c.arguments[0]);
+        assert.ok(paths.some(p => p.endsWith(`/${oldFilename}`) && !p.includes('/thumbs/')),
+          `expected old-cover unlink for ${oldFilename}, got: ${paths.join(', ')}`);
+        assert.ok(paths.some(p => p.includes('/thumbs/')),
+          `expected old-thumb unlink alongside cover, got: ${paths.join(', ')}`);
       } finally {
         unlinkMock.mock.restore();
       }
@@ -1835,10 +1843,13 @@ describe('books', () => {
       try {
         const { status } = await req('DELETE', `/api/books/${created.id}`);
         assert.equal(status, 204);
-        assert.equal(unlinkMock.mock.callCount(), 1, 'cover should be unlinked exactly once');
-        const unlinkPath = unlinkMock.mock.calls[0].arguments[0];
-        assert.ok(unlinkPath.endsWith(filename),
-          `expected unlink path to end in ${filename}, got: ${unlinkPath}`);
+        // deleteLocalCover unlinks both the cover file and its thumb.
+        assert.equal(unlinkMock.mock.callCount(), 2, 'cover + thumb should each be unlinked');
+        const paths = unlinkMock.mock.calls.map(c => c.arguments[0]);
+        assert.ok(paths.some(p => p.endsWith(`/${filename}`) && !p.includes('/thumbs/')),
+          `expected cover unlink for ${filename}, got: ${paths.join(', ')}`);
+        assert.ok(paths.some(p => p.includes('/thumbs/')),
+          `expected thumb unlink alongside cover, got: ${paths.join(', ')}`);
       } finally {
         unlinkMock.mock.restore();
       }
@@ -4325,10 +4336,13 @@ describe('books', () => {
       try {
         const { status } = await req('POST', `/api/books/${created.id}/fetch-cover`, {});
         assert.equal(status, 200);
-        assert.equal(unlinkMock.mock.callCount(), 1, 'old cover should be unlinked exactly once');
-        const unlinkPath = unlinkMock.mock.calls[0].arguments[0];
-        assert.ok(unlinkPath.endsWith(oldFilename),
-          `expected unlink path to end in ${oldFilename}, got: ${unlinkPath}`);
+        // Old cover replacement unlinks both the original and its thumb.
+        assert.equal(unlinkMock.mock.callCount(), 2, 'old cover + old thumb should each be unlinked');
+        const paths = unlinkMock.mock.calls.map(c => c.arguments[0]);
+        assert.ok(paths.some(p => p.endsWith(`/${oldFilename}`) && !p.includes('/thumbs/')),
+          `expected old-cover unlink for ${oldFilename}, got: ${paths.join(', ')}`);
+        assert.ok(paths.some(p => p.includes('/thumbs/')),
+          `expected old-thumb unlink alongside cover, got: ${paths.join(', ')}`);
       } finally {
         writeMock.mock.restore();
         unlinkMock.mock.restore();
@@ -4427,7 +4441,15 @@ describe('books', () => {
         });
         assert.equal(status, 404);
         assert.equal(writeMock.mock.callCount(), 1, 'file should have been written before the patch failed');
-        assert.equal(unlinkMock.mock.callCount(), 1, 'orphan file should be unlinked');
+        // Orphan cleanup unlinks both the cover and its (best-effort) thumb.
+        // The thumb file itself is unlikely to exist on a failed-patch
+        // orphan since the fake buffer can't be converted, but the
+        // deleteLocalCover path still fires fs.unlink on both paths
+        // (ENOENT is swallowed by the callback).
+        assert.equal(unlinkMock.mock.callCount(), 2, 'orphan cover + thumb should each be unlinked');
+        const paths = unlinkMock.mock.calls.map(c => c.arguments[0]);
+        assert.ok(paths.some(p => p.includes('/thumbs/')),
+          `expected thumb unlink alongside cover, got: ${paths.join(', ')}`);
       } finally {
         writeMock.mock.restore();
         unlinkMock.mock.restore();
