@@ -147,6 +147,23 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
         </FilterSection>
       )}
 
+      <FilterSection key="fiction" label="Fiction/NF" active={(filters.fictions?.length || 0) > 0}>
+        {/* Small tristate over the fiction column — mirrors the Format
+            section's shape. Values are fixed (no facet-driven pruning
+            like formats) since fiction is a boolean-plus-unset partition
+            of the whole library. */}
+        <button type="button" onClick={() => toggle('fictions', 'fiction')}
+          aria-pressed={(filters.fictions || []).includes('fiction')}
+          className={pill((filters.fictions || []).includes('fiction'))}>Fiction</button>
+        <button type="button" onClick={() => toggle('fictions', 'nonfiction')}
+          aria-pressed={(filters.fictions || []).includes('nonfiction')}
+          className={pill((filters.fictions || []).includes('nonfiction'))}>Non-fiction</button>
+        <button type="button" onClick={() => toggle('fictions', 'empty')}
+          aria-pressed={(filters.fictions || []).includes('empty')}
+          aria-label="Fiction status unset"
+          className={pill((filters.fictions || []).includes('empty'))}>—</button>
+      </FilterSection>
+
       {!STATUS_TABS_HIDING_STATUS_FILTER.has(tab) && (
         <FilterSection key="status" label="Status" active={(filters.statuses?.length || 0) > 0}>
           {STATUSES.map(s => (

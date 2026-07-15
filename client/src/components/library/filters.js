@@ -10,6 +10,10 @@ const VALID_STATUSES = new Set(['reading', 'finished', 'unread']);
 export const EMPTY_FILTERS = {
   missing:           [],
   formats:           [],
+  // fictions: 'fiction' | 'nonfiction' | 'empty' (unset). Multi-select
+  // shape parallel to formats — the fiction column is a small tristate
+  // and the filter is a subset of {fic, non-fic, unset}.
+  fictions:          [],
   ratings:           [],
   publishers:        [],
   sources:           [],
@@ -33,7 +37,7 @@ export const EMPTY_FILTERS = {
   progress:        null,
 };
 
-const FILTER_ARRAY_KEYS = ['missing', 'formats', 'ratings', 'publishers', 'sources', 'series', 'originalLanguages', 'editionLanguages', 'tags', 'statuses'];
+const FILTER_ARRAY_KEYS = ['missing', 'formats', 'fictions', 'ratings', 'publishers', 'sources', 'series', 'originalLanguages', 'editionLanguages', 'tags', 'statuses'];
 const TRISTATE_KEYS = ['owned', 'previouslyOwned', 'custom', 'loved'];
 
 // Hardens persisted filter shape against (a) future schema migrations
@@ -58,7 +62,7 @@ export function normalizeFilters(saved) {
 }
 
 export function countFilters(f) {
-  return f.missing.length + f.formats.length + f.ratings.length +
+  return f.missing.length + f.formats.length + (f.fictions?.length || 0) + f.ratings.length +
     f.publishers.length + f.sources.length + f.series.length +
     (f.originalLanguages?.length || 0) + (f.editionLanguages?.length || 0) +
     f.tags.length +
@@ -103,6 +107,7 @@ export function buildApiParams(tab, sort, filters, q, offset, seed, limit = PAGE
   if (q) p.q = q;
   if (filters.missing.length)    p.missing        = filters.missing;
   if (filters.formats.length)    p.formats        = filters.formats;
+  if (filters.fictions?.length)  p.fictions       = filters.fictions;
   if (filters.sources?.length)   p.sources        = filters.sources;
   if (filters.ratings.length)    p.ratings        = filters.ratings.map(String);
   if (filters.publishers.length) p.publishers     = filters.publishers;

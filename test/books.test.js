@@ -5141,6 +5141,30 @@ describe('books', () => {
       }
     });
 
+    it('fictions filter partitions the library into fiction / non-fiction / unset', async () => {
+      const stem = 'fic' + Math.random().toString(36).slice(2, 8);
+      const { body: fic }   = await req('POST', '/api/books', { title: `${stem} Yes`, fiction: true });
+      const { body: nonfic } = await req('POST', '/api/books', { title: `${stem} No`,  fiction: false });
+      const { body: unset }  = await req('POST', '/api/books', { title: `${stem} Unset` });
+      // Fiction-only
+      const onlyFic = await req('GET', `/api/books?q=${stem}&fictions[]=fiction&limit=100`);
+      assert.deepEqual(onlyFic.body.books.map(b => b.id).sort(), [fic.id].sort());
+      // Non-fiction only
+      const onlyNF = await req('GET', `/api/books?q=${stem}&fictions[]=nonfiction&limit=100`);
+      assert.deepEqual(onlyNF.body.books.map(b => b.id).sort(), [nonfic.id].sort());
+      // Unset only
+      const onlyEmpty = await req('GET', `/api/books?q=${stem}&fictions[]=empty&limit=100`);
+      assert.deepEqual(onlyEmpty.body.books.map(b => b.id).sort(), [unset.id].sort());
+      // Union of fiction + unset (skips non-fiction)
+      const ficPlusEmpty = await req('GET', `/api/books?q=${stem}&fictions[]=fiction&fictions[]=empty&limit=100`);
+      assert.deepEqual(ficPlusEmpty.body.books.map(b => b.id).sort((a,b) => a-b),
+                       [fic.id, unset.id].sort((a,b) => a-b));
+      // All three selected: no filter (matches every book in the fixture set)
+      const all = await req('GET', `/api/books?q=${stem}&fictions[]=fiction&fictions[]=nonfiction&fictions[]=empty&limit=100`);
+      assert.deepEqual(all.body.books.map(b => b.id).sort((a,b) => a-b),
+                       [fic.id, nonfic.id, unset.id].sort((a,b) => a-b));
+    });
+
     it('saves acquisition_source and acquisition_date', async () => {
       // owned: true so the acquisition fields aren't nulled by the
       // (!owned && !previously_owned) → null-acquisition gate in bookColumns.
