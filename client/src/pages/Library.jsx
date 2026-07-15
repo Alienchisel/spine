@@ -259,10 +259,31 @@ export default function Library() {
     writeFiltersToParams(next, resolved);
     setSearchParams(next, { state: navState });
   }
-  // Random-sort seed lives only in component state — refresh re-rolls,
-  // which matches the user's mental model of "each session is a fresh
-  // shuffle". The die button explicitly re-rolls without reload.
-  const [randomSeed, setRandomSeed] = useState(rollSeed);
+  // Random-sort seed rides in the URL as `?seed=N` so back-navigation
+  // from a BookDetail restores the same shuffle instead of remounting
+  // with a fresh roll (2026-07-14 report — Library remounted, useState
+  // fired again, order changed). Initializer reads the URL first and
+  // falls back to a fresh roll; a synchronisation effect below keeps
+  // the URL in step with the state (writing on switch-into-random or
+  // die-button re-roll, deleting on switch-away-from-random). The die
+  // button still explicitly re-rolls without reload.
+  const [randomSeed, setRandomSeed] = useState(() => {
+    const fromUrl = Number(searchParams.get('seed'));
+    return Number.isInteger(fromUrl) && fromUrl > 0 ? fromUrl : rollSeed();
+  });
+  useEffect(() => {
+    const current = searchParams.get('seed');
+    const wanted  = sort === 'random' ? String(randomSeed) : null;
+    if (current === wanted) return;
+    const next = new URLSearchParams(searchParams);
+    if (wanted) next.set('seed', wanted); else next.delete('seed');
+    setSearchParams(next, { replace: true, state: navState });
+    // searchParams is a fresh instance each render — depending on it
+    // would re-fire this effect on any URL change. Sort + randomSeed
+    // are the actual triggers; the effect reads searchParams as an
+    // out-of-band snapshot.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sort, randomSeed]);
   function setSort(value) {
     const resolved = typeof value === 'function' ? value(sort) : value;
     setSortByTab(prev => ({ ...prev, [tab]: resolved }));
