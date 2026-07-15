@@ -85,9 +85,21 @@ export function countFilters(f) {
     (f.progress != null ? 1 : 0);
 }
 
+// Tabs whose query hard-excludes wishlist stubs (`unread` — see
+// lib/books/filters.js:93) or conceptually conflicts with them
+// (`reading` / `finished` — a placeholder isn't something you're
+// reading or finished with). Mirrors STATUS_TABS_HIDING_STATUS_FILTER
+// in components/FilterPanel.jsx — kept parallel so the pill hide and
+// the filter prune agree on the same set.
+const STUB_INCOMPATIBLE_TABS = new Set(['reading', 'finished', 'unread']);
+
 // Drop selected values that no longer exist in the current facet set
 // (e.g. switching tabs may make a publisher selection meaningless).
-export function pruneFilters(filters, facets) {
+// Also drops `stub=true` when the target tab hard-excludes stubs, so
+// tabbing into Unread from Never-owned with the wishlist pill active
+// doesn't leave the URL carrying a filter with no visible pill to
+// clear (2026-07-15 sweep).
+export function pruneFilters(filters, facets, tab) {
   const fmtSet   = new Set(facets.formats);
   const pubSet   = new Set(facets.publishers);
   const srcSet   = new Set(facets.sources || []);
@@ -109,6 +121,7 @@ export function pruneFilters(filters, facets) {
     ratings:    filters.ratings.filter(r => r === 'empty' ? facets.hasEmptyRating    : rtSet.has(String(r))),
     tags:       filters.tags.filter(t => tagSet.has(t)),
     statuses:   (filters.statuses || []).filter(s => VALID_STATUSES.has(s)),
+    stub:       (tab && STUB_INCOMPATIBLE_TABS.has(tab) && filters.stub === true) ? null : filters.stub,
   };
 }
 

@@ -631,7 +631,7 @@ export default function Library() {
     if (!facetsQ.data) return;
     const isTabChange = prevTabRef.current !== tab;
     prevTabRef.current = tab;
-    if (isTabChange) setFilters(prev => pruneFilters(prev, facetsQ.data));
+    if (isTabChange) setFilters(prev => pruneFilters(prev, facetsQ.data, tab));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [facetsQ.data, tab]);
 

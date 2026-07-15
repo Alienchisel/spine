@@ -258,11 +258,19 @@ export default function FilterPanel({ tab, facets, filters, onChange }) {
         {/* Wishlist stub — is_stub=1 is a placeholder for a book the user
             wants to own; the flag auto-clears the moment owned flips to 1.
             Single pill for the true side; the "exclude stubs" case is
-            better served by the Owned filter. */}
-        <button type="button" onClick={() => toggleStub(true)}
-          aria-pressed={filters.stub === true}
-          title="Wishlist placeholders — records for books not yet owned"
-          className={pill(filters.stub === true)}>On wishlist</button>
+            better served by the Owned filter. Hidden on the three
+            status-scoped tabs (same set that hides the Status section
+            above) because those queries either hard-exclude stubs
+            (`unread` at filters.js:93) or conceptually conflict —
+            a wishlist placeholder isn't something you're reading or
+            have finished. Ticking it there emptied the grid with no
+            explanation (2026-07-15 sweep). */}
+        {!STATUS_TABS_HIDING_STATUS_FILTER.has(tab) && (
+          <button type="button" onClick={() => toggleStub(true)}
+            aria-pressed={filters.stub === true}
+            title="Wishlist placeholders — records for books not yet owned"
+            className={pill(filters.stub === true)}>On wishlist</button>
+        )}
       </FilterSection>
 
       <FilterSection key="loved" label="Loved" active={filters.loved !== null}>
