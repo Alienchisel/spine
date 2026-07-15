@@ -37,6 +37,20 @@ export function toThumbUrl(coverPath) {
   return `/uploads/thumbs/${stem}.jpg`;
 }
 
+// Same shape as toThumbUrl but for author portraits, which live under
+// /uploads/authors/. Thumbs land at /uploads/authors/thumbs/{stem}.jpg
+// via writeThumbForAuthorPhoto in lib/authors/photos.js. Consumed by
+// the Loved authors grid and AuditWizard's portrait strip.
+export function toAuthorThumbUrl(photoPath) {
+  if (!photoPath) return null;
+  if (!photoPath.startsWith('/uploads/authors/')) return photoPath;
+  const filename = photoPath.slice('/uploads/authors/'.length);
+  if (filename.includes('/')) return photoPath;
+  const dot = filename.lastIndexOf('.');
+  const stem = dot > 0 ? filename.slice(0, dot) : filename;
+  return `/uploads/authors/thumbs/${stem}.jpg`;
+}
+
 // "5 books", "1 book". Default pluralForm appends "s"; pass an explicit
 // override for irregulars (shelves, matches, etc.).
 export function plural(n, singular, pluralForm) {

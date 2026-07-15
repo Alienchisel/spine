@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../../api.js';
-import { formatAuthors, formatPartialDate, initialsFor, MOD_KEY } from '../../utils.js';
+import { formatAuthors, formatPartialDate, initialsFor, MOD_KEY, toThumbUrl, toAuthorThumbUrl } from '../../utils.js';
 import { useActionGuard } from '../../hooks/useActionGuard.js';
 import ErrorBanner from '../../components/ErrorBanner.jsx';
 import { WIZARDS, shuffle, clearDraft, clearAllDrafts } from './wizards.js';
@@ -338,13 +338,29 @@ function FillWizard({ wizardKey }) {
             {cfg.kind === 'author' ? (
               <div className="w-24 h-24 flex-shrink-0 rounded-full overflow-hidden bg-neutral-800">
                 {current.photo_path
-                  ? <img src={current.photo_path} alt="" className="w-full h-full object-cover" />
+                  ? <img
+                      src={toAuthorThumbUrl(current.photo_path)}
+                      onError={(e) => {
+                        const currentPath = new URL(e.currentTarget.src, window.location.origin).pathname;
+                        if (currentPath !== current.photo_path) e.currentTarget.src = current.photo_path;
+                      }}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
                   : <div className="w-full h-full bg-gradient-to-br from-neutral-700 to-neutral-900 flex items-center justify-center text-xs text-neutral-500 font-medium tracking-wide">{initialsFor(current.name)}</div>}
               </div>
             ) : (
               <div className="w-24 h-36 flex-shrink-0 rounded overflow-hidden bg-neutral-800">
                 {current.cover_path
-                  ? <img src={current.cover_path} alt="" className="w-full h-full object-cover" />
+                  ? <img
+                      src={toThumbUrl(current.cover_path)}
+                      onError={(e) => {
+                        const currentPath = new URL(e.currentTarget.src, window.location.origin).pathname;
+                        if (currentPath !== current.cover_path) e.currentTarget.src = current.cover_path;
+                      }}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
                   : <div className="w-full h-full bg-gradient-to-br from-neutral-700 to-neutral-900 flex items-center justify-center text-xs text-neutral-500 font-medium tracking-wide">{initialsFor(current.title)}</div>}
               </div>
             )}

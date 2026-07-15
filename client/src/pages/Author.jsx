@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useLocation, Link } from 'react-router-dom';
 import { api } from '../api.js';
-import { plural, initialsFor, MOD_KEY, formatPartialDate, FORMAT_LABEL } from '../utils.js';
+import { plural, initialsFor, MOD_KEY, formatPartialDate, FORMAT_LABEL, toAuthorThumbUrl } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
 import { GridSkeleton } from '../components/Skeleton.jsx';
 import { useTextOverflow } from '../hooks/useTextOverflow.js';
@@ -571,7 +571,11 @@ export default function Author() {
           >
             {author?.photo_path ? (
               <img
-                src={author.photo_path}
+                src={toAuthorThumbUrl(author.photo_path)}
+                onError={(e) => {
+                  const currentPath = new URL(e.currentTarget.src, window.location.origin).pathname;
+                  if (currentPath !== author.photo_path) e.currentTarget.src = author.photo_path;
+                }}
                 alt={author.name ? `Portrait of ${author.name}` : ''}
                 className="w-full h-full object-cover bg-neutral-800"
               />

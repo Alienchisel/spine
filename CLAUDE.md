@@ -25,11 +25,14 @@ nightly run (truncate-and-overwrite, not `mv` — preserves cron's open fd).
 - `backups/daily-db/` → `spine-b2:spine-backups/db/` — one ~3 MB DB
   snapshot per day, mirroring the local 30-day retention.
 - `uploads/` → `spine-b2:spine-backups/uploads/` — per-file incremental
-  mirror. Only changed/added files upload each night. `uploads/thumbs/`
-  is excluded via `--exclude 'thumbs/**'`: those are max-400 px JPGs
-  regenerated from originals on save (via `writeThumbForCover` in
-  `lib/books/covers.js`) or in bulk via `scripts/backfill-cover-thumbs.js`,
-  so shipping them off-VM would only waste ~112 MB of B2 storage without
+  mirror. Only changed/added files upload each night. Both thumb
+  subdirectories are excluded — `--exclude 'thumbs/**'` for book
+  covers (`uploads/thumbs/`) and `--exclude 'authors/thumbs/**'` for
+  author portraits (`uploads/authors/thumbs/`). They're max-400 px
+  JPGs regenerated from originals on save (via `writeThumbForCover` in
+  `lib/books/covers.js` and `writeThumbForAuthorPhoto` in
+  `lib/authors/photos.js`) or in bulk via the two backfill scripts, so
+  shipping them off-VM would only waste ~116 MB of B2 storage without
   buying any state we can't reproduce locally in ~2 minutes.
 
 The **daily tarballs are not pushed**. They're ~1 GB each and 95%+
@@ -100,10 +103,12 @@ rclone copy spine-b2:spine-backups/db/spine-2026-MM-DD.db ./spine.db
 # Mirror the covers/photos (thumbs are excluded from B2 — regenerated below)
 rclone sync spine-b2:spine-backups/uploads ./uploads
 npm run setup
-# Regenerate the /uploads/thumbs/ companions that BookCard grids serve.
-# Skipped in the B2 sync because they're derived data (~112 MB) — regen
-# takes ~2 min on the current library and is idempotent.
+# Regenerate the /uploads/thumbs/ + /uploads/authors/thumbs/ companions
+# that BookCard grids and the Loved authors grid serve. Skipped in the
+# B2 sync because they're derived data (~116 MB total) — regen takes
+# ~2 min for covers, ~5 s for author photos, both idempotent.
 ./scripts/with-toolchain.sh node scripts/backfill-cover-thumbs.js
+./scripts/with-toolchain.sh node scripts/backfill-author-photo-thumbs.js
 npm start
 ```
 

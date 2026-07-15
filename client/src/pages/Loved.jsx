@@ -10,7 +10,7 @@ import { GridSkeleton } from '../components/Skeleton.jsx';
 import PageHeading from '../components/PageHeading.jsx';
 import { sectionEyebrow } from '../components/textStyles.js';
 import { useCoverSize } from '../hooks/useCoverSize.js';
-import { initialsFor, FORMAT_LABEL } from '../utils.js';
+import { initialsFor, FORMAT_LABEL, toAuthorThumbUrl } from '../utils.js';
 
 // /loved is the home of every loved entity in the library — books at
 // the top (the historical Loved view), then authors, then series.
@@ -216,7 +216,19 @@ export default function Loved() {
                     >
                       <div className="aspect-[3/4] bg-neutral-800 rounded overflow-hidden shadow">
                         {a.photo_path ? (
-                          <img src={a.photo_path} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover object-top transition-opacity group-hover:opacity-90" />
+                          <img
+                            src={toAuthorThumbUrl(a.photo_path)}
+                            onError={(e) => {
+                              const currentPath = new URL(e.currentTarget.src, window.location.origin).pathname;
+                              if (currentPath !== a.photo_path) e.currentTarget.src = a.photo_path;
+                            }}
+                            alt=""
+                            loading="lazy"
+                            decoding="async"
+                            width={400}
+                            height={400}
+                            className="w-full h-full object-cover object-top transition-opacity group-hover:opacity-90"
+                          />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-neutral-700 to-neutral-900">
                             <span className="text-3xl font-bold text-neutral-500 select-none">{initialsFor(a.name)}</span>

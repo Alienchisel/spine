@@ -46,12 +46,15 @@ ls -1t "$DAILY_DB_DIR"/spine-*.db   2>/dev/null | tail -n +$((KEEP + 1)) | xargs
 # playbook.
 if command -v rclone >/dev/null 2>&1; then
   rclone sync "$DAILY_DB_DIR" "$RCLONE_REMOTE/db"      --quiet
-  # thumbs/ is derived data (max-400px JPGs regenerated from the originals
-  # by lib/books/covers.js#writeThumbForCover on save, or in bulk via
-  # scripts/backfill-cover-thumbs.js). Excluding it saves ~112 MB of B2
-  # storage per sync-tick and stays regenerable on restore — see CLAUDE.md
-  # recovery playbook for the one-line regen invocation.
-  rclone sync "$UPLOADS"      "$RCLONE_REMOTE/uploads" --quiet --exclude 'thumbs/**'
+  # thumbs/ directories are derived data (max-400px JPGs regenerated
+  # from the originals by writeThumbForCover / writeThumbForAuthorPhoto
+  # on save, or in bulk via the two backfill scripts). Excluding both
+  # the book-cover thumbs (uploads/thumbs/) and the author-photo thumbs
+  # (uploads/authors/thumbs/) saves ~116 MB of B2 storage per sync-tick
+  # and stays regenerable on restore — see CLAUDE.md recovery playbook
+  # for the two-line regen invocation.
+  rclone sync "$UPLOADS"      "$RCLONE_REMOTE/uploads" --quiet \
+    --exclude 'thumbs/**' --exclude 'authors/thumbs/**'
   echo "B2 off-VM sync complete"
 else
   echo "rclone not installed; skipping B2 off-VM sync"
