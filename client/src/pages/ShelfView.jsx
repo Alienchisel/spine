@@ -485,7 +485,11 @@ export default function ShelfView() {
   // Captured for setParams calls so internal navigation (breadcrumb
   // clicks, URL-normalisation effect) doesn't wipe the incoming
   // location.state ('← Stats' / '← Library' etc.).
-  const { state: navState } = useLocation();
+  // `key` is React Router's per-history-entry identifier; two nav
+  // pushes to the same URL still produce different keys. Used below
+  // by the Reveal-scroll effect so a fresh Link click re-fires even
+  // when focusId is unchanged.
+  const { state: navState, key: navKey } = useLocation();
   // treeLoaded gates the URL-pruning effect: we only consider the tree
   // canonical (and therefore safe to use as a basis for stripping stale
   // ids out of the URL) once getShelfTree has actually succeeded. On a
@@ -553,10 +557,14 @@ export default function ShelfView() {
   // on the matching cover. Cleared via timeout so the highlight doesn't
   // persist once the user has visually anchored to it.
   const [showFocusRing, setShowFocusRing] = useState(false);
-  // Track which focusId we've already revealed, so a refresh-tick
-  // re-fetch of `books` doesn't re-scroll the user back after they've
-  // manually scrolled away. Reset when `focusId` itself changes (new
-  // Reveal click) so a different target lands correctly.
+  // Track which reveal we've already fired, so a refresh-tick re-fetch
+  // of `books` doesn't re-scroll the user back after they've manually
+  // scrolled away. Keyed on `${focusId}|${navKey}` rather than focusId
+  // alone: navKey is React Router's per-history-entry id, so clicking
+  // Reveal again from the same BookDetail (same URL, same focusId)
+  // produces a fresh key and this check falls through, re-scrolling
+  // the user to the target. A refetch stays on the same history entry
+  // and gets the intended no-op.
   const revealedRef = useRef(null);
   // Bumped on every drag so an earlier failed reorder whose recovery
   // refetch lands *after* a later drag has already applied optimistically
@@ -669,29 +677,37 @@ export default function ShelfView() {
   }
 
   // Scroll-to-focus: once books are rendered and the focus target is
-  // among them, scroll the row to center it. Fires once per focusId.
+  // among them, scroll the row to center it. Fires once per (focusId,
+  // navKey) — see the revealedRef comment above.
   useEffect(() => {
     if (!focusId) return;
     if (booksLoading) return;
-    if (revealedRef.current === focusId) return;
-    const el = document.querySelector(`[data-book-id="${focusId}"]`);
+    const revealKey = `${focusId}|${navKey}`;
+    if (revealedRef.current === revealKey) return;
+    // CSS.escape() defends the attribute selector against a hand-
+    // crafted URL where focusId contains quotes/brackets/etc. — the
+    // Reveal link always emits a numeric book id, but an unescaped
+    // interpolation would silently match the wrong element for any
+    // pasted-URL edge case.
+    const el = document.querySelector(`[data-book-id="${CSS.escape(focusId)}"]`);
     if (!el) return;
-    revealedRef.current = focusId;
+    revealedRef.current = revealKey;
     el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     setShowFocusRing(true);
-  }, [focusId, booksLoading, books]);
+  }, [focusId, navKey, booksLoading, books]);
 
   // Auto-clear the focus ring after 2s. Lives in its own effect so a
   // books refetch (or StrictMode's dev double-invoke) that re-fires the
   // scroll effect doesn't tear down the timer — the scroll effect's
   // revealedRef early-return would leave showFocusRing stuck on true
-  // forever otherwise. Depends on focusId too so a rapid second Reveal
-  // for a *different* book restarts the 2s window from that click.
+  // forever otherwise. Depends on focusId AND navKey so a rapid second
+  // Reveal (different focusId OR same focusId, fresh Link click) both
+  // restart the 2s window from that click.
   useEffect(() => {
     if (!showFocusRing) return;
     const t = setTimeout(() => setShowFocusRing(false), 2000);
     return () => clearTimeout(t);
-  }, [showFocusRing, focusId]);
+  }, [showFocusRing, focusId, navKey]);
 
   useEffect(() => {
     // Once the tree is canonical, walk b → r → u → s and prune anything
