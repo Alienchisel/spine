@@ -598,13 +598,15 @@ export default function Diary() {
               <button type="button" onClick={() => setDeleteError(null)} aria-label="Dismiss error" className="ml-4 text-red-600 hover:text-red-400">×</button>
             </div>
           )}
-          {/* Side-by-side layout: entries on the left, vertical
-              year heatmap on the right. The heatmap is tall (~53
-              weeks) and stays sticky so it follows the user as they
-              scroll through the entries. Stats sit inside the heatmap
-              card above the grid. */}
-          <div className="flex items-start gap-8">
-            <div className="w-[28rem] flex-shrink-0 space-y-8">
+          {/* Side-by-side layout on ≥lg (three fixed columns total
+              ~960px): entries on the left, sticky heatmap+stats card
+              in the middle, sticky recently-finished on the right.
+              Stacks to a single column below lg (mobile/tablet) —
+              two 28rem sidebars would overflow a phone by ~500px, so
+              gate the flex-row, fixed widths, and sticky behaviour
+              behind lg:. */}
+          <div className="flex flex-col lg:flex-row items-start gap-8">
+            <div className="w-full lg:w-[28rem] lg:flex-shrink-0 space-y-8">
               {days.map(day => (
                 <div key={day.date} ref={el => { if (el) dayRefs.current[day.date] = el; }}>
                   <h2 className={`${sectionEyebrow} mb-1 pb-2 border-b border-neutral-800 flex justify-between items-baseline`}>
@@ -629,7 +631,7 @@ export default function Diary() {
               ))}
             </div>
 
-            <div className="w-[28rem] flex-shrink-0 sticky top-20 space-y-3">
+            <div className="w-full lg:w-[28rem] lg:flex-shrink-0 lg:sticky lg:top-20 space-y-3">
               <div className="bg-neutral-800 rounded-xl p-4 space-y-1 text-xs">
                 <div
                   className="flex items-baseline justify-between"
@@ -679,11 +681,11 @@ export default function Diary() {
             </div>
 
             {/* Right column: most recent finishes in the selected year
-                (deduped by book, capped at 10). Sticky like the heatmap;
-                takes whatever space remains after the two fixed columns.
-                Hidden if the year has no finishes. */}
+                (deduped by book, capped at 10). Sticky like the heatmap
+                on ≥lg; takes whatever space remains after the two fixed
+                columns. Hidden if the year has no finishes. */}
             {recentlyFinished.length > 0 && (
-              <div className="flex-1 min-w-0 sticky top-20">
+              <div className="w-full lg:flex-1 min-w-0 lg:sticky lg:top-20">
                 <div className="bg-neutral-800 rounded-xl p-4">
                   <p className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-3 pb-2 border-b border-neutral-700/60">Recently finished</p>
                   <ul className="space-y-2.5">

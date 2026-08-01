@@ -98,7 +98,7 @@ export default function DetailsFields({ form, set, ic, pastLanguages, pastTransl
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div>
           <label htmlFor={idFor('isbn_10')} className={label}>ISBN-10</label>
           <input id={idFor('isbn_10')} className={ic('isbn_10')} value={form.isbn_10}

@@ -34,7 +34,7 @@ function StreakTile({ title, current, currentStart, longest, longestStart, longe
 export default function Streaks({ streaks }) {
   return (
     <Section title="Streaks">
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <StreakTile
           title="Daily"
           current={streaks.days.current}
