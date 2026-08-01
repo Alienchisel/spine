@@ -565,27 +565,12 @@ export default function BookForm() {
 
       {!isEdit && <LookupPanel onApply={applyResult} coverInFlight={uploading || fetchingCover} />}
 
-      <div className="flex gap-8 items-start">
-        <CoverPicker
-          format={form.format}
-          coverPreview={coverPreview}
-          uploading={uploading}
-          coverError={coverError}
-          showFetchFromIsbn={isEdit && Boolean(form.isbn_13 || form.isbn_10)}
-          fetchingCover={fetchingCover}
-          onFileSelected={uploadFile}
-          onFetchFromIsbn={fetchCoverFromIsbn}
-          onRemove={() => {
-            // Clear locally; the actual file deletion happens server-side
-            // on Save (PUT with cover_path=null hits the explicit-clear
-            // branch in repository.js, which deletes the old file).
-            setCoverPreview(null);
-            setCoverError(null);
-            set('cover_path', null);
-          }}
-        />
-
-        <div className="flex-1 min-w-0">
+      {/* Mobile stacks form-first (tabs + fields on top, cover below) —
+          most edits target fields, and a full-column cover on top would
+          eat a viewport before anything editable appeared. Desktop keeps
+          the cover-left / form-right layout via md:order-first. */}
+      <div className="flex flex-col md:flex-row gap-8 items-start">
+        <div className="w-full md:flex-1 md:min-w-0">
           {/* Sticky just under the Nav (top-14 == h-14 nav height) so the
               tabs stay reachable while the long form body scrolls. top-20
               left a 24-pixel gap where scrolling content leaked through;
@@ -658,6 +643,27 @@ export default function BookForm() {
               </div>
             )}
           </form>
+        </div>
+
+        <div className="md:order-first">
+          <CoverPicker
+            format={form.format}
+            coverPreview={coverPreview}
+            uploading={uploading}
+            coverError={coverError}
+            showFetchFromIsbn={isEdit && Boolean(form.isbn_13 || form.isbn_10)}
+            fetchingCover={fetchingCover}
+            onFileSelected={uploadFile}
+            onFetchFromIsbn={fetchCoverFromIsbn}
+            onRemove={() => {
+              // Clear locally; the actual file deletion happens server-side
+              // on Save (PUT with cover_path=null hits the explicit-clear
+              // branch in repository.js, which deletes the old file).
+              setCoverPreview(null);
+              setCoverError(null);
+              set('cover_path', null);
+            }}
+          />
         </div>
       </div>
 
