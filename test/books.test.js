@@ -4202,32 +4202,6 @@ describe('books', () => {
       assert.ok(!ids.includes(archivedNever.id), 'archived never-owned book should NOT appear (archived excluded by default)');
     });
 
-    it('PUT /api/books/desire-order writes desire_rank in the order received and sort=custom returns ranked first', async () => {
-      // Three never-owned fixtures + one ranked-but-since-owned to confirm
-      // the rank persists harmlessly on books that leave the never-owned set.
-      const { body: a } = await req('POST', '/api/books', { title: 'Desire A ' + Math.random().toString(36).slice(2, 6), owned: false, previously_owned: false });
-      const { body: b } = await req('POST', '/api/books', { title: 'Desire B ' + Math.random().toString(36).slice(2, 6), owned: false, previously_owned: false });
-      const { body: c } = await req('POST', '/api/books', { title: 'Desire C ' + Math.random().toString(36).slice(2, 6), owned: false, previously_owned: false });
-
-      // Server writes index → desire_rank. Order chosen as B, A, C so the
-      // result isn't degenerate insertion order.
-      const orderResp = await req('PUT', '/api/books/desire-order', { ids: [b.id, a.id, c.id] });
-      assert.equal(orderResp.status, 200);
-      assert.deepEqual(orderResp.body, { ok: true });
-
-      const { body: list } = await req('GET', '/api/books?tab=never_owned&sort=custom&limit=200');
-      const ids = list.books.map(x => x.id);
-      const idxA = ids.indexOf(a.id), idxB = ids.indexOf(b.id), idxC = ids.indexOf(c.id);
-      assert.ok(idxB >= 0 && idxA >= 0 && idxC >= 0, 'all three should appear');
-      assert.ok(idxB < idxA && idxA < idxC, 'order should follow PUT order: B, A, C');
-    });
-
-    it('PUT /api/books/desire-order rejects non-integer ids', async () => {
-      const { status, body } = await req('PUT', '/api/books/desire-order', { ids: ['nope', -1] });
-      assert.equal(status, 400);
-      assert.match(body.error, /positive integers/);
-    });
-
     it('progress=any restricts to books with any logged reading activity', async () => {
       // Three positive signals (status=finished, current_page>0,
       // current_minutes>0) all qualify; a plain unread book with zero

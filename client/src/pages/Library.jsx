@@ -2,22 +2,6 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useSearchParams, useLocation } from 'react-router-dom';
 import IncomingBackLink from '../components/IncomingBackLink.jsx';
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  KeyboardSensor,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core';
-import {
-  SortableContext,
-  useSortable,
-  rectSortingStrategy,
-  sortableKeyboardCoordinates,
-  arrayMove,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import { api } from '../api.js';
 import { plural } from '../utils.js';
 import BookCard from '../components/BookCard.jsx';
@@ -32,7 +16,6 @@ import CoverSizeSlider from '../components/CoverSizeSlider.jsx';
 import { GridSkeleton } from '../components/Skeleton.jsx';
 import { useInfiniteQuery, useQueryClient, useQuery } from '@tanstack/react-query';
 import { useLatest } from '../hooks/useLatest.js';
-import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import { useSpineEvent, dispatchSpineEvent } from '../hooks/useSpineEvent.js';
 import { useClickOutside } from '../hooks/useClickOutside.js';
 import { useEscapeKey } from '../hooks/useEscapeKey.js';
@@ -82,11 +65,6 @@ const SORTS = [
   // exclude audiobooks, the sort still works server-side; it just
   // sorts other formats as 0 minutes at the bottom.)
   { key: 'duration',    label: 'Duration', requiresAudiobook: true },
-  // Custom (manual rank) sort is gated to the Never owned tab — that's the
-  // only surface where it's meaningful. The dropdown filters this entry
-  // out on every other tab, but a stale saved sort lands on a non-custom
-  // default in the load effect.
-  { key: 'custom',      label: 'Custom order', tabs: ['never_owned'] },
   { key: 'random',      label: 'Random' },
 ];
 
@@ -133,43 +111,6 @@ function SlidersIcon() {
       <line x1="2"  y1="12" x2="10" y2="12" />
       <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" />
     </svg>
-  );
-}
-
-function DragHandle() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
-      <path fillRule="evenodd" d="M2.75 4a.75.75 0 0 1 .75-.75h9a.75.75 0 0 1 0 1.5h-9A.75.75 0 0 1 2.75 4Zm0 4a.75.75 0 0 1 .75-.75h9a.75.75 0 0 1 0 1.5h-9A.75.75 0 0 1 2.75 8Zm.75 3.25a.75.75 0 0 0 0 1.5h9a.75.75 0 0 0 0-1.5h-9Z" clipRule="evenodd" />
-    </svg>
-  );
-}
-
-// Edit-mode wrapper around BookCard — adds drag-to-reorder without touching
-// BookCard. Whole-cover drag: dnd-kit listeners attach to the wrapper so
-// the user can grab anywhere on the cover; the centered three-lines glyph
-// is purely decorative (pointer-events:none) and only appears on hover as
-// a "this is grabbable" cue. Cover navigation is already suppressed by
-// hideActions, so there's no competing click semantic to preserve.
-function SortableBookCard({ book, compact, linkState }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: book.id });
-  const style = { transform: CSS.Transform.toString(transform), transition };
-  const overlay = (
-    <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
-      <div className="bg-black/75 backdrop-blur-sm rounded px-2 py-1 text-neutral-300">
-        <DragHandle />
-      </div>
-    </div>
-  );
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
-      className={`group relative select-none transition-opacity ring-2 ring-binding/40 rounded-lg cursor-grab active:cursor-grabbing ${isDragging ? 'opacity-40' : ''}`}
-    >
-      <BookCard book={book} coverOverlay={overlay} compact={compact} hideActions linkState={linkState} />
-    </div>
   );
 }
 
@@ -403,12 +344,10 @@ export default function Library() {
   const setLoadedCount = useCallback(() => {}, []);
   // Sparse-view density effect — replaces the old usePaginatedFetch
   // stopWhen. After the initial page lands, keep fetching until the
-  // visible grid has at least one full row of display items. Custom
-  // sort bypasses grouping so the effect never fires there.
+  // visible grid has at least one full row of display items.
   useEffect(() => {
     if (loading || loadingMore || loadingAll) return;
     if (!hasMore) return;
-    if (sort === 'custom') return;
     const visible = buildDisplayItems(books, expandedSeries).length;
     if (visible < Math.max(coverCols, 1)) {
       booksQ.fetchNextPage();
@@ -429,28 +368,8 @@ export default function Library() {
     () => new Map((seriesTotalsQ.data || []).map(r => [r.name, r.book_count])),
     [seriesTotalsQ.data]
   );
-  // Edit mode toggles drag handles on cards for the Custom-order rank on the
-  // Never owned tab. Mirrors ListDetail.editMode. Only meaningful when
-  // tab='never_owned' && sort='custom' — entering edit mode coerces both.
-  const [editMode, setEditMode] = useState(false);
-  // 2-step intent for entering edit mode: a click on Edit first switches
-  // sort to Custom and triggers Load all if needed. Once both are
-  // settled, the useEffect below promotes the intent to actual editMode.
-  // The intermediate state lets the button reflect "Loading…" so the
-  // user knows the click took effect even when there's a pause.
-  const [enteringEdit, setEnteringEdit] = useState(false);
-
-  // useStaleGuard kept solely for handleDragEnd's reorder-seq capture
-  // (a failed PUT whose recovery lands after a later drag needs the same
-  // navigation-guard semantics). The hook handles its own internal guard
-  // for paging.
-  const guard      = useStaleGuard();
   const prevTabRef = useRef(null);
   const searchRef  = useRef(null);
-  // Bumped on every drag so a failed PUT whose .catch lands after a later
-  // drag's optimistic apply doesn't restore a stale snapshot. Same shape as
-  // ListDetail.reorderSeqRef.
-  const reorderSeqRef = useRef(0);
   const tabRefs = useRef([]);
 
   // Mobile "More ▾" tab menu — portal + fixed positioning + mousedown/
@@ -485,10 +404,6 @@ export default function Library() {
   function switchTab(key) {
     setTab(key);
     setExpandedSeries(new Set());
-    // Edit mode is scoped to the Never owned tab — clear it on tab
-    // switch so drag handles don't bleed onto tabs where reordering
-    // isn't a thing.
-    if (key !== 'never_owned') setEditMode(false);
   }
 
   function handleTabKey(e, idx) {
@@ -526,11 +441,6 @@ export default function Library() {
   // of which render's function instance gets invoked.
   const tabRef  = useLatest(tab);
   const sortRef = useLatest(sort);
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
 
   // Bridge for the command palette's Load more / Load all entries — the
   // refs themselves are declared further down (where the handler /
@@ -692,95 +602,8 @@ export default function Library() {
     });
   }
 
-  function toggleEditMode() {
-    // Edit mode is only meaningful on the Never owned tab in Custom-order
-    // sort. Mirrors ListDetail.toggleEditMode: entering edit mode coerces
-    // the sort (and tab, here) so the drag-and-drop you're about to do
-    // matches the order being persisted. If the library is partially
-    // paginated, also kicks off Load all — the desire-order PUT stamps
-    // ranks on the ids it receives and leaves the rest untouched, so
-    // ranking a subset would let unloaded books carry stale ranks that
-    // outrank user-dragged top books. The useEffect below progresses
-    // the intent through Load all → editMode = true once everything
-    // is in place.
-    if (editMode) {
-      setEditMode(false);
-      return;
-    }
-    if (enteringEdit) return;
-    setActionError(null);
-    setEnteringEdit(true);
-    if (tab !== 'never_owned') setTab('never_owned');
-    if (sort !== 'custom')     setSort('custom');
-  }
-
-  // Drives the enteringEdit → editMode transition: waits for tab + sort
-  // to settle on (never_owned, custom), triggers Load all if there are
-  // unloaded books, then activates editMode once everything is loaded.
-  // Bails out (clears the intent) if Load all surfaced an actionError —
-  // otherwise the effect would retry loadAll on every state-tick and the
-  // button would stay "Loading…" forever after a network blip.
-  useEffect(() => {
-    if (!enteringEdit) return;
-    if (tab !== 'never_owned' || sort !== 'custom') return;
-    if (loading || loadingMore || loadingAll) return;
-    if (actionError) { setEnteringEdit(false); return; }
-    if (hasMore) {
-      loadAll();
-      return;
-    }
-    setEditMode(true);
-    setEnteringEdit(false);
-  }, [enteringEdit, tab, sort, loading, loadingMore, loadingAll, hasMore, actionError]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Cancel an in-flight enter-edit intent when the user navigates away
-  // from Never owned or away from Custom sort, since the intent only
-  // makes sense in that combination.
-  useEffect(() => {
-    if (enteringEdit && (tab !== 'never_owned' || sort !== 'custom') && !loading) {
-      // sort might still be settling immediately after the click; only
-      // cancel if both tab and sort have settled to a different combo.
-      if (tab !== 'never_owned') setEnteringEdit(false);
-    }
-  }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  function handleDragEnd(event) {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    // Guard against drag-then-PUT against a paginated subset. The Edit
-    // button is disabled until all are loaded, but a refresh-tick or a
-    // filter change while editing can reset `books` to a fresh first
-    // page; without this check the resulting PUT would stamp ranks on
-    // those 48 only and leave stale ranks on the rest. Same root cause
-    // the button gate addresses, second line of defence.
-    if (hasMore) {
-      setActionError('Books reloaded mid-edit — click Done and Load all again before reordering.');
-      return;
-    }
-    const oldIndex = books.findIndex(b => b.id === active.id);
-    const newIndex = books.findIndex(b => b.id === over.id);
-    if (oldIndex < 0 || newIndex < 0) return;
-    const previousBooks = books;
-    const reordered = arrayMove(previousBooks, oldIndex, newIndex);
-    setActionError(null);
-    setBooks(reordered);
-    const epoch = guard.current();
-    const reorderSeq = ++reorderSeqRef.current;
-    api.setDesireOrder(reordered.map(b => b.id)).catch(() => {
-      if (!guard.isFresh(epoch) || reorderSeq !== reorderSeqRef.current) return;
-      setBooks(previousBooks);
-      setActionError('Failed to save order.');
-    });
-  }
-
   const activeCount   = countFilters(filters);
-  // Custom sort is a flat per-volume rank: each book is an independent
-  // purchase decision, so series grouping is meaningless and would also
-  // make the non-edit and edit-mode views visually asymmetric (edit mode
-  // already renders flat). Flatten outside edit mode too.
-  const allDisplayItems = sort === 'custom'
-    ? books.map(book => ({ type: 'book', book }))
-    : buildDisplayItems(books, expandedSeries);
+  const allDisplayItems = buildDisplayItems(books, expandedSeries);
   // Back-link state for BookDetail: returning preserves the current Library
   // search params (filters / tab / sort) so the user lands on the same
   // filtered view they came from rather than the default Library root.
@@ -929,17 +752,10 @@ export default function Library() {
           <div className="flex items-center gap-2">
             <select
               value={sort}
-              // Disabled during edit mode so the sort that the drag order is
-              // persisting against can't drift mid-edit. Mirrors ListDetail's
-              // editMode-disabled select.
-              disabled={editMode}
-              title={editMode ? 'Sorting is locked to Custom order while editing' : ''}
               onChange={(e) => { setSort(e.target.value); setExpandedSeries(new Set()); }}
               className={`h-9 bg-neutral-800 border rounded-lg px-3 text-sm focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 transition-colors duration-150 disabled:opacity-60 ${sort === 'updated' ? 'border-neutral-700 text-neutral-300' : 'border-oak/50 text-parchment'}`}
             >
-              {/* Filter sort options to those allowed on the active tab. The
-                  Custom-order sort is gated to Never owned via SORTS[].tabs;
-                  Duration is gated on format-filter via requiresAudiobook
+              {/* Duration is gated on format-filter via requiresAudiobook
                   (visible when no format filter is set, since all formats
                   show, or when 'audiobook' is in the selected set). */}
               {SORTS.filter(s => {
@@ -962,29 +778,6 @@ export default function Library() {
                 className="h-9 inline-flex items-center justify-center text-neutral-500 hover:text-parchment text-base leading-none px-2 rounded-lg border border-neutral-800 hover:border-oak/50 transition-colors duration-150"
               >
                 🎲
-              </button>
-            )}
-            {tab === 'never_owned' && (
-              <button
-                type="button"
-                onClick={toggleEditMode}
-                // Always clickable. A click that isn't already in
-                // editMode triggers the enteringEdit flow: switch to
-                // Custom sort + Load all + then activate edit mode.
-                // The PUT /books/desire-order route stamps `desire_rank
-                // = i` on exactly the ids it receives, so it MUST run
-                // against the full corpus — partial-load ranking
-                // leaves un-loaded books with stale ranks that
-                // outrank freshly-stamped top picks.
-                disabled={enteringEdit}
-                title={enteringEdit ? 'Loading all books to rank…' : ''}
-                className={`h-9 inline-flex items-center text-sm px-3 rounded-lg whitespace-nowrap transition-colors disabled:opacity-60 disabled:cursor-wait ${
-                  editMode
-                    ? 'bg-binding/25 text-parchment'
-                    : 'bg-neutral-800 text-neutral-400 hover:text-neutral-200'
-                }`}
-              >
-                {editMode ? 'Done' : enteringEdit ? 'Loading…' : 'Edit'}
               </button>
             )}
             {/* Search input + ?-help are desktop-only. On a phone the
@@ -1153,45 +946,29 @@ export default function Library() {
         </div>
       ) : (
         <>
-          {editMode ? (
-            // Drag-to-rank UI for the Never owned tab. Bypasses series
-            // grouping (each volume is individually wished/purchased) and
-            // the trailing-row trim (a partial last row is fine in edit
-            // mode — the user is here to reorder, not to admire the grid).
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <SortableContext items={books.map(b => b.id)} strategy={rectSortingStrategy}>
-                <div className={gridClassName} style={gridStyle}>
-                  {books.map(book => (
-                    <SortableBookCard key={book.id} book={book} compact={compact} linkState={fromState} />
-                  ))}
-                </div>
-              </SortableContext>
-            </DndContext>
-          ) : (
-            <div className={gridClassName} style={gridStyle}>
-              {displayItems.map(item =>
-                item.type === 'series' ? (
-                  <SeriesCard
-                    key={item.name}
-                    seriesName={item.name}
-                    books={item.books}
-                    seriesTotal={seriesTotals.get(item.name)}
-                    expanded={expandedSeries.has(item.name)}
-                    onToggle={() => toggleSeries(item.name)}
-                    compact={compact}
-                  />
-                ) : (
-                  <BookCard
-                    key={item.book.id}
-                    book={item.book}
-                    onProgressUpdate={handleProgressUpdate}
-                    compact={compact}
-                    linkState={fromState}
-                  />
-                )
-              )}
-            </div>
-          )}
+          <div className={gridClassName} style={gridStyle}>
+            {displayItems.map(item =>
+              item.type === 'series' ? (
+                <SeriesCard
+                  key={item.name}
+                  seriesName={item.name}
+                  books={item.books}
+                  seriesTotal={seriesTotals.get(item.name)}
+                  expanded={expandedSeries.has(item.name)}
+                  onToggle={() => toggleSeries(item.name)}
+                  compact={compact}
+                />
+              ) : (
+                <BookCard
+                  key={item.book.id}
+                  book={item.book}
+                  onProgressUpdate={handleProgressUpdate}
+                  compact={compact}
+                  linkState={fromState}
+                />
+              )
+            )}
+          </div>
           {hasMore && (
             <div className="mt-10 flex justify-center gap-3">
               <button
@@ -1212,12 +989,6 @@ export default function Library() {
               </button>
             </div>
           )}
-          {/* actionError lives outside the {hasMore && …} block so the
-              handleDragEnd "Failed to save order" message — which can only
-              fire in edit mode, where hasMore is false by precondition —
-              still surfaces. Load more / Load all failures fire when
-              hasMore is true, so the banner appears under the buttons
-              in that case. */}
           {actionError && (
             <p role="alert" className="mt-3 text-center text-xs text-warn">
               {typeof actionError === 'string' ? actionError : 'Failed to load more books.'}

@@ -86,8 +86,9 @@ const STATUS_DOT_CLASS = {
 // rather than imported to keep the palette decoupled from page internals
 // — if Library renames a sort key, both files need updating, but the
 // keys are part of the URL contract anyway so this is a stable surface.
-// The `tabs` metadata is what powers per-tab sort filtering in the palette:
-// 'custom' only makes sense on the Never owned tab (manual rank).
+// The `tabs` metadata (unused at the moment) is the hook for per-tab
+// sort filtering — sort entries can restrict themselves to a subset of
+// tabs when appropriate.
 const SORTS = [
   { key: 'updated',     label: 'Recently updated' },
   { key: 'last_logged', label: 'Recently logged' },
@@ -99,7 +100,6 @@ const SORTS = [
   { key: 'started',     label: 'Date started' },
   { key: 'finished',    label: 'Date finished' },
   { key: 'length',      label: 'Length' },
-  { key: 'custom',      label: 'Custom order', tabs: ['never_owned'] },
   { key: 'random',      label: 'Random' },
 ];
 
