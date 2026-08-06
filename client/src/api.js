@@ -50,9 +50,6 @@ export const api = {
   postTodayFeedback: (queueId, value) => request(`/today/queue/${queueId}/feedback`, {
     method: 'POST', body: JSON.stringify({ value }),
   }),
-  postTodaySnooze: (bookId, days) => request('/today/snooze', {
-    method: 'POST', body: JSON.stringify({ book_id: bookId, days }),
-  }),
   getTodayQueueDepth: () => request('/today/queue-depth'),
   getBookLists: (bookId) => request(`/books/${bookId}/lists`),
   getBookLog: (bookId) => request(`/books/${bookId}/log`),

@@ -661,8 +661,8 @@ describe('today', () => {
       // passes when the personal cohort is non-empty.
       //
       // OR REPLACE (here and in the other pre-seed tests): the suite's
-      // current-date sweeps (recent_acquisition, snooze) persist cards
-      // for today..+6, so whenever the real calendar approaches one of
+      // current-date sweeps (recent_acquisition) persist cards for
+      // today..+6, so whenever the real calendar approaches one of
       // these hard-coded dates a plain INSERT hits the date PK.
       const { body: created } = await req('POST', '/api/books', {
         title:         'PA Meta Finished',
@@ -827,56 +827,6 @@ describe('today', () => {
       assert.equal(typeof body.depth.reading_path, 'number');
       assert.ok(body.depth.connection   >= 0);
       assert.ok(body.depth.reading_path >= 0);
-    });
-
-    it('snooze excludes a book from cohort picks until snoozed_until passes', async () => {
-      // Seed a loved + long-finished book — qualifies for
-      // loved_resurface always. Snooze it for 7 days, then verify it
-      // does not surface on a 2026-12-20 sweep where the snoozed_until
-      // would still be active (computed against 'now' = the test
-      // host clock).
-      const { body: created } = await req('POST', '/api/books', {
-        title:         'Snooze Loved Fixture',
-        authors:       ['Snooze Loved Solo'],
-        status:        'finished',
-        date_finished: '2024-01-01',
-      });
-      await req('PUT', `/api/books/${created.id}`, {
-        ...created, loved: true, tags: [],
-      });
-      // Persist a snooze for 7 days.
-      const { status: sStatus, body: sBody } = await req(
-        'POST', '/api/today/snooze', { book_id: created.id, days: 7 }
-      );
-      assert.equal(sStatus, 200);
-      assert.ok(sBody.snoozed_until,
-        'expected snoozed_until in the response');
-      // Sweep the next 6 days from "now" (well inside the 7-day
-      // window). The fixture must never surface as loved_resurface
-      // during the window.
-      const today = new Date();
-      for (let i = 0; i < 6; i++) {
-        const d = new Date(today);
-        d.setDate(d.getDate() + i);
-        const dateStr = d.toLocaleDateString('en-CA');
-        const { body } = await req('GET', `/api/today/card?date=${dateStr}`);
-        if (body.card?.type === 'loved_resurface' && body.card.book.id === created.id) {
-          assert.fail(`snoozed book surfaced on ${dateStr}: ${JSON.stringify(body.card)}`);
-        }
-      }
-    });
-
-    it('snooze rejects malformed input (out-of-range days, missing book_id)', async () => {
-      // days must be a positive integer in 1..365; book_id must
-      // reference an existing row. Each negative path returns a 4xx.
-      const r1 = await req('POST', '/api/today/snooze', { book_id: 1, days: 0 });
-      assert.equal(r1.status, 400);
-      const r2 = await req('POST', '/api/today/snooze', { book_id: 1, days: 9999 });
-      assert.equal(r2.status, 400);
-      const r3 = await req('POST', '/api/today/snooze', { days: 7 });
-      assert.equal(r3.status, 400);
-      const r4 = await req('POST', '/api/today/snooze', { book_id: 999999, days: 7 });
-      assert.equal(r4.status, 404);
     });
 
     it('series_next_volume stays silent when the user owns Vol 1 but has never finished a sibling', async () => {

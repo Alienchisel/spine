@@ -143,32 +143,4 @@ router.get('/queue-depth', (_req, res) => {
   res.json({ depth });
 });
 
-// "Don't surface this book on Today for N days." Records to
-// today_snoozes (migration 075); pickTodayCard's exclusion set
-// unions snoozed ids with the 14-day repetition guard. INSERT OR
-// REPLACE on the book_id PK lets a re-snooze reset the clock from
-// the new click rather than appending.
-const SNOOZE_MAX_DAYS = 365;
-router.post('/snooze', (req, res) => {
-  const bookId = parseInt(req.body?.book_id, 10);
-  const days   = parseInt(req.body?.days, 10);
-  if (!Number.isFinite(bookId)) return res.status(400).json({ error: 'invalid book_id' });
-  if (!Number.isFinite(days) || days < 1 || days > SNOOZE_MAX_DAYS) {
-    return res.status(400).json({ error: 'days must be 1..365' });
-  }
-  const book = db.prepare('SELECT id FROM books WHERE id = ?').get(bookId);
-  if (!book) return res.status(404).json({ error: 'book not found' });
-  db.prepare(`
-    INSERT INTO today_snoozes (book_id, snoozed_until, snoozed_at)
-    VALUES (?, date('now', 'localtime', ? || ' days'), CURRENT_TIMESTAMP)
-    ON CONFLICT(book_id) DO UPDATE SET
-      snoozed_until = excluded.snoozed_until,
-      snoozed_at    = excluded.snoozed_at
-  `).run(bookId, `+${days}`);
-  const row = db.prepare(
-    'SELECT snoozed_until FROM today_snoozes WHERE book_id = ?'
-  ).get(bookId);
-  res.json({ ok: true, snoozed_until: row?.snoozed_until || null });
-});
-
 export default router;
