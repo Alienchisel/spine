@@ -51,7 +51,7 @@ function normalizeName(s) {
   return s
     .toLowerCase()
     .normalize('NFKD').replace(DIACRITICS_RE, '')
-    .split(/[\s.,'`’\-]+/)
+    .split(/[\s.,'`’-]+/)
     .filter(w => w && !PARTICLES.has(w))
     .join(' ')
     .trim();
@@ -61,7 +61,7 @@ function normalizePublisher(s) {
   return s
     .toLowerCase()
     .normalize('NFKD').replace(DIACRITICS_RE, '')
-    .split(/[\s.,'`’\-]+/)
+    .split(/[\s.,'`’-]+/)
     .filter(w => w && !IMPRINT_WORDS.has(w))
     .join(' ')
     .trim();

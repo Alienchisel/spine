@@ -26,7 +26,6 @@ import assert from 'node:assert/strict';
 import { createTestServer } from './helpers.js';
 
 describe('book contract: full field round-trip', () => {
-  let url;
   let close;
   let req;
   let buildingId, roomId, unitId, shelfId;
@@ -34,7 +33,6 @@ describe('book contract: full field round-trip', () => {
 
   before(async () => {
     const server = await createTestServer();
-    url = server.url;
     close = server.close;
     req = server.req;
 

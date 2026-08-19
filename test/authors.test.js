@@ -2,7 +2,7 @@
 // doesn't hit Open Library — the route's other behaviors (GET shape,
 // PATCH gender, alias links) are covered elsewhere.
 
-import { describe, it, before, after, beforeEach, afterEach } from 'node:test';
+import { describe, it, before, after, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createTestServer } from './helpers.js';
 import { parseDate, normalizeBio, stripBioDates } from '../lib/authors/openLibrary.js';
@@ -520,10 +520,9 @@ describe('authors — Open Library refresh', () => {
 });
 
 describe('authors — per-author default_sort', () => {
-  let url;
   let close;
   let req;
-  before(async () => { const s = await createTestServer(); url = s.url; close = s.close; req = s.req; });
+  before(async () => { const s = await createTestServer(); close = s.close; req = s.req; });
   after(() => close());
   async function authorByline(name) {
     await req('POST', '/api/books', { title: `book by ${name} ${Math.random()}`, authors: [name] });
@@ -599,13 +598,11 @@ describe('authors — per-author default_sort', () => {
 });
 
 describe('authors — index', () => {
-  let url;
   let close;
   let req;
 
   before(async () => {
     const server = await createTestServer();
-    url = server.url;
     close = server.close;
     req = server.req;
   });
@@ -754,7 +751,7 @@ describe('authors — index', () => {
     // One author with no bio (bylined), one with a bio (bylined), one
     // with no bio but no books (dangling). Only the first should appear.
     const stem = 'misbio' + Math.random().toString(36).slice(2, 6);
-    const { body: bookA } = await req('POST', '/api/books', {
+    await req('POST', '/api/books', {
       title: `${stem}-A`, authors: [`Nobio ${stem}`],
     });
     const { body: bookB } = await req('POST', '/api/books', {

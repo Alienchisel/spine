@@ -19,7 +19,6 @@
 // app-foregrounding events that Audible records.
 
 import fs from 'fs';
-import path from 'path';
 
 // ─── CLI ────────────────────────────────────────────────────────────────
 

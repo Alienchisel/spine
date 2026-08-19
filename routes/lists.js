@@ -1,5 +1,5 @@
 import express from 'express';
-import db, { nrm } from '../db.js';
+import db from '../db.js';
 import { serveBookCardRows, LIST_BOOK_SELECT_PREFIXED } from '../lib/books/joinedFields.js';
 
 const router = express.Router();

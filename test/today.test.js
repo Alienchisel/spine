@@ -9,13 +9,11 @@ import assert from 'node:assert/strict';
 import { createTestServer } from './helpers.js';
 
 describe('today', () => {
-  let url;
   let close;
   let req;
 
   before(async () => {
     const server = await createTestServer();
-    url = server.url;
     close = server.close;
     req = server.req;
   });

@@ -179,9 +179,8 @@ async function main() {
     process.exit(1);
   }
 
-  let meta, parsed = null;
-
-  parsed = parseInput(input);
+  let meta;
+  const parsed = parseInput(input);
   const lookupId = parsed.value;
   const typeLabel = { isbn13: 'ISBN-13', isbn10: 'ISBN-10', asin: 'ASIN' }[parsed.type];
   console.log(`\nLooking up ${typeLabel} ${lookupId}...\n`);

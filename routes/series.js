@@ -1,5 +1,5 @@
 import express from 'express';
-import db, { nrm } from '../db.js';
+import db from '../db.js';
 import { toCoverUrl } from '../lib/books/normalization.js';
 
 const router = express.Router();
