@@ -48,8 +48,12 @@ export const EMPTY_FILTERS = {
   progress:        null,
 };
 
-const FILTER_ARRAY_KEYS = ['missing', 'formats', 'fictions', 'sourceTypes', 'bindings', 'ratings', 'publishers', 'sources', 'series', 'originalLanguages', 'editionLanguages', 'tags', 'statuses'];
-const TRISTATE_KEYS = ['owned', 'previouslyOwned', 'custom', 'loved', 'stub'];
+// The multi-select and tristate filter key lists are the single source of
+// truth for both this module and urlState.js (which imports them). Every
+// multi-select filter must appear in FILTER_ARRAY_KEYS or its chip clicks
+// become silent no-ops — writeFiltersToParams skips unknown keys.
+export const FILTER_ARRAY_KEYS = ['missing', 'formats', 'fictions', 'sourceTypes', 'bindings', 'ratings', 'publishers', 'sources', 'series', 'originalLanguages', 'editionLanguages', 'tags', 'statuses'];
+export const TRISTATE_KEYS = ['owned', 'previouslyOwned', 'custom', 'loved', 'stub'];
 
 // Hardens persisted filter shape against (a) future schema migrations
 // where a field type changes and the saved blob predates the change,

@@ -11,6 +11,7 @@ import SeriesCard from '../components/library/SeriesCard.jsx';
 import { EMPTY_FILTERS, PAGE_SIZE, countFilters, pruneFilters, buildApiParams } from '../components/library/filters.js';
 import { paramsToFilters, writeFiltersToParams, filtersEqual } from '../components/library/urlState.js';
 import { buildDisplayItems } from '../components/library/grouping.js';
+import { SORTS, VALID_TABS } from '../components/library/sorts.js';
 import { useCoverSize } from '../hooks/useCoverSize.js';
 import CoverSizeSlider from '../components/CoverSizeSlider.jsx';
 import { GridSkeleton } from '../components/Skeleton.jsx';
@@ -47,41 +48,19 @@ const MORE_TABS = TABS.filter(t => MORE_TAB_KEYS.has(t.key));
 // lives in the URL — see urlState.js.
 const PREFS_KEY = 'spine-library-prefs';
 
-const SORTS = [
-  { key: 'updated',     label: 'Recently updated' },
-  { key: 'last_logged', label: 'Recently logged' },
-  { key: 'added',       label: 'Recently added' },
-  { key: 'acquired',    label: 'Recently acquired' },
-  { key: 'author',      label: 'Author A–Z' },
-  { key: 'title',       label: 'Title A–Z' },
-  { key: 'rating',      label: 'Rating' },
-  { key: 'progress',    label: 'Progress' },
-  { key: 'started',     label: 'Date started' },
-  { key: 'finished',    label: 'Date finished' },
-  { key: 'length',      label: 'Length' },
-  // Duration is only meaningful when audiobooks can appear in the
-  // listing — gated below in the dropdown render against filters.formats.
-  // (If the user has the saved sort but narrows the format filter to
-  // exclude audiobooks, the sort still works server-side; it just
-  // sorts other formats as 0 minutes at the bottom.)
-  { key: 'duration',    label: 'Duration', requiresAudiobook: true },
-  { key: 'random',      label: 'Random' },
-];
+// SORTS and VALID_TABS live in components/library/sorts.js so the command
+// palette shares one copy — see that file's header for why.
 
 function rollSeed() {
   return Math.floor(Math.random() * 1_000_000_000) + 1;
 }
 
-// Clamp sortByTab values that no longer make sense — either because the
-// sort was renamed/removed since the session was persisted, or because the
-// saved value lives under a tab where the sort isn't allowed (the dropdown
-// hides it but the underlying value would otherwise still ship to the API,
-// invisibly miscategorizing the result set).
-function sortAllowedForTab(sort, tab) {
-  const def = SORTS.find(s => s.key === sort);
-  if (!def) return 'updated';
-  if (def.tabs && !def.tabs.includes(tab)) return 'updated';
-  return sort;
+// Clamp a persisted sort value that no longer makes sense — the sort was
+// renamed or removed since the session was saved (e.g. the old 'custom'
+// order), so it would otherwise ship an unknown key to the API. Falls
+// back to 'updated'.
+function clampSort(sort) {
+  return SORTS.some(s => s.key === sort) ? sort : 'updated';
 }
 
 function getPrefs() {
@@ -113,8 +92,6 @@ function SlidersIcon() {
     </svg>
   );
 }
-
-const VALID_TABS = new Set(['reading', 'finished', 'unread', 'owned', 'prev_owned', 'never_owned', 'all', 'archived']);
 
 export default function Library() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -162,7 +139,7 @@ export default function Library() {
   // sort" feature while keeping bookmark URLs that explicitly set
   // `?sort=...` authoritative.
   const urlSort = searchParams.get('sort');
-  const sort = sortAllowedForTab(urlSort || sortByTab[tab], tab);
+  const sort = clampSort(urlSort || sortByTab[tab]);
 
   // Setters: each one mutates the URL. We keep a useState `queryRaw`
   // for the search-box value so typing isn't bottlenecked on URL
@@ -504,7 +481,7 @@ export default function Library() {
   // would still be empty.
   useEffect(() => {
     if (!urlSort) return;
-    if (sortAllowedForTab(urlSort, tab) !== urlSort) return;
+    if (clampSort(urlSort) !== urlSort) return;
     setSortByTab(prev => prev[tab] === urlSort ? prev : { ...prev, [tab]: urlSort });
   }, [urlSort, tab]);
 
@@ -759,7 +736,6 @@ export default function Library() {
                   (visible when no format filter is set, since all formats
                   show, or when 'audiobook' is in the selected set). */}
               {SORTS.filter(s => {
-                if (s.tabs && !s.tabs.includes(tab)) return false;
                 if (s.requiresAudiobook) {
                   const fmts = filters.formats ?? [];
                   if (fmts.length > 0 && !fmts.includes('audiobook')) return false;

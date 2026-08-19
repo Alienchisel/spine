@@ -6,6 +6,7 @@ import { plural, pluralWord, initialsFor, MOD_KEY, labelForPath } from '../utils
 import { useConfirm } from './ConfirmModal.jsx';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import { useSpineEvent, dispatchSpineEvent } from '../hooks/useSpineEvent.js';
+import { SORTS } from './library/sorts.js';
 
 // Global command palette, opened with Ctrl/Cmd+K (universal) or
 // Ctrl/Cmd+Shift+P (VS Code muscle memory; Chrome/Edge/Safari only —
@@ -82,38 +83,10 @@ const STATUS_DOT_CLASS = {
   unread:   'bg-neutral-700',
 };
 
-// Mirror of the SORTS array in pages/Library.jsx. Kept as a local copy
-// rather than imported to keep the palette decoupled from page internals
-// — if Library renames a sort key, both files need updating, but the
-// keys are part of the URL contract anyway so this is a stable surface.
-// The `tabs` metadata (unused at the moment) is the hook for per-tab
-// sort filtering — sort entries can restrict themselves to a subset of
-// tabs when appropriate.
-const SORTS = [
-  { key: 'updated',     label: 'Recently updated' },
-  { key: 'last_logged', label: 'Recently logged' },
-  { key: 'added',       label: 'Recently added' },
-  { key: 'author',      label: 'Author A–Z' },
-  { key: 'title',       label: 'Title A–Z' },
-  { key: 'rating',      label: 'Rating' },
-  { key: 'progress',    label: 'Progress' },
-  { key: 'started',     label: 'Date started' },
-  { key: 'finished',    label: 'Date finished' },
-  { key: 'length',      label: 'Length' },
-  { key: 'random',      label: 'Random' },
-];
-
-// Mirror of Library's VALID_TABS — used to derive the current tab from
-// the URL inside libraryActions so per-tab sort filtering matches what
-// Library itself accepts.
-const VALID_TABS = new Set(['reading', 'finished', 'unread', 'owned', 'prev_owned', 'never_owned', 'all', 'archived']);
-
-function sortAllowedForTab(sortKey, tab) {
-  const def = SORTS.find(s => s.key === sortKey);
-  if (!def) return false;
-  if (def.tabs && !def.tabs.includes(tab)) return false;
-  return true;
-}
+// SORTS is imported from components/library/sorts.js — the palette and
+// Library share one copy of the sort catalogue (see that file's header).
+// The palette surfaces every sort as a "Sort by …" command; Library
+// additionally gates 'duration' on the format filter in its dropdown.
 
 // Qualifiers we autocomplete values for. `title` is omitted intentionally —
 // titles are per-book, there's no facet to suggest from, and a flood of
@@ -664,15 +637,10 @@ export default function CommandPalette() {
   // to clear off-page. Returning an empty list off Library both hides
   // the entries from the typed-query Actions section AND filters them
   // out of Recent (the resolver drops MRU entries with no live match).
-  //
-  // Sort entries are filtered to those allowed for the current tab —
-  // Custom order, for instance, is only meaningful on Never owned, so
-  // it would silently coerce to 'updated' if surfaced elsewhere.
+  // Every sort in the catalogue is surfaced as a "Sort by …" command.
   const libraryActions = useMemo(() => {
     if (!isOnLibrary) return [];
     const currentParams = searchParams;
-    const urlTab = currentParams.get('tab');
-    const currentTab = (urlTab && VALID_TABS.has(urlTab)) ? urlTab : 'reading';
 
     const changeSort = (key) => () => {
       const next = new URLSearchParams(currentParams);
@@ -729,7 +697,7 @@ export default function CommandPalette() {
         perform: clearAll,
       },
       ...pagingEntries,
-      ...SORTS.filter(s => sortAllowedForTab(s.key, currentTab)).map(s => ({
+      ...SORTS.map(s => ({
         id: `action.sort.${s.key}`,
         kind: 'action',
         label: `Sort by ${s.label}`,
