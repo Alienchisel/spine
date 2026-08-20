@@ -5,6 +5,7 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createTestServer } from './helpers.js';
+import { formatPartialDate } from '../shared/dates.js';
 
 describe('collage', () => {
   let close;
@@ -22,18 +23,8 @@ describe('collage', () => {
     return new Date().toLocaleDateString('en-CA');
   }
 
-  // Mirror of the server's formatPartialDate in lib/stats/collage.js so
-  // the recently_finished / year_in_review sublabel asserts stay in
-  // sync with the live formatter shape.
-  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-  function fmtPartial(val) {
-    if (!val) return null;
-    const [y, m, d] = String(val).split('-');
-    if (!m) return y;
-    const monthName = MONTHS[parseInt(m, 10) - 1];
-    if (!d) return `${monthName} ${y}`;
-    return `${parseInt(d, 10)} ${monthName} ${y}`;
-  }
+  // Sublabel asserts use the shared formatPartialDate directly (imported
+  // above) so they track the live formatter shape.
 
   it('defaults to top_books / 30d / size=3 when no params are given', async () => {
     const { status, body } = await req('GET', '/api/collage');
@@ -110,9 +101,9 @@ describe('collage', () => {
     const { body } = await req('GET', '/api/collage?mode=recently_finished&size=5');
     assert.ok(body.tiles.length >= 1);
     assert.equal(body.tiles[0].id, book.id, 'most recent finish should be top-left');
-    // Sublabel is the formatted date (server-side mirror of the
-    // client's formatPartialDate helper) — '19 May 2026' style.
-    assert.equal(body.tiles[0].sublabel, fmtPartial(today));
+    // Sublabel is the formatted date via the shared formatPartialDate —
+    // 'May 19, 2026' style (en-US).
+    assert.equal(body.tiles[0].sublabel, formatPartialDate(today));
   });
 
   it('returns 400 on invalid mode / period', async () => {
@@ -165,7 +156,7 @@ describe('collage', () => {
     // Sublabel is the formatted date_finished (used by the client to
     // render the small caption under each tile).
     const tileThis = thisYear.tiles.find(t => t.id === bThis.id);
-    assert.equal(tileThis.sublabel, fmtPartial(today));
+    assert.equal(tileThis.sublabel, formatPartialDate(today));
   });
 
   it('year_in_review includes partial-date finishes that name the year', async () => {

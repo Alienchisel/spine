@@ -127,24 +127,10 @@ export function formatDate(dateStr) {
 // Handles BCE years (leading '-' → "65 BCE" / "December 65 BCE" /
 // "December 8, 65 BCE"); Date() can't construct negative years natively,
 // so we parse and compose manually for all cases — keeps positive and
-// BCE branches consistent.
-const PARTIAL_DATE_MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
-export function formatPartialDate(val) {
-  if (!val) return null;
-  const m = String(val).match(/^(-?\d{1,4})(?:-(\d{2}))?(?:-(\d{2}))?$/);
-  if (!m) return String(val);
-  const year  = parseInt(m[1], 10);
-  const month = m[2] ? parseInt(m[2], 10) : null;
-  const day   = m[3] ? parseInt(m[3], 10) : null;
-  const yearLabel = year < 0 ? `${-year} BCE` : String(year);
-  if (!month) return yearLabel;
-  const monthLabel = PARTIAL_DATE_MONTHS[month - 1] ?? '';
-  if (!day) return `${monthLabel} ${yearLabel}`;
-  return `${monthLabel} ${day}, ${yearLabel}`;
-}
+// BCE branches consistent. The implementation lives in shared/dates.js
+// so the server (collage sublabels) renders identical labels; re-exported
+// here so UI sites keep importing it from utils.js.
+export { formatPartialDate } from '../../shared/dates.js';
 
 // Render a minute count as hours-and-minutes, smart: skips the hour
 // segment when it would be "0h", skips the minute segment when it

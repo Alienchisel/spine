@@ -395,3 +395,25 @@ The duplicates wizard (`/audit/wizard/duplicates`) surfaces edition
 candidates and ingestion duplicates alike — the audit row's count is
 the standing trigger that used to be a "run the scan periodically"
 chore.
+
+### Dormant schema (intentionally retained)
+
+Two pieces of schema are dead in the code but deliberately left in the
+DB — do **not** "tidy them up" with a drop migration without a reason:
+
+- **`books.desire_rank`** — fed the Library "Custom order" sort + drag-
+  to-rank editor, removed in 1.273.0 (it hung the browser at 566
+  wishlist books). ~109 rows still carry values. No code reads or
+  writes it.
+- **`today_snoozes`** table (migration 075) — backed the Today-card
+  snooze button, removed in 1.274.0 (book-scoped semantics didn't
+  match intent). No code reads or writes it.
+
+Both are kept because re-adding either feature is cheap while the data
+is intact, and dropping them buys almost nothing: `today_snoozes` is a
+harmless empty-ish table, and dropping a *column* like `desire_rank`
+requires a full `books` table rebuild — precisely the
+`PRAGMA foreign_keys = OFF` table-rebuild path the migration-runner
+safeguards exist to guard (see "Writing migrations"). Not worth the
+risk for dead weight that costs nothing to leave. If you do drop
+`desire_rank`, follow the table-rebuild rules exactly.
