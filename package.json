@@ -1,6 +1,6 @@
 {
   "name": "spine",
-  "version": "1.277.0",
+  "version": "1.277.1",
   "type": "module",
   "scripts": {
     "setup": "npm install && cd client && npm install && npm run build",
@@ -28,6 +28,6 @@
     "globals": "^17.11.0"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20.19.0"
   }
 }
