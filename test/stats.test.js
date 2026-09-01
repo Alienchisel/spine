@@ -97,6 +97,41 @@ describe('stats', () => {
       assert.ok(body.totals.finished >= 3, `expected >= 3 finished, got ${body.totals.finished}`);
     });
 
+    it('archived owned books are excluded from Stats totals, matching /counts and the Library tabs', async () => {
+      // Regression: inventory.js once counted owned/finished with no archived
+      // filter, so archiving an owned+finished book left Stats over-counting
+      // by one relative to the Library Owned/Finished tabs (which exclude
+      // archived by default) and /api/books/counts.owned. Lock the agreement.
+      const stats0   = (await req('GET', '/api/stats')).body.totals;
+      const counts0  = (await req('GET', '/api/books/counts')).body;
+      assert.equal(stats0.owned,    counts0.owned,    'stats.owned should track counts.owned');
+      assert.equal(stats0.finished, counts0.finished, 'stats.finished should track counts.finished');
+
+      const { body: book } = await req('POST', '/api/books', {
+        title: 'Archive Exclusion Fixture', status: 'finished', date_finished: '2024-08-01',
+        owned: true, format: 'physical', page_count: 120,
+      });
+      const statsBefore  = (await req('GET', '/api/stats')).body.totals;
+      const countsBefore = (await req('GET', '/api/books/counts')).body;
+      assert.equal(statsBefore.owned,    counts0.owned    + 1);
+      assert.equal(statsBefore.finished, counts0.finished + 1);
+      assert.equal(statsBefore.owned,    countsBefore.owned);
+      assert.equal(statsBefore.finished, countsBefore.finished);
+
+      await req('PATCH', `/api/books/${book.id}`, { archived: true });
+
+      const statsAfter  = (await req('GET', '/api/stats')).body.totals;
+      const countsAfter = (await req('GET', '/api/books/counts')).body;
+      // Archiving drops it back out of both owned and finished tallies…
+      assert.equal(statsAfter.owned,    counts0.owned,    'archiving should remove the book from stats.owned');
+      assert.equal(statsAfter.finished, counts0.finished, 'archiving should remove the book from stats.finished');
+      // …and Stats stays in lockstep with /counts.
+      assert.equal(statsAfter.owned,    countsAfter.owned);
+      assert.equal(statsAfter.finished, countsAfter.finished);
+      // The grand total still counts the record — it's whole-DB, not active-only.
+      assert.equal(statsAfter.books, statsBefore.books);
+    });
+
     it('byYear groups by date_finished year', async () => {
       const { body } = await req('GET', '/api/stats');
       const y2024 = body.byYear.find(r => r.year === '2024');

@@ -12,8 +12,13 @@
 // when exactly ONE Spine audiobook with `asin IS NULL` normalizes to the
 // CSV's normalized product name. Mismatches and ambiguities are reported.
 //
-// This script never overwrites an existing ASIN. Use a separate audit
-// (with manual review) for books whose ASIN already differs from the CSV.
+// This script never overwrites an existing ASIN under --apply. Books
+// whose ASIN already differs from the CSV are collected into a REPLACE
+// report for manual review, but are NOT auto-patched: a correct ASIN
+// could otherwise be clobbered when a different Audible edition/region
+// of the same title normalizes to the same string (ASINs drive the
+// listening/diary imports and cover fetches, so a wrong one is costly).
+// Apply the genuine replacements by hand after eyeballing the report.
 
 import fs from 'fs';
 
@@ -187,7 +192,10 @@ for (const [id, candidates] of candidatesByBookId.entries()) {
   else                             replaces.push({ id, title: book.title, oldAsin: book.asin, newAsin: winner.asin, productName: winner.productName });
 }
 
-const patches = [...fills, ...replaces];
+// Only fills are auto-applied. `replaces` (differing existing ASIN) are
+// report-only — surfaced for manual review, never written — so a correct
+// ASIN can't be overwritten on a fuzzy title match. See header note.
+const patches = [...fills];
 
 // ─── Report ────────────────────────────────────────────────────────────
 
@@ -196,7 +204,7 @@ console.log(`Audiobooks in Spine:                ${allAudiobooks.length}`);
 console.log(`Unique ASINs in CSV:                ${csvByAsin.size}`);
 console.log(`Already correct (CSV ASIN matches): ${matches.length}`);
 console.log(`Fill (Spine had no ASIN):           ${fills.length}`);
-console.log(`Replace (Spine had a different ASIN, CSV is authoritative): ${replaces.length}`);
+console.log(`Replace (Spine ASIN differs — REVIEW ONLY, not auto-applied): ${replaces.length}`);
 console.log(`Ambiguous (multiple Spine matches): ${ambiguous.length}`);
 console.log(`No Spine match for CSV title:       ${noMatch.length}`);
 
@@ -208,7 +216,8 @@ if (fills.length > 0) {
 }
 
 if (replaces.length > 0) {
-  console.log(`\nReplaces (Spine ASIN → CSV ASIN):`);
+  console.log(`\nReplaces (Spine ASIN → CSV ASIN) — REVIEW ONLY, not written by --apply.`);
+  console.log(`Patch by hand any that are genuinely wrong in Spine:`);
   for (const p of replaces) {
     console.log(`  id=${String(p.id).padStart(4)}  ${p.oldAsin} → ${p.newAsin}  ${p.title}`);
   }
@@ -241,12 +250,12 @@ if (noMatch.length > 0 && !apply) {
 // ─── Apply ────────────────────────────────────────────────────────────
 
 if (!apply) {
-  console.log(`\nDry-run only. Re-run with --apply to patch ${patches.length} ASINs (${fills.length} fills + ${replaces.length} replaces).`);
+  console.log(`\nDry-run only. Re-run with --apply to patch ${patches.length} ASINs (${fills.length} fills; ${replaces.length} replaces are review-only and won't be written).`);
   process.exit(0);
 }
 
 const upd = db.prepare("UPDATE books SET asin = ?, updated_at = datetime('now', 'localtime') WHERE id = ?");
-const txn = db.transaction((rows) => { for (const p of rows) upd.run(p.asin ?? p.newAsin, p.id); });
+const txn = db.transaction((rows) => { for (const p of rows) upd.run(p.asin, p.id); });
 txn(patches);
 
-console.log(`\nPatched ${patches.length} ASINs (${fills.length} fills + ${replaces.length} replaces).`);
+console.log(`\nPatched ${patches.length} ASINs (${fills.length} fills). ${replaces.length} replaces left for manual review.`);

@@ -18,11 +18,13 @@
 //   - Per read: start_date = first event's date, finish_date = the date
 //     of the first completion event in that read.
 //
-// Apply behaviour:
-//   - Only writes when Spine's existing date is NULL — never overwrites
-//     a manually-entered date. (Re-runs are idempotent.)
-//   - Inserts one reads-table row per detected completion that doesn't
-//     already exist (matched by book_id + finish_date).
+// Apply behaviour (start/finish dates live in the `reads` table — the
+// books.date_started / books.date_finished columns were dropped in
+// Phase 3, so this script only touches reads rows + book status/count):
+//   - Inserts one reads-table row (start_date → finish_date) per detected
+//     completion whose finish date isn't already on file for the book
+//     (matched by book_id + date_finished). Re-runs are idempotent and
+//     never overwrite an existing read.
 //   - Sets books.read_count to max(existing, detected) — so manual
 //     bookkeeping isn't lost if the user has already counted a re-read.
 //   - Sets books.status='finished' if at least one completion was
@@ -174,8 +176,13 @@ function detectReads(events, bookLength) {
 
 const { default: db } = await import('../db.js');
 
+// Per-read start/finish dates live in the `reads` table now — the
+// books.date_started / books.date_finished columns were dropped in
+// Phase 3. So this script no longer fills book columns; it emits reads
+// rows (start→finish per detected completion) and only touches
+// books.read_count / books.status.
 const audiobooks = db.prepare(
-  "SELECT id, title, asin, status, date_started, date_finished, read_count FROM books WHERE format = 'audiobook' AND asin IS NOT NULL AND asin != ''"
+  "SELECT id, title, asin, status, read_count FROM books WHERE format = 'audiobook' AND asin IS NOT NULL AND asin != ''"
 ).all();
 
 const existingReadDates = new Map(); // book_id → Set of date_finished strings
@@ -195,14 +202,12 @@ for (const book of audiobooks) {
   if (!events || !bookLength) { unmatched++; continue; }
   const result = detectReads(events, bookLength);
 
-  const earliestStart  = result.reads[0]?.startDate || (result.started ? events.sort((a,b)=>a.date.localeCompare(b.date))[0].date : null);
   const latestFinish   = result.reads[result.reads.length - 1]?.finishDate || null;
   const detectedReadCount = result.reads.length;
 
-  // Plan only the cells we'd change.
+  // Plan only the book cells we'd change. Start/finish dates are carried
+  // by the inserted reads rows (below), not book columns.
   const patchBook = {};
-  if (!book.date_started && earliestStart)        patchBook.date_started = earliestStart;
-  if (!book.date_finished && latestFinish)        patchBook.date_finished = latestFinish;
   // read_count: don't shrink — only bump.
   if (detectedReadCount > (book.read_count || 0)) patchBook.read_count = detectedReadCount;
   // Status flip: only if we have a completion and Spine doesn't already say
@@ -234,15 +239,11 @@ console.log(`Books with proposed changes: ${plans.length}`);
 console.log(`Date range:                  ${dateRangeForPlan}`);
 
 let totalReadsInserted = 0;
-let totalDateStartedFilled = 0;
-let totalDateFinishedFilled = 0;
 let totalReadCountBumped = 0;
 let totalStatusChanged = 0;
 
 for (const p of plans) {
   const lines = [];
-  if (p.patchBook.date_started)  { lines.push(`date_started=${p.patchBook.date_started}`); totalDateStartedFilled++; }
-  if (p.patchBook.date_finished) { lines.push(`date_finished=${p.patchBook.date_finished}`); totalDateFinishedFilled++; }
   if (p.patchBook.read_count != null) { lines.push(`read_count ${p.book.read_count || 0}→${p.patchBook.read_count}`); totalReadCountBumped++; }
   if (p.statusChange)            { lines.push(`status→${p.statusChange}`); totalStatusChanged++; }
   if (p.insertReads.length > 0)  { lines.push(`+${p.insertReads.length} reads row(s): ${p.insertReads.map(r => `${r.startDate}→${r.finishDate}`).join(', ')}`); totalReadsInserted += p.insertReads.length; }
@@ -250,8 +251,6 @@ for (const p of plans) {
 }
 
 console.log(`\nSummary:`);
-console.log(`  date_started filled:  ${totalDateStartedFilled}`);
-console.log(`  date_finished filled: ${totalDateFinishedFilled}`);
 console.log(`  read_count bumped:    ${totalReadCountBumped}`);
 console.log(`  status → finished:    ${totalStatusChanged}`);
 console.log(`  reads rows to insert: ${totalReadsInserted}`);
@@ -265,8 +264,6 @@ if (!apply) {
 
 const updateBook = db.prepare(`
   UPDATE books SET
-    date_started  = COALESCE(?, date_started),
-    date_finished = COALESCE(?, date_finished),
     read_count    = COALESCE(?, read_count),
     status        = COALESCE(?, status),
     updated_at    = datetime('now', 'localtime')
@@ -280,8 +277,6 @@ const insertRead = db.prepare(`
 const txn = db.transaction((plans) => {
   for (const p of plans) {
     updateBook.run(
-      p.patchBook.date_started ?? null,
-      p.patchBook.date_finished ?? null,
       p.patchBook.read_count ?? null,
       p.statusChange ?? null,
       p.book.id
