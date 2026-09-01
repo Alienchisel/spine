@@ -374,6 +374,35 @@ describe('authors — Open Library refresh', () => {
     assert.equal(combo.body.bio,    'Final bio.');
   });
 
+  it("has_bio / has_photo treat empty string as absent, agreeing with ?missing=bio", async () => {
+    // Regression: the index/search/wizard/loved flags were (bio IS NOT NULL),
+    // so a legacy bio='' row read "has bio" on the index yet still showed in
+    // the ?missing=bio wizard pool (whose gap is bio IS NULL OR bio = '').
+    // The two surfaces contradicted each other. The PATCH endpoint normalizes
+    // '' -> null, so an empty-string bio only comes from legacy/direct data —
+    // seed it with a direct write to the in-memory test DB. (Dynamic import,
+    // not top-level: app.js has already opened the :memory: singleton, so this
+    // returns that same connection rather than opening the on-disk DB.)
+    const { body: book } = await req('POST', '/api/books', {
+      title: 'Empty Bio Book', authors: ['Empty String Bio Author'], fiction: true,
+    });
+    const aid = book.authors[0].id;
+    const { default: db } = await import('../db.js');
+    db.prepare("UPDATE authors SET bio = '', photo_path = '' WHERE id = ?").run(aid);
+
+    // Index: empty string must read as "no bio / no photo".
+    const { body: idx } = await req('GET', '/api/authors');
+    const row = idx.find(a => a.id === aid);
+    assert.ok(row, 'author should appear in the index');
+    assert.equal(row.has_bio,   0, "bio='' should read as has_bio=0");
+    assert.equal(row.has_photo, 0, "photo_path='' should read as has_photo=0");
+
+    // Audit pool: the same author must appear in the missing=bio wizard pool,
+    // so the index flag and the audit gap never disagree.
+    const { body: pool } = await req('GET', '/api/authors?missing=bio');
+    assert.ok(pool.some(a => a.id === aid), "bio='' author should be in the missing=bio pool");
+  });
+
   it('manual upload writes a portrait and overrides any OL-fetched one', async () => {
     const { body: book } = await req('POST', '/api/books', {
       title: 'Upload Test Book', authors: ['Manual Portrait Author'], fiction: true,

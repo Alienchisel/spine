@@ -12,17 +12,22 @@ function getListOrFail(res, id) {
 
 const PAGE_SIZE = 48;
 
+// Every ordering ends in `b.id ASC` — an absolute unique key — so the sort
+// is total and pagination (PAGE_SIZE below) can't duplicate a row onto two
+// pages or skip one across a page boundary. lb.position isn't guaranteed
+// unique within a list (the `added` sort pairs it with lb.added_at for that
+// reason), so it can't serve as the final tiebreaker on its own.
 const LIST_ORDER_BY = {
-  title:  "nrm(b.title) ASC, lb.position ASC",
-  author: "nrm(COALESCE((SELECT a.name FROM authors a JOIN book_authors ba ON ba.author_id = a.id WHERE ba.book_id = b.id ORDER BY ba.position LIMIT 1), '')) ASC, nrm(b.title) ASC",
-  rating: "COALESCE(b.rating, 0) DESC, nrm(b.title) ASC",
-  added:  "lb.position ASC, lb.added_at DESC",
+  title:  "nrm(b.title) ASC, lb.position ASC, b.id ASC",
+  author: "nrm(COALESCE((SELECT a.name FROM authors a JOIN book_authors ba ON ba.author_id = a.id WHERE ba.book_id = b.id ORDER BY ba.position LIMIT 1), '')) ASC, nrm(b.title) ASC, b.id ASC",
+  rating: "COALESCE(b.rating, 0) DESC, nrm(b.title) ASC, b.id ASC",
+  added:  "lb.position ASC, lb.added_at DESC, b.id ASC",
   // Chronological by original year of publication. NULL years sort last
   // in both directions so unknowns don't crowd the top — same convention
   // as Author page year sorts. Tiebreakers fall through series_number
   // then title so volume-2-of-a-1789-series still lands after volume-1.
-  year_published:      "(b.year_published IS NULL), b.year_published ASC,  COALESCE(b.series_number, 9999) ASC, nrm(b.title) ASC",
-  year_published_desc: "(b.year_published IS NULL), b.year_published DESC, COALESCE(b.series_number, 9999) ASC, nrm(b.title) ASC",
+  year_published:      "(b.year_published IS NULL), b.year_published ASC,  COALESCE(b.series_number, 9999) ASC, nrm(b.title) ASC, b.id ASC",
+  year_published_desc: "(b.year_published IS NULL), b.year_published DESC, COALESCE(b.series_number, 9999) ASC, nrm(b.title) ASC, b.id ASC",
 };
 
 const VALID_LIST_FORMATS = new Set(['physical', 'ebook', 'audiobook']);

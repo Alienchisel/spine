@@ -135,6 +135,38 @@ describe('lists', () => {
       assert.equal(row.tags[0].name, `${stem}-tag`);
       assert.ok(row.tags[0].id, 'tag should carry an id');
     });
+
+    it('paginates a fully-tied sort without duplicating or dropping rows', async () => {
+      // Regression: the title/author/rating/year_* orderings once ended in
+      // nrm(b.title) with no absolute unique key, so under a full tie the
+      // row order wasn't total — a book could land on two pages or vanish
+      // between them. Every ordering now ends in b.id ASC. Build a worst
+      // case: same title + same (null) rating so ONLY b.id breaks the tie.
+      const stem = 'pagetie-' + Math.random().toString(36).slice(2, 6);
+      const list = await createList(`${stem} list`);
+      const ids = [];
+      for (let i = 0; i < 5; i++) {
+        const { body: b } = await req('POST', '/api/books', { title: `${stem} Same Title` });
+        await req('POST', `/api/lists/${list.id}/books`, { book_id: b.id });
+        ids.push(b.id);
+      }
+
+      // Unpaginated reference order under the rating sort (all tied).
+      const { body: full } = await req('GET', `/api/lists/${list.id}?sort=rating`);
+      const fullIds = full.books.map(b => b.id);
+      assert.equal(full.total, 5);
+      assert.equal(new Set(fullIds).size, 5, 'unpaginated result has no duplicates');
+
+      // Walk it two-at-a-time; the concatenation must reproduce the exact
+      // reference order with no repeats and no gaps.
+      const paged = [];
+      for (let offset = 0; offset < 5; offset += 2) {
+        const { body } = await req('GET', `/api/lists/${list.id}?sort=rating&limit=2&offset=${offset}`);
+        paged.push(...body.books.map(b => b.id));
+      }
+      assert.deepEqual(paged, fullIds, 'paged sequence must match the single-query order exactly');
+      assert.equal(new Set(paged).size, 5, 'pagination must not duplicate or drop a row');
+    });
   });
 
   describe('PUT /api/lists/:id', () => {

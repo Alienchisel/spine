@@ -60,8 +60,11 @@ const MISSING_AUTHOR_FILTERS = {
 // fields are populated. Backs /authors (the index page). Bio/photo/ol_key
 // are returned as booleans (0/1) rather than the full strings so the
 // response stays small — the index doesn't need bio bodies, just whether
-// each author has one. Dates / gender are returned in full because the
-// table shows them. Sorted alphabetically (NOCASE) so the client can
+// each author has one. An empty string counts as absent (NULL OR '') so
+// has_bio / has_photo agree with MISSING_AUTHOR_FILTERS above — otherwise
+// a bio='' author reads "has bio" here yet still shows in the ?missing=bio
+// wizard pool. Dates / gender are returned in full because the table shows
+// them. Sorted alphabetically (NOCASE) so the client can
 // render straight without a follow-up sort step.
 //
 // Optional `?q=` substring filter (case-insensitive LIKE on name) caps
@@ -85,8 +88,8 @@ router.get('/', (req, res) => {
         a.gender,
         a.birth_date,
         a.death_date,
-        (a.bio IS NOT NULL)         AS has_bio,
-        (a.photo_path IS NOT NULL)  AS has_photo,
+        (a.bio IS NOT NULL AND a.bio != '')               AS has_bio,
+        (a.photo_path IS NOT NULL AND a.photo_path != '') AS has_photo,
         (a.ol_key IS NOT NULL)      AS has_ol_key,
         COUNT(DISTINCT ba.book_id)  AS book_count,
         COUNT(DISTINCT sa.story_id) AS story_count
@@ -113,8 +116,8 @@ router.get('/', (req, res) => {
         a.birth_date,
         a.death_date,
         a.photo_path,
-        (a.bio IS NOT NULL)         AS has_bio,
-        (a.photo_path IS NOT NULL)  AS has_photo,
+        (a.bio IS NOT NULL AND a.bio != '')               AS has_bio,
+        (a.photo_path IS NOT NULL AND a.photo_path != '') AS has_photo,
         (a.ol_key IS NOT NULL)      AS has_ol_key,
         COUNT(DISTINCT ba.book_id)  AS book_count,
         COUNT(DISTINCT sa.story_id) AS story_count
@@ -150,8 +153,8 @@ router.get('/', (req, res) => {
         a.gender,
         a.birth_date,
         a.death_date,
-        (a.bio IS NOT NULL)         AS has_bio,
-        (a.photo_path IS NOT NULL)  AS has_photo,
+        (a.bio IS NOT NULL AND a.bio != '')               AS has_bio,
+        (a.photo_path IS NOT NULL AND a.photo_path != '') AS has_photo,
         (a.ol_key IS NOT NULL)      AS has_ol_key,
         COUNT(DISTINCT ba.book_id)  AS book_count,
         COUNT(DISTINCT sa.story_id) AS story_count
@@ -184,8 +187,8 @@ router.get('/', (req, res) => {
       a.gender,
       a.birth_date,
       a.death_date,
-      (a.bio IS NOT NULL)         AS has_bio,
-      (a.photo_path IS NOT NULL)  AS has_photo,
+      (a.bio IS NOT NULL AND a.bio != '')               AS has_bio,
+      (a.photo_path IS NOT NULL AND a.photo_path != '') AS has_photo,
       (a.ol_key IS NOT NULL)      AS has_ol_key,
       (
         a.death_date IS NOT NULL AND a.bio IS NOT NULL AND a.bio != ''
