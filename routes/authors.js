@@ -52,7 +52,9 @@ const MISSING_AUTHOR_FILTERS = {
   gender:     'a.gender IS NULL',
   death_date:
     "a.birth_date IS NOT NULL AND a.death_date IS NULL "
-    + "AND CAST(SUBSTR(a.birth_date, 1, INSTR(a.birth_date || '-', '-') - 1) AS INTEGER) "
+    // CAST reads the leading signed year — correct for "1850",
+    // "1850-06-27", and BCE "-428" alike. Mirrors audit.js's gapSql.
+    + "AND CAST(a.birth_date AS INTEGER) "
     + "< CAST(strftime('%Y','now') AS INTEGER) - 110",
 };
 

@@ -1509,6 +1509,38 @@ describe('books', () => {
       assert.equal(reads[0].date_finished, '2019-09-28');
     });
 
+    it('finish cascade dedups a denormalized date_finished via t() (direct patchBook call)', async () => {
+      // Regression: the finish-transition cascade normalized date_started
+      // through t() but compared the SUPPLIED date_finished raw against
+      // findDuplicateRead's `date_finished IS ?`. The HTTP layer validates
+      // date shape first (isValidPartialDate 400s denormalized input), so
+      // this asymmetry is only reachable by in-process callers (scripts /
+      // ingest) — exercise patchBook directly. Dynamic import so it shares
+      // app.js's already-open :memory: db singleton rather than the on-disk
+      // DB. The date carries surrounding whitespace + U+2011 non-breaking
+      // hyphens that t() folds back to the same '2019-09-28' as the
+      // pre-logged read, so the completion must dedup to one row + count 1.
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Zzz Prelogged Denormalized', authors: ['Z prelogged_denorm'],
+      });
+      await req('POST', `/api/books/${created.id}/reads`, {
+        date_started: '2019-09-15', date_finished: '2019-09-28',
+      });
+      const { patchBook } = await import('../lib/books/repository.js');
+      // '2019-09-28' with leading/trailing spaces and U+2011 non-breaking
+      // hyphens. Built via fromCharCode so the exotic char is explicit in
+      // ASCII source rather than an invisible literal a reviewer can't see.
+      const nbh = String.fromCharCode(0x2011); // U+2011 NON-BREAKING HYPHEN
+      const denormalized = ` 2019${nbh}09${nbh}28 `;
+      patchBook(created.id, { status: 'finished', date_finished: denormalized });
+
+      const { body: reads } = await req('GET', `/api/books/${created.id}/reads`);
+      assert.equal(reads.length, 1, 'denormalized-but-identical completion must not stack a second reads row');
+      assert.equal(reads[0].date_finished, '2019-09-28', 'stored date must be the t()-folded form');
+      const { body: book } = await req('GET', `/api/books/${created.id}`);
+      assert.equal(book.read_count, 1, 'denormalized-but-identical completion must not double-bump');
+    });
+
     it('PATCH rejects invalid status', async () => {
       const { body: created } = await req('POST', '/api/books', {
         title: 'Zzz Status Invalid', authors: ['Z status_invalid'],
