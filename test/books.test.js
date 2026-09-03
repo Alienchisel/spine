@@ -519,11 +519,16 @@ describe('books', () => {
     });
 
     it('?tab=reading restricts the pool to books with status=reading', async () => {
+      // Seed a reading book so the pool is guaranteed non-empty — otherwise a
+      // 404 (which the old version treated as "skip") would let a regressed
+      // reading filter that always returns nothing pass green.
+      await req('POST', '/api/books', {
+        title: 'RandReading ' + Math.random().toString(36).slice(2, 8), status: 'reading',
+      });
       // Draw a few times; every result must be a reading book.
       for (let i = 0; i < 3; i++) {
         const { status, body } = await req('GET', '/api/books/random?tab=reading');
-        if (status === 404) return; // empty pool — accept and skip
-        assert.equal(status, 200);
+        assert.equal(status, 200, 'reading pool is seeded, so a draw must succeed');
         const { body: book } = await req('GET', `/api/books/${body.id}`);
         assert.equal(book.status, 'reading', `expected status=reading, got ${book.status}`);
       }
@@ -4802,7 +4807,11 @@ describe('books', () => {
       await req('PATCH', `/api/books/${abook.id}`, { current_minutes: 25 }); // 25%
       const { body: empty } = await req('POST', '/api/books', { title: `${stem}-empty` });
 
-      const { body: results } = await req('GET', '/api/books?sort=progress&limit=500');
+      // Scope by stem — /api/books caps limit at 200 and earlier tests have
+      // populated the shared DB past that. The `-empty` fixture (NULL ratio)
+      // sorts to the bottom, so without this it can be pushed past row 200 and
+      // vanish from the result, spuriously failing the `iE >= 0` check.
+      const { body: results } = await req('GET', `/api/books?sort=progress&q=${stem}&limit=50`);
       const ids = results.books.map(b => b.id);
       const iP = ids.indexOf(pbook.id);
       const iA = ids.indexOf(abook.id);
@@ -4827,7 +4836,10 @@ describe('books', () => {
         title: `${stem}-empty`,
       });
 
-      const { body: results } = await req('GET', '/api/books?sort=length&limit=500');
+      // Scope by stem (see the sort=progress test): the `-empty` fixture
+      // (COALESCE length 0) sorts to the bottom of a large shared bucket and
+      // would fall past the 200-row cap without this.
+      const { body: results } = await req('GET', `/api/books?sort=length&q=${stem}&limit=50`);
       const ids = results.books.map(b => b.id);
       const iAudio = ids.indexOf(audio.id);
       const iPages = ids.indexOf(pageBook.id);
@@ -4848,7 +4860,10 @@ describe('books', () => {
       const { body: r3 } = await req('PUT',  `/api/books/${c3.id}`, { ...c3, rating: 3, tags: [] });
       const { body: unrated } = await req('POST', '/api/books', { title: `${stem}-unrated` });
 
-      const { body: results } = await req('GET', '/api/books?sort=rating&limit=500');
+      // Scope by stem (see the sort=progress test): the `-unrated` fixture
+      // (COALESCE rating 0) sorts to the bottom of a large shared bucket and
+      // would fall past the 200-row cap without this.
+      const { body: results } = await req('GET', `/api/books?sort=rating&q=${stem}&limit=50`);
       const ids = results.books.map(b => b.id);
       const i5 = ids.indexOf(r5.id);
       const i3 = ids.indexOf(r3.id);

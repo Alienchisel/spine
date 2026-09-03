@@ -127,8 +127,24 @@ describe('diary', () => {
     // book-level entries are tagged redundant when stories cover them.
     let bookId;
     let storyId;
+    let baseline;
 
     before(async () => {
+      // Baseline today's + now-relative page totals BEFORE this describe seeds
+      // its dedup fixture, so the assertions below can check the DELTA the
+      // fixture contributes (64 deduped, NOT 94 naive) rather than a whole-DB
+      // absolute (== 94) that silently depends on every other test's activity
+      // and the order describes run in. Capture today's date once and reuse it
+      // so a midnight rollover between baseline and assertion can't desync them.
+      const todayStr = new Date().toLocaleDateString('en-CA');
+      const { body: base } = await req('GET', '/api/diary');
+      baseline = {
+        today: todayStr,
+        day:   base.days.find(d => d.date === todayStr)?.pages_total ?? 0,
+        week:  base.stats.thisWeek.pages,
+        year:  base.stats.thisYear.pages,
+      };
+
       const { body: book } = await req('POST', '/api/books', {
         title: 'Dedup Test', status: 'reading', format: 'physical', page_count: 100,
       });
@@ -151,13 +167,15 @@ describe('diary', () => {
       const day = body.days.find(d => d.entries.some(e => e.book_id === bookId));
       assert.ok(day, 'expected a day with the dedup-test book');
       const ourEntries = day.entries.filter(e => e.book_id === bookId);
-      // Sanity: both rows present, naive sum 64 + 30 = 94.
+      // Sanity: both rows present, raw entries sum to 64 + 30 = 94 (book-scoped
+      // to our fixture, so this exact value is isolation-safe).
       assert.equal(ourEntries.length, 2);
       assert.equal(ourEntries.reduce((s, e) => s + e.pages_read, 0), 94);
-      // Day total includes the prior "Diary Test" book (30 pages, no
-      // stories). With dedup: 30 + max(64, 30) = 94. The naive bug
-      // would have produced 30 + 64 + 30 = 124.
-      assert.equal(day.pages_total, 94);
+      // Dedup: our fixture must lift today's pages_total by max(64, 30) = 64,
+      // NOT the naive 64 + 30 = 94. Asserted as a delta over the pre-fixture
+      // baseline so it can't be thrown off by other books logged today.
+      assert.equal(day.pages_total - baseline.day, 64,
+        'dedup fixture should add 64 (MAX), not 94 (naive SUM), to today\'s total');
     });
 
     it('tags the book-level row as redundant when stories cover it', async () => {
@@ -171,12 +189,13 @@ describe('diary', () => {
     });
 
     it('stats (week/month/year) dedup at SQL level too', async () => {
-      // Sanity: with the fixture's 30-page prior book + this 64-effective
-      // book, thisWeek.pages == 94, NOT 124 (the naive sum that
-      // double-counts the 30-page story on top of the 64-page book-level).
+      // The dedup must also apply in the now-relative aggregates. Assert the
+      // fixture's delta is 64 (deduped), not 94 (naive double-count of the
+      // 30-page story on top of the 64-page book-level row) — as a delta over
+      // the pre-fixture baseline so accumulated activity can't skew it.
       const { body } = await req('GET', '/api/diary');
-      assert.equal(body.stats.thisWeek.pages, 94, 'naive sum would be 124');
-      assert.equal(body.stats.thisYear.pages, 94, 'year-scope dedup');
+      assert.equal(body.stats.thisWeek.pages - baseline.week, 64, 'week dedup: naive delta would be 94');
+      assert.equal(body.stats.thisYear.pages - baseline.year, 64, 'year dedup: naive delta would be 94');
     });
   });
 

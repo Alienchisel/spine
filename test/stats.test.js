@@ -255,16 +255,36 @@ describe('stats', () => {
       assert.notEqual(anyLongest, null, 'expected at least one longestRead* to be non-null');
     });
 
-    it('avgDaysToFinish reflects date_started → date_finished spans', async () => {
-      await req('POST', '/api/books', {
-        title: 'Span Book',
-        status: 'finished',
-        date_started: '2024-01-01',
-        date_finished: '2024-01-21',
+    // Isolated DB so the whole-corpus AVG is exactly computable. On the shared
+    // server this averages over every other test's finished reads, so only a
+    // loose `> 0` could be asserted — which a wrong divisor, an off-by-one, or
+    // an added constant would all survive. With exactly two known spans the
+    // mean is pinned, so the arithmetic is actually verified.
+    describe('avgDaysToFinish — isolated DB', () => {
+      let closeIso;
+      let reqIso;
+      before(async () => {
+        const server = await createTestServer();
+        closeIso = server.close;
+        reqIso = server.req;
       });
-      const { body } = await req('GET', '/api/stats');
-      assert.ok(body.avgDaysToFinish != null && body.avgDaysToFinish > 0,
-        `expected positive avgDaysToFinish, got ${body.avgDaysToFinish}`);
+      after(() => closeIso());
+
+      it('is round(mean) of reads\' date_started → date_finished spans', async () => {
+        // Two finished books → two reads rows with spans of 10 and 20 days.
+        // AVG = 15; Math.round(15) = 15 (activity.js). julianday diffs are
+        // exact for full ISO dates.
+        await reqIso('POST', '/api/books', {
+          title: 'Span Book 10d', status: 'finished',
+          date_started: '2024-01-01', date_finished: '2024-01-11',
+        });
+        await reqIso('POST', '/api/books', {
+          title: 'Span Book 20d', status: 'finished',
+          date_started: '2024-01-01', date_finished: '2024-01-21',
+        });
+        const { body } = await reqIso('GET', '/api/stats');
+        assert.equal(body.avgDaysToFinish, 15, 'mean of a 10-day and a 20-day span');
+      });
     });
 
     it('decadesPublished buckets by year_published, including BCE', async () => {

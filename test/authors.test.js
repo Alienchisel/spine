@@ -324,21 +324,39 @@ describe('authors — Open Library refresh', () => {
     assert.equal(tooFar.status, 400);
   });
 
-  it('refresh preserves month/day when only the year is later edited', async () => {
+  it('refresh keeps a full-precision birth_date when OL only knows the year', async () => {
+    // Was previously a mis-named test that did two PATCHes and never touched
+    // /refresh — so the refresh date-merge path could regress unnoticed. Now
+    // it exercises the real thing: refresh is non-destructive, so an OL record
+    // that only knows the year must NOT downgrade a stored full-precision
+    // month/day. (208 covers general overwrite-avoidance; this pins the
+    // precision-preservation case specifically.)
     const { body: book } = await req('POST', '/api/books', {
       title: 'Year Edit Book', authors: ['Year Edit Author'], fiction: true,
     });
     const aid = book.authors[0].id;
 
-    // Seed a full-precision date the way the client does after an OL refresh.
+    // User has a full-precision birth_date on file.
     await req('PATCH', `/api/authors/${aid}`, { birth_date: '1850-07-18' });
     const { body: pre } = await req('GET', `/api/authors/${aid}`);
     assert.equal(pre.birth_date, '1850-07-18');
 
-    // The DatesPicker client-side replaces year only; the server just
-    // stores whatever it gets. Simulate the client splice ("1851" + "-07-18").
-    const yearOnlyEdit = await req('PATCH', `/api/authors/${aid}`, { birth_date: '1851-07-18' });
-    assert.equal(yearOnlyEdit.body.birth_date, '1851-07-18');
+    // OL's record for this author is coarser — year only.
+    stubFetch([
+      {
+        match: (u) => u.startsWith('https://openlibrary.org/search/authors.json'),
+        respond: () => jsonResponse({ docs: [{ key: 'OL85018A', name: 'Year Edit Author' }] }),
+      },
+      {
+        match: (u) => u === 'https://openlibrary.org/authors/OL85018A.json',
+        respond: () => jsonResponse({ birth_date: '1850', photos: [-1] }),
+      },
+    ]);
+
+    const refresh = await req('POST', `/api/authors/${aid}/refresh`);
+    assert.equal(refresh.status, 200);
+    assert.equal(refresh.body.birth_date, '1850-07-18',
+      'refresh must not downgrade a stored full date to OL\'s year-only value');
   });
 
   it('PATCH bio persists the text and bumps bio_fetched_at', async () => {

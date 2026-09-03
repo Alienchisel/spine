@@ -203,31 +203,44 @@ describe('today', () => {
       }
     });
 
-    it('surfaces recent_acquisition for an owned unread book bought in the last 14 days', async () => {
-      // Cohort SQL: owned=1 AND acquisition_date >= now-14d AND
-      // status='unread' AND NOT is_stub. The 14-day window is computed
-      // against the request date (date('now','localtime')), so seed
-      // an acquisition_date in the very recent past and sweep
-      // matching dates.
-      const today = new Date().toLocaleDateString('en-CA');
-      const { body: created } = await req('POST', '/api/books', {
-        title:              'Recent Acquisition Fixture',
-        owned:              true,
-        acquisition_date:   today,
-        status:             'unread',
+    // Isolated in-memory server + fixed dates. recent_acquisition's window is
+    // relative to the VIEWED date (date(?, '-14 days') since 1.281.0), so with
+    // only this fixture present eligibleTypes collapses to
+    // ['recent_acquisition'] and the seeded winner is deterministic. The old
+    // version keyed BOTH the fixture acquisition_date and the sweep dates to
+    // the real wall clock (new Date()), leaving it clock- and order-coupled —
+    // its real-today sweep could land on days another test had already
+    // persisted history for, burning sweep days. This was the last real-clock
+    // dependence in the file; fixed dates (< the 2030 test clock) remove it.
+    describe('recent_acquisition — isolated DB', () => {
+      let closeIso;
+      let req;
+      before(async () => {
+        const server = await createTestServer();
+        closeIso = server.close;
+        req = server.req;
       });
-      let hit = false;
-      // Sweep TODAY's date forward by a handful of days — anything
-      // within +14 days from acquisition_date qualifies for the
-      // cohort. Use future dates to dodge prior tests' history.
-      for (const offset of [0, 1, 2, 3, 4, 5, 6]) {
-        const d = new Date(`${today}T12:00:00`);
-        d.setDate(d.getDate() + offset);
-        const dateStr = d.toLocaleDateString('en-CA');
-        const { body } = await req('GET', `/api/today/card?date=${dateStr}`);
-        if (body.card?.type === 'recent_acquisition' && body.card.book.id === created.id) { hit = true; break; }
-      }
-      assert.ok(hit, 'expected the recent_acquisition fixture to surface across the sweep');
+      after(() => closeIso());
+
+      it('surfaces for an owned unread book bought within 14 days of the viewed date', async () => {
+        // Cohort SQL: owned=1 AND acquisition_date >= date(dateStr,'-14 days')
+        // AND status='unread' AND NOT is_stub.
+        const { body: created } = await req('POST', '/api/books', {
+          title:            'Recent Acquisition Fixture',
+          owned:            true,
+          acquisition_date: '2029-06-10',
+          status:           'unread',
+        });
+        let hit = false;
+        // Every date in this window is within 14 days of 2029-06-10, so the
+        // book is eligible on all of them; isolation makes it the only
+        // eligible cohort, so it wins on the first date.
+        for (const d of ['2029-06-10', '2029-06-11', '2029-06-12', '2029-06-13', '2029-06-14']) {
+          const { body } = await req('GET', `/api/today/card?date=${d}`);
+          if (body.card?.type === 'recent_acquisition' && body.card.book.id === created.id) { hit = true; break; }
+        }
+        assert.ok(hit, 'expected the recent_acquisition fixture to surface across the sweep');
+      });
     });
 
     it('surfaces author_barely_opened for an author with ≥5 books and <15% finished', async () => {

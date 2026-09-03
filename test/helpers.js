@@ -12,7 +12,22 @@ export function makeReq(url) {
       headers: { 'Content-Type': 'application/json' },
       body: body != null ? JSON.stringify(body) : undefined,
     });
-    const data = res.status === 204 ? null : await res.json();
+    // Parse the body defensively. The old `res.json()` call assumed every
+    // non-204 response carried valid JSON — but an unhandled server `throw`
+    // reaches Express's default error handler and returns an HTML 500, and
+    // some handlers return an empty-body 200/304. res.json() then throws
+    // `SyntaxError: Unexpected end of JSON input`, killing the test with an
+    // opaque parser crash that MASKS the real failure (the 500). Read the
+    // raw text once and parse it only when it's actually JSON: an empty
+    // body → null (preserves the old 204 behaviour), a non-JSON body →
+    // returned verbatim as a string, so `assert.equal(status, …)` can
+    // report the true failure instead of a parser stack trace.
+    const text = await res.text();
+    let data = null;
+    if (text) {
+      try { data = JSON.parse(text); }
+      catch { data = text; }
+    }
     return { status: res.status, body: data };
   };
 }

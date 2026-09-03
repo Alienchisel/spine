@@ -5,7 +5,17 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createTestServer } from './helpers.js';
-import { formatPartialDate } from '../shared/dates.js';
+
+// Independent oracle for the expected en-US sublabel. Deliberately NOT
+// shared/dates.js's formatPartialDate: asserting the server's output against
+// the very function that produced it hides any bug inside the formatter
+// (off-by-one month, wrong separator, bad locale) because both sides run the
+// same code. The platform Intl formatter is an independent implementation and
+// the app's canonical full-date format ("July 18, 1938") matches it exactly.
+function expectUsDate(iso) {
+  return new Date(`${iso}T12:00:00`).toLocaleDateString('en-US',
+    { year: 'numeric', month: 'long', day: 'numeric' });
+}
 
 describe('collage', () => {
   let close;
@@ -23,8 +33,9 @@ describe('collage', () => {
     return new Date().toLocaleDateString('en-CA');
   }
 
-  // Sublabel asserts use the shared formatPartialDate directly (imported
-  // above) so they track the live formatter shape.
+  // Sublabel asserts use the independent expectUsDate oracle above (not the
+  // server's own formatPartialDate) so a regression inside the formatter is
+  // actually caught rather than mirrored.
 
   it('defaults to top_books / 30d / size=3 when no params are given', async () => {
     const { status, body } = await req('GET', '/api/collage');
@@ -101,9 +112,9 @@ describe('collage', () => {
     const { body } = await req('GET', '/api/collage?mode=recently_finished&size=5');
     assert.ok(body.tiles.length >= 1);
     assert.equal(body.tiles[0].id, book.id, 'most recent finish should be top-left');
-    // Sublabel is the formatted date via the shared formatPartialDate —
-    // 'May 19, 2026' style (en-US).
-    assert.equal(body.tiles[0].sublabel, formatPartialDate(today));
+    // Sublabel is the formatted date — 'May 19, 2026' style (en-US) —
+    // checked against the independent oracle, not the server's formatter.
+    assert.equal(body.tiles[0].sublabel, expectUsDate(today));
   });
 
   it('returns 400 on invalid mode / period', async () => {
@@ -156,7 +167,7 @@ describe('collage', () => {
     // Sublabel is the formatted date_finished (used by the client to
     // render the small caption under each tile).
     const tileThis = thisYear.tiles.find(t => t.id === bThis.id);
-    assert.equal(tileThis.sublabel, formatPartialDate(today));
+    assert.equal(tileThis.sublabel, expectUsDate(today));
   });
 
   it('year_in_review includes partial-date finishes that name the year', async () => {
