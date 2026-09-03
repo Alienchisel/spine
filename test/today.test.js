@@ -552,74 +552,97 @@ describe('today', () => {
         `expected at most one edition surfaced, got ${[...surfaced]}`);
     });
 
-    it('author_anniversary surfaces for an author whose death year matches an offset', async () => {
-      // Post a book and PATCH its author's death_date so the author
-      // hits a notable offset for the viewed year. The cohort should
-      // surface it and the meta must carry { event:'death',
-      // event_year, years_ago, author_name }.
-      const author = 'Test Anniversary Dead Author';
-      const { body: created } = await req('POST', '/api/books', {
-        title:   'Posthumous Test Book',
-        authors: [author],
-        year_published: 1900,
+    // Isolated in-memory server: the two author_anniversary tests need a
+    // controlled cohort composition. On the shared server above, the
+    // fixtures accumulated by every other today test — plus, until
+    // 1.281.0, a real-clock leak in the cohort SQL (see DATE_SCOPED_COHORTS
+    // in lib/today/card.js) — could shift eligibleTypes and change the
+    // date-seeded card winner, so a positive "must surface" assertion
+    // could spuriously fail (the death-year test was the canary that went
+    // red when the wall clock rolled). With only these fixtures present,
+    // eligibleTypes collapses to ['author_anniversary'] and the winner is
+    // deterministic — the sweep now hits on the first date, and the BCE
+    // "must NOT surface" test becomes a real guard rather than a
+    // probabilistic one.
+    describe('author_anniversary — isolated DB', () => {
+      let closeIso;
+      let req;
+      before(async () => {
+        const server = await createTestServer();
+        closeIso = server.close;
+        req = server.req;
       });
-      // Resolve author id via the GET response's authors array and
-      // PATCH death_date to a notable offset (100y before 2027).
-      const authorId = created.authors?.[0]?.id;
-      assert.ok(authorId, 'expected fixture book to carry an author id');
-      const { status: patchStatus } = await req('PATCH', `/api/authors/${authorId}`, {
-        death_date: '1927-08-15',
-        gender:     'female',
-      });
-      assert.equal(patchStatus, 200, 'expected death_date PATCH to succeed');
-      let hit = null;
-      for (const d of ['2027-09-01', '2027-09-02', '2027-09-03', '2027-09-04', '2027-09-05', '2027-09-06', '2027-09-07']) {
-        const { body } = await req('GET', `/api/today/card?date=${d}`);
-        if (body.card?.type === 'author_anniversary'
-            && body.card.meta?.author_name === author) {
-          hit = body.card;
-          break;
-        }
-      }
-      assert.ok(hit, 'expected the author_anniversary fixture to surface across the sweep');
-      assert.equal(hit.meta.event,         'death');
-      assert.equal(hit.meta.event_year,    1927);
-      assert.equal(hit.meta.years_ago,     100);
-      // author_gender drives the "by him/her/them" pronoun in the
-      // rendered card copy; the meta must carry the author's recorded
-      // gender through so the client doesn't fall back to singular-they
-      // for an author with a known one.
-      assert.equal(hit.meta.author_gender, 'female');
-    });
+      after(() => closeIso());
 
-    it('author_anniversary handles BCE author dates via the leading minus sign', async () => {
-      // Plato-shape: birth_date='-428', death_date='-348'. For a
-      // viewed year of 2026 the author is 2454y / 2374y "ago" — neither
-      // matches a hardcoded offset, so the author must NOT surface.
-      // This guards the year-extraction path against accidentally
-      // truncating BCE years to positive integers (which would let
-      // '-428' become 428 → 2026-428 = 1598y, a real-but-incorrect
-      // anniversary).
-      const author = 'Test BCE Author';
-      const { body: created } = await req('POST', '/api/books', {
-        title:   'BCE Test Book',
-        authors: [author],
-      });
-      const authorId = created.authors?.[0]?.id;
-      assert.ok(authorId);
-      await req('PATCH', `/api/authors/${authorId}`, {
-        birth_date: '-428',
-        death_date: '-348',
-      });
-      // Sweep 2026 — neither 2454 nor 2374 is a notable offset, so
-      // this author MUST NOT surface as an author_anniversary.
-      for (const d of ['2026-12-22', '2026-12-23', '2026-12-24', '2026-12-25', '2026-12-26']) {
-        const { body } = await req('GET', `/api/today/card?date=${d}`);
-        if (body.card?.type === 'author_anniversary'
-            && body.card.meta?.author_name === author) {
-          assert.fail(`BCE author surfaced for non-matching offset: ${JSON.stringify(body.card.meta)}`);
+      it('surfaces for an author whose death year matches an offset', async () => {
+        // Post a book and PATCH its author's death_date so the author
+        // hits a notable offset for the viewed year. The cohort should
+        // surface it and the meta must carry { event:'death',
+        // event_year, years_ago, author_name }.
+        const author = 'Test Anniversary Dead Author';
+        const { body: created } = await req('POST', '/api/books', {
+          title:   'Posthumous Test Book',
+          authors: [author],
+          year_published: 1900,
+        });
+        // Resolve author id via the GET response's authors array and
+        // PATCH death_date to a notable offset (100y before 2027).
+        const authorId = created.authors?.[0]?.id;
+        assert.ok(authorId, 'expected fixture book to carry an author id');
+        const { status: patchStatus } = await req('PATCH', `/api/authors/${authorId}`, {
+          death_date: '1927-08-15',
+          gender:     'female',
+        });
+        assert.equal(patchStatus, 200, 'expected death_date PATCH to succeed');
+        let hit = null;
+        for (const d of ['2027-09-01', '2027-09-02', '2027-09-03', '2027-09-04', '2027-09-05', '2027-09-06', '2027-09-07']) {
+          const { body } = await req('GET', `/api/today/card?date=${d}`);
+          if (body.card?.type === 'author_anniversary'
+              && body.card.meta?.author_name === author) {
+            hit = body.card;
+            break;
+          }
         }
-      }
+        assert.ok(hit, 'expected the author_anniversary fixture to surface across the sweep');
+        assert.equal(hit.meta.event,         'death');
+        assert.equal(hit.meta.event_year,    1927);
+        assert.equal(hit.meta.years_ago,     100);
+        // author_gender drives the "by him/her/them" pronoun in the
+        // rendered card copy; the meta must carry the author's recorded
+        // gender through so the client doesn't fall back to singular-they
+        // for an author with a known one.
+        assert.equal(hit.meta.author_gender, 'female');
+      });
+
+      it('handles BCE author dates via the leading minus sign', async () => {
+        // Plato-shape: birth_date='-428', death_date='-348'. For a
+        // viewed year of 2026 the author is 2454y / 2374y "ago" — neither
+        // matches a hardcoded offset, so the author must NOT surface.
+        // This guards the year-extraction path against accidentally
+        // truncating BCE years to positive integers (which would let
+        // '-428' become 428 → 2026-428 = 1598y, a real-but-incorrect
+        // anniversary).
+        const author = 'Test BCE Author';
+        const { body: created } = await req('POST', '/api/books', {
+          title:   'BCE Test Book',
+          authors: [author],
+        });
+        const authorId = created.authors?.[0]?.id;
+        assert.ok(authorId);
+        await req('PATCH', `/api/authors/${authorId}`, {
+          birth_date: '-428',
+          death_date: '-348',
+        });
+        // Sweep 2026 — neither 2454 nor 2374 is a notable offset, so
+        // this author MUST NOT surface as an author_anniversary.
+        for (const d of ['2026-12-22', '2026-12-23', '2026-12-24', '2026-12-25', '2026-12-26']) {
+          const { body } = await req('GET', `/api/today/card?date=${d}`);
+          if (body.card?.type === 'author_anniversary'
+              && body.card.meta?.author_name === author) {
+            assert.fail(`BCE author surfaced for non-matching offset: ${JSON.stringify(body.card.meta)}`);
+          }
+        }
+      });
     });
 
     it('surfaces an anniversary card for a book published a notable round-year offset before the viewed date', async () => {
