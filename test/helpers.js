@@ -5,6 +5,31 @@
 // 204 No Content responses come back with body=null instead of
 // crashing in JSON.parse, matching the original local helpers'
 // behaviour.
+// Empty every data table on the shared in-memory DB, giving the next test a
+// clean slate. This is the ONLY real isolation mechanism within a test file:
+// createTestServer() imports the ESM-cached app.js, so calling it twice hands
+// back the SAME module-singleton DB connection (db.js opens it once at import)
+// — a second server does NOT isolate. Use this in a beforeEach for suites that
+// need each test to see only its own fixtures (e.g. today-card cohort
+// selection, where accumulated fixtures shift which card wins the date seed).
+//
+// Preserves schema (and schema_migrations / sqlite_sequence, so ids keep
+// climbing and never collide across resets). FK enforcement is toggled OFF
+// around the wipe so table order doesn't matter — and the pragma is set
+// OUTSIDE the transaction, since SQLite silently ignores PRAGMA foreign_keys
+// inside an open transaction.
+export async function resetDb() {
+  const db = (await import('../db.js')).default;
+  const tables = db.prepare(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name != 'schema_migrations'"
+  ).all().map(r => r.name);
+  db.pragma('foreign_keys = OFF');
+  db.transaction(() => {
+    for (const t of tables) db.exec(`DELETE FROM "${t}"`);
+  })();
+  db.pragma('foreign_keys = ON');
+}
+
 export function makeReq(url) {
   return async function req(method, path, body) {
     const res = await fetch(`${url}${path}`, {

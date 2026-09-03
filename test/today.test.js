@@ -4,9 +4,9 @@
 // rolls-each-day / null-on-empty-library guarantees are what the
 // FilterPanel-side rendering hinges on; this test locks them in.
 
-import { describe, it, before, after } from 'node:test';
+import { describe, it, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { createTestServer } from './helpers.js';
+import { createTestServer, resetDb } from './helpers.js';
 
 describe('today', () => {
   let close;
@@ -19,6 +19,15 @@ describe('today', () => {
   });
 
   after(() => close());
+
+  // Each test starts from an empty DB. The today-card winner is chosen by a
+  // date seed modulo the number of *eligible* cohorts, so a test that asserts
+  // "cohort X surfaces" is only deterministic when X is the sole eligible
+  // cohort — which requires no fixtures leaking in from earlier tests. A plain
+  // shared DB (see resetDb's note on why a second createTestServer can't
+  // isolate) made these tests silently sensitive to ordering and accumulation;
+  // resetting per test makes each one seed exactly its own cohort.
+  beforeEach(resetDb);
 
   describe('GET /api/today/card', () => {
     it('returns card=null when no cohort is eligible (empty library)', async () => {
@@ -52,28 +61,35 @@ describe('today', () => {
     });
 
     it('returns the same card on the same calendar day (stable per day)', async () => {
-      // Two calls back-to-back with the same date param must return
-      // the same book — the date seed is the only entropy in the pick.
+      // Seed one cohort so a card exists, then two calls with the same date
+      // must return the same book — the date seed is the only entropy.
+      const { body: loved } = await req('POST', '/api/books', {
+        title: 'Stable Day Book', status: 'finished', date_finished: '2025-01-01',
+      });
+      await req('PUT', `/api/books/${loved.id}`, { ...loved, loved: true, tags: [] });
       const { body: a } = await req('GET', '/api/today/card?date=2026-06-16');
       const { body: b } = await req('GET', '/api/today/card?date=2026-06-16');
+      assert.ok(a.card, 'expected a card for the seeded cohort');
       assert.equal(a.card.type,    b.card.type);
       assert.equal(a.card.book.id, b.card.book.id);
     });
 
     it('rolls a different card when the day changes (assuming multiple eligible types)', async () => {
-      // Need at least two eligible card types for this test to be
-      // meaningful. Seed a slow_burn cohort book on top of the existing
-      // loved_resurface one from the earlier test.
-      const slowBurn = await req('POST', '/api/books', {
-        title:        'Slow-Burn Reader',
+      // Need at least two eligible card types for this test to be meaningful.
+      // Seed both a loved_resurface book and a slow_burn book.
+      const { body: loved } = await req('POST', '/api/books', {
+        title: 'Rolls Loved', status: 'finished', date_finished: '2025-01-01',
+      });
+      await req('PUT', `/api/books/${loved.id}`, { ...loved, loved: true, tags: [] });
+      await req('POST', '/api/books', {
+        title:        'Rolls Slow-Burn Reader',
         status:       'reading',
         date_started: '2026-05-01',  // >30 days before 2026-06-16
       });
-      // With two eligible types, cycling through 3 consecutive dates
-      // should hit at least two distinct types. (Picking three dates
-      // gives the seed enough room to land on different types under
-      // mod-N selection — the test isn't sensitive to which specific
-      // dates, just that the result varies.)
+      // With two eligible types, cycling through 3 consecutive dates should hit
+      // at least two distinct types under mod-N selection (helped along by the
+      // 14-day repetition guard, which pushes the second day off the first
+      // day's book).
       const seenTypes = new Set();
       for (const d of ['2026-06-15', '2026-06-16', '2026-06-17']) {
         const { body } = await req('GET', `/api/today/card?date=${d}`);
@@ -81,8 +97,6 @@ describe('today', () => {
       }
       assert.ok(seenTypes.size >= 2,
         `expected at least two distinct card types across 3 days, got ${[...seenTypes]}`);
-      // Also confirm the slow_burn fixture is reachable.
-      assert.ok(slowBurn.body.id, 'expected slow_burn fixture to have been created');
     });
 
     it('falls back to today when the date param is malformed (matches no-date fallback)', async () => {
@@ -203,44 +217,22 @@ describe('today', () => {
       }
     });
 
-    // Isolated in-memory server + fixed dates. recent_acquisition's window is
-    // relative to the VIEWED date (date(?, '-14 days') since 1.281.0), so with
-    // only this fixture present eligibleTypes collapses to
-    // ['recent_acquisition'] and the seeded winner is deterministic. The old
-    // version keyed BOTH the fixture acquisition_date and the sweep dates to
-    // the real wall clock (new Date()), leaving it clock- and order-coupled —
-    // its real-today sweep could land on days another test had already
-    // persisted history for, burning sweep days. This was the last real-clock
-    // dependence in the file; fixed dates (< the 2030 test clock) remove it.
-    describe('recent_acquisition — isolated DB', () => {
-      let closeIso;
-      let req;
-      before(async () => {
-        const server = await createTestServer();
-        closeIso = server.close;
-        req = server.req;
+    it('surfaces recent_acquisition for an owned unread book bought within 14 days of the viewed date', async () => {
+      // Cohort SQL: owned=1 AND acquisition_date >= date(dateStr,'-14 days')
+      // AND status='unread' AND NOT is_stub. The window is relative to the
+      // VIEWED date (date(?, '-14 days') since 1.281.0), and the per-test reset
+      // means this book is the only fixture — so recent_acquisition is the sole
+      // eligible cohort and wins the seed on the first date. Fixed dates (< the
+      // 2030 test clock) keep it clock-independent.
+      const { body: created } = await req('POST', '/api/books', {
+        title:            'Recent Acquisition Fixture',
+        owned:            true,
+        acquisition_date: '2029-06-10',
+        status:           'unread',
       });
-      after(() => closeIso());
-
-      it('surfaces for an owned unread book bought within 14 days of the viewed date', async () => {
-        // Cohort SQL: owned=1 AND acquisition_date >= date(dateStr,'-14 days')
-        // AND status='unread' AND NOT is_stub.
-        const { body: created } = await req('POST', '/api/books', {
-          title:            'Recent Acquisition Fixture',
-          owned:            true,
-          acquisition_date: '2029-06-10',
-          status:           'unread',
-        });
-        let hit = false;
-        // Every date in this window is within 14 days of 2029-06-10, so the
-        // book is eligible on all of them; isolation makes it the only
-        // eligible cohort, so it wins on the first date.
-        for (const d of ['2029-06-10', '2029-06-11', '2029-06-12', '2029-06-13', '2029-06-14']) {
-          const { body } = await req('GET', `/api/today/card?date=${d}`);
-          if (body.card?.type === 'recent_acquisition' && body.card.book.id === created.id) { hit = true; break; }
-        }
-        assert.ok(hit, 'expected the recent_acquisition fixture to surface across the sweep');
-      });
+      const { body } = await req('GET', '/api/today/card?date=2029-06-12');
+      assert.equal(body.card?.type, 'recent_acquisition');
+      assert.equal(body.card?.book.id, created.id);
     });
 
     it('surfaces author_barely_opened for an author with ≥5 books and <15% finished', async () => {
@@ -342,23 +334,19 @@ describe('today', () => {
     });
 
     it('surfaces forgotten_readlist when on_readlist books exist', async () => {
-      // PUT a book onto the readlist so the cohort is non-empty. The
-      // forgotten_readlist type ranks by readlist_position DESC so the
-      // newest readlist entry is the freshest "deep in queue" candidate.
+      // Enrol a book on the readlist via PATCH — the PUT path silently ignores
+      // on_readlist (it's managed through the readlist enrollment logic), so
+      // the old PUT-based version never actually populated the cohort and only
+      // passed because SOME ambient card happened to exist. With the per-test
+      // reset this book is the sole fixture, so forgotten_readlist is the only
+      // eligible cohort and must win the seed — a real assertion now.
       const { body: created } = await req('POST', '/api/books', {
         title: 'Buried Readlist Entry',
       });
-      await req('PUT', `/api/books/${created.id}`, {
-        ...created, on_readlist: true, tags: [],
-      });
-      // Pick a date past the existing fixtures so we don't collide with
-      // their already-persisted history rows.
+      await req('PATCH', `/api/books/${created.id}`, { on_readlist: true });
       const { body } = await req('GET', '/api/today/card?date=2026-06-30');
-      assert.ok(body.card,
-        `expected a card with at least one eligible cohort, got ${JSON.stringify(body)}`);
-      // Any of the eligible types might win the seed mod — but the new
-      // forgotten_readlist type must AT LEAST be reachable across a
-      // small day sweep. Tested in the repetition test below as well.
+      assert.equal(body.card?.type, 'forgotten_readlist');
+      assert.equal(body.card?.book.id, created.id);
     });
 
     it('does not surface the same book twice within the 14-day repetition window', async () => {
@@ -530,12 +518,21 @@ describe('today', () => {
     });
 
     it('anniversary cohort dedupes by work_id (multiple editions count as one)', async () => {
-      // Post three "editions" linked via work_id, all published 1925
-      // (100 years before any 2025-shifted-to-2025 sweep date). The
-      // anniversary cohort must surface AT MOST ONE of them — without
-      // the GROUP BY COALESCE(work_id, -id) dedupe, the seed could
-      // pick any of the three, and across a long sweep multiple
-      // editions could surface for the same work.
+      // Post three "editions" linked via work_id, all published 1925. The
+      // anniversary cohort must surface AT MOST ONE of them — without the
+      // GROUP BY COALESCE(work_id, -id) dedupe the cohort would carry all
+      // three, and the seed's within-bucket pick would land on different
+      // editions across the sweep.
+      //
+      // The sweep uses FUTURE dates (> the 2030 test clock): those return a
+      // card but persist NOTHING (see the future-guard test), so the 14-day
+      // repetition guard never fires. That matters here — the guard is
+      // per-book, so on a persisted sweep it would exclude the shown edition
+      // and let a *sibling* edition of the same work take the slot the next
+      // day, manufacturing multiple editions regardless of the dedupe. On a
+      // non-persisting future sweep each pick is independent, so the ONLY
+      // thing keeping the work to one edition is the work_id dedupe under
+      // test. 1925 + 200 = 2125 is a valid offset (200 ∈ ANNIVERSARY_OFFSETS).
       const titleStem = 'Work-Id Dedupe Anniversary';
       const { body: ed1 } = await req('POST', '/api/books', {
         title: `${titleStem} Edition A`, year_published: 1925,
@@ -546,15 +543,17 @@ describe('today', () => {
       const { body: ed3 } = await req('POST', '/api/books', {
         title: `${titleStem} Edition C`, year_published: 1925,
       });
-      // Link all three under one work via PUT (work_id isn't on POST
-      // writable set in the standard path).
-      await req('PUT', `/api/books/${ed2.id}`, { ...ed2, work_id: ed1.id, tags: [] });
-      await req('PUT', `/api/books/${ed3.id}`, { ...ed3, work_id: ed1.id, tags: [] });
-      // Sweep 2025 dates (1925 + 100y) and collect every surfaced book
-      // id from anniversary cards. Across the sweep, no more than ONE
-      // of the three editions can appear.
+      // Link all three into ONE work group via the work-link API, which is
+      // symmetric — every member ends up sharing the same work_id. The old
+      // PUT {work_id: ed1.id} was buggy: it set ed2/ed3 but left ed1.work_id
+      // NULL, so GROUP BY COALESCE(work_id, -id) split them into two groups
+      // (ed1 alone via -id, ed2+ed3 together) and surfaced two editions. That
+      // slipped through only because ambient anniversary offsets used to
+      // dilute this work's chance of being picked at all.
+      await req('POST', `/api/books/${ed1.id}/work-link`, { other_id: ed2.id });
+      await req('POST', `/api/books/${ed1.id}/work-link`, { other_id: ed3.id });
       const surfaced = new Set();
-      for (const d of ['2025-08-01', '2025-08-02', '2025-08-03', '2025-08-04', '2025-08-05', '2025-08-06', '2025-08-07']) {
+      for (const d of ['2125-08-01', '2125-08-02', '2125-08-03', '2125-08-04', '2125-08-05', '2125-08-06', '2125-08-07']) {
         const { body } = await req('GET', `/api/today/card?date=${d}`);
         if (body.card?.type === 'anniversary') {
           const id = body.card.book.id;
@@ -565,97 +564,65 @@ describe('today', () => {
         `expected at most one edition surfaced, got ${[...surfaced]}`);
     });
 
-    // Isolated in-memory server: the two author_anniversary tests need a
-    // controlled cohort composition. On the shared server above, the
-    // fixtures accumulated by every other today test — plus, until
-    // 1.281.0, a real-clock leak in the cohort SQL (see DATE_SCOPED_COHORTS
-    // in lib/today/card.js) — could shift eligibleTypes and change the
-    // date-seeded card winner, so a positive "must surface" assertion
-    // could spuriously fail (the death-year test was the canary that went
-    // red when the wall clock rolled). With only these fixtures present,
-    // eligibleTypes collapses to ['author_anniversary'] and the winner is
-    // deterministic — the sweep now hits on the first date, and the BCE
-    // "must NOT surface" test becomes a real guard rather than a
-    // probabilistic one.
-    describe('author_anniversary — isolated DB', () => {
-      let closeIso;
-      let req;
-      before(async () => {
-        const server = await createTestServer();
-        closeIso = server.close;
-        req = server.req;
+    it('surfaces author_anniversary for an author whose death year matches an offset', async () => {
+      // The per-test reset leaves this author as the only fixture, so
+      // author_anniversary is the sole eligible cohort and wins the seed on
+      // the first date. year_published=1900 gives a 2027 offset of 127 (not a
+      // round anniversary), so 'anniversary' stays out of the running.
+      const author = 'Test Anniversary Dead Author';
+      const { body: created } = await req('POST', '/api/books', {
+        title:   'Posthumous Test Book',
+        authors: [author],
+        year_published: 1900,
       });
-      after(() => closeIso());
+      const authorId = created.authors?.[0]?.id;
+      assert.ok(authorId, 'expected fixture book to carry an author id');
+      const { status: patchStatus } = await req('PATCH', `/api/authors/${authorId}`, {
+        death_date: '1927-08-15',   // 100y before the 2027 viewed year
+        gender:     'female',
+      });
+      assert.equal(patchStatus, 200, 'expected death_date PATCH to succeed');
 
-      it('surfaces for an author whose death year matches an offset', async () => {
-        // Post a book and PATCH its author's death_date so the author
-        // hits a notable offset for the viewed year. The cohort should
-        // surface it and the meta must carry { event:'death',
-        // event_year, years_ago, author_name }.
-        const author = 'Test Anniversary Dead Author';
-        const { body: created } = await req('POST', '/api/books', {
-          title:   'Posthumous Test Book',
-          authors: [author],
-          year_published: 1900,
-        });
-        // Resolve author id via the GET response's authors array and
-        // PATCH death_date to a notable offset (100y before 2027).
-        const authorId = created.authors?.[0]?.id;
-        assert.ok(authorId, 'expected fixture book to carry an author id');
-        const { status: patchStatus } = await req('PATCH', `/api/authors/${authorId}`, {
-          death_date: '1927-08-15',
-          gender:     'female',
-        });
-        assert.equal(patchStatus, 200, 'expected death_date PATCH to succeed');
-        let hit = null;
-        for (const d of ['2027-09-01', '2027-09-02', '2027-09-03', '2027-09-04', '2027-09-05', '2027-09-06', '2027-09-07']) {
-          const { body } = await req('GET', `/api/today/card?date=${d}`);
-          if (body.card?.type === 'author_anniversary'
-              && body.card.meta?.author_name === author) {
-            hit = body.card;
-            break;
-          }
-        }
-        assert.ok(hit, 'expected the author_anniversary fixture to surface across the sweep');
-        assert.equal(hit.meta.event,         'death');
-        assert.equal(hit.meta.event_year,    1927);
-        assert.equal(hit.meta.years_ago,     100);
-        // author_gender drives the "by him/her/them" pronoun in the
-        // rendered card copy; the meta must carry the author's recorded
-        // gender through so the client doesn't fall back to singular-they
-        // for an author with a known one.
-        assert.equal(hit.meta.author_gender, 'female');
-      });
+      const { body } = await req('GET', '/api/today/card?date=2027-09-01');
+      assert.equal(body.card?.type, 'author_anniversary');
+      assert.equal(body.card?.meta?.author_name, author);
+      assert.equal(body.card.meta.event,      'death');
+      assert.equal(body.card.meta.event_year, 1927);
+      assert.equal(body.card.meta.years_ago,  100);
+      // author_gender drives the "by him/her/them" pronoun in the rendered
+      // card copy; the meta must carry the author's recorded gender through so
+      // the client doesn't fall back to singular-they for a known one.
+      assert.equal(body.card.meta.author_gender, 'female');
+    });
 
-      it('handles BCE author dates via the leading minus sign', async () => {
-        // Plato-shape: birth_date='-428', death_date='-348'. For a
-        // viewed year of 2026 the author is 2454y / 2374y "ago" — neither
-        // matches a hardcoded offset, so the author must NOT surface.
-        // This guards the year-extraction path against accidentally
-        // truncating BCE years to positive integers (which would let
-        // '-428' become 428 → 2026-428 = 1598y, a real-but-incorrect
-        // anniversary).
-        const author = 'Test BCE Author';
-        const { body: created } = await req('POST', '/api/books', {
-          title:   'BCE Test Book',
-          authors: [author],
-        });
-        const authorId = created.authors?.[0]?.id;
-        assert.ok(authorId);
-        await req('PATCH', `/api/authors/${authorId}`, {
-          birth_date: '-428',
-          death_date: '-348',
-        });
-        // Sweep 2026 — neither 2454 nor 2374 is a notable offset, so
-        // this author MUST NOT surface as an author_anniversary.
-        for (const d of ['2026-12-22', '2026-12-23', '2026-12-24', '2026-12-25', '2026-12-26']) {
-          const { body } = await req('GET', `/api/today/card?date=${d}`);
-          if (body.card?.type === 'author_anniversary'
-              && body.card.meta?.author_name === author) {
-            assert.fail(`BCE author surfaced for non-matching offset: ${JSON.stringify(body.card.meta)}`);
-          }
-        }
+    it('author_anniversary handles BCE author dates via the leading minus sign', async () => {
+      // Plato-shape: birth_date='-428', death_date='-348'. For a viewed year of
+      // 2026 the author is 2454y / 2374y "ago" — neither matches a hardcoded
+      // offset, so the author must NOT surface. This guards the year-extraction
+      // path against truncating BCE years to positive integers (which would let
+      // '-428' become 428 → 2026-428 = 1598y, a real-but-incorrect anniversary).
+      // With the reset this author is the ONLY fixture, so if the extraction
+      // were buggy it would be the sole eligible cohort and surface
+      // deterministically — a real guard, not a probabilistic one.
+      const author = 'Test BCE Author';
+      const { body: created } = await req('POST', '/api/books', {
+        title:   'BCE Test Book',
+        authors: [author],
       });
+      const authorId = created.authors?.[0]?.id;
+      assert.ok(authorId);
+      await req('PATCH', `/api/authors/${authorId}`, {
+        birth_date: '-428',
+        death_date: '-348',
+      });
+      // Neither 2454 nor 2374 is a notable offset, so nothing should surface.
+      for (const d of ['2026-12-22', '2026-12-23', '2026-12-24', '2026-12-25', '2026-12-26']) {
+        const { body } = await req('GET', `/api/today/card?date=${d}`);
+        if (body.card?.type === 'author_anniversary'
+            && body.card.meta?.author_name === author) {
+          assert.fail(`BCE author surfaced for non-matching offset: ${JSON.stringify(body.card.meta)}`);
+        }
+      }
     });
 
     it('surfaces an anniversary card for a book published a notable round-year offset before the viewed date', async () => {
@@ -909,8 +876,12 @@ describe('today', () => {
     });
 
     it('peek=true returns the persisted card when one exists', async () => {
-      // After a non-peek fetch persists a card for the date, a
-      // subsequent peek fetch reads it back without doing the compute.
+      // Seed a cohort (loved_resurface) so the non-peek fetch has something to
+      // persist; then a subsequent peek fetch reads it back without computing.
+      const { body: seed } = await req('POST', '/api/books', {
+        title: 'Peek Persist Book', status: 'finished', date_finished: '2025-01-01',
+      });
+      await req('PUT', `/api/books/${seed.id}`, { ...seed, loved: true, tags: [] });
       const date = '2027-02-20';
       const { body: first } = await req('GET', `/api/today/card?date=${date}`);
       assert.ok(first.card, 'expected non-peek fetch to produce and persist a card');
@@ -931,17 +902,20 @@ describe('today', () => {
       // book row itself is re-hydrated each fetch so any meta drift
       // (status / loved / etc.) is reflected, but the persisted tuple
       // is the source of truth for what surfaced.
+      // Seed a loved_resurface cohort so a card is produced and persisted.
+      const { body: seed } = await req('POST', '/api/books', {
+        title: 'Persist Drift Book', status: 'finished', date_finished: '2025-01-01',
+      });
+      await req('PUT', `/api/books/${seed.id}`, { ...seed, loved: true, tags: [] });
       const date = '2026-07-25';
       const { body: first } = await req('GET', `/api/today/card?date=${date}`);
       assert.ok(first.card, 'expected first fetch to produce a card');
       const firstId = first.card.book.id;
       const firstType = first.card.type;
-      // Mutate cohort state: PUT the picked book to a different status
-      // (so it likely falls out of its original cohort). The next
-      // fetch must still return the persisted (type, book_id).
-      await req('PUT', `/api/books/${firstId}`, {
-        ...first.card.book, status: 'finished', tags: [],
-      });
+      // Mutate cohort state so the book falls out of loved_resurface (un-love
+      // it). The next fetch must still return the persisted (type, book_id)
+      // via the today_card_history short-circuit, not a fresh recompute.
+      await req('PATCH', `/api/books/${firstId}`, { loved: false });
       const { body: second } = await req('GET', `/api/today/card?date=${date}`);
       assert.equal(second.card.type,    firstType);
       assert.equal(second.card.book.id, firstId);

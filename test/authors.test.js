@@ -695,7 +695,7 @@ describe('authors — index', () => {
     assert.equal(idx.find(a => a.id === aid).has_bio, 1);
   });
 
-  it('GET /api/authors?q= filters by substring (case-insensitive) and caps results', async () => {
+  it('GET /api/authors?q= filters by substring (case-insensitive)', async () => {
     const stem = 'qfilt' + Math.random().toString(36).slice(2, 6);
     // Two authors share the stem; one unrelated. The query should pick
     // up both stem-bearing names and skip the unrelated one.
@@ -711,7 +711,20 @@ describe('authors — index', () => {
     assert.ok(names.includes(`Alice ${stem}`));
     assert.ok(names.includes(`Bob ${stem}`));
     assert.ok(!names.some(n => n.startsWith('Carol unrelated')));
-    assert.ok(body.length <= 20, 'filtered response should be capped');
+    // The LIMIT 20 cap is exercised in the dedicated test below — a 2-match
+    // stem can never reach it, so asserting `<= 20` here proves nothing.
+  });
+
+  it('GET /api/authors?q= caps the result set at 20', async () => {
+    const stem = 'capfilt' + Math.random().toString(36).slice(2, 6);
+    // Create 21 distinct authors that all match the stem so the LIMIT 20
+    // branch is actually reached. Without the cap this would return 21.
+    for (let i = 0; i < 21; i++) {
+      await req('POST', '/api/books', { title: `${stem}-${i}`, authors: [`Cap ${stem} ${String(i).padStart(2, '0')}`] });
+    }
+    const { status, body } = await req('GET', `/api/authors?q=${stem}`);
+    assert.equal(status, 200);
+    assert.equal(body.length, 20, 'q= results must be capped at 20');
   });
 
   it('GET /api/authors?q= folds diacritics on both sides', async () => {
@@ -770,17 +783,22 @@ describe('authors — index', () => {
     const stem = 'rand' + Math.random().toString(36).slice(2, 6);
     const { body: book } = await req('POST', '/api/books', { title: `${stem}-A`, authors: [`Bylined ${stem}`] });
     const aid = book.authors[0].id;
-    const { status, body } = await req('GET', '/api/authors/random');
-    assert.equal(status, 200);
-    assert.ok(Number.isInteger(body.id) && body.id >= 1);
-    // The author we just created is one valid candidate among all
-    // bylined authors in the DB — at minimum, the bylined index lookup
-    // must succeed (404 only when there are zero bylined authors).
-    const { status: rs } = await req('GET', `/api/authors/${body.id}`);
-    assert.equal(rs, 200);
-    // Sanity: our author appears in the unfiltered list.
+
+    // The contract is that /random draws ONLY from authors bylined on ≥1
+    // book — not every author row. Build a book_count map once, then draw
+    // several times and assert every draw is actually bylined. The old test
+    // only checked the returned author existed (always true), so a regression
+    // to ORDER BY RANDOM() over ALL authors would have gone unnoticed.
     const { body: idx } = await req('GET', '/api/authors');
-    assert.ok(idx.some(a => a.id === aid));
+    assert.ok(idx.some(a => a.id === aid), 'seeded author should appear in the index');
+    const bookCountById = new Map(idx.map(a => [a.id, a.book_count]));
+    for (let i = 0; i < 6; i++) {
+      const { status, body } = await req('GET', '/api/authors/random');
+      assert.equal(status, 200);
+      assert.ok(Number.isInteger(body.id) && body.id >= 1);
+      assert.ok((bookCountById.get(body.id) ?? 0) > 0,
+        `random author ${body.id} must be bylined on at least one book`);
+    }
   });
 
   it('GET /api/authors is sorted by name (case-insensitive)', async () => {
