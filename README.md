@@ -4,7 +4,7 @@ A personal library manager. Track your books, reading progress, shelves, diary e
 
 ## Requirements
 
-- Node.js 18 or later
+- Node.js 20.19 or later (required by the ESLint 10 toolchain; see `engines` in `package.json`)
 - npm
 
 ## Setup
@@ -36,16 +36,18 @@ Before committing, run:
 npm run check
 ```
 
-This runs the test suite, the client lint, and then the production build. The
+This runs the test suite, the lint gates, and then the production build. The
 stages catch different things — `npm test` exercises the server / DB / API;
-`npm run lint` catches client code issues; `npm run build` compiles the client
-and surfaces broken imports or syntax errors that tests don't see.
-Individually:
+`npm run lint` catches code issues on both the server and the client;
+`npm run build` compiles the client and surfaces broken imports or syntax
+errors that tests don't see. Individually:
 
 ```bash
-npm test        # server-side suite only
-npm run lint    # client lint only
-npm run build   # production client build only
+npm test              # server-side suite only
+npm run lint          # server + client lint
+npm run lint:server   # repo-root ESLint (server + scripts + tests) only
+npm run lint:client   # client ESLint only
+npm run build         # production client build only
 ```
 
 For render-time crashes that none of those stages can see (a route that
@@ -103,7 +105,7 @@ node scripts/repair-asins-from-listening.js path/to/Listening.csv
 node scripts/repair-asins-from-listening.js path/to/Listening.csv --apply
 ```
 
-Matches CSV products to Spine audiobooks by normalised title, then either fills missing ASINs or replaces existing ones with the CSV's authoritative value. Reports ambiguous matches and unmatched products as a punch-list.
+Matches CSV products to Spine audiobooks by normalised title and fills in missing ASINs. Audiobooks whose ASIN already differs from the CSV are reported as review-only candidates — `--apply` never overwrites an existing ASIN (a correct one could otherwise be clobbered on a fuzzy title match); patch those by hand after eyeballing the report. Also reports ambiguous matches and unmatched products as a punch-list.
 
 ### Estimate finish dates from listening data
 
@@ -112,7 +114,7 @@ node scripts/estimate-finish-dates-from-listening.js path/to/Listening.csv
 node scripts/estimate-finish-dates-from-listening.js path/to/Listening.csv --apply
 ```
 
-Walks per-ASIN listening events chronologically, detects completions (End Position ≥ 95% of Book Length) and re-reads (position resets back to ≤ 5% with at least 7 days gap since the last completion). Backfills `books.date_started`, `books.date_finished`, `books.read_count`, `books.status`, and inserts `reads` rows — only fills, never overwrites manually-entered dates.
+Walks per-ASIN listening events chronologically, detects completions (End Position ≥ 95% of Book Length) and re-reads (position resets back to ≤ 5% with at least 7 days gap since the last completion). Inserts a `reads` row (start → finish) per detected completion that isn't already on file, and updates `books.read_count` / `books.status`. Per-read dates live in the `reads` table (the `books.date_started` / `books.date_finished` columns were dropped in Phase 3); re-runs are idempotent and never overwrite an existing read.
 
 ### Kindle reading sessions → diary
 
