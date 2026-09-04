@@ -14,8 +14,8 @@ and how all related tables fit together.
 |---|---|---|---|
 | `id` | INTEGER PK | auto | |
 | `title` | TEXT NOT NULL | — | Trimmed on write; stored value is always stripped of leading/trailing whitespace |
-| `status` | TEXT | `'unread'` | `reading` · `paused` · `finished` · `unread` |
-| `cover_path` | TEXT | NULL | Stored as bare filename (`abc.webp`); returned in responses as `/uploads/abc.webp` |
+| `status` | TEXT | `'unread'` | `reading` · `finished` · `unread` |
+| `cover_path` | TEXT | NULL | Stored as bare filename (`${timestamp}-${random}.jpg`); returned in responses as `/uploads/<filename>`. WebP uploads are converted to JPG on intake |
 | `created_at` | TEXT | `datetime('now')` | ISO datetime, set once on insert |
 | `updated_at` | TEXT | `datetime('now')` | ISO datetime, updated by every PUT/PATCH |
 
@@ -76,7 +76,7 @@ a finished book you want to forget is both `finished` AND `archived = 1`.
 | `fiction` | INTEGER | NULL | `1` = fiction · `0` = non-fiction · `NULL` = unset |
 | `source_type` | TEXT | NULL | `primary` · `secondary` (for non-fiction source classification) |
 | `is_custom` | INTEGER | `0` | `1` = hand-entered custom entry, not from a catalogue |
-| `is_stub` | INTEGER | `0` | `1` = incomplete placeholder; auto-cleared to `0` on PUT when `title` and at least one author are both present |
+| `is_stub` | INTEGER | `0` | `1` = wishlist placeholder (a book you don't own yet). Auto-cleared to `0` the moment the book becomes owned — a write that sets `owned = 1` (or `is_custom`, which forces owned). Title/author presence does **not** clear it; an owned book can't be re-flagged as a stub |
 
 **Write-time normalization:** `source_type` is stored as `NULL` unless
 `fiction === 0`. Writing a `source_type` on a fiction book or on one where
@@ -88,7 +88,7 @@ classification (primary vs secondary source).
 | Column | Type | Notes |
 |---|---|---|
 | `format` | TEXT | `physical` · `ebook` · `audiobook` · NULL |
-| `binding` | TEXT | `paperback` · `hardcover` · NULL |
+| `binding` | TEXT | `paperback` · `hardcover` · `other` · NULL (`other` covers leather/slipcased/boxed and anything non-standard) |
 | `condition` | TEXT | `new` · `fine` · `very good` · `good` · `fair` · `poor` · NULL |
 | `page_count` | INTEGER | Positive integer; NULL for audiobooks or unknown |
 | `duration_minutes` | INTEGER | Positive integer; meaningful for `format = 'audiobook'` |
@@ -119,11 +119,33 @@ classification (primary vs secondary source).
 | Column | Type | Notes |
 |---|---|---|
 | `year_published` | INTEGER | Original publication year. Negative = BCE (e.g. `-800` = 8th c. BCE Homer); year `0` is rejected |
-| `year_approximate` | INTEGER | `1` = year is approximate (e.g. ancient texts); `0` = exact |
-| `year_edition` | INTEGER | Year of this specific edition. Negative = BCE; year `0` is rejected |
+| `year_published_approximate` | INTEGER | `1` = `year_published` is approximate (e.g. an ancient text dated "ca. 380 BCE"); `0` = exact |
+| `year_edition` | INTEGER | Year of this specific edition/printing. Negative = BCE; year `0` is rejected. Feeds the Antique/Vintage virtual tags |
+| `year_approximate` | INTEGER | `1` = `year_edition` is approximate; `0` = exact. **Note the split:** `year_approximate` flags the *edition* year, `year_published_approximate` flags the *published* year |
 | `publisher` | TEXT | Trimmed on write |
 | `series` | TEXT | Series name; trimmed on write |
 | `series_number` | REAL | Position within series; allows half-numbers (e.g. `0.5`) |
+
+### Editions (work groups)
+
+| Column | Type | Notes |
+|---|---|---|
+| `work_id` | INTEGER | Non-NULL when this record is one of several editions of the same underlying work (a hardcover + paperback pair, an original + a translation, an audiobook + a physical copy). All members of a group share the same `work_id` |
+
+The relationship is **symmetric** (every member sees every other on its
+BookDetail page) and **transitive** (linking a new edition into an existing
+group joins them all; linking two groups merges them into the lower-id group).
+Manage it through the dedicated endpoints — never by writing `work_id` directly,
+which would create an asymmetric half-linked group:
+
+- `POST /api/books/:id/work-link { other_id }` — link `:id` and `other_id` into one group
+- `DELETE /api/books/:id/work-link` — remove `:id` from its group
+
+A genuine duplicate (not a distinct edition) is collapsed instead of linked, via
+`POST /api/books/:id/merge { other_id }` — merges the loser into the `:id`
+survivor in one transaction (survivor-first field fill, join-table union, reads
+moved with exact-duplicate skip, reading-log same-day aggregation, work-group
+inheritance, loser deleted).
 
 ### Language
 
@@ -162,11 +184,16 @@ inputs in this case and the backend enforces the same contract.
 
 | Column | Type | Notes |
 |---|---|---|
-| `date_started` | TEXT | `YYYY-MM-DD`; set by PUT |
-| `date_finished` | TEXT | `YYYY-MM-DD`; set by PUT |
 | `current_page` | INTEGER | Current reading position; set by PATCH |
 | `current_minutes` | INTEGER | Current listening position (minutes); set by PATCH |
 | `read_count` | INTEGER | `0` by default. Incremented by 1 when `status` transitions from any non-`finished` value to `'finished'` via PUT. Can be set to an arbitrary value by including `read_count` explicitly in a PUT. |
+
+> **`date_started` / `date_finished` are no longer book columns.** They were
+> dropped in migration `079` (Phase 3). They're still accepted as *payload*
+> fields on POST/PUT/PATCH, but the backend routes them to the `reads` table
+> (a finish-transition inserts a reads row; off-transition edits update the
+> latest reads row) — see [Reading data rules](#reading-data-rules). The
+> `reads` table is the single source of truth for per-read dates.
 
 ### Readlist
 
@@ -223,6 +250,15 @@ sorts purely by article-stripped `title`.
 
 Article-stripping everywhere uses the same `titleSortExpr` as Library browsing,
 so *The Odyssey* sorts under `O` rather than `T`.
+
+### System & dormant columns
+
+A few `books` columns exist in the schema but aren't user-facing fields, so
+they're omitted from the tables above on purpose:
+
+- `cover_bytes` — system-managed cover size cache; written on cover save, not by the API.
+- `showcase_position` — system-managed ordering for the (planned) showcase surface.
+- `desire_rank` — **dormant**: fed the removed Library "Custom order" sort (dropped in 1.273.0). ~109 rows still carry values; no code reads or writes it. Kept intentionally — see the "Dormant schema" note in `CLAUDE.md`.
 
 ---
 
@@ -306,8 +342,9 @@ in the database. In responses they appear appended after real tags and carry
 | **Translated** | `original_language` set and differs from `language` |
 | **Re-read** | `read_count > 1` |
 | **Abridged** | `abridged = 1` |
-| **Long** | `page_count ≥ 500` |
-| **Short** | `page_count > 0` and `page_count ≤ 150` |
+| **Long** | `(500 ≤ page_count < 1000)` OR `(840 ≤ duration_minutes < 1680)` — bounded above so it's mutually exclusive with Tome |
+| **Tome** | `page_count ≥ 1000` OR `duration_minutes ≥ 1680` (~28+ hours) — the superlative of Long |
+| **Short** | `(0 < page_count ≤ 150)` OR `(0 < duration_minutes ≤ 240)` |
 
 Antique and Vintage are gated to physical-format books because they signal a
 physically older copy (a 1900 hardcover), not the age of the underlying text
@@ -328,9 +365,7 @@ so that retroactive or partial data entry is always possible.
 | Field / table | Source of truth | Can drift from others? |
 |---|---|---|
 | `books.read_count` | Authoritative count of how many times the book has been read | Yes — by design |
-| `books.date_started` | Date the current or most recent reading began | Manually set; not derived |
-| `books.date_finished` | Date of the most recent finish (current edition / copy status) | Manually set; not derived |
-| `reads` rows | Optional detailed history of individual read-throughs | Row count may differ from `read_count` |
+| `reads` rows | The record of individual read-throughs, and the **single source of truth for per-read `date_started` / `date_finished`** (the book-level date columns were dropped in Phase 3) | Row count may differ from `read_count` |
 | `reading_log` rows | Daily progress deltas; never decremented | Independent of `reads` and `read_count` |
 
 ### read_count rules
@@ -383,11 +418,20 @@ re-read" button calls this endpoint when the book's status is `finished`;
 in-progress books still see the plain "Log a read" affordance that hits
 `POST /reads`.
 
-### date_started / date_finished
+### date_started / date_finished (payload fields, not columns)
 
-Both fields represent **current copy/edition status**, not a complete history.
-For a book read multiple times, `date_finished` is expected to hold the most
-recent finish date. Full per-read dates live in `reads` rows.
+These are **not** stored on `books` (the columns were dropped in Phase 3,
+migration `079`). They remain accepted on the POST/PUT/PATCH payload as a
+convenience, and the backend routes them into the `reads` table:
+
+- On a **finish-transition** (status → `finished`), they become the
+  `date_started` / `date_finished` of the auto-inserted `reads` row.
+- On an **off-transition** edit that includes them, they update the latest
+  `reads` row via `syncLatestReadsRow()`.
+
+So per-read dates live only in `reads` rows; there is no book-level "most
+recent finish date" column. Surfaces that need "when did I last finish this"
+derive it from `MAX(reads.date_finished)`.
 
 ## Progress tracking
 
@@ -424,6 +468,7 @@ Records of individual read-throughs.
 | `book_id` | INTEGER | → books.id ON DELETE CASCADE |
 | `date_started` | TEXT | Partial date: `YYYY`, `YYYY-MM`, or `YYYY-MM-DD` · nullable |
 | `date_finished` | TEXT | Partial date: `YYYY`, `YYYY-MM`, or `YYYY-MM-DD` · nullable; must not be before `date_started` |
+| `did_not_finish` | INTEGER | `1` = a DNF read (abandoned); `0` = completed. Read by the finish-transition dedup guard and by the diary/collage finish indicators |
 | `created_at` | TEXT | |
 
 The "must not be before" comparison runs on the shared prefix of the two
@@ -443,14 +488,35 @@ Daily reading activity. One row per (book, date); upserted by PATCH.
 |---|---|---|
 | `id` | INTEGER PK | |
 | `book_id` | INTEGER | → books.id ON DELETE CASCADE |
+| `story_id` | INTEGER | → stories.id · nullable. Set for a story-level reading-log row (an anthology story read on its own); NULL for a book-level row |
 | `date` | TEXT | `YYYY-MM-DD` |
 | `pages_read` | INTEGER | Accumulated for the day |
 | `minutes_read` | INTEGER | Accumulated for the day |
 
-Unique constraint: `(book_id, date)`. Used by `GET /api/stats` to compute
-streaks, total pages read, and total minutes listened.
+Uniqueness is a **partial** index — `UNIQUE(book_id, date) WHERE story_id IS
+NULL` — so a book-level row is one-per-(book, date), while story-level rows
+(each carrying a `story_id`) can coexist on the same day. The upsert uses
+`ON CONFLICT(book_id, date) WHERE story_id IS NULL`. Used by `GET /api/stats`
+to compute streaks, total pages read, and total minutes listened (with
+book-level rows de-duplicated against story-level rows so an anthology day
+isn't double-counted).
 
 API: `GET /api/books/:id/log`
+
+### stories / story_authors
+
+Table-of-contents entries for a container book (an anthology, a collection, a
+periodical). Each story is a child of one book and can be read, rated, and
+finished independently of its parent — a story-level finish writes a
+`reading_log` row carrying the story's `story_id`, and the parent auto-rolls to
+`finished` once every story is accounted for.
+
+| Table | Key columns |
+|---|---|
+| `stories` | `id`, `book_id` (→ books.id ON DELETE CASCADE), `title`, `position` (order within the TOC), `status`, `date_finished` (partial date), `rating`, `did_not_finish`, `notes`, `page_start`, `page_end`, `year_published`, `created_at`, `updated_at` |
+| `story_authors` | `story_id`, `author_id`, `position` — per-story contributors (an anthology author bylined on one story but not the containing book) |
+
+API: `GET/POST /api/books/:id/stories`, `PUT/DELETE /api/books/:id/stories/:storyId`
 
 ### lists / list_books
 
@@ -458,7 +524,7 @@ Curated lists of books.
 
 | Table | Key columns |
 |---|---|
-| `lists` | `id`, `name` (unique NOCASE, max 200 chars), `created_at`, `updated_at` |
+| `lists` | `id`, `name` (unique NOCASE, max 200 chars), `description` (max 2000 chars, trimmed-to-NULL), `default_sort` (a `LIST_ORDER_BY` key remembered per list, or NULL), `created_at`, `updated_at` |
 | `list_books` | `list_id`, `book_id` (composite PK), `position`, `added_at` |
 
 Books are appended at position = max + 1. Order is rewritten by
