@@ -14,7 +14,9 @@
 set -euo pipefail
 
 SPINE_DIR="$(cd "$(dirname "$0")" && pwd)"
-TRANSCRIPT_DIR="$HOME/.claude/projects/-home-pentestlich-scripts-spine"
+# Claude Code names each project dir after the repo's absolute path with
+# every '/' turned into '-'. Derive it from SPINE_DIR so this works on any box.
+TRANSCRIPT_DIR="$HOME/.claude/projects/$(printf '%s' "$SPINE_DIR" | tr / -)"
 BACKUP_DIR="$SPINE_DIR/backups"
 KEEP=3
 

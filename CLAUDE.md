@@ -203,7 +203,7 @@ If you suspect data loss:
 2. **Check `backups/`** — daily tarballs cover up to 30 days, hourly
    snapshots cover up to 48 hours, pre-migration snapshots cover the
    exact pre-state of any migration applied in the last 90 days.
-3. **The transcripts** at `~/.claude/projects/-home-pentestlich-scripts-spine/*.jsonl`
+3. **The transcripts** at `~/.claude/projects/<repo-path-with-slashes-as-dashes>/*.jsonl`
    record every Claude-driven write. If the loss involved tool-driven
    ingests (like the May 9 story populations), the transcripts contain
    the original input and can be replayed. Earlier transcript snapshots
@@ -223,7 +223,7 @@ will confuse SQLite if left next to the replacement), swap the file,
 restart, verify.
 
 ```bash
-cd /home/pentestlich/scripts/spine
+cd ~/scripts/spine
 
 # 1. Stop whatever is holding the DB. The dev stack is launched via
 #    `concurrently npm run dev:server npm run dev:client` — kill the
