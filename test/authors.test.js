@@ -92,6 +92,22 @@ describe('authors — Open Library refresh', () => {
     assert.equal(stripBioDates(''),        '');
   });
 
+  it('stripBioDates is not vulnerable to catastrophic backtracking (ReDoS)', () => {
+    // Regression: the earlier `(?:\s*DATE_TOK)*` shape, with a `\d+` token
+    // inside it, backtracked exponentially on a long digit run followed by
+    // a non-date char — ~19s at 30 digits, hours at 50. The tokenizer is
+    // now linear (disjoint branches, atomic `\d+(?!\d)`, single-char
+    // separators), so even 50 digits completes in well under a millisecond.
+    // A generous 1s bound turns any regression back into a hard failure
+    // without flaking on a loaded CI box.
+    const evil = 'X (' + '1'.repeat(50) + '!';
+    const start = process.hrtime.bigint();
+    const out = stripBioDates(evil);
+    const ms = Number(process.hrtime.bigint() - start) / 1e6;
+    assert.equal(out, evil, 'non-date paren content must be left untouched');
+    assert.ok(ms < 1000, `stripBioDates took ${ms.toFixed(1)}ms — possible ReDoS regression`);
+  });
+
   it('normalizeBio handles plain strings and { type, value } objects', () => {
     assert.equal(normalizeBio('Hello'),                              'Hello');
     assert.equal(normalizeBio({ type: '/type/text', value: 'Hi' }),  'Hi');
