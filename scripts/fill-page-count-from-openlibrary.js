@@ -33,7 +33,7 @@ const LIMIT  = (() => {
   return flag ? Number(flag.slice('--limit='.length)) : Infinity;
 })();
 
-const UA    = 'Spine/1.0 (personal library tracker; charlesss@gmail.com)';
+const UA    = 'Spine/1.0 (personal library tracker; +https://github.com/Alienchisel/spine)';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const MIN_PAGES = 10;

@@ -6,7 +6,7 @@ const router = express.Router();
 // bot protection started enforcing this in 2026); identifying ourselves
 // is required for the request to succeed at all. Mirrors the UA set in
 // lib/authors/openLibrary.js.
-const OL_USER_AGENT = 'Spine/1.0 (personal library tracker; charlesss@gmail.com)';
+const OL_USER_AGENT = 'Spine/1.0 (personal library tracker; +https://github.com/Alienchisel/spine)';
 
 function fetchWithTimeout(url, ms = 5000) {
   const controller = new AbortController();

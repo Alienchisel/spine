@@ -16,7 +16,7 @@
 
 import db from '../db.js';
 
-const UA = 'Mozilla/5.0 (Spine/1.0 personal library tracker; charlesss@gmail.com)';
+const UA = 'Mozilla/5.0 (Spine/1.0 personal library tracker; +https://github.com/Alienchisel/spine)';
 const PORT = process.env.PORT || 3001;
 const APPLY = process.argv.includes('--apply');
 
