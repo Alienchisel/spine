@@ -82,6 +82,7 @@ SPINE_URL=http://your-host:3001 node ingest.js <isbn>
 | Variable | Default | Description |
 |---|---|---|
 | `PORT` | `3001` | Port the server listens on |
+| `HOST` | `127.0.0.1` | Interface to bind. Defaults to loopback so the raw port isn't exposed on the network — Spine has no auth of its own and expects to sit behind a trusted, authenticating front (a same-host reverse proxy or tunnel). Set to `0.0.0.0` to bind all interfaces (only sound behind a firewall or an authenticating proxy). |
 | `DB_PATH` | `./spine.db` | Path to the SQLite database file |
 
 ## Importers
