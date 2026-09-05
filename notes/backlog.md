@@ -8,6 +8,41 @@ Papercuts (small frictions, one-liners) stay in `notes/papercuts.md`.
 
 ## Open
 
+### Authentication in front of Spine
+Spine has no auth of its own (single-user by design). It's reached from a
+Windows PC and a phone through Slipway, which runs on the same VM and
+proxies the public URL straight to localhost:3001 **with no login** — so
+today anyone who learns that URL has full read/write over the whole
+library. 1.283.0 bound Spine to loopback (HOST env, default 127.0.0.1),
+which closes the *direct-port* bypass (nothing on the network can hit
+3001 directly), but NOT this — Slipway reaches localhost regardless. The
+login is the real gap; deferred by choice 2026-09-05.
+
+Options, in recommended order:
+1. **Basic Auth gate in Spine** — single credential from env
+   (`SPINE_AUTH_USER` / `SPINE_AUTH_PASS`); auth off when unset so
+   localhost dev stays frictionless. Middleware over everything (API,
+   SPA, `/uploads`), constant-time compare, no new deps (~30 lines).
+   Transparent to the browser SPA (native prompt, no client changes).
+   Must also update `ingest.js` + the HTTP importer scripts to send the
+   credential (the DB-direct scripts don't need it — audit which is
+   which). ~30 lines + CLI plumbing.
+2. **Cookie login page in Spine** — small form + signed session cookie.
+   Nicer UX (real logout, no re-prompt) but more code/surface.
+3. **Auth at Slipway** — keep Spine unauthenticated, gate in Slipway if
+   it supports basic auth / allowlist / SSO. No CLI changes; depends on
+   Slipway's feature set (unconfirmed).
+
+**Hard prerequisite for 1 or 2:** confirm the connection is HTTPS
+end-to-end (Slipway terminating TLS) before enabling any reusable
+password — otherwise it crosses the wire in cleartext. Currently unknown
+(check the URL scheme / padlock in the browser, or that Slipway has a
+cert). If it's plain HTTP, get TLS in place first.
+
+Lower-priority companion: no security-header middleware (helmet / CSP /
+X-Frame-Options). Minor for a single-user app, but cheap to add whenever
+auth lands.
+
 ### Showcase section
 A curated top-five favourite books display — hand-ordered, large
 covers, minimal text, "bookshelf portrait" feel. Distinct from the
