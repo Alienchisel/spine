@@ -47,11 +47,17 @@ router.get('/card', (req, res) => {
   // date_started / date_finished sourced from reads (most recent per
   // book) — books.date_started / books.date_finished were dropped in
   // Phase 3. acquisition_date is still a real book column.
+  // Only full YYYY-MM-DD dates are diffed — the same filter the cohort
+  // SQL uses to pick the card. SQLite reads a bare 'YYYY' as a Julian Day
+  // number (julianday('2025') = 2025.0, so "6738 years ago"), and a
+  // 'YYYY-MM' MAX that outranks the full date the cohort chose returned
+  // NULL ("last read  ago"). Partials yield NULL, which the client copy
+  // handles.
   const diffs = db.prepare(`
     SELECT
-      CAST(julianday(?) - julianday((SELECT MAX(date_finished) FROM reads WHERE reads.book_id = books.id)) AS INTEGER) AS days_since_finished,
-      CAST(julianday(?) - julianday((SELECT MAX(date_started)  FROM reads WHERE reads.book_id = books.id)) AS INTEGER) AS days_since_started,
-      CAST(julianday(?) - julianday(acquisition_date) AS INTEGER) AS days_since_acquired
+      CAST(julianday(?) - julianday((SELECT MAX(CASE WHEN length(date_finished) = 10 THEN date_finished END) FROM reads WHERE reads.book_id = books.id)) AS INTEGER) AS days_since_finished,
+      CAST(julianday(?) - julianday((SELECT MAX(CASE WHEN length(date_started)  = 10 THEN date_started  END) FROM reads WHERE reads.book_id = books.id)) AS INTEGER) AS days_since_started,
+      CAST(julianday(?) - julianday(CASE WHEN length(acquisition_date) = 10 THEN acquisition_date END) AS INTEGER) AS days_since_acquired
     FROM books WHERE id = ?
   `).get(today, today, today, picked.bookId);
 

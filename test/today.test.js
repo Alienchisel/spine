@@ -817,6 +817,47 @@ describe('today', () => {
         `expected days_since_prev > 0, got ${body.card.meta.days_since_prev}`);
     });
 
+    it('series_next_volume: a year-only previous finish yields null days_since_prev, not a Julian-day number', async () => {
+      // Regression: julianday('2025') is 2025.0 (a Julian Day number), so a
+      // prev volume finished '2025' produced days_since_prev ≈ 2,459,288 —
+      // "You finished Vol 1 of X 6738 years ago." Partials must diff to null.
+      const seriesName = 'Julian Series ' + Math.random().toString(36).slice(2, 6);
+      await req('POST', '/api/books', {
+        title: `${seriesName} Vol 1`, authors: [`${seriesName} Author`],
+        series: seriesName, series_number: 1, status: 'finished', date_finished: '2025',
+      });
+      const { body: vol2 } = await req('POST', '/api/books', {
+        title: `${seriesName} Vol 2`, authors: [`${seriesName} Author`],
+        series: seriesName, series_number: 2, owned: 1, status: 'unread',
+      });
+      const db = (await import('../db.js')).default;
+      db.prepare(
+        'INSERT OR REPLACE INTO today_card_history (date, type, book_id) VALUES (?, ?, ?)'
+      ).run('2026-08-09', 'series_next_volume', vol2.id);
+      const { body } = await req('GET', '/api/today/card?date=2026-08-09');
+      assert.equal(body.card?.type, 'series_next_volume');
+      assert.equal(body.card.meta.days_since_prev, null);
+    });
+
+    it('loved_resurface diffs against the latest FULL finish date, ignoring a later partial', async () => {
+      // A book with a full-date read (2025-01-01) and a later partial one
+      // ('2026-03'): the cohort picks it on the full date, but the route's
+      // plain MAX(date_finished) chose '2026-03' → julianday NULL → the
+      // card read "last read  ago". The diff must use the full date.
+      const { body: created } = await req('POST', '/api/books', {
+        title: 'Partial Later Read (test)', status: 'finished', date_finished: '2025-01-01',
+      });
+      await req('PATCH', `/api/books/${created.id}`, { loved: true });
+      await req('POST', `/api/books/${created.id}/reads`, { date_finished: '2026-03' });
+      const db = (await import('../db.js')).default;
+      db.prepare(
+        'INSERT OR REPLACE INTO today_card_history (date, type, book_id) VALUES (?, ?, ?)'
+      ).run('2026-06-16', 'loved_resurface', created.id);
+      const { body } = await req('GET', '/api/today/card?date=2026-06-16');
+      assert.equal(body.card?.type, 'loved_resurface');
+      assert.equal(body.card.days_since_finished, 531, '2025-01-01 → 2026-06-16');
+    });
+
     it('GET /api/today/queue-depth returns unserved counts per card_type', async () => {
       // Always returns both keys even when zero — the client banner
       // assumes a populated shape ({ connection: N, reading_path: M })

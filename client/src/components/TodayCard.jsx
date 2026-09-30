@@ -120,9 +120,14 @@ function CardBody({ card }) {
     // copy said "marked as loved N ago", which read literally and
     // could show pre-Spine dates for books added with historical
     // reads. Wording now matches the underlying field.
+    // days_since_* are null when the relevant date is partial (YYYY or
+    // YYYY-MM) — the server only diffs full dates — so each line has a
+    // no-number fallback rather than rendering "last read  ago".
     return (
       <p>
-        You loved {link} — last read {relativeMonths(card.days_since_finished)} ago. Worth a re-read?
+        {card.days_since_finished != null
+          ? <>You loved {link} — last read {relativeMonths(card.days_since_finished)} ago. Worth a re-read?</>
+          : <>You loved {link}. Worth a re-read?</>}
       </p>
     );
   }
@@ -132,14 +137,16 @@ function CardBody({ card }) {
       : '';
     return (
       <p>
-        You started {link} {card.days_since_started} days ago.{pages} Stuck or savouring?
+        You started {link} {card.days_since_started != null ? `${card.days_since_started} days ago` : 'a while ago'}.{pages} Stuck or savouring?
       </p>
     );
   }
   if (type === 'recent_acquisition') {
     return (
       <p>
-        {link} — bought {relativeDays(card.days_since_acquired)}, sitting unread. Slot it in?
+        {card.days_since_acquired != null
+          ? <>{link} — bought {relativeDays(card.days_since_acquired)}, sitting unread. Slot it in?</>
+          : <>{link} — sitting unread. Slot it in?</>}
       </p>
     );
   }

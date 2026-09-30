@@ -43,4 +43,22 @@ describe('stats — avgDaysToFinish (isolated process)', () => {
     const { body } = await req('GET', '/api/stats');
     assert.equal(body.avgDaysToFinish, 15, 'mean of a 10-day and a 20-day span');
   });
+
+  it('ignores reads whose start or finish is a partial date', async () => {
+    // Regression: SQLite reads a bare 'YYYY' as a Julian Day NUMBER
+    // (julianday('2023') = 2023.0), so a '2023' → '2023-10-08' read
+    // measured ~2.46 million days and pushed the live average to 27,687.
+    // 'YYYY-MM' yields NULL. Neither shape may enter the mean.
+    for (const [title, date_started, date_finished] of [
+      ['Span Book 10d', '2024-01-01', '2024-01-11'],
+      ['Span Book 20d', '2024-01-01', '2024-01-21'],
+      ['Year-only start', '2023', '2023-10-08'],
+      ['Year-month start', '2023-05', '2023-06-10'],
+      ['Year-only finish', '2022-02-01', '2022'],
+    ]) {
+      await req('POST', '/api/books', { title, status: 'finished', date_started, date_finished });
+    }
+    const { body } = await req('GET', '/api/stats');
+    assert.equal(body.avgDaysToFinish, 15, 'only the two full-date spans count');
+  });
 });
