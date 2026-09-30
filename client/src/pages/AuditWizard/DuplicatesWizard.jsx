@@ -5,6 +5,7 @@ import { formatAuthors, initialsFor } from '../../utils.js';
 import { useActionGuard } from '../../hooks/useActionGuard.js';
 import ErrorBanner from '../../components/ErrorBanner.jsx';
 import { shuffle } from './wizards.js';
+import { isBareShortcut } from '../../lib/keyboard.js';
 
 // Duplicate / edition sweep — the cluster-shaped sibling of the
 // card-per-record AuditWizard. One cluster (same article-stripped title
@@ -105,7 +106,7 @@ export default function DuplicatesWizard() {
   // records and should stay a two-click pointer action.
   const onKeyRef = useRef(null);
   onKeyRef.current = function onKey(e) {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (!isBareShortcut(e)) return;
     if (!current) return;
     if (e.key.toLowerCase() === 'l') { e.preventDefault(); linkAll(); }
     else if (e.key.toLowerCase() === 's') { e.preventDefault(); skip(); }

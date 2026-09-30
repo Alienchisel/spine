@@ -9,6 +9,7 @@ import EnumModeButtons from './EnumModeButtons.jsx';
 import TextModeForm from './TextModeForm.jsx';
 import CoverModeGrid from './CoverModeGrid.jsx';
 import DuplicatesWizard from './DuplicatesWizard.jsx';
+import { isBareShortcut } from '../../lib/keyboard.js';
 
 // Deck-of-cards data-entry wizard. Drives bulk-clearing of a single
 // audit row by presenting one missing-data book at a time with a small
@@ -200,7 +201,7 @@ function FillWizard({ wizardKey }) {
   const onKeyRef = useRef(null);
   onKeyRef.current = function onKey(e) {
     if (!cfg) return;
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (!isBareShortcut(e)) return;
     // Number-row shortcuts only apply to enum-mode wizards. Text-mode
     // wizards have no options array; the Save / Skip flow uses Enter
     // (form submit, handled natively) and Esc (input onKeyDown).
