@@ -5,7 +5,7 @@ import { api } from '../api.js';
 import StarRating from '../components/StarRating.jsx';
 import ListPicker from '../components/ListPicker.jsx';
 import { useConfirm } from '../components/ConfirmModal.jsx';
-import { realTagNames, initialsFor, libraryLabelForUrl } from '../utils.js';
+import { initialsFor, libraryLabelForUrl } from '../utils.js';
 import ProgressSection from '../components/bookDetail/ProgressSection.jsx';
 import ReadsSection from '../components/bookDetail/ReadsSection.jsx';
 import StoriesSection from '../components/bookDetail/StoriesSection.jsx';
@@ -304,8 +304,10 @@ export default function BookDetail() {
   // cover. Mirrors the Author page's paste-anywhere portrait upload.
   // Skips when the paste target is a text field so typing notes / rating
   // commentary stays unaffected. Two-step: upload the file to /upload,
-  // then PUT the book with the resulting cover_path (a merge-PUT, since
-  // PATCH's whitelist doesn't include cover_path).
+  // then PATCH the book with the resulting cover_path. PATCH applies the
+  // same cover rules as PUT (old file deleted after commit, cover_bytes
+  // refreshed) without re-sending — and so possibly reverting — every
+  // other field from this page's copy of the book.
   useEffect(() => {
     if (!book?.id) return;
     async function uploadCoverFromFile(file) {
@@ -315,20 +317,7 @@ export default function BookDetail() {
       setCoverError(null);
       try {
         const result = await api.uploadCover(file);
-        // Merge-PUT: re-send the current book's full payload with the
-        // new cover_path, since /books/:id PUT replaces all fields.
-        const payload = {
-          ...book,
-          authors:     (book.authors || []).map(a => a.name),
-          translators: (book.translators || []).map(t => t.name),
-          narrators:   (book.narrators || []).map(n => n.name),
-          tags:        (book.tags || []).filter(t => !t.virtual).map(t => t.name),
-          cover_path:  result.path,
-        };
-        delete payload.editions;
-        delete payload.stories;
-        delete payload.current_story;
-        const updated = await api.updateBook(book.id, payload);
+        const updated = await api.patchBook(book.id, { cover_path: result.path });
         setBook(updated);
       } catch (e) {
         setCoverError(e.message || 'Failed to upload cover');
@@ -475,11 +464,12 @@ export default function BookDetail() {
       // one. Leave null so the user can fill it in if they remember.
       const dateFinished = book.date_finished
         || (book.previously_owned ? null : today);
-      const updated = await api.updateBook(reqId, {
-        ...book,
+      // PATCH, not a spread-PUT: re-sending this page's whole copy of the
+      // book would revert any field changed elsewhere since it loaded.
+      // patchBook runs the same finish cascade as PUT.
+      const updated = await api.patchBook(reqId, {
         status: 'finished',
         date_finished: dateFinished,
-        tags: realTagNames(book.tags),
       });
       if (!isStillCurrent(reqId)) return;
       setBook(updated);
@@ -501,11 +491,7 @@ export default function BookDetail() {
     clearActionErrors();
     const epoch = ratingGuard.next();
     try {
-      const updated = await api.updateBook(reqId, {
-        ...book,
-        rating,
-        tags: realTagNames(book.tags),
-      });
+      const updated = await api.patchBook(reqId, { rating });
       if (!isStillCurrent(reqId) || !ratingGuard.isFresh(epoch)) return;
       setBook(updated);
       setRatingPrompt(false);

@@ -846,24 +846,18 @@ describe('shelf', () => {
         }
       }
 
-      // Regression: with tags now present on shelf-served books, simulating
-      // BookCard's rate-from-card flow must NOT wipe the tags. (Pre-fix the
-      // shelf payload had no tags, so realTagNames(undefined) returned []
-      // and the PUT silently nuked the book's tags.)
-      const { body: shelfBooks } = await req('GET', `/api/shelf/shelves/${sh.id}/books`);
-      const shelfRow = shelfBooks.find(b => b.id === book.id);
-      // Mirror BookCard.handleRate: spread the shelf row, set rating,
-      // forward real tag names. Note: relations must be names (strings)
-      // for the PUT, not {id, name} objects.
-      const { body: rated } = await req('PUT', `/api/books/${book.id}`, {
-        ...shelfRow,
-        rating: 4,
-        authors:   shelfRow.authors.map(a => a.name),
-        narrators: shelfRow.narrators.map(n => n.name),
-        tags:      shelfRow.tags.filter(t => !t.virtual).map(t => t.name),
-      });
+      // Regression: rate-from-card on a shelf-served book must not wipe
+      // anything. The card flow used to full-PUT a spread of the shelf row,
+      // which carries only a subset of columns, so every missing column
+      // (tags, before they were added to the row; later ownership,
+      // publisher, location, …) was nulled. It now PATCHes the rating
+      // alone — mirror that here.
+      const { body: rated } = await req('PATCH', `/api/books/${book.id}`, { rating: 4 });
       assert.equal(rated.rating, 4);
       assert.equal(rated.tags.length, 2, 'tags must survive rate-from-card');
+      assert.equal(rated.owned, 1, 'ownership must survive rate-from-card');
+      assert.equal(rated.shelf_id, sh.id, 'shelf location must survive rate-from-card');
+      assert.deepEqual(rated.narrators.map(n => n.name), ['Scott Brick']);
     });
 
     it('all four drilldowns normalize cover_path back to /uploads/<filename>', async () => {

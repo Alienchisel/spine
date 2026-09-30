@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { useActionGuard } from '../hooks/useActionGuard.js';
-import { realTagNames, initialsFor, fmtHM, toThumbUrl } from '../utils.js';
+import { initialsFor, fmtHM, toThumbUrl } from '../utils.js';
 import { getModeKey, initialProgressMode, computeProgressPatch, savePatchAndMaybeAutoFinish, syncProgressInputs, progressDerived, clampMinutes } from './progressMode.js';
 import MoreMenu from './MoreMenu.jsx';
 
@@ -135,7 +135,7 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
     setError(null);
     try {
       const { book: result, autoFinished } = await savePatchAndMaybeAutoFinish({
-        book, patchData, isAudiobook, api, realTagNames,
+        book, patchData, isAudiobook, api,
       });
       if (autoFinished) {
         onProgressUpdate?.(result);

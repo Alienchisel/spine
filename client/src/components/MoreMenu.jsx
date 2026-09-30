@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
-import { realTagNames, labelForPath } from '../utils.js';
+import { labelForPath } from '../utils.js';
 import { useConfirm } from './ConfirmModal.jsx';
 import StarRating from './StarRating.jsx';
 import { useClickOutside } from '../hooks/useClickOutside.js';
@@ -23,14 +23,17 @@ import { dispatchSpineEvent } from '../hooks/useSpineEvent.js';
 // The lists/memberships/toggle logic is shared with ListPicker via
 // useListMembership.
 //
-// Status mutations (Mark as finished / reading / unread) hit
-// api.updateBook (PUT — status isn't in the PATCH whitelist) and
-// rely on updateBook's finish-transition magic for the reads-row
-// auto-insert and read_count auto-increment. Mirrors BookDetail's
-// handleFinish payload shape: today-default on date_finished
-// (skipped for previously_owned books, since those are typically
-// historical reads with unknown dates), today-default on date_started
-// when moving into 'reading'.
+// Rating and status mutations (Mark as finished / reading / unread)
+// PATCH only the fields they change. They must NOT full-PUT a spread of
+// `book`: this menu's `book` is a list-shaped row (no description, and
+// on shelf / list / readlist pages only a subset of columns), and PUT
+// overwrites every column, so a spread-PUT from here wiped the missing
+// fields. patchBook runs the same finish-transition cascade as PUT
+// (reads-row insert with the duplicate guard, read_count bump, unread
+// stories marked finished). Mirrors BookDetail's handleFinish payload:
+// today-default on date_finished (skipped for previously_owned books,
+// since those are typically historical reads with unknown dates),
+// today-default on date_started when moving into 'reading'.
 //
 // Mutations dispatch two events so other surfaces stay in sync:
 //   - spine:book-mutated  — fired after list add/remove, rating,
@@ -371,9 +374,8 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
     }
   }
 
-  // Apply a rating change via a full PUT. Same payload shape as
-  // changeStatus — joined arrays flattened to name lists, virtual
-  // tags filtered. Optimistic local update so the stars react
+  // Apply a rating change via PATCH (see the header comment for why this
+  // must not be a spread-PUT). Optimistic local update so the stars react
   // instantly; rolled back on error.
   async function handleRate(rating) {
     // Roll back to the last visible optimistic value, not the parent's
@@ -384,14 +386,7 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
     const prior = localRating;
     setLocalRating(rating);
     try {
-      await api.updateBook(book.id, {
-        ...book,
-        authors:     book.authors?.map(a => a.name) ?? [],
-        narrators:   book.narrators?.map(n => n.name) ?? [],
-        translators: book.translators?.map(t => t.name) ?? [],
-        tags:        realTagNames(book.tags),
-        rating,
-      });
+      await api.patchBook(book.id, { rating });
       // Successful retry should clear any stale badge from a previous
       // failure — rating actions keep the menu open, so the auto-clear
       // on reopen doesn't fire.
@@ -403,9 +398,8 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
     }
   }
 
-  // Apply a status change via a full PUT. The whole `book` object is
-  // spread in so the other bookColumns survive the round-trip (PUT
-  // overwrites every bookColumn, so omitting one would null it).
+  // Apply a status change via PATCH (see the header comment). Only the
+  // status and, where relevant, the defaulted date go over the wire.
   // Mirrors BookDetail's handleFinish payload shape.
   async function changeStatus(e, nextStatus) {
     e.preventDefault();
@@ -413,14 +407,7 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
     setOpen(false);
     clearError();
     const today = new Date().toLocaleDateString('en-CA');
-    let payload = {
-      ...book,
-      authors:     book.authors?.map(a => a.name) ?? [],
-      narrators:   book.narrators?.map(n => n.name) ?? [],
-      translators: book.translators?.map(t => t.name) ?? [],
-      tags:        realTagNames(book.tags),
-      status:      nextStatus,
-    };
+    const payload = { status: nextStatus };
     if (nextStatus === 'finished') {
       // Auto-fill date_finished unless already set or previously_owned
       // (historical reads with unknown finish dates — keep null so the
@@ -432,7 +419,7 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
       payload.date_started = today;
     }
     try {
-      await api.updateBook(book.id, payload);
+      await api.patchBook(book.id, payload);
       // Successful mutation clears any stale badge from a different
       // earlier action — auto-clear on menu reopen would only catch it
       // after the user clicks the button again, which can be many

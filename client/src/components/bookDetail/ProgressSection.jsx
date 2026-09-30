@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../api.js';
 import { useActionGuard } from '../../hooks/useActionGuard.js';
-import { fmtHM, realTagNames } from '../../utils.js';
+import { fmtHM } from '../../utils.js';
 import { computeEta } from './eta.js';
 import { getModeKey, initialProgressMode, computeProgressPatch, savePatchAndMaybeAutoFinish, syncProgressInputs, progressDerived, clampMinutes } from '../progressMode.js';
 
@@ -87,7 +87,7 @@ export default function ProgressSection({ book, onChange, log }) {
     setError(null);
     try {
       const { book: result } = await savePatchAndMaybeAutoFinish({
-        book, patchData, isAudiobook, api, realTagNames,
+        book, patchData, isAudiobook, api,
       });
       onChange(result);
       const inputs = syncProgressInputs({ book: result, isAudiobook, mode, pct: progressDerived(result).pct });

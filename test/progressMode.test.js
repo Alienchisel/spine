@@ -7,7 +7,7 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { getModeKey, initialProgressMode } from '../client/src/components/progressMode.js';
+import { getModeKey, initialProgressMode, savePatchAndMaybeAutoFinish } from '../client/src/components/progressMode.js';
 
 describe('getModeKey', () => {
   it('namespaces by book id', () => {
@@ -77,5 +77,51 @@ describe('initialProgressMode', () => {
     assert.equal(initialProgressMode({},        false, true),  'page');
     assert.equal(initialProgressMode(['page'],  false, true),  'page');
     assert.equal(initialProgressMode(true,      true,  true),  'min');
+  });
+});
+
+describe('savePatchAndMaybeAutoFinish', () => {
+  // Fake api that records every call. updateBook throws: the auto-finish
+  // must never full-PUT the caller's copy of the book — that copy can be a
+  // list-shaped row missing columns (description, translators, …), and a
+  // spread-PUT nulled whatever was missing.
+  function fakeApi(afterProgress) {
+    const calls = [];
+    return {
+      calls,
+      patchBook: async (id, data) => {
+        calls.push({ id, data });
+        return calls.length === 1 ? afterProgress : { ...afterProgress, ...data };
+      },
+      updateBook: async () => { throw new Error('updateBook (PUT) must not be called'); },
+    };
+  }
+
+  it('auto-finishes with a status-only PATCH, not a spread-PUT', async () => {
+    const book = { id: 7, status: 'reading', page_count: 300 };
+    const api = fakeApi({ id: 7, status: 'reading', page_count: 300, current_page: 300, previously_owned: 0, date_finished: null });
+    const { autoFinished } = await savePatchAndMaybeAutoFinish({ book, patchData: { current_page: 300 }, isAudiobook: false, api });
+    assert.equal(autoFinished, true);
+    assert.equal(api.calls.length, 2);
+    assert.deepEqual(api.calls[0], { id: 7, data: { current_page: 300 } });
+    assert.deepEqual(Object.keys(api.calls[1].data).sort(), ['date_finished', 'status'],
+      'the finish PATCH must carry only status + date_finished');
+    assert.equal(api.calls[1].data.status, 'finished');
+    assert.match(api.calls[1].data.date_finished, /^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it('leaves date_finished null for a previously-owned book', async () => {
+    const book = { id: 8, status: 'reading', page_count: 100 };
+    const api = fakeApi({ id: 8, status: 'reading', page_count: 100, current_page: 100, previously_owned: 1, date_finished: null });
+    await savePatchAndMaybeAutoFinish({ book, patchData: { current_page: 100 }, isAudiobook: false, api });
+    assert.equal(api.calls[1].data.date_finished, null);
+  });
+
+  it('does not finish when the book is not yet complete', async () => {
+    const book = { id: 9, status: 'reading', page_count: 300 };
+    const api = fakeApi({ id: 9, status: 'reading', page_count: 300, current_page: 120 });
+    const { autoFinished } = await savePatchAndMaybeAutoFinish({ book, patchData: { current_page: 120 }, isAudiobook: false, api });
+    assert.equal(autoFinished, false);
+    assert.equal(api.calls.length, 1);
   });
 });

@@ -1125,6 +1125,51 @@ describe('books', () => {
   });
 
   describe('PATCH /api/books/:id', () => {
+    it('card-menu rating + status PATCHes preserve every other field and run the finish cascade', async () => {
+      // Regression: the card ⋯ menu, BookDetail and the progress auto-
+      // finish used to full-PUT a spread of their copy of the book. From a
+      // list-shaped row (no description; on shelf/list/readlist pages only
+      // a subset of columns) that PUT nulled every missing column. They
+      // now PATCH only the changed fields, so PATCH has to (a) leave the
+      // rest alone and (b) run the same finish cascade PUT did.
+      const stem = 'cardpatch-' + Math.random().toString(36).slice(2, 6);
+      const { body: bldg } = await req('POST', '/api/shelf/buildings', { name: `${stem} bldg` });
+      const { body: rm }   = await req('POST', '/api/shelf/rooms',     { building_id: bldg.id, name: `${stem} room` });
+      const { body: u }    = await req('POST', '/api/shelf/units',     { room_id: rm.id, name: `${stem} unit` });
+      const { body: sh }   = await req('POST', '/api/shelf/shelves',   { unit_id: u.id, label: stem });
+      const { body: created } = await req('POST', '/api/books', {
+        title: `${stem} Meditations`, format: 'physical', owned: true, shelf_id: sh.id,
+        description: 'A private notebook.', publisher: 'Modern Library',
+        isbn_13: '9780000000099', notes: 'Gift from a friend.', condition: 'good',
+        authors: ['Marcus Aurelius'], translators: ['Gregory Hays'], tags: [`${stem}-tag`],
+        status: 'reading', date_started: '2026-01-10',
+      });
+
+      const rated = await req('PATCH', `/api/books/${created.id}`, { rating: 4 });
+      assert.equal(rated.status, 200);
+      const finished = await req('PATCH', `/api/books/${created.id}`, { status: 'finished', date_finished: '2026-02-01' });
+      assert.equal(finished.status, 200);
+
+      const { body: b } = await req('GET', `/api/books/${created.id}`);
+      assert.equal(b.rating, 4);
+      assert.equal(b.status, 'finished');
+      assert.equal(b.read_count, 1, 'finish transition bumps read_count');
+      // Untouched fields survive both PATCHes.
+      assert.equal(b.description, 'A private notebook.');
+      assert.equal(b.publisher, 'Modern Library');
+      assert.equal(b.isbn_13, '9780000000099');
+      assert.equal(b.notes, 'Gift from a friend.');
+      assert.equal(b.condition, 'good');
+      assert.equal(b.owned, 1);
+      assert.equal(b.shelf_id, sh.id);
+      assert.deepEqual(b.authors.map(a => a.name), ['Marcus Aurelius']);
+      assert.deepEqual(b.translators.map(t => t.name), ['Gregory Hays']);
+      assert.ok(b.tags.some(t => t.name === `${stem}-tag`));
+      // The finish is logged as a read carrying the requested finish date.
+      const { body: reads } = await req('GET', `/api/books/${created.id}/reads`);
+      assert.ok(reads.some(r => r.date_finished === '2026-02-01'), 'finish PATCH logs a reads row');
+    });
+
     it('normalizes acquisition_source, description, and publisher like PUT does', async () => {
       // Regression: PATCH used to store these three raw while PUT ran
       // them through t()/tProse(), so the same input produced different

@@ -116,10 +116,19 @@ if (typeof window !== 'undefined') {
   }
   // Safety net: api.js fires this on EVERY successful non-GET request,
   // so mutation surfaces without a precise spine:book-mutated dispatch
-  // still invalidate the list-shaped caches. Surfaces that do dispatch
-  // precisely get a redundant second blast — harmless, invalidation is
-  // idempotent within a tick and only mounted observers refetch.
-  window.addEventListener('spine:data-mutated', () => invalidateListKeys());
+  // still invalidate. That includes the per-book ['book', …] caches, not
+  // just the list keys: BookForm's save, card heart/readlist toggles,
+  // the audit and duplicate wizards and edition links all write without
+  // naming a book id, and a still-"fresh" ['book', id] entry (staleTime
+  // Infinity) would otherwise make BookDetail remount showing pre-edit
+  // data next to its "✓ Saved." acknowledgement. Surfaces
+  // that do dispatch precisely get a redundant second blast — harmless:
+  // invalidation is idempotent within a tick, only mounted observers
+  // refetch, and unmounted book caches just refetch on next visit.
+  window.addEventListener('spine:data-mutated', () => {
+    queryClient.invalidateQueries({ queryKey: ['book'] });
+    invalidateListKeys();
+  });
   window.addEventListener('spine:book-mutated', (e) => {
     const id = Number(e?.detail?.id);
     if (Number.isFinite(id)) invalidateForBook(id);

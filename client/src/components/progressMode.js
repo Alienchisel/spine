@@ -115,14 +115,16 @@ export function syncProgressInputs({ book, isAudiobook, mode, pct }) {
 // Shared progress-save path used by both surfaces that can mutate progress:
 // the Library quick-edit on BookCard.jsx and the BookDetail ProgressSection.
 // Applies the progress patch, and if the resulting position hits the book's
-// total while status is still 'reading', issues the follow-up
-// status='finished' PUT — same prev-owned-aware date default the Mark-as-
-// finished button uses. Caller passes the api module and realTagNames helper
-// to keep this file import-free (it stayed pure for the rest of its life).
+// total while status is still 'reading', issues a follow-up
+// status='finished' PATCH — same prev-owned-aware date default the Mark-as-
+// finished button uses. It's a PATCH rather than a spread-PUT so fields
+// missing from (or stale in) the caller's copy of the book can't be wiped
+// or reverted; patchBook runs the same finish cascade. Caller passes the
+// api module to keep this file import-free.
 // Returns { book, autoFinished } so surfaces can branch their post-save UX
 // (BookCard navigates to BookDetail with justFinished; ProgressSection
 // stays in-place and pops the rating prompt via its onChange).
-export async function savePatchAndMaybeAutoFinish({ book, patchData, isAudiobook, api, realTagNames }) {
+export async function savePatchAndMaybeAutoFinish({ book, patchData, isAudiobook, api }) {
   const updated = await api.patchBook(book.id, patchData);
   const isComplete = isAudiobook
     ? (updated.duration_minutes > 0 && updated.current_minutes >= updated.duration_minutes)
@@ -135,11 +137,9 @@ export async function savePatchAndMaybeAutoFinish({ book, patchData, isAudiobook
   const today = new Date().toLocaleDateString('en-CA');
   const dateFinished = updated.date_finished
     || (updated.previously_owned ? null : today);
-  const finished = await api.updateBook(book.id, {
-    ...updated,
+  const finished = await api.patchBook(book.id, {
     status: 'finished',
     date_finished: dateFinished,
-    tags: realTagNames(updated.tags),
   });
   return { book: finished, autoFinished: true };
 }
