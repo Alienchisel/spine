@@ -8,6 +8,7 @@ import CoverSizeSlider from '../components/CoverSizeSlider.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 import { GridSkeleton } from '../components/Skeleton.jsx';
 import { useCoverSize } from '../hooks/useCoverSize.js';
+import { useLoadAll } from '../hooks/useLoadAll.js';
 
 const FIELD_LABEL = {
   author: 'Author', translator: 'Translator', publisher: 'Publisher',
@@ -247,20 +248,13 @@ export default function BrowsePage() {
   // dismiss*, not set*, so it doesn't read as an error-state setter.
   const dismissFetchError = () => { if (booksQ.error) booksQ.refetch(); };
   const [actionError, setActionError] = useState(null);
-  const [loadingAll,  setLoadingAll]  = useState(false);
   const loadMore = useCallback(async () => {
     if (booksQ.isFetchingNextPage) return;
     setActionError(null);
     try { await booksQ.fetchNextPage(); }
     catch (e) { setActionError(e); }
   }, [booksQ]);
-  const loadAll = useCallback(async () => {
-    if (loadingAll || booksQ.isFetchingNextPage) return;
-    setLoadingAll(true); setActionError(null);
-    try { while (booksQ.hasNextPage) await booksQ.fetchNextPage(); }
-    catch (e) { setActionError(e); }
-    finally { setLoadingAll(false); }
-  }, [booksQ, loadingAll]);
+  const { loadingAll, loadAll } = useLoadAll(booksQ, booksQKey, setActionError);
   // unowned_total is captured on the first-page response and carried
   // forward through every subsequent page (see queryFn) so meta.pages[*]
   // all agree — read off page 0.

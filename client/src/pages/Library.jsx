@@ -20,6 +20,7 @@ import { useLatest } from '../hooks/useLatest.js';
 import { useSpineEvent, dispatchSpineEvent } from '../hooks/useSpineEvent.js';
 import { useClickOutside } from '../hooks/useClickOutside.js';
 import { useEscapeKey } from '../hooks/useEscapeKey.js';
+import { useLoadAll } from '../hooks/useLoadAll.js';
 
 const TABS = [
   { key: 'reading',     label: 'Reading' },
@@ -260,30 +261,13 @@ export default function Library() {
   const loadedCount = books.length;
   const fetchError  = booksQ.error;
   const [actionError, setActionError] = useState(null);
-  const [loadingAll,  setLoadingAll]  = useState(false);
   const loadMore = useCallback(async () => {
     if (booksQ.isFetchingNextPage) return;
     setActionError(null);
     try { await booksQ.fetchNextPage(); }
     catch (e) { setActionError(e); }
   }, [booksQ]);
-  const loadAll = useCallback(async () => {
-    if (loadingAll || booksQ.isFetchingNextPage) return;
-    setLoadingAll(true);
-    setActionError(null);
-    try {
-      // Loop until getNextPageParam returns undefined. Reading
-      // hasNextPage directly off the query is safe here because
-      // fetchNextPage awaits its own state settle before returning.
-      while (booksQ.hasNextPage) {
-        await booksQ.fetchNextPage();
-      }
-    } catch (e) {
-      setActionError(e);
-    } finally {
-      setLoadingAll(false);
-    }
-  }, [booksQ, loadingAll]);
+  const { loadingAll, loadAll } = useLoadAll(booksQ, queryKey, setActionError);
   // Optimistic setters mirror the old usePaginatedFetch API shape.
   // useInfiniteQuery stores data as { pages: [...], pageParams: [...] };
   // we collapse into a single synthetic page since the paginated

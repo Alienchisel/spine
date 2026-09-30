@@ -29,6 +29,7 @@ import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-quer
 import { useLatest } from '../hooks/useLatest.js';
 import { useActionGuard } from '../hooks/useActionGuard.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
+import { useLoadAll } from '../hooks/useLoadAll.js';
 
 const PAGE_SIZE = 48;
 
@@ -441,20 +442,13 @@ export default function ListDetail() {
   const loadedCount  = books.length;
   const error        = listQ.error;
   const [actionError, setActionError] = useState(null);
-  const [loadingAll,  setLoadingAll]  = useState(false);
   const loadMore = useCallback(async () => {
     if (listQ.isFetchingNextPage) return;
     setActionError(null);
     try { await listQ.fetchNextPage(); }
     catch (e) { setActionError(e); }
   }, [listQ]);
-  const loadAll = useCallback(async () => {
-    if (loadingAll || listQ.isFetchingNextPage) return;
-    setLoadingAll(true); setActionError(null);
-    try { while (listQ.hasNextPage) await listQ.fetchNextPage(); }
-    catch (e) { setActionError(e); }
-    finally { setLoadingAll(false); }
-  }, [listQ, loadingAll]);
+  const { loadingAll, loadAll } = useLoadAll(listQ, listQKey, setActionError);
   const setBooks = useCallback((updater) => {
     queryClient.setQueryData(listQKey, (data) => {
       if (!data) return data;
