@@ -333,7 +333,15 @@ export default function BookCard({ book: initialBook, onProgressUpdate, compact,
             // is visible. Hidden in edit-mode contexts (hideActions=true)
             // where the drag handle is the only intended affordance and
             // these buttons would compete with it for the same anchor.
-            <div className="absolute inset-x-3 bottom-3 flex justify-center items-center gap-4 px-3 py-1.5 bg-black/80 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+            //
+            // Hidden means untappable too: opacity alone left the invisible
+            // buttons live, and on a touch screen — where (hover: hover) is
+            // false, so the tray can never be revealed — a tap near the
+            // bottom of a cover silently loved it or put it on the readlist
+            // instead of opening the book. Pointer events are enabled only
+            // on hover-capable devices while hovered, or while keyboard
+            // focus is inside the card.
+            <div className="absolute inset-x-3 bottom-3 flex justify-center items-center gap-4 px-3 py-1.5 bg-black/80 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity pointer-events-none [@media(hover:hover)]:group-hover:pointer-events-auto group-focus-within:pointer-events-auto">
               <button
                 type="button"
                 onClick={toggleReadlist}

@@ -91,3 +91,17 @@
       linear-gradient(180deg, rgb(68, 48, 27) 0%, rgb(42, 30, 17) 100%);
   }
 }
+
+/* iOS Safari zooms the page when a form control with a font size under
+   16px takes focus, and stays zoomed after it blurs — so every palette
+   search or progress update meant pinching back out. Lift controls to
+   16px on touch-only devices; desktop keeps its compact text-sm / text-xs
+   sizes. Outside @layer and !important so it outranks the utility
+   classes on each control. */
+@media (hover: none) and (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
