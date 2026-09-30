@@ -76,7 +76,10 @@ app.use((err, _req, res, _next) => {
   // Errors that explicitly tag themselves with a status get their message
   // surfaced too — used by the multipart fileFilter for "Only images allowed".
   if (err && err.status && err.message) {
-    return res.status(err.status).json({ error: err.message });
+    // `field` names the offending input (e.g. date_finished from the
+    // repository's read-order check) so BookForm can switch to its tab,
+    // matching the { error, field } shape of validateBook's 400s.
+    return res.status(err.status).json({ error: err.message, ...(err.field && { field: err.field }) });
   }
   res.status(500).json({ error: 'Internal server error' });
 });

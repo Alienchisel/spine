@@ -243,6 +243,7 @@ function maybeAutoRollParent(book_id) {
   const plan = planReadTransition(book_id, book.status, 'finished', book.read_count, {
     dateFinished: todayLocalISO(),
     allowDuplicate: true,
+    checkOrder: false,
   });
   db.prepare(`
     UPDATE books

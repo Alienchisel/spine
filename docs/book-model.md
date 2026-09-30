@@ -425,6 +425,15 @@ story auto-roll all use it):
   change an unchanged echo of those is ignored (treated as not supplied);
   only a changed value or an explicit clear counts. The edit form also
   resets its date fields on a transition.
+- **A read can't finish before it started.** Checked where both dates land
+  on the same `reads` row — closing or logging a read, a new book's first
+  read, and date edits routed by `syncLatestReadsRow()` (only for rows the
+  edit actually changes) — never on the book payload's pair, which can
+  come from different reads. Partial dates compare at their shared
+  precision, so `2024` → `2024-03-01` is fine. Violations are a `400` with
+  `field: "date_finished"` and roll back the whole save. The story
+  auto-roll is exempt so a typo'd start on the parent can't block a
+  story's save.
 
 `POST /api/books/:id/reads` is still available for explicit logging — used
 when you want to backfill an old read with specific dates, or log multiple

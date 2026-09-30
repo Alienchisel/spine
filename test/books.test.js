@@ -1513,7 +1513,9 @@ describe('books', () => {
         title: 'Zzz Status ReRead', authors: ['Z status_reread'],
       });
       await req('PATCH', `/api/books/${created.id}`, { status: 'finished', date_finished: '2023-05-01' });
-      await req('PATCH', `/api/books/${created.id}`, { status: 'reading' });
+      // The re-read gets its own start: without one it starts today, and a
+      // 2024 finish would then (rightly) be rejected as before its start.
+      await req('PATCH', `/api/books/${created.id}`, { status: 'reading', date_started: '2024-05-01' });
       const { body: refinished } = await req('PATCH', `/api/books/${created.id}`, { status: 'finished', date_finished: '2024-06-01' });
       assert.equal(refinished.read_count, 2);
       const { body: reads } = await req('GET', `/api/books/${created.id}/reads`);
@@ -3870,6 +3872,62 @@ describe('books', () => {
       assert.ok(reads.some(r => r.date_started === today() && r.date_finished === today()),
         'echoed old finish ignored — the re-read finishes today');
       assert.ok(reads.some(r => r.date_started === '2020-01-01' && r.date_finished === '2020-02-01'), 'first read untouched');
+    });
+
+    it('rejects finishing the open read before it started, and changes nothing', async () => {
+      const { body: b } = await req('POST', '/api/books', { title: 'Order Close' });
+      await req('PATCH', `/api/books/${b.id}`, { status: 'reading', date_started: '2026-03-01' });
+      const res = await req('PATCH', `/api/books/${b.id}`, { status: 'finished', date_finished: '2026-02-01' });
+      assert.equal(res.status, 400);
+      assert.equal(res.body.field, 'date_finished', 'field lets BookForm jump to the date');
+      const { body: after } = await req('GET', `/api/books/${b.id}`);
+      assert.equal(after.status, 'reading');
+      assert.equal(after.read_count, 0);
+      const reads = await readsOf(b.id);
+      assert.deepEqual(reads.map(r => [r.date_started, r.date_finished]), [['2026-03-01', null]]);
+    });
+
+    it('rejects a new finished book whose finish precedes its start', async () => {
+      const res = await req('POST', '/api/books', {
+        title: 'Order Create', status: 'finished', date_started: '2024-06', date_finished: '2023',
+      });
+      assert.equal(res.status, 400);
+      assert.equal(res.body.field, 'date_finished');
+    });
+
+    it('rejects an edit that inverts a read, rolling back the whole save', async () => {
+      const b = await finishedOnce('Order Edit');
+      const res = await req('PUT', `/api/books/${b.id}`, {
+        title: 'Order Edit RENAMED', page_count: 300, status: 'finished', read_count: 1,
+        date_started: '2020-01-01', date_finished: '2019-12-01',
+      });
+      assert.equal(res.status, 400);
+      const { body: after } = await req('GET', `/api/books/${b.id}`);
+      assert.equal(after.title, 'Order Edit', 'the book update rolls back with the rejected date');
+      assert.equal(after.date_finished, '2020-02-01');
+    });
+
+    it('allows partial dates that agree at their shared precision', async () => {
+      const res = await req('POST', '/api/books', {
+        title: 'Order Partial', status: 'finished', date_started: '2024', date_finished: '2024-03-01',
+      });
+      assert.equal(res.status, 201);
+    });
+
+    it('does not reject a re-read form save that shows the latest start beside an older finish', async () => {
+      // The payload pair can come from different reads: during a re-read
+      // the form shows today's start next to the previous read's finish.
+      const b = await finishedOnce('Order Reread Form');
+      await req('PATCH', `/api/books/${b.id}`, { status: 'reading' });
+      const { body: shown } = await req('GET', `/api/books/${b.id}`);
+      assert.equal(shown.date_started, today());
+      assert.equal(shown.date_finished, '2020-02-01');
+      const res = await req('PUT', `/api/books/${b.id}`, {
+        title: 'Order Reread Form (edited)', page_count: 300, status: 'reading', read_count: shown.read_count,
+        date_started: shown.date_started, date_finished: shown.date_finished,
+      });
+      assert.equal(res.status, 200);
+      assert.equal(res.body.title, 'Order Reread Form (edited)');
     });
 
     it('PUT with a user-changed date still uses it', async () => {
