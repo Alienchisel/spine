@@ -878,7 +878,7 @@ export default function BookDetail() {
                 </svg>
               </button>
               <div className="p-1.5 text-neutral-600">
-                <ListPicker bookId={book.id} bookTitle={book.title} iconClassName="w-5 h-5" />
+                <ListPicker key={book.id} bookId={book.id} bookTitle={book.title} iconClassName="w-5 h-5" />
               </div>
             </div>
             {book.status === 'reading' && (
@@ -1004,8 +1004,14 @@ export default function BookDetail() {
         </div>
 
         <div className="flex-1 min-w-0 pt-1">
+          {/* key={book.id} on this and the other stateful sections
+              (Stories, Editions, Reads, ListPicker): navigating from one
+              book to another cached one re-renders this page without
+              remounting them, so their drafts, open forms and inputs
+              carried over — e.g. book A's page number in book B's
+              progress box, saved to B on Enter. */}
           {book.status === 'reading' && (
-            <ProgressSection book={book} log={log} onChange={(updated) => {
+            <ProgressSection key={book.id} book={book} log={log} onChange={(updated) => {
               // ProgressSection's save resolved — but the user may have
               // navigated to another book in the meantime. Drop the
               // result if its id doesn't match the URL anymore.
@@ -1085,6 +1091,7 @@ export default function BookDetail() {
             const noun = tagNames.includes('Compilation') && !tagNames.includes('Stories') && !tagNames.includes('Anthology') ? 'entry' : 'story';
             return (
               <StoriesSection
+                key={book.id}
                 bookId={book.id}
                 stories={stories}
                 bookAuthors={book.authors || []}
@@ -1130,7 +1137,7 @@ export default function BookDetail() {
               /books/:id). Without that fallback, clicking a sibling
               edition from a cold-opened tab would land on a page with
               no back affordance — same SPA-vs-document.referrer trap. */}
-          <EditionsSection book={book} linkState={inheritedNavState ?? bookFromState} onChange={(updated) => {
+          <EditionsSection key={book.id} book={book} linkState={inheritedNavState ?? bookFromState} onChange={(updated) => {
             // Same stale-navigation guard as ProgressSection — the
             // edition link/unlink calls are async; if the user has
             // navigated to another book in the meantime, drop the result
@@ -1143,6 +1150,7 @@ export default function BookDetail() {
             <>
               {readsError && <p role="alert" className="text-xs text-warn mb-2">Failed to load read history.</p>}
               <ReadsSection
+                key={book.id}
                 bookId={book.id}
                 reads={reads}
                 isFinished={book.status === 'finished'}
