@@ -3766,6 +3766,123 @@ describe('books', () => {
     });
   });
 
+  describe('reading sessions (status transitions and re-reads)', () => {
+    const today = () => new Date().toLocaleDateString('en-CA');
+    const readsOf = async (id) => (await req('GET', `/api/books/${id}/reads`)).body;
+
+    async function finishedOnce(title) {
+      // A book read once (2020-01-01 → 2020-02-01), progress at the end:
+      // start the read, move to the last page, finish.
+      const { body: b } = await req('POST', '/api/books', {
+        title, page_count: 300, status: 'reading', date_started: '2020-01-01',
+      });
+      await req('PATCH', `/api/books/${b.id}`, { current_page: 300 });
+      await req('PATCH', `/api/books/${b.id}`, { status: 'finished', date_finished: '2020-02-01' });
+      assert.equal((await readsOf(b.id)).length, 1, 'fixture: exactly one read');
+      return b;
+    }
+
+    it('a re-read via status toggles opens a new read, resets progress, and counts on finish', async () => {
+      // Regression: 'Mark as reading' on a finished book reused the old
+      // read's dates, so the duplicate guard swallowed the re-read on
+      // finish (read_count stuck at 1, no new read in stats), and progress
+      // couldn't drop below the old high-water mark (page 30 snapped back
+      // to 300 and auto-finished).
+      const { body: b } = await req('POST', '/api/books', {
+        title: 'Reread Toggle', page_count: 300, status: 'finished',
+        date_started: '2020-01-01', date_finished: '2020-02-01',
+      });
+      assert.equal(b.read_count, 1);
+
+      const { body: reading } = await req('PATCH', `/api/books/${b.id}`, { status: 'reading' });
+      assert.equal(reading.status, 'reading');
+      let reads = await readsOf(b.id);
+      assert.equal(reads.length, 2, 'the re-read opens a second read');
+      assert.ok(reads.some(r => r.date_started === today() && r.date_finished == null), 'new open read starts today');
+      assert.ok(reads.some(r => r.date_started === '2020-01-01' && r.date_finished === '2020-02-01'), 'first read untouched');
+
+      const { body: progressed } = await req('PATCH', `/api/books/${b.id}`, { current_page: 30 });
+      assert.equal(progressed.current_page, 30, 'progress is measured from 0 on a re-read, not clamped to the old end');
+
+      const { body: done } = await req('PATCH', `/api/books/${b.id}`, { status: 'finished', date_finished: today() });
+      assert.equal(done.read_count, 2, 'the re-read counts');
+      reads = await readsOf(b.id);
+      assert.equal(reads.length, 2, 'finishing closes the open read instead of adding a third');
+      assert.ok(reads.some(r => r.date_started === today() && r.date_finished === today()));
+    });
+
+    it('marking reading resets current_page to 0 on a re-read even with no progress PATCH', async () => {
+      const b = await finishedOnce('Reread Reset');
+      const { body: book } = await req('GET', `/api/books/${b.id}`);
+      assert.equal(book.current_page, 300);
+      const { body: reading } = await req('PATCH', `/api/books/${b.id}`, { status: 'reading' });
+      assert.equal(reading.current_page, 0);
+    });
+
+    it('reading → unread → reading resumes the same open read', async () => {
+      const { body: b } = await req('POST', '/api/books', { title: 'Resume Session' });
+      await req('PATCH', `/api/books/${b.id}`, { status: 'reading', date_started: '2026-01-05' });
+      await req('PATCH', `/api/books/${b.id}`, { status: 'unread' });
+      await req('PATCH', `/api/books/${b.id}`, { status: 'reading' });
+      const reads = await readsOf(b.id);
+      assert.equal(reads.length, 1, 'no second session');
+      assert.equal(reads[0].date_started, '2026-01-05', 'original start kept');
+    });
+
+    it('finishing a book being read closes its open read — no orphaned open row', async () => {
+      // Regression: finishing inserted a completed row BESIDE the open one
+      // (three live books had open + closed rows sharing a start date).
+      const { body: b } = await req('POST', '/api/books', { title: 'Close Session' });
+      await req('PATCH', `/api/books/${b.id}`, { status: 'reading', date_started: '2026-03-01' });
+      const { body: done } = await req('PATCH', `/api/books/${b.id}`, { status: 'finished', date_finished: '2026-03-20' });
+      assert.equal(done.read_count, 1);
+      const reads = await readsOf(b.id);
+      assert.equal(reads.length, 1);
+      assert.equal(reads[0].date_started, '2026-03-01');
+      assert.equal(reads[0].date_finished, '2026-03-20');
+    });
+
+    it('PUT (the edit form) ignores echoed old dates on a re-read', async () => {
+      // BookForm sends the book's displayed dates — the previous read's —
+      // with every save. Switching status must not stamp them onto the new
+      // read: an unchanged echo starts today / finishes today.
+      const b = await finishedOnce('Reread Form');
+      const { body: shown } = await req('GET', `/api/books/${b.id}`);
+      assert.equal(shown.date_started, '2020-01-01');
+      assert.equal(shown.date_finished, '2020-02-01');
+      const base = { title: 'Reread Form', page_count: 300, read_count: shown.read_count,
+        date_started: shown.date_started, date_finished: shown.date_finished };
+
+      await req('PUT', `/api/books/${b.id}`, { ...base, status: 'reading' });
+      let reads = await readsOf(b.id);
+      assert.equal(reads.length, 2);
+      assert.ok(reads.some(r => r.date_started === today() && r.date_finished == null),
+        'echoed old start ignored — the re-read starts today');
+
+      const { body: after } = await req('GET', `/api/books/${b.id}`);
+      const { body: done } = await req('PUT', `/api/books/${b.id}`, {
+        ...base, read_count: after.read_count, date_started: after.date_started, date_finished: after.date_finished,
+        status: 'finished',
+      });
+      assert.equal(done.read_count, 2);
+      reads = await readsOf(b.id);
+      assert.equal(reads.length, 2, 'the open read is closed, not duplicated');
+      assert.ok(reads.some(r => r.date_started === today() && r.date_finished === today()),
+        'echoed old finish ignored — the re-read finishes today');
+      assert.ok(reads.some(r => r.date_started === '2020-01-01' && r.date_finished === '2020-02-01'), 'first read untouched');
+    });
+
+    it('PUT with a user-changed date still uses it', async () => {
+      const b = await finishedOnce('Reread Form Typed');
+      await req('PUT', `/api/books/${b.id}`, {
+        title: 'Reread Form Typed', page_count: 300, read_count: 1,
+        date_started: '2026-02-14', date_finished: '2020-02-01', status: 'reading',
+      });
+      const reads = await readsOf(b.id);
+      assert.ok(reads.some(r => r.date_started === '2026-02-14' && r.date_finished == null));
+    });
+  });
+
   describe('field persistence', () => {
     it('saves and returns authors', async () => {
       const { status, body } = await req('POST', '/api/books', {
@@ -4759,7 +4876,9 @@ describe('books', () => {
         const { body: older }   = await req('POST', '/api/books', { title: `${stem}-older`,  owned: 1, [c.col]: '2024-01-01' });
         const { body: undated } = await req('POST', '/api/books', { title: `${stem}-undated`, owned: 1 });
 
-        const { body: results } = await req('GET', `/api/books?sort=${c.sort}&limit=500`);
+        // Scoped to this case's fixtures: the shared corpus in this file can
+        // hold enough dated books to push the undated fixture off a page.
+        const { body: results } = await req('GET', `/api/books?sort=${c.sort}&limit=500&q=${stem}`);
         const ids = results.books.map(b => b.id);
         const iRecent  = ids.indexOf(recent.id);
         const iOlder   = ids.indexOf(older.id);

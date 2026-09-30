@@ -186,13 +186,13 @@ inputs in this case and the backend enforces the same contract.
 |---|---|---|
 | `current_page` | INTEGER | Current reading position; set by PATCH |
 | `current_minutes` | INTEGER | Current listening position (minutes); set by PATCH |
-| `read_count` | INTEGER | `0` by default. Incremented by 1 when `status` transitions from any non-`finished` value to `'finished'` via PUT. Can be set to an arbitrary value by including `read_count` explicitly in a PUT. |
+| `read_count` | INTEGER | `0` by default. Incremented by 1 when `status` transitions from any non-`finished` value to `'finished'` (PUT or PATCH) and records a new completion. Can be set to an arbitrary value by including `read_count` explicitly in a PUT. |
 
 > **`date_started` / `date_finished` are no longer book columns.** They were
 > dropped in migration `079` (Phase 3). They're still accepted as *payload*
 > fields on POST/PUT/PATCH, but the backend routes them to the `reads` table
-> (a finish-transition inserts a reads row; off-transition edits update the
-> latest reads row) — see [Reading data rules](#reading-data-rules). The
+> (a status change opens / closes a reading session; edits without a status
+> change update the latest reads row) — see [Reading data rules](#reading-data-rules). The
 > `reads` table is the single source of truth for per-read dates.
 
 ### Readlist
@@ -379,8 +379,10 @@ so that retroactive or partial data entry is always possible.
    for exactly this purpose.
 
 2. **Auto-increment** — if no manual override is present and `status`
-   transitions from any non-`finished` value to `'finished'` in a PUT, the
-   stored count is incremented by 1.
+   transitions from any non-`finished` value to `'finished'` (PUT or PATCH),
+   the stored count is incremented by 1 — unless that exact completion is
+   already on file (see *Reading sessions* below), in which case it is only
+   lifted to at least 1.
 
 `read_count` is **not derived from `reads` row count**. A book can have
 `read_count = 4` with zero `reads` rows (read several times, no detailed logs),
@@ -390,14 +392,39 @@ transition recorded). Both states are valid.
 The virtual tag **Re-read** fires when `read_count > 1`, regardless of how many
 `reads` rows exist.
 
-### reads rows
+### Reading sessions (status transitions)
 
-A finish-transition (a `PUT` whose `status='finished'` and whose stored
-status was anything else) auto-INSERTs one `reads` row inside the same
-transaction, using the payload's `date_started` and `date_finished` (NULL
-when the user doesn't know). This keeps the per-completion log in sync with
-`read_count` for the common path without forcing a second round-trip from
-the client.
+A status change is a reading-session event, applied in the same
+transaction as the book update (`planReadTransition` /
+`applyReadTransition` in `lib/books/repository.js`; PUT, PATCH and the
+story auto-roll all use it):
+
+- **Into `reading`** starts a session: a `reads` row with a start date
+  (the supplied `date_started`, else today) and no finish.
+  - From **`finished`** it is a **re-read**: always a **new** row, and
+    `current_page` / `current_minutes` reset to `0` so the new read's
+    progress can be logged (the reading-log clamp measures from there).
+  - From **`unread`**, if the book's latest `reads` row is unfinished and
+    not a DNF, that session is **resumed** instead (a reading → unread →
+    reading toggle doesn't start a second read).
+- **Into `finished`** completes the session: the open row is **closed**
+  with the finish date (the supplied `date_finished`, else today; `null`
+  is kept for a previously-owned historical read). With no open session
+  a completed row is inserted instead. Duplicate guard: if that exact
+  completion is already on file — or, with no start supplied and no open
+  session, any completed read on the same finish date (the backfill
+  shape) — no second row is written and `read_count` is lifted to at
+  least 1 rather than bumped. The story auto-roll skips this guard: it
+  can only re-fire after a deliberate parent revert, so it is always a
+  genuine re-read.
+- The **open session** is the latest `reads` row when it is unfinished and
+  not a DNF — never on a book that is currently `finished`, where an
+  unfinished-looking row is a completed read whose finish date is unknown.
+- A **PUT** carries the book's *displayed* `date_started` /
+  `date_finished` — the latest read's — with every save, so on a status
+  change an unchanged echo of those is ignored (treated as not supplied);
+  only a changed value or an explicit clear counts. The edit form also
+  resets its date fields on a transition.
 
 `POST /api/books/:id/reads` is still available for explicit logging — used
 when you want to backfill an old read with specific dates, or log multiple
@@ -424,10 +451,10 @@ These are **not** stored on `books` (the columns were dropped in Phase 3,
 migration `079`). They remain accepted on the POST/PUT/PATCH payload as a
 convenience, and the backend routes them into the `reads` table:
 
-- On a **finish-transition** (status → `finished`), they become the
-  `date_started` / `date_finished` of the auto-inserted `reads` row.
-- On an **off-transition** edit that includes them, they update the latest
-  `reads` row via `syncLatestReadsRow()`.
+- On a **status change**, they are the dates of the reading session being
+  opened or closed (see *Reading sessions* above).
+- On an edit **without a status change** that includes them, they update
+  the latest `reads` row via `syncLatestReadsRow()`.
 
 So per-read dates live only in `reads` rows; there is no book-level "most
 recent finish date" column. Surfaces that need "when did I last finish this"

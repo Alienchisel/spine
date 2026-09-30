@@ -1,7 +1,7 @@
 import express from 'express';
 import db from '../db.js';
 import { validateBook, isValidDate, isValidPartialDate, partialDateBefore } from '../lib/books/validation.js';
-import { getBook, getBookCounts, getBookFacets, listBooks, createBook, updateBook, patchBook, deleteBook, updateBookCover, linkEditions, unlinkEdition, findDuplicateRead } from '../lib/books/repository.js';
+import { getBook, getBookCounts, getBookFacets, listBooks, createBook, updateBook, patchBook, deleteBook, updateBookCover, linkEditions, unlinkEdition, findDuplicateRead, planReadTransition, applyReadTransition, todayLocalISO } from '../lib/books/repository.js';
 import { syncStoryAuthors, pruneOrphanPeople } from '../lib/books/people.js';
 import { buildFilterConditions } from '../lib/books/filters.js';
 import { ENUM_VALUES } from '../shared/bookFields.js';
@@ -224,7 +224,7 @@ function logStoryFinish(book_id, story) {
 // Returns true when the auto-roll fired this call, so route handlers can
 // surface that to the client (rating prompt, etc.).
 function maybeAutoRollParent(book_id) {
-  const book = db.prepare('SELECT status, page_count, duration_minutes FROM books WHERE id = ?').get(book_id);
+  const book = db.prepare('SELECT status, read_count, page_count, duration_minutes FROM books WHERE id = ?').get(book_id);
   if (!book || book.status === 'finished') return false;
   const c = db.prepare(`
     SELECT
@@ -233,24 +233,27 @@ function maybeAutoRollParent(book_id) {
     FROM stories WHERE book_id = ?
   `).get(book_id);
   if (!c.total || c.total !== c.accounted) return false;
-  // Phase 3: books.date_finished is gone — the finish date lives only
-  // on the reads row inserted just below. No duplicate guard here: the
-  // roll early-returns when the parent is already finished, so it can
-  // only re-fire after a deliberate parent revert + story re-finish —
-  // a genuine re-read, even same-day.
+  // Same reading-session event as a manual 'finished' (planReadTransition):
+  // closes the open read — keeping its start date — or logs a new one,
+  // finished today. No duplicate guard: the roll early-returns while the
+  // parent is finished, so it can only re-fire after a deliberate parent
+  // revert + story re-finish — a genuine re-read, even same-day. Callers
+  // run this inside their transaction, so the plan and its writes stay
+  // atomic.
+  const plan = planReadTransition(book_id, book.status, 'finished', book.read_count, {
+    dateFinished: todayLocalISO(),
+    allowDuplicate: true,
+  });
   db.prepare(`
     UPDATE books
        SET status        = 'finished',
-           read_count    = read_count + 1,
+           read_count    = ?,
            current_page    = CASE WHEN page_count       IS NOT NULL THEN page_count       ELSE current_page    END,
            current_minutes = CASE WHEN duration_minutes IS NOT NULL THEN duration_minutes ELSE current_minutes END,
            updated_at    = datetime('now', 'localtime')
      WHERE id = ?
-  `).run(book_id);
-  db.prepare(`
-    INSERT INTO reads (book_id, date_started, date_finished, created_at)
-    VALUES (?, NULL, date('now', 'localtime'), datetime('now', 'localtime'))
-  `).run(book_id);
+  `).run(plan.readCount, book_id);
+  applyReadTransition(book_id, plan);
   return true;
 }
 

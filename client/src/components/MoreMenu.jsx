@@ -28,12 +28,12 @@ import { dispatchSpineEvent } from '../hooks/useSpineEvent.js';
 // `book`: this menu's `book` is a list-shaped row (no description, and
 // on shelf / list / readlist pages only a subset of columns), and PUT
 // overwrites every column, so a spread-PUT from here wiped the missing
-// fields. patchBook runs the same finish-transition cascade as PUT
-// (reads-row insert with the duplicate guard, read_count bump, unread
-// stories marked finished). Mirrors BookDetail's handleFinish payload:
-// today-default on date_finished (skipped for previously_owned books,
-// since those are typically historical reads with unknown dates),
-// today-default on date_started when moving into 'reading'.
+// fields. patchBook runs the same reading-session logic as PUT: finishing
+// closes the open read (duplicate guard, read_count bump, unread stories
+// marked finished), and marking a finished book 'reading' again opens a
+// new read (a re-read). Mirrors BookDetail's handleFinish payload:
+// date_finished = today (null for previously_owned books, since those
+// are typically historical reads with unknown dates).
 //
 // Mutations dispatch two events so other surfaces stay in sync:
 //   - spine:book-mutated  — fired after list add/remove, rating,
@@ -409,15 +409,16 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
     const today = new Date().toLocaleDateString('en-CA');
     const payload = { status: nextStatus };
     if (nextStatus === 'finished') {
-      // Auto-fill date_finished unless already set or previously_owned
-      // (historical reads with unknown finish dates — keep null so the
-      // user can fill in if they remember).
-      payload.date_finished = book.date_finished
-        || (book.previously_owned ? null : today);
+      // Finished today — except previously_owned books, which are
+      // typically historical reads with unknown finish dates (null, so the
+      // user can fill it in if they remember). Never book.date_finished:
+      // that's the latest read's date, so on a re-read it would stamp the
+      // previous read's finish onto this one.
+      payload.date_finished = book.previously_owned ? null : today;
     }
-    if (nextStatus === 'reading' && !book.date_started) {
-      payload.date_started = today;
-    }
+    // Moving into 'reading' sends no date: the server opens the read
+    // starting today (or resumes one left open), and on a re-read of a
+    // finished book it opens a NEW read and resets progress.
     try {
       await api.patchBook(book.id, payload);
       // Successful mutation clears any stale badge from a different

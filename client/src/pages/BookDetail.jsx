@@ -462,8 +462,9 @@ export default function BookDetail() {
       // Previously-owned books are typically a historical read with an
       // unknown finish date — defaulting to today would silently fabricate
       // one. Leave null so the user can fill it in if they remember.
-      const dateFinished = book.date_finished
-        || (book.previously_owned ? null : today);
+      // Not book.date_finished: that's the latest read's finish, so on a
+      // re-read it would stamp the previous read's date onto this one.
+      const dateFinished = book.previously_owned ? null : today;
       // PATCH, not a spread-PUT: re-sending this page's whole copy of the
       // book would revert any field changed elsewhere since it loaded.
       // patchBook runs the same finish cascade as PUT.

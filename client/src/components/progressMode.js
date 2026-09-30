@@ -135,8 +135,9 @@ export async function savePatchAndMaybeAutoFinish({ book, patchData, isAudiobook
   // Owned-and-just-finished defaults date_finished to today; previously-
   // owned historical entries leave it null for the user to fill in.
   const today = new Date().toLocaleDateString('en-CA');
-  const dateFinished = updated.date_finished
-    || (updated.previously_owned ? null : today);
+  // Not updated.date_finished — on a re-read that's the previous read's
+  // finish date.
+  const dateFinished = updated.previously_owned ? null : today;
   const finished = await api.patchBook(book.id, {
     status: 'finished',
     date_finished: dateFinished,

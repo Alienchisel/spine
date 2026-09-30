@@ -156,16 +156,27 @@ export default function CoreFields({
           onChange={(e) => {
             const s = e.target.value;
             const today = new Date().toLocaleDateString('en-CA');
-            setForm(f => ({
-              ...f,
-              status: s,
-              read_count: s === 'finished' && f.read_count === 0 ? 1 : f.read_count,
-              date_started: s === 'reading' && !f.date_started ? today : f.date_started,
-              // Skip the today-default on previously-owned books — typically
-              // a historical read with an unknown date; auto-filling today
-              // silently fabricates one. Leaves the date blank instead.
-              date_finished: s === 'finished' && !f.date_finished && !f.previously_owned ? today : f.date_finished,
-            }));
+            // The date fields hold the LATEST read's dates. A transition
+            // starts or completes a read, so don't carry those over:
+            // finished → reading is a re-read that starts today, and moving
+            // into finished completes the current read today. Skip the
+            // today-default on previously-owned books — typically a
+            // historical read with an unknown date; auto-filling today
+            // silently fabricates one. (The server also ignores an
+            // unchanged echo of the old dates on a status change.)
+            setForm(f => {
+              const reread    = s === 'reading' && f.status === 'finished';
+              const finishing = s === 'finished' && f.status !== 'finished';
+              return {
+                ...f,
+                status: s,
+                read_count: s === 'finished' && f.read_count === 0 ? 1 : f.read_count,
+                date_started: reread ? today
+                  : s === 'reading' && !f.date_started ? today : f.date_started,
+                date_finished: reread ? ''
+                  : finishing && !f.previously_owned ? today : f.date_finished,
+              };
+            });
           }}>
           <option value="unread">Unread</option>
           <option value="reading">Reading</option>
