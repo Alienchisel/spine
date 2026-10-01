@@ -584,7 +584,16 @@ export default function Library() {
   }
 
   const activeCount   = countFilters(filters);
-  const allDisplayItems = buildDisplayItems(books, expandedSeries);
+  // Memoised with BookCard's memo(): after Load all the grid holds ~2,660
+  // cards, and every search keystroke (queryRaw state) used to rebuild the
+  // display list and re-render every card. Item objects wrap the same
+  // cached book references, so unchanged cards now skip rendering.
+  const allDisplayItems = useMemo(() => buildDisplayItems(books, expandedSeries), [books, expandedSeries]);
+  // Stable identity for BookCard's onProgressUpdate (a fresh function each
+  // render would defeat memo); the ref always calls the latest handler, so
+  // it still sees this render's books / tab / sort.
+  const progressUpdateRef = useLatest(handleProgressUpdate);
+  const onProgressUpdate  = useCallback((updated) => progressUpdateRef.current(updated), [progressUpdateRef]);
   // Back-link state for BookDetail: returning preserves the current Library
   // search params (filters / tab / sort) so the user lands on the same
   // filtered view they came from rather than the default Library root.
@@ -942,7 +951,7 @@ export default function Library() {
                 <BookCard
                   key={item.book.id}
                   book={item.book}
-                  onProgressUpdate={handleProgressUpdate}
+                  onProgressUpdate={onProgressUpdate}
                   compact={compact}
                   linkState={fromState}
                 />

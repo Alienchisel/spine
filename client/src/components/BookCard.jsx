@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { memo, useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { useActionGuard } from '../hooks/useActionGuard.js';
@@ -21,7 +21,13 @@ function PencilIcon() {
   );
 }
 
-export default function BookCard({ book: initialBook, onProgressUpdate, compact, coverOverlay, hideActions, fadeUnowned, linkState, focused = false }) {
+// memo: list pages render hundreds to thousands of these; with stable props
+// (cached book objects, memoised linkState, stable callbacks) an unrelated
+// parent re-render — a search keystroke, a filter panel toggle — no longer
+// re-renders every card.
+export default memo(BookCard);
+
+function BookCard({ book: initialBook, onProgressUpdate, compact, coverOverlay, hideActions, fadeUnowned, linkState, focused = false }) {
   const navigate = useNavigate();
   const [book, setBook] = useState(initialBook);
   const [open, setOpen] = useState(false);
