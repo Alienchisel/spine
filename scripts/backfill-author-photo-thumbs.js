@@ -14,14 +14,13 @@
 
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import db from '../db.js';
+import { AUTHOR_PHOTOS_DIR, AUTHOR_THUMBS_DIR } from '../lib/paths.js';
 import { generateThumbBuffer } from '../lib/books/covers.js';
 import { authorPhotoBasenameStem, authorThumbAbsPath } from '../lib/authors/photos.js';
 
-const __dirname   = path.dirname(fileURLToPath(import.meta.url));
-const authorsDir  = path.join(__dirname, '..', 'uploads', 'authors');
-const thumbsDir   = path.join(authorsDir, 'thumbs');
+const authorsDir  = AUTHOR_PHOTOS_DIR;
+const thumbsDir   = AUTHOR_THUMBS_DIR;
 
 const argv = process.argv.slice(2);
 const LIMIT_FLAG = argv.find(a => a.startsWith('--limit='));

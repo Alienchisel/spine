@@ -18,13 +18,12 @@
 
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import db from '../db.js';
+import { UPLOADS_DIR, COVER_THUMBS_DIR } from '../lib/paths.js';
 import { generateThumbBuffer, coverBasenameStem, thumbAbsPath } from '../lib/books/covers.js';
 
-const __dirname   = path.dirname(fileURLToPath(import.meta.url));
-const uploadsDir  = path.join(__dirname, '..', 'uploads');
-const thumbsDir   = path.join(uploadsDir, 'thumbs');
+const uploadsDir  = UPLOADS_DIR;
+const thumbsDir   = COVER_THUMBS_DIR;
 
 const argv = process.argv.slice(2);
 const LIMIT_FLAG = argv.find(a => a.startsWith('--limit='));

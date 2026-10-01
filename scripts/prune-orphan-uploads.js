@@ -23,14 +23,13 @@
 
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import db from '../db.js';
+import { UPLOADS_DIR, COVER_THUMBS_DIR, AUTHOR_PHOTOS_DIR, AUTHOR_THUMBS_DIR } from '../lib/paths.js';
 
-const __dirname   = path.dirname(fileURLToPath(import.meta.url));
-const uploadsDir  = path.join(__dirname, '..', 'uploads');
-const authorsDir  = path.join(uploadsDir, 'authors');
-const coverThumbs = path.join(uploadsDir, 'thumbs');
-const authorThumbs= path.join(authorsDir, 'thumbs');
+const uploadsDir  = UPLOADS_DIR;
+const authorsDir  = AUTHOR_PHOTOS_DIR;
+const coverThumbs = COVER_THUMBS_DIR;
+const authorThumbs= AUTHOR_THUMBS_DIR;
 
 const APPLY   = process.argv.includes('--apply');
 const VERBOSE = process.argv.includes('--verbose');

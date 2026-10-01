@@ -1,30 +1,18 @@
 import express from 'express';
-import multer from 'multer';
 import db, { nrm } from '../db.js';
 import { linkAuthorAliases, unlinkAuthorAlias, mergeAuthors } from '../lib/books/people.js';
 import { listBooks } from '../lib/books/repository.js';
 import { stripWrap } from '../lib/books/normalization.js';
 import { lookupAuthor, searchAuthorsMulti, downloadAuthorPhotoByUrl } from '../lib/authors/openLibrary.js';
 import { saveAuthorPhotoFromBuffer, deleteAuthorPhoto } from '../lib/authors/photos.js';
+import { imageUpload } from '../lib/images.js';
 
 const router = express.Router();
 
-// Same memoryStorage/multer setup as routes/uploads.js — 10 MB cap,
-// image MIME types only. Manual portrait uploads go through here; the
-// OL download path bypasses multer and writes directly via the
-// shared photos.js helper.
-const photoUpload = multer({
-  storage: multer.memoryStorage(),
-  limits:  { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    if (!file.mimetype.startsWith('image/')) {
-      const err = new Error('Only images allowed');
-      err.status = 400;
-      return cb(err);
-    }
-    cb(null, true);
-  },
-});
+// Manual portrait uploads: the shared multipart image config (lib/images.js —
+// in-memory, 10 MB cap, image/* only). The OL download path bypasses
+// multer and writes via photos.js.
+const photoUpload = imageUpload;
 
 const AUTHOR_COLUMNS = 'id, name, gender, alias_group_id, bio, birth_date, death_date, photo_path, ol_key, bio_fetched_at, default_sort, loved';
 

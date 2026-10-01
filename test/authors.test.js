@@ -547,6 +547,43 @@ describe('authors — Open Library refresh', () => {
     assert.equal(calls, 2);
   });
 
+  it('photo/url refuses a response that isn\'t an image', async () => {
+    // Regression: the portrait-by-URL path had no content-type check (the
+    // cover path did); both now go through lib/http/fetch.js downloadImage.
+    const { body: book } = await req('POST', '/api/books', { title: 'HTML Photo Book', authors: ['HTML Photo Author'] });
+    const aid = book.authors[0].id;
+    stubFetch([{
+      match: (u) => u.startsWith('https://covers.openlibrary.org/'),
+      respond: () => new Response('<html>not a picture</html>', { status: 200, headers: { 'Content-Type': 'text/html' } }),
+    }]);
+    const r = await req('POST', `/api/authors/${aid}/photo/url`, { url: 'https://covers.openlibrary.org/a/olid/OL2A-M.jpg' });
+    assert.equal(r.status, 400);
+    assert.match(r.body.error, /not point to an image/);
+  });
+
+  it('photo/url stops downloading once an image passes 10 MB', async () => {
+    // Regression: no size cap, and the whole body was read into memory.
+    // The cap is enforced while streaming, so an oversized (or endless)
+    // body is cancelled shortly after the limit instead of buffered.
+    const { body: book } = await req('POST', '/api/books', { title: 'Huge Photo Book', authors: ['Huge Photo Author'] });
+    const aid = book.authors[0].id;
+    let chunksServed = 0;
+    stubFetch([{
+      match: (u) => u.startsWith('https://covers.openlibrary.org/'),
+      respond: () => new Response(new ReadableStream({
+        pull(controller) {
+          chunksServed += 1;
+          if (chunksServed > 50) { controller.close(); return; }
+          controller.enqueue(new Uint8Array(1024 * 1024));
+        },
+      }), { status: 200, headers: { 'Content-Type': 'image/jpeg' } }),
+    }]);
+    const r = await req('POST', `/api/authors/${aid}/photo/url`, { url: 'https://covers.openlibrary.org/a/olid/OL3A-L.jpg' });
+    assert.equal(r.status, 400);
+    assert.match(r.body.error, /too large/);
+    assert.ok(chunksServed <= 13, `stream should be cancelled just past 10 MB, served ${chunksServed} MB`);
+  });
+
   it('photo/url surfaces the archive.org-specific message when both attempts hit a network failure', async () => {
     const { body: book } = await req('POST', '/api/books', {
       title: 'Dead Photo Book', authors: ['Dead Photo Author'], fiction: true,
