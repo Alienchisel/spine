@@ -31,6 +31,7 @@
 //     detected and the book wasn't already finished.
 
 import fs from 'fs';
+import { parseCsv } from './lib/csv.js';
 
 const args = process.argv.slice(2);
 const apply = args.includes('--apply');
@@ -59,29 +60,6 @@ function daysBetween(a, b) {
 }
 
 // ─── CSV parsing ───────────────────────────────────────────────────────
-
-function parseCsv(text) {
-  const rows = [];
-  let row = [];
-  let field = '';
-  let inQuote = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (inQuote) {
-      if (c === '"' && text[i + 1] === '"') { field += '"'; i++; }
-      else if (c === '"')                   { inQuote = false; }
-      else                                  { field += c; }
-    } else {
-      if (c === '"')        { inQuote = true; }
-      else if (c === ',')   { row.push(field); field = ''; }
-      else if (c === '\r')  { /* skip */ }
-      else if (c === '\n')  { row.push(field); field = ''; rows.push(row); row = []; }
-      else                  { field += c; }
-    }
-  }
-  if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
-  return rows;
-}
 
 const csvText = fs.readFileSync(csvPath, 'utf8');
 const allRows = parseCsv(csvText).filter(r => r.length > 1);

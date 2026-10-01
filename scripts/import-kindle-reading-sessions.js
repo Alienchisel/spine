@@ -42,6 +42,7 @@
 // pages_read on conflict.
 
 import fs from 'fs';
+import { parseCsv } from './lib/csv.js';
 
 // ─── CLI ────────────────────────────────────────────────────────────────
 
@@ -75,33 +76,6 @@ if (bookIdFilter && [...bookIdFilter].some(n => !Number.isInteger(n) || n < 1)) 
 const hasScopeFilter = !!(asinFilter || bookIdFilter);
 
 // ─── CSV parsing ───────────────────────────────────────────────────────
-
-// Kindle's CSV is RFC-4180-ish: comma-separated, fields may be quoted with ".
-// The export ships with a UTF-8 BOM on the first line; strip it before parsing
-// so the first header isn't unmatchable.
-function parseCsv(text) {
-  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
-  const rows = [];
-  let row = [];
-  let field = '';
-  let inQuote = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (inQuote) {
-      if (c === '"' && text[i + 1] === '"') { field += '"'; i++; }
-      else if (c === '"')                   { inQuote = false; }
-      else                                  { field += c; }
-    } else {
-      if (c === '"')        { inQuote = true; }
-      else if (c === ',')   { row.push(field); field = ''; }
-      else if (c === '\r')  { /* skip */ }
-      else if (c === '\n')  { row.push(field); field = ''; rows.push(row); row = []; }
-      else                  { field += c; }
-    }
-  }
-  if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
-  return rows;
-}
 
 const csvText = fs.readFileSync(csvPath, 'utf8');
 const allRows = parseCsv(csvText).filter(r => r.length > 1);
