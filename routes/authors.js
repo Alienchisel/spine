@@ -7,8 +7,11 @@ import { lookupAuthor, searchAuthorsMulti, downloadAuthorPhotoByUrl } from '../l
 import { saveAuthorPhotoFromBuffer, deleteAuthorPhoto } from '../lib/authors/photos.js';
 import { imageUpload } from '../lib/images.js';
 import { currentYear } from '../shared/dates.js';
+import { positiveIdParam } from '../lib/http/params.js';
 
 const router = express.Router();
+// Numeric URL params are validated once here (lib/http/params.js).
+router.param('id', positiveIdParam('Invalid author id'));
 
 // Manual portrait uploads: the shared multipart image config (lib/images.js —
 // in-memory, 10 MB cap, image/* only). The OL download path bypasses
@@ -243,7 +246,6 @@ router.get('/random', (_req, res) => {
 // drop them into the same BookCard grid the BrowsePage uses.
 router.get('/:id', (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid author id' });
   const author = loadAuthor(id);
   if (!author) return res.status(404).json({ error: 'Author not found' });
   const aliases = author.alias_group_id != null
@@ -320,7 +322,6 @@ function parseDateField(raw, fieldName) {
 }
 router.patch('/:id', (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid author id' });
   const author = db.prepare('SELECT id FROM authors WHERE id = ?').get(id);
   if (!author) return res.status(404).json({ error: 'Author not found' });
   const body = req.body ?? {};
@@ -413,7 +414,7 @@ router.patch('/:id', (req, res) => {
 router.post('/:id/alias-link', (req, res) => {
   const id = Number(req.params.id);
   const other = Number(req.body?.other_id);
-  if (!Number.isInteger(id) || id < 1 || !Number.isInteger(other) || other < 1) {
+  if (!Number.isInteger(other) || other < 1) {
     return res.status(400).json({ error: 'Invalid author id' });
   }
   if (id === other) return res.status(400).json({ error: 'Cannot alias an author with themselves' });
@@ -430,7 +431,7 @@ router.post('/:id/alias-link', (req, res) => {
 router.post('/:id/merge', async (req, res) => {
   const id = Number(req.params.id);
   const other = Number(req.body?.other_id);
-  if (!Number.isInteger(id) || id < 1 || !Number.isInteger(other) || other < 1) {
+  if (!Number.isInteger(other) || other < 1) {
     return res.status(400).json({ error: 'Invalid author id' });
   }
   if (id === other) return res.status(400).json({ error: 'Cannot merge an author with themselves' });
@@ -447,7 +448,6 @@ router.post('/:id/merge', async (req, res) => {
 // phantom singleton group.
 router.delete('/:id/alias-link', (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid author id' });
   const ok = unlinkAuthorAlias(id);
   if (ok === null) return res.status(404).json({ error: 'Author not found' });
   res.json({ ok: true });
@@ -460,7 +460,6 @@ router.delete('/:id/alias-link', (req, res) => {
 // (or no picture) and the user has a better one.
 router.post('/:id/photo', photoUpload.single('photo'), async (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid author id' });
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   const author = loadAuthor(id);
   if (!author) return res.status(404).json({ error: 'Author not found' });
@@ -481,7 +480,6 @@ router.post('/:id/photo', photoUpload.single('photo'), async (req, res) => {
 // without uploading a replacement yet.
 router.delete('/:id/photo', async (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid author id' });
   const author = loadAuthor(id);
   if (!author) return res.status(404).json({ error: 'Author not found' });
   if (author.photo_path) await deleteAuthorPhoto(author.photo_path);
@@ -496,7 +494,6 @@ router.delete('/:id/photo', async (req, res) => {
 // file, updates photo_path. Used by the portrait wizard.
 router.post('/:id/photo/url', async (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid author id' });
   const url = typeof req.body?.url === 'string' ? req.body.url.trim() : '';
   if (!url) return res.status(400).json({ error: 'url is required' });
   const author = loadAuthor(id);
@@ -536,7 +533,6 @@ router.post('/:id/photo/url', async (req, res) => {
 // reads as "never looked up".
 router.post('/:id/refresh', async (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid author id' });
   const author = loadAuthor(id);
   if (!author) return res.status(404).json({ error: 'Author not found' });
   try {

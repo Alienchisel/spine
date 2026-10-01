@@ -2,8 +2,12 @@ import express from 'express';
 import db from '../db.js';
 import { titleSortExpr } from '../lib/books/filters.js';
 import { serveBookCardRows } from '../lib/books/joinedFields.js';
+import { positiveIdParam } from '../lib/http/params.js';
 
 const router = express.Router();
+// Numeric URL params are validated once here (lib/http/params.js).
+router.param('id', positiveIdParam('Invalid id'));
+router.param('bookId', positiveIdParam('Invalid id'));
 
 function t(val) {
   if (val == null) return null;
@@ -88,7 +92,6 @@ router.put('/buildings/order', (req, res) => {
 
 router.put('/buildings/:id', (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid id' });
   const { name, proximity, notes, order_index } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
   if (proximity && !VALID_PROXIMITY.includes(proximity)) return res.status(400).json({ error: 'Invalid proximity' });
@@ -102,7 +105,6 @@ router.put('/buildings/:id', (req, res) => {
 
 router.delete('/buildings/:id', (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid id' });
   if (!db.prepare('SELECT id FROM buildings WHERE id = ?').get(id)) return res.status(404).json({ error: 'Not found' });
   db.prepare('DELETE FROM buildings WHERE id = ?').run(id);
   res.status(204).send();
@@ -136,7 +138,6 @@ router.put('/rooms/order', (req, res) => {
 
 router.put('/rooms/:id', (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid id' });
   const { name, order_index } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
   const existing = db.prepare('SELECT * FROM rooms WHERE id = ?').get(id);
@@ -148,7 +149,6 @@ router.put('/rooms/:id', (req, res) => {
 
 router.delete('/rooms/:id', (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid id' });
   if (!db.prepare('SELECT id FROM rooms WHERE id = ?').get(id)) return res.status(404).json({ error: 'Not found' });
   db.prepare('DELETE FROM rooms WHERE id = ?').run(id);
   res.status(204).send();
@@ -182,7 +182,6 @@ router.put('/units/order', (req, res) => {
 
 router.put('/units/:id', (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid id' });
   const { name, order_index } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
   const existing = db.prepare('SELECT * FROM units WHERE id = ?').get(id);
@@ -194,7 +193,6 @@ router.put('/units/:id', (req, res) => {
 
 router.delete('/units/:id', (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid id' });
   if (!db.prepare('SELECT id FROM units WHERE id = ?').get(id)) return res.status(404).json({ error: 'Not found' });
   db.prepare('DELETE FROM units WHERE id = ?').run(id);
   res.status(204).send();
@@ -228,7 +226,6 @@ router.put('/shelves/order', (req, res) => {
 
 router.put('/shelves/:id', (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid id' });
   const { label, order_index } = req.body;
   if (!label?.toString().trim()) return res.status(400).json({ error: 'Label is required' });
   const existing = db.prepare('SELECT * FROM shelves WHERE id = ?').get(id);
@@ -240,7 +237,6 @@ router.put('/shelves/:id', (req, res) => {
 
 router.delete('/shelves/:id', (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid id' });
   if (!db.prepare('SELECT id FROM shelves WHERE id = ?').get(id)) return res.status(404).json({ error: 'Not found' });
   db.prepare('DELETE FROM shelves WHERE id = ?').run(id);
   res.status(204).send();
@@ -263,7 +259,6 @@ router.get('/unshelfed', (_req, res) => {
 
 router.get('/buildings/:id/books', (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid id' });
   const books = db.prepare(`
     SELECT b.id, b.title, b.cover_path, b.status, b.rating, b.series, b.series_number, b.format,
            b.loved, b.is_custom, b.on_readlist, b.page_count, b.current_page, b.duration_minutes, b.current_minutes,
@@ -311,7 +306,6 @@ router.get('/buildings/:id/books', (req, res) => {
 
 router.get('/rooms/:id/books', (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid id' });
   const books = db.prepare(`
     SELECT b.id, b.title, b.cover_path, b.status, b.rating, b.series, b.series_number, b.format,
            b.loved, b.is_custom, b.on_readlist, b.page_count, b.current_page, b.duration_minutes, b.current_minutes,
@@ -348,7 +342,6 @@ router.get('/rooms/:id/books', (req, res) => {
 
 router.get('/units/:id/books', (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid id' });
   const books = db.prepare(`
     SELECT b.id, b.title, b.cover_path, b.status, b.rating, b.series, b.series_number, b.format, b.shelf_id,
            b.loved, b.is_custom, b.on_readlist, b.page_count, b.current_page, b.duration_minutes, b.current_minutes
@@ -369,7 +362,6 @@ router.get('/units/:id/books', (req, res) => {
 
 router.get('/shelves/:id/books', (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid id' });
   const books = db.prepare(`
     SELECT b.id, b.title, b.cover_path, b.status, b.rating, b.series, b.series_number, b.format,
            b.loved, b.is_custom, b.on_readlist, b.page_count, b.current_page, b.duration_minutes, b.current_minutes
@@ -382,7 +374,6 @@ router.get('/shelves/:id/books', (req, res) => {
 
 router.put('/shelves/:id/order', (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid id' });
   const { ids } = req.body;
   if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids must be an array' });
   if (!allPositiveInts(ids)) return res.status(400).json({ error: 'Invalid id' });
@@ -395,7 +386,6 @@ router.put('/shelves/:id/order', (req, res) => {
 
 router.get('/location/:bookId', (req, res) => {
   const bookId = Number(req.params.bookId);
-  if (!Number.isInteger(bookId) || bookId < 1) return res.status(400).json({ error: 'Invalid id' });
 
   const full = db.prepare(`
     SELECT

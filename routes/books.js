@@ -8,8 +8,13 @@ import { ENUM_VALUES } from '../shared/bookFields.js';
 import { downloadCoverByUrl, CoverFetchError, deleteLocalCover } from '../lib/books/covers.js';
 import { findDuplicateClusters, mergeBooks } from '../lib/books/duplicates.js';
 import { t } from '../lib/books/normalization.js';
+import { positiveIdParam } from '../lib/http/params.js';
 
 const router = express.Router();
+// Numeric URL params are validated once here (lib/http/params.js).
+router.param('id', positiveIdParam('Invalid book id'));
+router.param('readId', positiveIdParam('Invalid read id'));
+router.param('storyId', positiveIdParam('Invalid story id'));
 
 router.get('/counts', (_req, res) => {
   res.json(getBookCounts());
@@ -56,7 +61,6 @@ router.get('/duplicate-clusters', (_req, res) => {
 
 router.get('/:id', (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
   const book = getBook(id);
   if (!book) return res.status(404).json({ error: 'Not found' });
   res.json(book);
@@ -64,25 +68,21 @@ router.get('/:id', (req, res) => {
 
 router.get('/:id/log', (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
   res.json(db.prepare('SELECT date, pages_read, minutes_read FROM reading_log WHERE book_id = ? ORDER BY date DESC').all(id));
 });
 
 router.get('/:id/lists', (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
   res.json(db.prepare('SELECT list_id FROM list_books WHERE book_id = ?').all(id).map(r => r.list_id));
 });
 
 router.get('/:id/reads', (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
   res.json(db.prepare('SELECT * FROM reads WHERE book_id = ? ORDER BY COALESCE(date_finished, date_started, created_at) ASC').all(id));
 });
 
 router.post('/:id/reads', (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
   if (!db.prepare('SELECT id FROM books WHERE id = ?').get(id)) return res.status(404).json({ error: 'Not found' });
   const { date_started, date_finished, did_not_finish } = req.body;
   if (date_started && !isValidPartialDate(date_started)) return res.status(400).json({ error: 'Invalid date_started' });
@@ -104,7 +104,6 @@ router.post('/:id/reads', (req, res) => {
 router.put('/:id/reads/:readId', (req, res) => {
   const id = Number(req.params.id);
   const readId = Number(req.params.readId);
-  if (!Number.isInteger(id) || id < 1 || !Number.isInteger(readId) || readId < 1) return res.status(400).json({ error: 'Invalid id' });
   if (!db.prepare('SELECT id FROM reads WHERE id = ? AND book_id = ?').get(readId, id)) return res.status(404).json({ error: 'Not found' });
   const { date_started, date_finished, did_not_finish } = req.body;
   if (date_started && !isValidPartialDate(date_started)) return res.status(400).json({ error: 'Invalid date_started' });
@@ -119,7 +118,6 @@ router.put('/:id/reads/:readId', (req, res) => {
 router.delete('/:id/reads/:readId', (req, res) => {
   const id = Number(req.params.id);
   const readId = Number(req.params.readId);
-  if (!Number.isInteger(id) || id < 1 || !Number.isInteger(readId) || readId < 1) return res.status(400).json({ error: 'Invalid id' });
   if (!db.prepare('SELECT id FROM reads WHERE id = ? AND book_id = ?').get(readId, id)) return res.status(404).json({ error: 'Not found' });
   db.prepare('DELETE FROM reads WHERE id = ?').run(readId);
   res.status(204).send();
@@ -272,7 +270,6 @@ function getStoryWithAuthors(storyId) {
 
 router.get('/:id/stories', (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
   // NULL position sorts last so unpositioned stories collect at the end of
   // the contents list instead of mixing into the middle.
   const rows = db.prepare(
@@ -296,7 +293,6 @@ router.get('/:id/stories', (req, res) => {
 
 router.post('/:id/stories', (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
   if (!db.prepare('SELECT id FROM books WHERE id = ?').get(id)) return res.status(404).json({ error: 'Not found' });
   const errors = validateStory(req.body);
   if (errors.length) return res.status(400).json({ error: errors[0] });
@@ -324,7 +320,6 @@ router.post('/:id/stories', (req, res) => {
 router.put('/:id/stories/:storyId', (req, res) => {
   const id = Number(req.params.id);
   const storyId = Number(req.params.storyId);
-  if (!Number.isInteger(id) || id < 1 || !Number.isInteger(storyId) || storyId < 1) return res.status(400).json({ error: 'Invalid id' });
   const existing = db.prepare('SELECT id, status, did_not_finish FROM stories WHERE id = ? AND book_id = ?').get(storyId, id);
   if (!existing) return res.status(404).json({ error: 'Not found' });
   const errors = validateStory(req.body);
@@ -361,7 +356,6 @@ router.put('/:id/stories/:storyId', (req, res) => {
 router.delete('/:id/stories/:storyId', (req, res) => {
   const id = Number(req.params.id);
   const storyId = Number(req.params.storyId);
-  if (!Number.isInteger(id) || id < 1 || !Number.isInteger(storyId) || storyId < 1) return res.status(400).json({ error: 'Invalid id' });
   if (!db.prepare('SELECT id FROM stories WHERE id = ? AND book_id = ?').get(storyId, id)) return res.status(404).json({ error: 'Not found' });
   // Removing a story can be the act that completes the collection — e.g.
   // four siblings finished, an erroneous fifth deleted, parent should
@@ -387,7 +381,6 @@ router.post('/', (req, res) => {
 
 router.put('/:id', (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
   const errors = validateBook(req.body);
   if (errors.length) return res.status(400).json({ error: errors[0].message, field: errors[0].field });
   const book = updateBook(id, req.body);
@@ -397,7 +390,6 @@ router.put('/:id', (req, res) => {
 
 router.patch('/:id', (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
   const { current_page, current_minutes } = req.body;
   // Fetch the book's bounds upfront so progress saves can't claim 110% of a
   // 240-page book — common finger-fumble (typing pages-remaining instead of
@@ -465,7 +457,6 @@ router.patch('/:id', (req, res) => {
 // § "reads rows" for how this fits the broader contract.
 router.post('/:id/reread', (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
   const existing = db.prepare('SELECT read_count FROM books WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ error: 'Not found' });
   const { date_started, date_finished } = req.body || {};
@@ -489,7 +480,6 @@ router.post('/:id/reread', (req, res) => {
 // already in different groups merges into the lower-id group.
 router.post('/:id/work-link', (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
   const otherId = Number(req.body?.other_id);
   if (!Number.isInteger(otherId) || otherId < 1) return res.status(400).json({ error: 'Invalid other_id' });
   if (id === otherId) return res.status(400).json({ error: 'Cannot link a book to itself' });
@@ -504,7 +494,6 @@ router.post('/:id/work-link', (req, res) => {
 // then the loser is deleted. See mergeBooks for the full semantics.
 router.post('/:id/merge', (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
   const otherId = Number(req.body?.other_id);
   if (!Number.isInteger(otherId) || otherId < 1) return res.status(400).json({ error: 'Invalid other_id' });
   if (id === otherId) return res.status(400).json({ error: 'Cannot merge a book into itself' });
@@ -519,7 +508,6 @@ router.post('/:id/merge', (req, res) => {
 // row vanishes from every group member's detail page.
 router.delete('/:id/work-link', (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
   const book = unlinkEdition(id);
   if (!book) return res.status(404).json({ error: 'Not found' });
   res.json(book);
@@ -534,7 +522,6 @@ router.delete('/:id/work-link', (req, res) => {
 // on the just-saved file. Used by the cover wizard's commitCandidate.
 router.post('/:id/cover/url', async (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
   const url = typeof req.body?.url === 'string' ? req.body.url.trim() : '';
   if (!url) return res.status(400).json({ error: 'url is required' });
   let filename;
@@ -561,7 +548,6 @@ router.post('/:id/cover/url', async (req, res) => {
 
 router.post('/:id/fetch-cover', async (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
   try {
     const result = await updateBookCover(id);
     if (result.notFound)     return res.status(404).json({ error: 'Not found' });
@@ -575,7 +561,6 @@ router.post('/:id/fetch-cover', async (req, res) => {
 
 router.delete('/:id', (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid book id' });
   if (!deleteBook(id)) return res.status(404).json({ error: 'Not found' });
   res.status(204).send();
 });

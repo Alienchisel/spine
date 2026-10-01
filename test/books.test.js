@@ -2207,19 +2207,19 @@ describe('books', () => {
       assert.deepEqual(body, []);
     });
 
-    it('PUT/DELETE reads return 400 when either id is malformed', async () => {
-      // The compound id guard at routes/books.js:61 and :74 short-circuits
-      // before any DB lookup; both ids must be positive integers.
+    it('PUT/DELETE reads return 400 naming whichever id is malformed', async () => {
+      // router.param validates both URL ids before any DB lookup, and the
+      // message says which one was bad (it used to be a generic 'Invalid id').
       const cases = [
-        { method: 'PUT',    path: '/api/books/abc/reads/1' },
-        { method: 'PUT',    path: '/api/books/1/reads/nope' },
-        { method: 'DELETE', path: '/api/books/abc/reads/1' },
-        { method: 'DELETE', path: '/api/books/1/reads/nope' },
+        { method: 'PUT',    path: '/api/books/abc/reads/1',  error: 'Invalid book id' },
+        { method: 'PUT',    path: '/api/books/1/reads/nope', error: 'Invalid read id' },
+        { method: 'DELETE', path: '/api/books/abc/reads/1',  error: 'Invalid book id' },
+        { method: 'DELETE', path: '/api/books/1/reads/nope', error: 'Invalid read id' },
       ];
-      for (const { method, path } of cases) {
+      for (const { method, path, error } of cases) {
         const { status, body } = await req(method, path, method === 'PUT' ? {} : undefined);
         assert.equal(status, 400, `${method} ${path} should be 400`);
-        assert.equal(body.error, 'Invalid id', `${method} ${path} should have 'Invalid id' error`);
+        assert.equal(body.error, error, `${method} ${path}`);
       }
     });
 

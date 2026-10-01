@@ -1,8 +1,12 @@
 import express from 'express';
 import db from '../db.js';
 import { serveBookCardRows, LIST_BOOK_SELECT_PREFIXED } from '../lib/books/joinedFields.js';
+import { positiveIdParam } from '../lib/http/params.js';
 
 const router = express.Router();
+// Numeric URL params are validated once here (lib/http/params.js).
+router.param('id', positiveIdParam('Invalid list id'));
+router.param('bookId', positiveIdParam('Invalid book id'));
 
 function getListOrFail(res, id) {
   const list = db.prepare('SELECT * FROM lists WHERE id = ?').get(id);
@@ -142,7 +146,6 @@ router.post('/', (req, res) => {
 // GET /api/lists/:id — list with its books
 router.get('/:id', (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid list id' });
   const list = getListOrFail(res, id);
   if (!list) return;
   // Sort precedence: explicit `?sort=` query → stored `default_sort` →
@@ -169,7 +172,6 @@ router.get('/:id', (req, res) => {
 // or `default_sort: null` which clear).
 router.put('/:id', (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid list id' });
   const list = getListOrFail(res, id);
   if (!list) return;
 
@@ -217,7 +219,6 @@ router.put('/:id', (req, res) => {
 // DELETE /api/lists/:id
 router.delete('/:id', (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid list id' });
   const list = getListOrFail(res, id);
   if (!list) return;
   db.prepare('DELETE FROM lists WHERE id = ?').run(id);
@@ -227,7 +228,6 @@ router.delete('/:id', (req, res) => {
 // POST /api/lists/:id/books — add a book
 router.post('/:id/books', (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid list id' });
   const list = getListOrFail(res, id);
   if (!list) return;
   const bookId = Number(req.body.book_id);
@@ -242,7 +242,6 @@ router.post('/:id/books', (req, res) => {
 // PUT /api/lists/:id/order — reorder books
 router.put('/:id/order', (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid list id' });
   const list = getListOrFail(res, id);
   if (!list) return;
   const { ids } = req.body;
@@ -262,8 +261,6 @@ router.put('/:id/order', (req, res) => {
 router.delete('/:id/books/:bookId', (req, res) => {
   const id = Number(req.params.id);
   const bookId = Number(req.params.bookId);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid list id' });
-  if (!Number.isInteger(bookId) || bookId < 1) return res.status(400).json({ error: 'Invalid book id' });
   const list = getListOrFail(res, id);
   if (!list) return;
   db.prepare('DELETE FROM list_books WHERE list_id = ? AND book_id = ?').run(id, bookId);
