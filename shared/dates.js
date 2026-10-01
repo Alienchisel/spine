@@ -35,3 +35,18 @@ export function formatPartialDate(val) {
   if (!day) return `${monthLabel} ${yearLabel}`;
   return `${monthLabel} ${day}, ${yearLabel}`;
 }
+
+// Today's date in local time as YYYY-MM-DD, from Date getters — never ms
+// arithmetic or toISOString (which is the UTC date and rolls over at
+// 8 pm Eastern). One helper for the server and the client, which each
+// computed this inline in several places.
+export function localToday(now = new Date()) {
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
+// The current calendar year in local time. Call it when you need it —
+// don't capture it in a module-level constant, which freezes it at load
+// (a server running over New Year, or a page left open across it).
+export function currentYear(now = new Date()) {
+  return now.getFullYear();
+}

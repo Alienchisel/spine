@@ -1,7 +1,7 @@
 import { Fragment, useState, useEffect, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
-import { formatAuthors, fmtShortDate, plural, pluralWord, initialsFor, fmtHM } from '../utils.js';
+import { formatAuthors, fmtShortDate, plural, pluralWord, initialsFor, fmtHM, currentYear } from '../utils.js';
 import { useConfirm } from '../components/ConfirmModal.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -447,7 +447,7 @@ function DiaryEntry({ entry, onDelete }) {
   );
 }
 
-const CURRENT_YEAR = new Date().getFullYear();
+
 
 const EMPTY_STATS = {
   dayStreak: 0, dayStreakBest: 0, dayStreakSince: null, dayStreakBestStart: null, dayStreakBestEnd: null,
@@ -458,7 +458,9 @@ const EMPTY_STATS = {
 };
 
 export default function Diary() {
-  const [year, setYear] = useState(CURRENT_YEAR);
+  // Initial year read at mount, not frozen in a module constant: a tab
+  // left open across New Year used to keep defaulting to the old year.
+  const [year, setYear] = useState(() => currentYear());
   const [deleteError, setDeleteError] = useState(null);
   const dayRefs = useRef({});
   // Tracks diary entry ids whose delete is in flight. The confirm modal

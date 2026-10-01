@@ -36,3 +36,14 @@ describe('palette matchesQuery', () => {
     assert.equal(matchesQuery('anything', ''), true);
   });
 });
+
+describe('shared localToday / currentYear', () => {
+  it('formats the local calendar date, not the UTC one', async () => {
+    const { localToday, currentYear } = await import('../shared/dates.js');
+    // 9:30 pm local on Mar 13 is already Mar 14 in UTC; the local date wins.
+    const lateEvening = new Date(2026, 2, 13, 21, 30);
+    assert.equal(localToday(lateEvening), '2026-03-13');
+    assert.equal(localToday(new Date(2026, 0, 5)), '2026-01-05');
+    assert.equal(currentYear(new Date(2027, 11, 31, 23, 59)), 2027);
+  });
+});

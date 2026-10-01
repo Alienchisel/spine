@@ -6,6 +6,7 @@ import { stripWrap } from '../lib/books/normalization.js';
 import { lookupAuthor, searchAuthorsMulti, downloadAuthorPhotoByUrl } from '../lib/authors/openLibrary.js';
 import { saveAuthorPhotoFromBuffer, deleteAuthorPhoto } from '../lib/authors/photos.js';
 import { imageUpload } from '../lib/images.js';
+import { currentYear } from '../shared/dates.js';
 
 const router = express.Router();
 
@@ -293,7 +294,10 @@ router.get('/:id', (req, res) => {
 // "↻ Refresh from Open Library" button still overwrites, by design.
 const ALLOWED_GENDERS = new Set(['male', 'female', 'other']);
 const YEAR_MIN = -3000;
-const YEAR_MAX = new Date().getFullYear() + 1;
+// Upper bound is next year, computed per call: a module-level constant
+// froze it at server start, so a server running across New Year rejected
+// dates it should accept.
+const yearMax = () => currentYear() + 1;
 // Empty string / null clears. Otherwise accepts:
 //   "YYYY"           — year only ("1938", "-428" for BCE)
 //   "YYYY-MM"        — year + month ("1938-07")
@@ -309,8 +313,8 @@ function parseDateField(raw, fieldName) {
   const m = s.match(DATE_RE);
   if (!m) return { error: `${fieldName} must be YYYY, YYYY-MM, or YYYY-MM-DD` };
   const year = parseInt(m[1], 10);
-  if (year < YEAR_MIN || year > YEAR_MAX) {
-    return { error: `${fieldName} year must be between ${YEAR_MIN} and ${YEAR_MAX}` };
+  if (year < YEAR_MIN || year > yearMax()) {
+    return { error: `${fieldName} year must be between ${YEAR_MIN} and ${yearMax()}` };
   }
   return { value: s };
 }

@@ -130,7 +130,7 @@ export function formatDate(dateStr) {
 // BCE branches consistent. The implementation lives in shared/dates.js
 // so the server (collage sublabels) renders identical labels; re-exported
 // here so UI sites keep importing it from utils.js.
-export { formatPartialDate } from '../../shared/dates.js';
+export { formatPartialDate, localToday, currentYear } from '../../shared/dates.js';
 import { nrm as sharedNrm } from '../../shared/text.js';
 import { ENUM_LABELS } from '../../shared/bookFields.js';
 
