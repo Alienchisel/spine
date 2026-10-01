@@ -779,12 +779,29 @@ export default function ListDetail() {
           <p className="text-[11px] text-neutral-600 mt-1">{MOD_KEY}+Enter to save · Esc to cancel</p>
         </form>
       ) : list.description ? (
-        <div
-          className="mb-6 max-w-2xl text-sm italic text-neutral-400 hover:text-neutral-300 cursor-pointer transition-colors prose prose-invert prose-sm prose-p:my-2 prose-headings:my-2"
-          title="Click to edit"
-          onClick={() => { setDescError(null); setDescValue(list.description || ''); setEditingDesc(true); }}
-        >
-          <Markdown>{list.description}</Markdown>
+        // Click the text to edit (a click on a link inside it — e.g. a
+        // book reference — just follows the link), or use the ✎ button:
+        // the click-to-edit div alone wasn't reachable from the keyboard.
+        // Not role="button" on the div itself, since it holds rendered
+        // Markdown links.
+        <div className="mb-6 max-w-2xl group">
+          <div
+            className="text-sm italic text-neutral-400 hover:text-neutral-300 cursor-pointer transition-colors prose prose-invert prose-sm prose-p:my-2 prose-headings:my-2"
+            title="Click to edit"
+            onClick={(e) => {
+              if (e.target.closest('a')) return;
+              setDescError(null); setDescValue(list.description || ''); setEditingDesc(true);
+            }}
+          >
+            <Markdown>{list.description}</Markdown>
+          </div>
+          <button
+            type="button"
+            onClick={() => { setDescError(null); setDescValue(list.description || ''); setEditingDesc(true); }}
+            className="mt-1 text-xs text-neutral-600 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-neutral-300 transition-opacity focus:outline-none focus-visible:underline underline-offset-2"
+          >
+            ✎ Edit description
+          </button>
         </div>
       ) : (
         <button
