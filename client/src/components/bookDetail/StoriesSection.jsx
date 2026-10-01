@@ -4,7 +4,7 @@ import { useActionGuard } from '../../hooks/useActionGuard.js';
 import PartialDateInput from '../PartialDateInput.jsx';
 import StarRating from '../StarRating.jsx';
 import { useConfirm } from '../ConfirmModal.jsx';
-import { formatPartialDate } from '../../utils.js';
+import { formatPartialDate, localToday } from '../../utils.js';
 import { ENUM_LABELS } from '../../../../shared/bookFields.js';
 
 // Per-story table of contents for a collection. Each story belongs to a
@@ -193,7 +193,7 @@ export default function StoriesSection({ bookId, stories, bookAuthors = [], onUp
       await api.updateStory(bookId, s.id, {
         ...toPayload(toForm(s)),
         status: next,
-        date_finished: next === 'finished' && !s.date_finished ? new Date().toLocaleDateString('en-CA') : s.date_finished,
+        date_finished: next === 'finished' && !s.date_finished ? localToday() : s.date_finished,
       });
       onUpdate();
     } catch {

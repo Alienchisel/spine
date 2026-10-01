@@ -106,15 +106,12 @@ export const api = {
   unlinkEdition: (id) => request(`/books/${id}/work-link`, { method: 'DELETE' }),
   getDuplicateClusters: () => request('/books/duplicate-clusters'),
   mergeBook: (survivorId, loserId) => request(`/books/${survivorId}/merge`, { method: 'POST', body: JSON.stringify({ other_id: loserId }) }),
+  // Through request() like every other call: it leaves Content-Type for
+  // the browser to set on FormData, maps errors, and announces the write.
   uploadCover: (file) => {
     const fd = new FormData();
     fd.append('cover', file);
-    return fetch('/api/upload', { method: 'POST', body: fd }).then(async r => {
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error || 'Upload failed');
-      dispatchSpineEvent('spine:data-mutated');
-      return data;
-    });
+    return request('/upload', { method: 'POST', body: fd });
   },
   fetchCover: (url) => request('/upload/fetch', { method: 'POST', body: JSON.stringify({ url }) }),
   getReadlist: () => request('/readlist'),
@@ -159,5 +156,4 @@ export const api = {
   getSeriesCompletion: () => request('/series/completion'),
   getSettings: () => request('/settings'),
   setSetting: (key, value) => request(`/settings/${key}`, { method: 'PUT', body: JSON.stringify({ value }) }),
-  getDataVersion: () => request('/version'),
 };

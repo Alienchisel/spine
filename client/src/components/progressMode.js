@@ -1,3 +1,4 @@
+import { localToday } from '../../../shared/dates.js';
 // Persisted-state shape guard for the progress-input mode that
 // BookCard and bookDetail/ProgressSection both store per-book in
 // localStorage. The valid set depends on book.format AND on whether
@@ -120,7 +121,8 @@ export function syncProgressInputs({ book, isAudiobook, mode, pct }) {
 // finished button uses. It's a PATCH rather than a spread-PUT so fields
 // missing from (or stale in) the caller's copy of the book can't be wiped
 // or reverted; patchBook runs the same finish cascade. Caller passes the
-// api module to keep this file import-free.
+// api module so this file imports nothing from the client app (only the
+// shared date helper), keeping it unit-testable under node.
 // Returns { book, autoFinished } so surfaces can branch their post-save UX
 // (BookCard navigates to BookDetail with justFinished; ProgressSection
 // stays in-place and pops the rating prompt via its onChange).
@@ -134,7 +136,7 @@ export async function savePatchAndMaybeAutoFinish({ book, patchData, isAudiobook
   }
   // Owned-and-just-finished defaults date_finished to today; previously-
   // owned historical entries leave it null for the user to fill in.
-  const today = new Date().toLocaleDateString('en-CA');
+  const today = localToday();
   // Not updated.date_finished — on a re-read that's the previous read's
   // finish date.
   const dateFinished = updated.previously_owned ? null : today;

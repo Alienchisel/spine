@@ -2,13 +2,12 @@ import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api.js';
-import { labelForPath } from '../utils.js';
+import { labelForPath, localToday, TODAY_VISITED_KEY } from '../utils.js';
 import { dispatchSpineEvent } from '../hooks/useSpineEvent.js';
 
-const TODAY_VISITED_KEY = 'today-visited';
 
 function todayStr() {
-  return new Date().toLocaleDateString('en-CA');  // local YYYY-MM-DD
+  return localToday();  // local YYYY-MM-DD
 }
 
 // Hamburger icon — 3 lines that morph to an X via aria-state. CSS-only

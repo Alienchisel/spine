@@ -3,7 +3,7 @@ import { useSearchParams, useLocation, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import html2canvas from 'html2canvas-pro';
 import { api } from '../api.js';
-import { initialsFor } from '../utils.js';
+import { initialsFor, localToday } from '../utils.js';
 import { useActionGuard } from '../hooks/useActionGuard.js';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 import PageHeading from '../components/PageHeading.jsx';
@@ -185,7 +185,7 @@ export default function Collage() {
         // edge-to-edge.
         onclone: (_doc, el) => { el.style.padding = '24px'; },
       });
-      const stamp = new Date().toLocaleDateString('en-CA').replace(/-/g, '');
+      const stamp = localToday().replace(/-/g, '');
       const slug = mode + (needsYear ? `-${year}` : `-${period}`);
       const filename = `spine-collage-${slug.replace(/[^a-z0-9-]/gi, '_')}-${stamp}.png`;
       canvas.toBlob((blob) => {

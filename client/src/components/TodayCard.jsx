@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import Markdown, { spineUrlTransform } from './Markdown.jsx';
 import { api } from '../api.js';
-import { initialsFor } from '../utils.js';
+import { initialsFor, localToday } from '../utils.js';
 import BookRef from './bookDetail/BookRef.jsx';
 import { TodayCardSkeleton } from './Skeleton.jsx';
 import CoverThumb from './CoverThumb.jsx';
@@ -356,7 +356,7 @@ export function FeedbackBar({ queueId, current }) {
 // The date param is still omitted from the request so the server
 // takes pickTodayCard's compute path.
 function localTodayStr() {
-  return new Date().toLocaleDateString('en-CA');  // local YYYY-MM-DD
+  return localToday();  // local YYYY-MM-DD
 }
 
 export function todayCardQuery(date, peek = false) {

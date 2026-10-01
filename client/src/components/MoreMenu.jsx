@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
-import { labelForPath } from '../utils.js';
+import { labelForPath, localToday } from '../utils.js';
 import { useConfirm } from './ConfirmModal.jsx';
 import StarRating from './StarRating.jsx';
 import { useClickOutside } from '../hooks/useClickOutside.js';
@@ -406,7 +406,7 @@ export default function MoreMenu({ book, dropUp = false, iconClassName = 'w-5 h-
     e.stopPropagation();
     setOpen(false);
     clearError();
-    const today = new Date().toLocaleDateString('en-CA');
+    const today = localToday();
     const payload = { status: nextStatus };
     if (nextStatus === 'finished') {
       // Finished today — except previously_owned books, which are

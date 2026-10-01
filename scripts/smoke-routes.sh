@@ -18,7 +18,10 @@
 # pulled from the live API so the script doesn't rot as data changes.
 
 BASE="${SPINE_CLIENT_URL:-http://localhost:5173}"
-API="${SPINE_API_URL:-http://localhost:3001}"
+# The API defaults to the client URL: a production instance serves /api
+# itself and vite proxies /api in dev, so pointing SPINE_CLIENT_URL at a
+# server (as the README says) is enough. SPINE_API_URL still overrides.
+API="${SPINE_API_URL:-${SPINE_CLIENT_URL:-http://localhost:3001}}"
 CHROME="${CHROME:-chromium}"
 
 pyjson() { python3 -c "import sys, json; $1" 2>/dev/null; }

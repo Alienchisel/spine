@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { todayCardQuery } from './TodayCard.jsx';
-import { fmtShortDate } from '../utils.js';
+import { fmtShortDate, localToday } from '../utils.js';
 
 // Horizontal day-card carousel for /today (1.226+). Replaces the
 // arrow-based DayNav. The centre slot is the active day's full card
@@ -46,7 +46,7 @@ const TYPE_ACCENT = {
 function shiftDay(dateStr, delta) {
   const d = new Date(`${dateStr}T12:00:00`);
   d.setDate(d.getDate() + delta);
-  return d.toLocaleDateString('en-CA');
+  return localToday(d);
 }
 
 // (a - b) in whole calendar days. Inputs are YYYY-MM-DD strings; noon

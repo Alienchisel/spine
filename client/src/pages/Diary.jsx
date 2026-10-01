@@ -1,7 +1,7 @@
 import { Fragment, useState, useEffect, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
-import { formatAuthors, fmtShortDate, plural, pluralWord, initialsFor, fmtHM, currentYear } from '../utils.js';
+import { formatAuthors, fmtShortDate, plural, pluralWord, initialsFor, fmtHM, currentYear, localToday } from '../utils.js';
 import { useConfirm } from '../components/ConfirmModal.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -12,10 +12,10 @@ import CoverThumb from '../components/CoverThumb.jsx';
 const FROM_DIARY = { from: 'Diary', fromPath: '/diary' };
 
 function formatDate(dateStr) {
-  const today = new Date().toLocaleDateString('en-CA');
+  const today = localToday();
   const y = new Date();
   y.setDate(y.getDate() - 1);
-  const yesterday = y.toLocaleDateString('en-CA');
+  const yesterday = localToday(y);
   if (dateStr === today) return 'Today';
   if (dateStr === yesterday) return 'Yesterday';
   return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', {
@@ -56,7 +56,7 @@ function formatTotal({ pages, minutes }) {
 function ReadingCalendar({ days, selectedYear, totals, onDayClick }) {
   const today = new Date();
   const currentYear = today.getFullYear();
-  const todayStr = today.toLocaleDateString('en-CA');
+  const todayStr = localToday(today);
 
   const [viewYear,  setViewYear]  = useState(selectedYear);
   const [viewMonth, setViewMonth] = useState(
@@ -232,7 +232,7 @@ function ReadingCalendar({ days, selectedYear, totals, onDayClick }) {
 // casual and heavy readers both get a useful range of shades.
 function YearHeatmap({ days, selectedYear, onDayClick }) {
   const today = new Date();
-  const todayStr = today.toLocaleDateString('en-CA');
+  const todayStr = localToday(today);
 
   // Per-day activity. Score combines pages + minutes/2 only for
   // intensity bucketing — the tooltip shows raw pages / minutes.
@@ -342,7 +342,7 @@ function YearHeatmap({ days, selectedYear, onDayClick }) {
               {rowMonthLabel(week)}
             </div>
             {week.map((d, dIdx) => {
-              const dateStr = d.toLocaleDateString('en-CA');
+              const dateStr = localToday(d);
               const inYear  = d.getFullYear() === selectedYear;
               const future  = dateStr > todayStr;
               const act      = activityByDate[dateStr];

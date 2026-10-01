@@ -7,7 +7,7 @@ import TodayCarousel from '../components/TodayCarousel.jsx';
 import TodayQueueBanner from '../components/TodayQueueBanner.jsx';
 import PastConnections from '../components/PastConnections.jsx';
 import PastReadingPaths from '../components/PastReadingPaths.jsx';
-import { fmtShortDate } from '../utils.js';
+import { fmtShortDate, localToday, TODAY_VISITED_KEY } from '../utils.js';
 
 // Dedicated route for the daily card. Lives at /today, nav-linked
 // in teal. Reflective surface — librarian's nudge of the day —
@@ -28,10 +28,9 @@ import { fmtShortDate } from '../utils.js';
 // state syncs across devices — phone visit clears the dot on PC and
 // vice versa. localStorage is still updated as a fast same-device cache.
 
-export const TODAY_VISITED_KEY = 'today-visited';
 
 function todayStr() {
-  return new Date().toLocaleDateString('en-CA');  // local YYYY-MM-DD
+  return localToday();  // local YYYY-MM-DD
 }
 
 function isValidDateParam(s) {

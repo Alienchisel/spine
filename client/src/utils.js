@@ -251,3 +251,9 @@ export function initialsFor(label) {
 export function nrm(s) {
   return sharedNrm(s) ?? '';
 }
+
+// localStorage / settings key recording the last date the Today page was
+// visited (drives Nav's unseen-card dot). Shared by Today.jsx and Nav.jsx;
+// lives here rather than in Today.jsx so Nav doesn't pull the lazily
+// loaded Today page into the main bundle.
+export const TODAY_VISITED_KEY = 'today-visited';

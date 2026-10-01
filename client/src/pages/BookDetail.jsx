@@ -5,7 +5,7 @@ import { api } from '../api.js';
 import StarRating from '../components/StarRating.jsx';
 import ListPicker from '../components/ListPicker.jsx';
 import { useConfirm } from '../components/ConfirmModal.jsx';
-import { initialsFor, libraryLabelForUrl } from '../utils.js';
+import { initialsFor, libraryLabelForUrl, localToday } from '../utils.js';
 import ProgressSection from '../components/bookDetail/ProgressSection.jsx';
 import ReadsSection from '../components/bookDetail/ReadsSection.jsx';
 import StoriesSection from '../components/bookDetail/StoriesSection.jsx';
@@ -459,7 +459,7 @@ export default function BookDetail() {
     const reqId = book.id;
     clearActionErrors();
     try {
-      const today = new Date().toLocaleDateString('en-CA');
+      const today = localToday();
       // Previously-owned books are typically a historical read with an
       // unknown finish date — defaulting to today would silently fabricate
       // one. Leave null so the user can fill it in if they remember.

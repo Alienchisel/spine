@@ -4,6 +4,7 @@ import ConditionGuide from './ConditionGuide.jsx';
 import PartialDateInput from '../PartialDateInput.jsx';
 import { input, inputNoWidth, label } from './styles.js';
 import { enumOptions } from '../../../../shared/bookFields.js';
+import { localToday } from '../../utils.js';
 
 export default function CoreFields({
   form, setForm, set, ic, isEdit,
@@ -153,7 +154,7 @@ export default function CoreFields({
         <select id={idFor('status')} className={input} value={form.status}
           onChange={(e) => {
             const s = e.target.value;
-            const today = new Date().toLocaleDateString('en-CA');
+            const today = localToday();
             // The date fields hold the LATEST read's dates. A transition
             // starts or completes a read, so don't carry those over:
             // finished → reading is a re-read that starts today, and moving
