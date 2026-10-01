@@ -203,16 +203,22 @@ export default function AuthorsIndex() {
       {error && <p role="alert" className="text-sm text-warn">Failed to load authors.</p>}
 
       {!loading && !error && filtered.length > 0 && (
+        <div className="overflow-x-auto">
+        {/* Below sm the table keeps Name / Books / Dates: all seven fixed-
+            width columns came to ~510 px, and with the page's
+            overflow-x: hidden the Photo / Dates / G columns were clipped
+            off the phone screen with no way to scroll to them. The
+            wrapper scrolls as a fallback for anything still too wide. */}
         <table className="w-full text-sm">
           <thead className="text-xs uppercase tracking-wider text-neutral-600 border-b border-neutral-800/60">
             <tr>
               <th className="text-left  py-2 pr-3">Name</th>
               <th className="text-right py-2 px-3 w-16">Books</th>
-              <th className="text-right py-2 px-3 w-16" title="Stories contributed (anthology entries not bylined on the containing book)">Stories</th>
-              <th className="text-center py-2 px-3 w-12">Bio</th>
-              <th className="text-center py-2 px-3 w-14">Photo</th>
+              <th className="hidden sm:table-cell text-right py-2 px-3 w-16" title="Stories contributed (anthology entries not bylined on the containing book)">Stories</th>
+              <th className="hidden sm:table-cell text-center py-2 px-3 w-12">Bio</th>
+              <th className="hidden sm:table-cell text-center py-2 px-3 w-14">Photo</th>
               <th className="text-left  py-2 px-3 w-40">Dates</th>
-              <th className="text-center py-2 px-3 w-12" title="Gender">G</th>
+              <th className="hidden sm:table-cell text-center py-2 px-3 w-12" title="Gender">G</th>
             </tr>
           </thead>
           <tbody>
@@ -227,16 +233,17 @@ export default function AuthorsIndex() {
                     </Link>
                   </td>
                   <td className="text-right py-1.5 px-3 text-neutral-500 tabular-nums">{a.book_count}</td>
-                  <td className="text-right py-1.5 px-3 text-neutral-500 tabular-nums">{a.story_count || 0}</td>
-                  <td className="text-center py-1.5 px-3">{a.has_bio   ? present : missing}</td>
-                  <td className="text-center py-1.5 px-3">{a.has_photo ? present : missing}</td>
+                  <td className="hidden sm:table-cell text-right py-1.5 px-3 text-neutral-500 tabular-nums">{a.story_count || 0}</td>
+                  <td className="hidden sm:table-cell text-center py-1.5 px-3">{a.has_bio   ? present : missing}</td>
+                  <td className="hidden sm:table-cell text-center py-1.5 px-3">{a.has_photo ? present : missing}</td>
                   <td className="py-1.5 px-3 text-neutral-500">{lifespan ?? missing}</td>
-                  <td className="text-center py-1.5 px-3 text-neutral-500">{gender ?? missing}</td>
+                  <td className="hidden sm:table-cell text-center py-1.5 px-3 text-neutral-500">{gender ?? missing}</td>
                 </tr>
               );
             })}
           </tbody>
         </table>
+        </div>
       )}
       {!loading && !error && filtered.length === 0 && (
         <p className="text-sm text-neutral-500 mt-4">No authors match the current filters.</p>
