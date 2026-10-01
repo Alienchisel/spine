@@ -202,6 +202,19 @@ export default function App() {
       if (timeout) clearTimeout(timeout);
     };
   }, []);
+  // The gutter art is only visible at xl (≥1280 px), but `hidden` alone
+  // doesn't stop an <img> downloading — every phone visit pulled the
+  // 2.2 MB gutter.png it never shows. Mount the art only while the
+  // viewport is wide enough to display it.
+  const [wideEnoughForGutter, setWideEnoughForGutter] = useState(
+    () => window.matchMedia('(min-width: 1280px)').matches,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1280px)');
+    const onChange = (e) => setWideEnoughForGutter(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
   // Native <input type="date"> opens a browser calendar overlay that's
   // absolutely positioned at the page coordinates of the input *at open
   // time*. The overlay doesn't follow the input on scroll, so a wheel
@@ -253,7 +266,7 @@ export default function App() {
             keeps the same crop at any viewport height, where a fixed
             640 cap fails on shorter remotes (image renders < 640 wide,
             so the source's other half is no longer clipped). */}
-        {gutterHeight > 0 && (
+        {gutterHeight > 0 && wideEnoughForGutter && (
           <div
             className="hidden xl:block fixed top-0 left-0 w-[calc((100vw-1280px)/2)] overflow-hidden pointer-events-none select-none [mask-image:linear-gradient(to_right,black_70%,transparent)]"
             style={{ height: `${gutterHeight}px`, maxWidth: `${Math.round(gutterHeight * 4 / 9)}px` }}
@@ -266,7 +279,7 @@ export default function App() {
             />
           </div>
         )}
-        {gutterHeight > 0 && (
+        {gutterHeight > 0 && wideEnoughForGutter && (
           <div
             className="hidden xl:block fixed top-0 right-0 w-[calc((100vw-1280px)/2)] overflow-hidden pointer-events-none select-none [mask-image:linear-gradient(to_left,black_70%,transparent)]"
             style={{ height: `${gutterHeight}px`, maxWidth: `${Math.round(gutterHeight * 4 / 9)}px` }}

@@ -6,6 +6,7 @@ import { useActionGuard } from '../../hooks/useActionGuard.js';
 import ErrorBanner from '../../components/ErrorBanner.jsx';
 import { shuffle } from './wizards.js';
 import { isBareShortcut } from '../../lib/keyboard.js';
+import CoverThumb from '../../components/CoverThumb.jsx';
 
 // Duplicate / edition sweep — the cluster-shaped sibling of the
 // card-per-record AuditWizard. One cluster (same article-stripped title
@@ -223,7 +224,7 @@ export default function DuplicatesWizard() {
                     />
                     <div className="w-10 h-[60px] flex-shrink-0 rounded-sm overflow-hidden bg-neutral-800">
                       {m.cover_url
-                        ? <img src={m.cover_url} alt="" className="w-full h-full object-cover" />
+                        ? <CoverThumb src={m.cover_url} alt="" className="w-full h-full object-cover" />
                         : <div className="w-full h-full bg-gradient-to-br from-neutral-700 to-neutral-900 flex items-center justify-center text-[10px] text-neutral-500 font-medium">{initialsFor(m.title)}</div>}
                     </div>
                     <div className="flex-1 min-w-0 space-y-0.5">

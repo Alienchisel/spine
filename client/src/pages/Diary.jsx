@@ -7,6 +7,7 @@ import ErrorBanner from '../components/ErrorBanner.jsx';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import PageHeading from '../components/PageHeading.jsx';
 import { sectionEyebrow } from '../components/textStyles.js';
+import CoverThumb from '../components/CoverThumb.jsx';
 
 const FROM_DIARY = { from: 'Diary', fromPath: '/diary' };
 
@@ -412,7 +413,7 @@ function DiaryEntry({ entry, onDelete }) {
     <div className={`flex items-center gap-4 py-2.5 group ${entry.redundant ? 'opacity-40' : ''}`}>
       <div className="w-8 h-[46px] flex-shrink-0 rounded overflow-hidden bg-neutral-800">
         {entry.cover_path
-          ? <img src={entry.cover_path} alt="" className="w-full h-full object-cover" />
+          ? <CoverThumb src={entry.cover_path} alt="" className="w-full h-full object-cover" />
           : <div className="w-full h-full bg-gradient-to-br from-neutral-700 to-neutral-900 flex items-center justify-center text-[10px] text-neutral-500 font-medium tracking-wide">{initialsFor(entry.title)}</div>}
       </div>
       <div className="flex-1 min-w-0">
@@ -697,7 +698,7 @@ export default function Diary() {
                           className="flex items-start gap-2.5 hover:bg-neutral-700/30 rounded p-1 -mx-1 transition-colors"
                         >
                           {b.cover_path ? (
-                            <img src={b.cover_path} alt="" className="w-11 h-16 object-cover rounded flex-shrink-0" />
+                            <CoverThumb src={b.cover_path} alt="" className="w-11 h-16 object-cover rounded flex-shrink-0" />
                           ) : (
                             <div className="w-11 h-16 bg-gradient-to-br from-neutral-700 to-neutral-900 rounded flex-shrink-0 flex items-center justify-center text-[10px] text-neutral-500 font-medium">
                               {initialsFor(b.title)}

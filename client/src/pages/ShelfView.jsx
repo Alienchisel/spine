@@ -33,6 +33,7 @@ import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import { useActionGuard } from '../hooks/useActionGuard.js';
 import { useLatest } from '../hooks/useLatest.js';
 import { sectionEyebrow } from '../components/textStyles.js';
+import CoverThumb from '../components/CoverThumb.jsx';
 
 // Sortable cover used in the unit view's per-shelf rows and in the
 // shelf-detail view. Carries shelfId on its sortable data so the unit-
@@ -63,7 +64,7 @@ function SortableShelfCover({ book, shelfId = null, linkState, focused }) {
               order). */}
           <div className={`relative w-[240px] ${book.format === 'audiobook' ? 'h-[240px]' : 'h-[360px]'} rounded overflow-hidden bg-neutral-800 shadow-lg`}>
             {book.cover_path
-              ? <img src={book.cover_path} alt={book.title} draggable={false} loading="lazy" decoding="async" className="w-full h-full object-cover" />
+              ? <CoverThumb src={book.cover_path} alt={book.title} draggable={false} loading="lazy" decoding="async" className="w-full h-full object-cover" />
               : <div className="w-full h-full flex flex-col items-center justify-center p-3 bg-gradient-to-br from-neutral-700 to-neutral-900 gap-2">
                   <span className="text-5xl font-bold text-neutral-500 leading-none tracking-wide">{initialsFor(book.title)}</span>
                   <span className="text-xs text-neutral-400 leading-tight line-clamp-4 text-center">{book.title}</span>
@@ -199,7 +200,7 @@ const BookCoverThumb = memo(function BookCoverThumb({ book, compact, linkState, 
       <Link to={`/books/${book.id}`} state={linkState} draggable={false} className="group block" title={coverTitle}>
         <div className={`relative bg-neutral-800 overflow-hidden ${compact ? 'aspect-[2/3] rounded-sm' : 'aspect-[2/3] rounded shadow-lg'}`}>
           {book.cover_path ? (
-            <img
+            <CoverThumb
               src={book.cover_path}
               alt={book.title}
               draggable={false}
@@ -461,7 +462,7 @@ function AddBookHere({ targetPatch, targetLabel, resolveLocation, onAdded }) {
                   className="w-full flex items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-neutral-800 disabled:cursor-default"
                 >
                   <div className="w-8 h-12 flex-shrink-0 bg-neutral-800 rounded-sm overflow-hidden">
-                    {b.cover_path && <img src={b.cover_path} alt="" className="w-full h-full object-cover" />}
+                    {b.cover_path && <CoverThumb src={b.cover_path} alt="" className="w-full h-full object-cover" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm text-parchment truncate">{b.title}</div>

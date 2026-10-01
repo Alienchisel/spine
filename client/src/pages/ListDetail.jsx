@@ -30,6 +30,7 @@ import { useLatest } from '../hooks/useLatest.js';
 import { useActionGuard } from '../hooks/useActionGuard.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import { useLoadAll } from '../hooks/useLoadAll.js';
+import CoverThumb from '../components/CoverThumb.jsx';
 
 const PAGE_SIZE = 48;
 
@@ -288,7 +289,7 @@ function QuickAdd({ listId, listBookIds, onAdded }) {
                   className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${alreadyIn ? 'cursor-default opacity-50' : 'hover:bg-neutral-800'} disabled:cursor-default`}
                 >
                   <div className="w-8 h-12 flex-shrink-0 bg-neutral-800 rounded-sm overflow-hidden">
-                    {b.cover_path && <img src={b.cover_path} alt="" className="w-full h-full object-cover" />}
+                    {b.cover_path && <CoverThumb src={b.cover_path} alt="" className="w-full h-full object-cover" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm text-parchment truncate">{b.title}</div>

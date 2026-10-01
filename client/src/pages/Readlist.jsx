@@ -4,6 +4,7 @@ import { api } from '../api.js';
 import { formatAuthors, initialsFor, fmtHM, plural, pluralWord, FORMAT_LABEL } from '../utils.js';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { GridSkeleton } from '../components/Skeleton.jsx';
+import CoverThumb from '../components/CoverThumb.jsx';
 
 const FROM_READLIST = { from: 'Readlist', fromPath: '/readlist' };
 
@@ -69,7 +70,7 @@ function PickCard({ book }) {
     >
       <div className="aspect-[2/3] bg-neutral-800 rounded overflow-hidden shadow-lg ring-1 ring-binding/25 group-hover:ring-leather/60 transition-shadow">
         {book.cover_path ? (
-          <img src={book.cover_path} alt="" className="w-full h-full object-cover" />
+          <CoverThumb src={book.cover_path} alt="" className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-xl text-neutral-500 font-medium tracking-wide bg-gradient-to-br from-neutral-700 to-neutral-900">
             {initialsFor(book.title)}
@@ -512,7 +513,7 @@ export default function Readlist() {
                   >
                     <div className="w-8 h-12 flex-shrink-0 bg-neutral-800 rounded overflow-hidden ring-1 ring-binding/25">
                       {b.cover_path ? (
-                        <img src={b.cover_path} alt="" className="w-full h-full object-cover" />
+                        <CoverThumb src={b.cover_path} alt="" className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-[10px] text-neutral-500">
                           {initialsFor(b.title)}

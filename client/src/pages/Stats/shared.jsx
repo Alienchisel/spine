@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { initialsFor, formatYear } from '../../utils.js';
+import CoverThumb from '../../components/CoverThumb.jsx';
 
 // Anywhere a Link out of Stats wants the back-button to land on this page,
 // pass `state={FROM_STATS}` so the destination's "← Back" restores the
@@ -76,7 +77,7 @@ export function RecordCard({ label, book, value }) {
     <Link to={`/books/${book.id}`} state={FROM_STATS} className="bg-card rounded-lg p-3 flex items-center gap-3 hover:ring-1 hover:ring-neutral-600 transition-shadow">
       <div className="w-8 h-12 flex-shrink-0 rounded overflow-hidden bg-neutral-800">
         {book.cover_path
-          ? <img src={book.cover_path} alt="" className="w-full h-full object-cover object-top" />
+          ? <CoverThumb src={book.cover_path} alt="" className="w-full h-full object-cover object-top" />
           : <div className="w-full h-full bg-gradient-to-br from-neutral-700 to-neutral-900 flex items-center justify-center text-[10px] text-neutral-500 font-medium tracking-wide">{initialsFor(book.title)}</div>}
       </div>
       <div className="min-w-0">

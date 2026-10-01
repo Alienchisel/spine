@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { initialsFor, plural } from '../../../utils.js';
 import { FROM_STATS, Section } from '../shared.jsx';
+import CoverThumb from '../../../components/CoverThumb.jsx';
 
 // Books currently in progress with a pace projection. Renders nothing
 // when the user has no active reads — keeps the page from sprouting
@@ -14,7 +15,7 @@ export default function CurrentlyReading({ inProgressPace = [] }) {
           <Link key={b.id} to={`/books/${b.id}`} state={FROM_STATS} className="bg-card rounded-lg p-3 flex items-center gap-3 hover:ring-1 hover:ring-neutral-600 transition-shadow">
             <div className="w-8 h-12 flex-shrink-0 rounded overflow-hidden bg-neutral-800">
               {b.cover_path
-                ? <img src={b.cover_path} alt="" className="w-full h-full object-cover object-top" />
+                ? <CoverThumb src={b.cover_path} alt="" className="w-full h-full object-cover object-top" />
                 : <div className="w-full h-full bg-gradient-to-br from-neutral-700 to-neutral-900 flex items-center justify-center text-[10px] text-neutral-500 font-medium tracking-wide">{initialsFor(b.title)}</div>}
             </div>
             <div className="min-w-0 flex-1">

@@ -7,6 +7,7 @@ import { useConfirm } from './ConfirmModal.jsx';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import { useSpineEvent, dispatchSpineEvent } from '../hooks/useSpineEvent.js';
 import { SORTS } from './library/sorts.js';
+import CoverThumb from './CoverThumb.jsx';
 
 // Global command palette, opened with Ctrl/Cmd+K (universal) or
 // Ctrl/Cmd+Shift+P (VS Code muscle memory; Chrome/Edge/Safari only —
@@ -1455,7 +1456,7 @@ export default function CommandPalette() {
                         >
                           {entry.kind === 'book' ? (
                             entry.cover ? (
-                              <img src={entry.cover} alt="" className="w-8 h-12 object-cover rounded flex-shrink-0" />
+                              <CoverThumb src={entry.cover} alt="" className="w-8 h-12 object-cover rounded flex-shrink-0" />
                             ) : (
                               <div className="w-8 h-12 bg-gradient-to-br from-neutral-700 to-neutral-900 rounded flex-shrink-0 flex items-center justify-center text-[10px] text-neutral-500 font-medium tracking-wide">{initialsFor(entry.label)}</div>
                             )

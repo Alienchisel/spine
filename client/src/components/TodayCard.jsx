@@ -6,6 +6,7 @@ import { api } from '../api.js';
 import { initialsFor } from '../utils.js';
 import BookRef from './bookDetail/BookRef.jsx';
 import { TodayCardSkeleton } from './Skeleton.jsx';
+import CoverThumb from './CoverThumb.jsx';
 
 // v0 of the daily "Today" card — three deterministic card types
 // (loved_resurface / slow_burn / recent_acquisition) computed by
@@ -577,7 +578,7 @@ function CardThumb({ book }) {
     >
       {book.cover_path
         ? (
-          <img
+          <CoverThumb
             src={book.cover_path}
             alt=""
             loading="lazy"

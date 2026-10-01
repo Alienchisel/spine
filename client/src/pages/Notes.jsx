@@ -4,6 +4,7 @@ import { api } from '../api.js';
 import { initialsFor, plural, pluralWord } from '../utils.js';
 import { useQuery } from '@tanstack/react-query';
 import { NotesSkeleton } from '../components/Skeleton.jsx';
+import CoverThumb from '../components/CoverThumb.jsx';
 
 // Surfaces the reflective layer — user-authored prose (review + notes)
 // across the library — as a first-class destination, instead of leaving
@@ -367,7 +368,7 @@ export default function Notes() {
                           to a book. Falls back to initials if no cover. */}
                       <div className="flex-shrink-0 w-12 h-16 rounded-sm bg-neutral-800 overflow-hidden">
                         {book.cover_path ? (
-                          <img src={book.cover_path} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
+                          <CoverThumb src={book.cover_path} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-[10px] text-neutral-500 font-medium tracking-wide bg-gradient-to-br from-neutral-700 to-neutral-900">
                             {initialsFor(book.title)}
