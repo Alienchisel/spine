@@ -28,8 +28,11 @@ describe('data version beacon', () => {
   }
 
   it('GET /api/version returns a boot-prefixed version string', async () => {
+    // boot - API write counter - SQLite data_version (moves when another
+    // connection, e.g. an import script, commits). Clients only compare
+    // for equality, so the shape is informational.
     const version = await getVersion();
-    assert.match(version, /^\d+-\d+$/);
+    assert.match(version, /^\d+-\d+-\d+$/);
   });
 
   it('a successful mutation bumps the version', async () => {
