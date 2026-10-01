@@ -3930,6 +3930,17 @@ describe('books', () => {
       assert.equal(res.body.title, 'Order Reread Form (edited)');
     });
 
+    it('saving a never-read book through the form does not create a blank read', async () => {
+      // Regression: BookForm sends date_started/date_finished as null on
+      // every save; syncLatestReadsRow inserted a (NULL, NULL) read for a
+      // book with none (56 live unread books had one).
+      const { body: b } = await req('POST', '/api/books', { title: 'Blank Read Guard' });
+      await req('PUT', `/api/books/${b.id}`, {
+        title: 'Blank Read Guard', publisher: 'Edited', status: 'unread', date_started: null, date_finished: null,
+      });
+      assert.deepEqual(await readsOf(b.id), []);
+    });
+
     it('PUT with a user-changed date still uses it', async () => {
       const b = await finishedOnce('Reread Form Typed');
       await req('PUT', `/api/books/${b.id}`, {
