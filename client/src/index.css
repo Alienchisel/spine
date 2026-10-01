@@ -25,7 +25,12 @@
     --color-warn:          196 105 90;    /* #c4695a */
 
     /* ── Neutral mid-tones ───────────────────────────────────── */
-    --neutral-600: 122 99  85;    /* #7a6355 */
+    /* neutral-600 carries ~250 bits of secondary text (Read more, Edit,
+       Reveal, labels). Lifted 40% of the way toward neutral-500 (was
+       #7a6355): 3.47 → 4.15:1 on the page bg, 2.56 → 3.06:1 on surfaces,
+       still clearly secondary. Chosen 2026-09-30 from side-by-side
+       renders of current / +40% / +55%. */
+    --neutral-600: 135 111 96;    /* #876f60 */
     --neutral-500: 154 128 112;   /* #9a8070 */
     --neutral-300: 212 180 160;   /* #d4b4a0 */
     --neutral-200: 226 203 191;   /* #e2cbbf */
