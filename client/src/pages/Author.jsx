@@ -22,7 +22,7 @@ function GenderPicker({ value, onChange }) {
   const display = value ?? 'unassigned';
   return (
     <span className="relative inline-block group cursor-pointer">
-      <span className="text-sm text-neutral-700 underline decoration-dotted decoration-neutral-800 underline-offset-2 group-hover:text-neutral-400 group-hover:decoration-solid group-hover:decoration-neutral-500 group-focus-within:text-neutral-400 group-focus-within:decoration-solid group-focus-within:decoration-neutral-500 transition-colors">
+      <span className="text-sm text-neutral-600 underline decoration-dotted decoration-neutral-800 underline-offset-2 group-hover:text-neutral-400 group-hover:decoration-solid group-hover:decoration-neutral-500 group-focus-within:text-neutral-400 group-focus-within:decoration-solid group-focus-within:decoration-neutral-500 transition-colors">
         {display}
       </span>
       <select
@@ -217,7 +217,7 @@ function DatesPicker({ birth, death, onChange }) {
     <button
       type="button"
       onClick={start}
-      className="text-sm text-neutral-700 underline decoration-dotted decoration-neutral-800 underline-offset-2 hover:text-neutral-400 hover:decoration-solid hover:decoration-neutral-500 focus:text-neutral-400 focus:decoration-solid focus:decoration-neutral-500 focus:outline-none transition-colors"
+      className="text-sm text-neutral-600 underline decoration-dotted decoration-neutral-800 underline-offset-2 hover:text-neutral-400 hover:decoration-solid hover:decoration-neutral-500 focus:text-neutral-400 focus:decoration-solid focus:decoration-neutral-500 focus:outline-none transition-colors"
     >
       {text ?? 'add dates'}
     </button>
@@ -278,7 +278,7 @@ function MergeControl({ author, onMerged }) {
       <button
         type="button"
         onClick={() => { setOpen(true); setError(null); }}
-        className="text-[11px] text-neutral-700 hover:text-neutral-400 transition-colors"
+        className="text-[11px] text-neutral-600 hover:text-neutral-400 transition-colors"
         title="Merge a duplicate author record into this one"
       >
         ⇆ Merge a duplicate into this author
@@ -686,7 +686,7 @@ export default function Author() {
               type="button"
               onClick={removePhoto}
               disabled={photoBusy}
-              className="block mt-1.5 text-[11px] text-neutral-700 hover:text-warn transition-colors disabled:opacity-60"
+              className="block mt-1.5 text-[11px] text-neutral-600 hover:text-warn transition-colors disabled:opacity-60"
             >
               Remove portrait
             </button>
@@ -841,7 +841,7 @@ export default function Author() {
                     <button
                       type="button"
                       onClick={startBioEdit}
-                      className="text-neutral-700 hover:text-neutral-400 transition-colors opacity-60 group-hover:opacity-100 group-focus-within:opacity-100"
+                      className="text-neutral-600 hover:text-neutral-400 transition-colors [@media(hover:hover)]:opacity-60 group-hover:opacity-100 group-focus-within:opacity-100"
                     >
                       ✎ Edit bio
                     </button>
@@ -864,7 +864,7 @@ export default function Author() {
                 type="button"
                 onClick={handleManualRefresh}
                 disabled={refreshing}
-                className="text-[11px] text-neutral-700 hover:text-neutral-400 transition-colors disabled:opacity-60 disabled:cursor-wait"
+                className="text-[11px] text-neutral-600 hover:text-neutral-400 transition-colors disabled:opacity-60 disabled:cursor-wait"
                 title="Re-fetch bio + portrait from Open Library"
               >
                 {refreshing ? '↻ Refreshing…' : '↻ Refresh from Open Library'}

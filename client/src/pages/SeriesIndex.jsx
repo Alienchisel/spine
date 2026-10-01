@@ -200,7 +200,7 @@ export default function SeriesIndex() {
                       title={heartTitle}
                       aria-label={`${heartTitle}: ${s.name}`}
                       aria-pressed={isLoved}
-                      className={`transition-colors disabled:opacity-60 ${isLoved ? 'text-red-400 hover:text-red-300' : 'text-neutral-700 hover:text-neutral-400'}`}
+                      className={`transition-colors disabled:opacity-60 ${isLoved ? 'text-red-400 hover:text-red-300' : 'text-neutral-600 hover:text-neutral-400'}`}
                     >
                       <span className="leading-none">{isLoved ? '♥' : '♡'}</span>
                     </button>

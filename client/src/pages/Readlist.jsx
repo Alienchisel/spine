@@ -536,7 +536,7 @@ export default function Readlist() {
                     disabled={removing}
                     aria-label={`Remove ${b.title} from readlist`}
                     title="Remove from readlist"
-                    className="text-neutral-700 hover:text-warn focus:text-warn focus:outline-none transition-colors disabled:opacity-30 flex-shrink-0 px-2 py-1 text-sm"
+                    className="text-neutral-600 hover:text-warn focus:text-warn focus:outline-none transition-colors disabled:opacity-30 flex-shrink-0 px-2 py-1 text-sm"
                   >
                     ✕
                   </button>

@@ -986,7 +986,7 @@ export default function BookDetail() {
               aria-label={`${book.archived ? 'Restore from archive' : 'Archive'}: ${book.title}`}
               aria-pressed={!!book.archived}
               title={book.archived ? 'Restore from archive' : 'Archive — hide from active library'}
-              className={`disabled:opacity-60 disabled:cursor-wait transition-colors ${book.archived ? 'text-amber-500 hover:text-amber-400' : 'text-neutral-700 hover:text-amber-500'}`}
+              className={`disabled:opacity-60 disabled:cursor-wait transition-colors ${book.archived ? 'text-amber-500 hover:text-amber-400' : 'text-neutral-600 hover:text-amber-500'}`}
             >
               {archiveGuard.busy ? 'Saving…' : book.archived ? 'Restore from archive' : 'Archive'}
             </button>
@@ -996,7 +996,7 @@ export default function BookDetail() {
               onClick={handleDelete}
               disabled={deleteGuard.busy}
               aria-label={`Delete ${book.title}`}
-              className="text-neutral-700 hover:text-warn disabled:opacity-60 disabled:cursor-wait transition-colors"
+              className="text-neutral-600 hover:text-warn disabled:opacity-60 disabled:cursor-wait transition-colors"
             >
               {deleteGuard.busy ? 'Deleting…' : 'Delete this book'}
             </button>

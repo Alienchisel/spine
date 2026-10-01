@@ -79,7 +79,7 @@ export default function CoverPicker({
         <button
           type="button"
           onClick={onRemove}
-          className="mt-2 w-full text-center text-xs text-neutral-700 hover:text-warn transition-colors"
+          className="mt-2 w-full text-center text-xs text-neutral-600 hover:text-warn transition-colors"
         >
           Remove cover
         </button>

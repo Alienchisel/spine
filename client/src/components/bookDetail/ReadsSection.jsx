@@ -160,8 +160,8 @@ export default function ReadsSection({ bookId, reads, isFinished, onUpdate, onBo
                 {r.date_finished ? <> <span className="text-neutral-600">→</span> {formatPartialDate(r.date_finished)}</> : ''}
                 {r.did_not_finish ? <span className="ml-2 text-[10px] uppercase tracking-wider text-warn/80 border border-warn/30 rounded px-1 py-px">DNF</span> : ''}
               </span>
-              <button type="button" onClick={() => startEdit(r)} aria-label={`Edit ${readLabel(r)}`} className="text-xs text-neutral-700 hover:text-neutral-400 opacity-30 group-hover:opacity-100 group-focus-within:opacity-100 transition-all">Edit</button>
-              <button type="button" onClick={() => handleDelete(r.id)} title="Delete read" aria-label={`Delete ${readLabel(r)}`} className="text-xs text-neutral-700 hover:text-warn opacity-30 group-hover:opacity-100 group-focus-within:opacity-100 transition-all">×</button>
+              <button type="button" onClick={() => startEdit(r)} aria-label={`Edit ${readLabel(r)}`} className="text-xs text-neutral-600 hover:text-neutral-400 [@media(hover:hover)]:opacity-30 group-hover:opacity-100 group-focus-within:opacity-100 transition-all">Edit</button>
+              <button type="button" onClick={() => handleDelete(r.id)} title="Delete read" aria-label={`Delete ${readLabel(r)}`} className="text-xs text-neutral-600 hover:text-warn [@media(hover:hover)]:opacity-30 group-hover:opacity-100 group-focus-within:opacity-100 transition-all">×</button>
             </div>
           ))}
         </div>

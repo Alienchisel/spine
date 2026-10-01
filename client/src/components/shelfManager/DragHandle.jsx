@@ -3,7 +3,7 @@ export default function DragHandle({ listeners }) {
     <button
       type="button"
       {...listeners}
-      className="text-neutral-700 hover:text-neutral-400 transition-colors cursor-grab active:cursor-grabbing flex-shrink-0 px-0.5"
+      className="text-neutral-600 hover:text-neutral-400 transition-colors cursor-grab active:cursor-grabbing flex-shrink-0 px-0.5"
       aria-label="Drag to reorder"
     >
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3">

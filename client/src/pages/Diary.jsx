@@ -439,7 +439,7 @@ function DiaryEntry({ entry, onDelete }) {
       <button
         type="button"
         onClick={() => onDelete(entry.id)}
-        className="text-neutral-700 hover:text-red-400 transition-colors text-lg leading-none flex-shrink-0 opacity-30 group-hover:opacity-100 group-focus-within:opacity-100"
+        className="text-neutral-600 hover:text-red-400 transition-colors text-lg leading-none flex-shrink-0 [@media(hover:hover)]:opacity-30 group-hover:opacity-100 group-focus-within:opacity-100"
         title="Remove entry"
         aria-label={`Remove diary entry for ${primary}`}
       >×</button>
