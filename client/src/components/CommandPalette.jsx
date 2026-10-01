@@ -240,6 +240,13 @@ export default function CommandPalette() {
   // — otherwise the scheduled close would fire on a freshly-reopened
   // palette ~700ms after the original action.
   const confirmCloseTimerRef = useRef(null);
+  // One pick at a time. Set while a picked action's perform() is in flight
+  // and, for confirmable toggles, through the whole "✓ done" hold until the
+  // palette closes. Without it a quick second Enter re-ran the action — a
+  // duplicate PATCH while the first was pending, or, once the refetch had
+  // flipped the entry's label, the opposite toggle (un-loving the book)
+  // while the badge still said it succeeded.
+  const pickInFlightRef = useRef(false);
   // Element to refocus when the palette closes — usually the page-level
   // control the user was last on. Mirrors ConfirmModal's pattern so
   // keyboard users aren't dumped to <body>.
@@ -311,6 +318,7 @@ export default function CommandPalette() {
   }, []);
 
   const close = useCallback(() => {
+    pickInFlightRef.current = false;
     setOpen(false);
     resetQuery();
     setSubPrompt(null);
@@ -1181,6 +1189,8 @@ export default function CommandPalette() {
       if (entry.perform) entry.perform();
       return;
     }
+    if (pickInFlightRef.current) return;
+    pickInFlightRef.current = true;
     // Mutating or navigating entries: await perform so a failure can
     // keep the palette open with an inline error (the perform itself
     // sets the visible error state and re-throws). Successful picks
@@ -1190,6 +1200,7 @@ export default function CommandPalette() {
       try {
         await entry.perform();
       } catch {
+        pickInFlightRef.current = false;
         return;
       }
     }

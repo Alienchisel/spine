@@ -4,6 +4,7 @@ import { api } from '../api.js';
 import { formatAuthors, initialsFor, fmtHM, plural, pluralWord, FORMAT_LABEL } from '../utils.js';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { GridSkeleton } from '../components/Skeleton.jsx';
+import ErrorBanner from '../components/ErrorBanner.jsx';
 import CoverThumb from '../components/CoverThumb.jsx';
 
 const FROM_READLIST = { from: 'Readlist', fromPath: '/readlist' };
@@ -109,12 +110,13 @@ export default function Readlist() {
       (prev) => (typeof updater === 'function' ? updater(prev ?? []) : updater),
     );
   };
-  // Action errors (failed remove) share the same UI slot as the load
-  // error — the original implementation overloaded `setError` for both.
-  // Keep them as separate state so the hook's load error doesn't carry
-  // the wrong message after a refetch; merge for display.
+  // A failed action (remove) is a dismissible banner ABOVE the list; only
+  // a load failure replaces the list. They used to share one slot, so a
+  // single failed removal swapped the whole page for its message, and the
+  // only code that cleared it lived in the now-unreachable remove handler
+  // — the page stayed blank until you navigated away.
   const [actionError, setActionError] = useState(null);
-  const errorMessage = actionError ?? (loadError ? 'Failed to load readlist.' : null);
+  const errorMessage = loadError ? 'Failed to load readlist.' : null;
   // Picker constraint state — transient, not URL-persisted, doesn't
   // outlive the session. The picker is for "what should I pick right
   // now?", a moment-bound question.
@@ -322,6 +324,7 @@ export default function Readlist() {
         )}
       </div>
 
+      <ErrorBanner message={actionError} onDismiss={() => setActionError(null)} className="mb-4" />
       {loading ? (
         <GridSkeleton count={10} gridClassName="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-4 gap-y-6 items-start" />
       ) : errorMessage ? (
