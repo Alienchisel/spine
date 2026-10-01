@@ -1,4 +1,5 @@
 import { api } from '../../api.js';
+import { enumOptions } from '../../../../shared/bookFields.js';
 
 // Each wizard declares:
 //   title       — page heading
@@ -52,11 +53,7 @@ export const WIZARDS = {
     patch: (id, value) => api.patchBook(id, { binding: value }),
     getName: r => r.title,
     getLink: r => `/books/${r.id}`,
-    options: [
-      { value: 'paperback', label: 'Paperback' },
-      { value: 'hardcover', label: 'Hardcover' },
-      { value: 'other',     label: 'Other' },
-    ],
+    options: enumOptions('binding'),
     clearValue: '',
   },
   fiction: {
@@ -85,11 +82,7 @@ export const WIZARDS = {
     patch: (id, value) => api.patchBook(id, { format: value }),
     getName: r => r.title,
     getLink: r => `/books/${r.id}`,
-    options: [
-      { value: 'physical',  label: 'Physical'  },
-      { value: 'ebook',     label: 'Digital'   },
-      { value: 'audiobook', label: 'Audiobook' },
-    ],
+    options: enumOptions('format'),
     clearValue: null,
   },
   condition: {
@@ -101,14 +94,7 @@ export const WIZARDS = {
     patch: (id, value) => api.patchBook(id, { condition: value }),
     getName: r => r.title,
     getLink: r => `/books/${r.id}`,
-    options: [
-      { value: 'new',       label: 'New'       },
-      { value: 'fine',      label: 'Fine'      },
-      { value: 'very good', label: 'Very good' },
-      { value: 'good',      label: 'Good'      },
-      { value: 'fair',      label: 'Fair'      },
-      { value: 'poor',      label: 'Poor'      },
-    ],
+    options: enumOptions('condition'),
     clearValue: '',
   },
   rating: {

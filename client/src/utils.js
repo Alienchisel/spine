@@ -132,6 +132,7 @@ export function formatDate(dateStr) {
 // here so UI sites keep importing it from utils.js.
 export { formatPartialDate } from '../../shared/dates.js';
 import { nrm as sharedNrm } from '../../shared/text.js';
+import { ENUM_LABELS } from '../../shared/bookFields.js';
 
 // Render a minute count as hours-and-minutes, smart: skips the hour
 // segment when it would be "0h", skips the minute segment when it
@@ -153,7 +154,7 @@ export function fmtHM(min) {
 // across BrowsePage, Stats, FilterPanel (and any future surface that
 // needs a non-LC display string) so adding a fourth format means
 // touching exactly one place.
-export const FORMAT_LABEL = { physical: 'Physical', ebook: 'Digital', audiobook: 'Audiobook' };
+export const FORMAT_LABEL = ENUM_LABELS.format;
 
 // Display labels for Library tabs. Mirrors the TABS table in
 // pages/Library.jsx — kept here so libraryLabelForUrl can read it

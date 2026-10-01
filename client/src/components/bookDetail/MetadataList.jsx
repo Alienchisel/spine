@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { formatPartialDate } from '../../utils.js';
 import { formatYear, pluralWord, fmtHM } from '../../utils.js';
+import { ENUM_LABELS } from '../../../../shared/bookFields.js';
 
 function Row({ label, children }) {
   return (
@@ -46,7 +47,7 @@ export default function MetadataList({ book, location, linkState }) {
           <span className="capitalize">
             {book.format === 'ebook' ? 'Digital' : book.format.charAt(0).toUpperCase() + book.format.slice(1)}
             {book.binding && ` — ${book.binding.charAt(0).toUpperCase() + book.binding.slice(1)}`}
-            {Boolean(book.owned) && book.condition && ` (${book.condition.replace(/\b\w/g, c => c.toUpperCase())})`}
+            {Boolean(book.owned) && book.condition && ` (${ENUM_LABELS.condition[book.condition] ?? book.condition})`}
           </span>
         </Row>
       )}

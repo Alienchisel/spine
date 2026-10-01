@@ -3,6 +3,7 @@ import ChipInput from './ChipInput.jsx';
 import ConditionGuide from './ConditionGuide.jsx';
 import PartialDateInput from '../PartialDateInput.jsx';
 import { input, inputNoWidth, label } from './styles.js';
+import { enumOptions } from '../../../../shared/bookFields.js';
 
 export default function CoreFields({
   form, setForm, set, ic, isEdit,
@@ -50,9 +51,7 @@ export default function CoreFields({
             if (f !== 'audiobook') { setDurationH(''); setDurationM(''); }
           }}>
           <option value="">—</option>
-          <option value="physical">Physical</option>
-          <option value="ebook">Digital</option>
-          <option value="audiobook">Audiobook</option>
+          {enumOptions('format').map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       </div>
 
@@ -119,8 +118,7 @@ export default function CoreFields({
           <select id={idFor('source_type')} className={input} value={form.source_type}
             onChange={e => set('source_type', e.target.value)}>
             <option value="">—</option>
-            <option value="primary">Primary source</option>
-            <option value="secondary">Secondary source</option>
+            {enumOptions('source_type').map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </div>
       )}
@@ -178,9 +176,7 @@ export default function CoreFields({
               };
             });
           }}>
-          <option value="unread">Unread</option>
-          <option value="reading">Reading</option>
-          <option value="finished">Finished</option>
+          {enumOptions('status').map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       </div>
 
@@ -229,9 +225,7 @@ export default function CoreFields({
               <select id={idFor('binding')} className={input} value={form.binding}
                 onChange={(e) => set('binding', e.target.value)}>
                 <option value="">—</option>
-                <option value="paperback">Paperback</option>
-                <option value="hardcover">Hardcover</option>
-                <option value="other">Other</option>
+                {enumOptions('binding').map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
             {form.owned && (
@@ -243,12 +237,7 @@ export default function CoreFields({
                 <select id={idFor('condition')} className={input} value={form.condition}
                   onChange={(e) => set('condition', e.target.value)}>
                   <option value="">—</option>
-                  <option value="new">New</option>
-                  <option value="fine">Fine</option>
-                  <option value="very good">Very Good</option>
-                  <option value="good">Good</option>
-                  <option value="fair">Fair</option>
-                  <option value="poor">Poor</option>
+                  {enumOptions('condition').map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </div>
             )}

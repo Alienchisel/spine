@@ -1,3 +1,4 @@
+import { ENUM_VALUES } from '../../../../shared/bookFields.js';
 export const PAGE_SIZE = 48;
 
 // Valid book statuses after migration 047 retired 'paused'. Used by
@@ -5,7 +6,7 @@ export const PAGE_SIZE = 48;
 // still carry — without this, the filter would persist invisibly (no
 // matching chip in FilterPanel) and ship `status IN ('paused')` into
 // the API, yielding an empty result with no clearable filter UI.
-const VALID_STATUSES = new Set(['reading', 'finished', 'unread']);
+const VALID_STATUSES = new Set(ENUM_VALUES.status);
 
 export const EMPTY_FILTERS = {
   missing:           [],

@@ -19,9 +19,10 @@ import { useTextOverflow } from '../hooks/useTextOverflow.js';
 import { useLatest } from '../hooks/useLatest.js';
 import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import { useActionGuard } from '../hooks/useActionGuard.js';
+import { ENUM_LABELS } from '../../../shared/bookFields.js';
 
-const STATUS_LABEL = { reading: 'Reading', finished: 'Finished', unread: 'Unread' };
-const FORMAT_LABEL_LC = { physical: 'physical', ebook: 'digital', audiobook: 'audiobook' };
+const STATUS_LABEL = ENUM_LABELS.status;
+const FORMAT_LABEL_LC = Object.fromEntries(Object.entries(ENUM_LABELS.format).map(([k, v]) => [k, v.toLowerCase()]));
 const STATUS_COLOR = {
   reading:  'text-parchment bg-oak/30',
   finished: 'text-leather bg-binding/30',

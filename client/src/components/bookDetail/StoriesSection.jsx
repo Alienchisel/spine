@@ -5,6 +5,7 @@ import PartialDateInput from '../PartialDateInput.jsx';
 import StarRating from '../StarRating.jsx';
 import { useConfirm } from '../ConfirmModal.jsx';
 import { formatPartialDate } from '../../utils.js';
+import { ENUM_LABELS } from '../../../../shared/bookFields.js';
 
 // Per-story table of contents for a collection. Each story belongs to a
 // parent book and tracks its own status / rating / date_finished / DNF,
@@ -16,7 +17,7 @@ import { formatPartialDate } from '../../utils.js';
 // Visible only when the parent book has the Stories or Anthology tag, or
 // when at least one story is already attached (so a user can populate
 // then hide if they retag, without losing the data).
-const STATUS_LABEL = { unread: 'Unread', reading: 'Reading', finished: 'Finished' };
+const STATUS_LABEL = ENUM_LABELS.status;
 
 function pageRangeText(s) {
   if (s.page_start == null && s.page_end == null) return null;

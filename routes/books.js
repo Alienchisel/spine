@@ -135,7 +135,7 @@ router.delete('/:id/reads/:readId', (req, res) => {
 // story-attributed reading_log row, bumps the parent's current_page, and
 // — when every sibling is accounted for — auto-rolls the parent book to
 // status='finished'. See migrations 049–052.
-const STORY_STATUSES = new Set(['unread', 'reading', 'finished']);
+const STORY_STATUSES = new Set(ENUM_VALUES.status);
 
 // Empty-string from a cleared form input means "no value" — coerce to
 // null before validation so position='' / rating='' don't masquerade as 0.

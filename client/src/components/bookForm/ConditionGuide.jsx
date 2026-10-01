@@ -1,15 +1,17 @@
 import { useState, useRef } from 'react';
 import { useClickOutside } from '../../hooks/useClickOutside.js';
 import { useEscapeKey } from '../../hooks/useEscapeKey.js';
+import { enumOptions } from '../../../../shared/bookFields.js';
 
-const CONDITION_GRADES = [
-  { grade: 'New',       desc: 'Unread, no defects whatsoever' },
-  { grade: 'Fine',      desc: 'Like new, imperceptible wear' },
-  { grade: 'Very Good', desc: 'Minor wear, no damage' },
-  { grade: 'Good',      desc: 'Average used copy, visible wear' },
-  { grade: 'Fair',      desc: 'Heavily worn but complete and readable' },
-  { grade: 'Poor',      desc: 'Damaged; may have writing or missing pages' },
-];
+const CONDITION_DESC = {
+  new:         'Unread, no defects whatsoever',
+  fine:        'Like new, imperceptible wear',
+  'very good': 'Minor wear, no damage',
+  good:        'Average used copy, visible wear',
+  fair:        'Heavily worn but complete and readable',
+  poor:        'Damaged; may have writing or missing pages',
+};
+const CONDITION_GRADES = enumOptions('condition').map(o => ({ grade: o.label, desc: CONDITION_DESC[o.value] }));
 
 export default function ConditionGuide() {
   const [open, setOpen] = useState(false);

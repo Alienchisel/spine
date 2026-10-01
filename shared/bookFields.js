@@ -71,6 +71,24 @@ export const ENUM_VALUES = Object.freeze({
   source_type: ['primary', 'secondary'],
 });
 
+// Display labels for every ENUM_VALUES field — the one place dropdowns,
+// wizards and detail views take their wording from (they used to carry
+// their own copies, and condition had drifted: 'Very Good' on the form and
+// book page, 'Very good' in the audit wizard). Key order is display order.
+// test/enumLabels.test.js pins each map's keys to ENUM_VALUES.
+export const ENUM_LABELS = Object.freeze({
+  status:      Object.freeze({ unread: 'Unread', reading: 'Reading', finished: 'Finished' }),
+  format:      Object.freeze({ physical: 'Physical', ebook: 'Digital', audiobook: 'Audiobook' }),
+  binding:     Object.freeze({ paperback: 'Paperback', hardcover: 'Hardcover', other: 'Other' }),
+  condition:   Object.freeze({ new: 'New', fine: 'Fine', 'very good': 'Very Good', good: 'Good', fair: 'Fair', poor: 'Poor' }),
+  source_type: Object.freeze({ primary: 'Primary source', secondary: 'Secondary source' }),
+});
+
+// [{ value, label }] in display order — for <select>s and wizard options.
+export function enumOptions(field) {
+  return Object.entries(ENUM_LABELS[field]).map(([value, label]) => ({ value, label }));
+}
+
 // Columns on the books table that POST and full-replace PUT write to.
 // Excludes current_page / current_minutes (PATCH-only via reading_log) and
 // read_count (own update rules — see docs/book-model.md § Reading data rules).
