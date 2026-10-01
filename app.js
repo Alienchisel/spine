@@ -1,5 +1,6 @@
 import express from 'express';
 import multer from 'multer';
+import compression from 'compression';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import booksRouter from './routes/books.js';
@@ -21,8 +22,17 @@ import { bumpDataVersion, getDataVersion } from './lib/dataVersion.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 
+// gzip API responses and static files. Spine is used over Tailscale from
+// a phone; JSON (a 200-book page is ~286 KB raw) and the JS/CSS bundle
+// shrink several-fold.
+app.use(compression());
 app.use(express.json({ limit: '1mb' }));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Every upload gets a fresh name ({epoch}-{random}.ext for covers,
+// {authorId}-{epoch}.ext for portraits, thumbs derived from those), so a
+// URL's bytes never change: let browsers keep them for 30 days instead of
+// revalidating every cover on every page view. Not `immutable` — a thumb
+// could one day be regenerated at a different size under the same name.
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), { maxAge: '30d' }));
 
 // Any successful mutation bumps the data version (see lib/dataVersion.js).
 // Method-based rather than per-route so new routers are covered by
@@ -60,8 +70,18 @@ app.use('/api', (_req, res) => {
 });
 
 if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, 'client/dist')));
+  // Vite content-hashes everything under assets/, so those files can be
+  // cached for good; index.html (which names the current hashes) must be
+  // revalidated on every load so a new build shows up immediately.
+  app.use(express.static(path.join(__dirname, 'client/dist'), {
+    setHeaders(res, filePath) {
+      res.setHeader('Cache-Control', filePath.includes(`${path.sep}assets${path.sep}`)
+        ? 'public, max-age=31536000, immutable'
+        : 'no-cache');
+    },
+  }));
   app.get('*', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-cache');
     res.sendFile(path.join(__dirname, 'client/dist/index.html'));
   });
 }
