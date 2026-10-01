@@ -613,6 +613,11 @@ function TrajectoryChart({ data }) {
 
 const COMPLETION_MIN_KNOWN = 3;
 const COMPLETION_STRIP_W = 360;
+// Beyond this many volume positions a row is drawn as one proportional
+// bar instead of a cell per volume. Cells are at least 2 px wide, so a
+// single book numbered #6022 (a publisher's catalogue number) produced an
+// ~18,000 px SVG with thousands of <rect>s and ~40k DOM nodes on the page.
+const COMPLETION_MAX_CELLS = 120;
 
 function buildSeriesCompletion(rows) {
   if (!rows?.length) return [];
@@ -636,7 +641,7 @@ function buildSeriesCompletion(rows) {
     }
     const knownMax = Math.max(...books.map(b => Math.ceil(b.position)));
     const cells = [];
-    for (let n = 1; n <= knownMax; n++) {
+    for (let n = 1; knownMax <= COMPLETION_MAX_CELLS && n <= knownMax; n++) {
       const b = byFloor.get(n);
       cells.push({ n, book: b || null });
     }
@@ -657,6 +662,35 @@ function buildSeriesCompletion(rows) {
 function CompletionRow({ name, cells, knownMax, ownedCount }) {
   const cellH = 14;
   const gap = 1;
+  const label = (
+    <div className="ml-auto shrink-0 text-neutral-500 tabular-nums w-20 text-right">
+      {ownedCount}/{knownMax} <span className="text-neutral-700">·</span> {Math.round((ownedCount / knownMax) * 100)}%
+    </div>
+  );
+  // Rows wrap below sm: the name takes its own line and the strip shrinks
+  // to fit beside the count (a row needs ~690 px side by side, so on the
+  // phone every percentage was clipped).
+  const rowClass = 'flex flex-wrap sm:flex-nowrap items-center gap-x-3 gap-y-1 text-xs';
+  const nameEl = (
+    <div className="w-full sm:w-56 shrink-0 truncate text-neutral-300" title={name}>
+      {name}
+    </div>
+  );
+  if (knownMax > COMPLETION_MAX_CELLS) {
+    const ownedW = Math.round(COMPLETION_STRIP_W * (ownedCount / knownMax));
+    return (
+      <div className={rowClass}>
+        {nameEl}
+        <svg viewBox={`0 0 ${COMPLETION_STRIP_W} ${cellH}`} height={cellH} preserveAspectRatio="none"
+          className="min-w-0 shrink" style={{ width: COMPLETION_STRIP_W }}>
+          <title>{`${ownedCount} of ${knownMax} volume positions owned — too many to draw one by one`}</title>
+          <rect x={0} y={0} width={COMPLETION_STRIP_W} height={cellH} fill="#1a1816" rx={1} />
+          <rect x={0} y={0} width={Math.max(ownedW, ownedCount > 0 ? 2 : 0)} height={cellH} fill="#b8896a" rx={1} />
+        </svg>
+        {label}
+      </div>
+    );
+  }
   // Cell width derived from a shared strip width so rows of very
   // different knownMax can still be visually compared (a 7-cell row
   // and a 30-cell row occupy the same horizontal budget). Floor to
@@ -665,11 +699,10 @@ function CompletionRow({ name, cells, knownMax, ownedCount }) {
   const usedW = cellW * knownMax + gap * (knownMax - 1);
 
   return (
-    <div className="flex items-center gap-3 text-xs">
-      <div className="w-56 shrink-0 truncate text-neutral-300" title={name}>
-        {name}
-      </div>
-      <svg viewBox={`0 0 ${usedW} ${cellH}`} width={usedW} height={cellH} className="shrink-0">
+    <div className={rowClass}>
+      {nameEl}
+      <svg viewBox={`0 0 ${usedW} ${cellH}`} height={cellH} preserveAspectRatio="none"
+        className="min-w-0 shrink" style={{ width: usedW }}>
         {cells.map(c => {
           const x = (c.n - 1) * (cellW + gap);
           if (!c.book) {
@@ -701,9 +734,7 @@ function CompletionRow({ name, cells, knownMax, ownedCount }) {
           );
         })}
       </svg>
-      <div className="ml-auto shrink-0 text-neutral-500 tabular-nums w-20 text-right">
-        {ownedCount}/{knownMax} <span className="text-neutral-700">·</span> {Math.round((ownedCount / knownMax) * 100)}%
-      </div>
+      {label}
     </div>
   );
 }
