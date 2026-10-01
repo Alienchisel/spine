@@ -3768,6 +3768,41 @@ describe('books', () => {
     });
   });
 
+  describe('small fixes: POST read_count, edition groups on delete', () => {
+    it('POST honours a supplied read_count', async () => {
+      const { body: thrice } = await req('POST', '/api/books', { title: 'Read Thrice', status: 'finished', read_count: 3 });
+      assert.equal(thrice.read_count, 3);
+      const { body: once } = await req('POST', '/api/books', { title: 'Read Once', status: 'finished' });
+      assert.equal(once.read_count, 1, 'a finished book counts its completion by default');
+      const { body: zero } = await req('POST', '/api/books', { title: 'Finished Zero', status: 'finished', read_count: 0 });
+      assert.equal(zero.read_count, 1, 'a finished book counts at least one');
+      const { body: unread } = await req('POST', '/api/books', { title: 'Read Before', status: 'unread', read_count: 2 });
+      assert.equal(unread.read_count, 2);
+    });
+
+    it('deleting one of two linked editions dissolves the group', async () => {
+      const { body: a } = await req('POST', '/api/books', { title: 'Edition Pair A' });
+      const { body: b } = await req('POST', '/api/books', { title: 'Edition Pair B' });
+      await req('POST', `/api/books/${a.id}/work-link`, { other_id: b.id });
+      assert.ok((await req('GET', `/api/books/${b.id}`)).body.work_id != null, 'precondition: linked');
+      await req('DELETE', `/api/books/${a.id}`);
+      const { body: survivor } = await req('GET', `/api/books/${b.id}`);
+      assert.equal(survivor.work_id, null);
+    });
+
+    it('deleting one of three linked editions keeps the other two linked', async () => {
+      const { body: a } = await req('POST', '/api/books', { title: 'Edition Trio A' });
+      const { body: b } = await req('POST', '/api/books', { title: 'Edition Trio B' });
+      const { body: c } = await req('POST', '/api/books', { title: 'Edition Trio C' });
+      await req('POST', `/api/books/${a.id}/work-link`, { other_id: b.id });
+      await req('POST', `/api/books/${a.id}/work-link`, { other_id: c.id });
+      await req('DELETE', `/api/books/${a.id}`);
+      const wb = (await req('GET', `/api/books/${b.id}`)).body.work_id;
+      const wc = (await req('GET', `/api/books/${c.id}`)).body.work_id;
+      assert.ok(wb != null && wb === wc);
+    });
+  });
+
   describe('reading sessions (status transitions and re-reads)', () => {
     const today = () => new Date().toLocaleDateString('en-CA');
     const readsOf = async (id) => (await req('GET', `/api/books/${id}/reads`)).body;
@@ -4560,11 +4595,20 @@ describe('books', () => {
         }
         return { ok: false };
       });
+      // A stale size from a previous cover. fetch-cover used to update only
+      // cover_path, so this survived and the hi-res filter / low-res audit
+      // judged the new cover by the old file. With writeFile mocked the new
+      // file isn't on disk, so its measured size is null — either way the
+      // stale value must not remain.
+      const db = await loadDb();
+      db.prepare('UPDATE books SET cover_bytes = 12345 WHERE id = ?').run(created.id);
       try {
         const { status, body } = await req('POST', `/api/books/${created.id}/fetch-cover`, {});
         assert.equal(status, 200);
         assert.match(body.cover_path, /^\/uploads\/\d+-[a-z0-9]+\.jpg$/i);
         assert.equal(writeMock.mock.callCount(), 1, 'image should be written exactly once');
+        const row = db.prepare('SELECT cover_bytes FROM books WHERE id = ?').get(created.id);
+        assert.notEqual(row.cover_bytes, 12345, 'cover_bytes is re-measured with the new cover');
       } finally {
         writeMock.mock.restore();
         fetchMock.mock.restore();

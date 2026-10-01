@@ -41,6 +41,20 @@ describe('authors — Open Library refresh', () => {
     return new Response(JSON.stringify(obj), { status, headers: { 'Content-Type': 'application/json' } });
   }
 
+  it('parseDate reads BC/BCE/AD/CE era markers', () => {
+    // Regression: '428 BC' fell through to the bare-year fallback and
+    // saved Plato's birth as 428 CE; two-digit BC years parsed to null.
+    assert.equal(parseDate('428 BC'),          '-428');
+    assert.equal(parseDate('c. 428 BCE'),      '-428');
+    assert.equal(parseDate('43 B.C.'),         '-43');
+    assert.equal(parseDate('March 20, 43 BC'), '-43-03-20');
+    assert.equal(parseDate('AD 79'),           '79');
+    assert.equal(parseDate('79 CE'),           '79');
+    // No era marker: short years are still rejected, month names intact.
+    assert.equal(parseDate('19'),              null);
+    assert.equal(parseDate('Dec 1950'),        '1950-12');
+  });
+
   it('parseDate normalizes OL date strings into YYYY / YYYY-MM-DD form', () => {
     assert.equal(parseDate('1938'),                 '1938');
     assert.equal(parseDate('1938-07-18'),           '1938-07-18');
