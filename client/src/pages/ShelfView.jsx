@@ -509,7 +509,14 @@ export default function ShelfView() {
     placeholderData: (prev) => prev ?? [],
   });
   const tree = treeQ.data ?? [];
-  const loading = treeQ.isPending;
+  // Placeholder data is still loading: in TanStack Query v5 a query showing
+  // placeholderData is NOT isPending, so on a cold load (refresh, a new tab,
+  // a shared or bookmarked link) `loading` went false while `tree` was the
+  // empty [] placeholder, treeLoaded flipped true, and the pruning effect
+  // stripped a valid ?b=…&r=… back to the root — the regression of the
+  // deep-link bug described above. The placeholder only ever applies on
+  // the very first load ('shelfTree' is a single fixed key).
+  const loading = treeQ.isPending || treeQ.isPlaceholderData;
   const treeLoadError = treeQ.error;
   // Error-clear shim: a query error only clears on a successful fetch,
   // so retry-on-clear — but only when errored, since setError(null) runs
