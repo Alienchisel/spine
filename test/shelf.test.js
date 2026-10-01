@@ -14,6 +14,22 @@ describe('shelf', () => {
 
   after(() => close());
 
+  // The per-level GETs (/buildings, /buildings/:id, /buildings/:id/rooms,
+  // /rooms/:id/units, /units/:id/shelves) were removed — the app reads the
+  // whole layout from /tree — so these tests look nodes up there. Same
+  // rows, book_count and order_index ordering as the old endpoints.
+  const getTree = async () => (await req('GET', '/api/shelf/tree')).body;
+  const treeBuilding = async (id) => (await getTree()).find(b => b.id === id);
+  const treeRooms = async (buildingId) => (await treeBuilding(buildingId))?.rooms ?? [];
+  const treeUnits = async (roomId) => {
+    for (const b of await getTree()) for (const r of b.rooms) if (r.id === roomId) return r.units;
+    return [];
+  };
+  const treeShelves = async (unitId) => {
+    for (const b of await getTree()) for (const r of b.rooms) for (const u of r.units) if (u.id === unitId) return u.shelves;
+    return [];
+  };
+
   describe('buildings', () => {
     it('creates a building', async () => {
       const { status, body } = await req('POST', '/api/shelf/buildings', { name: 'Home' });
@@ -32,11 +48,10 @@ describe('shelf', () => {
       assert.equal(status, 400);
     });
 
-    it('returns building on GET', async () => {
+    it('a created building appears in the tree', async () => {
       const { body: created } = await req('POST', '/api/shelf/buildings', { name: 'Flat' });
-      const { status, body } = await req('GET', `/api/shelf/buildings/${created.id}`);
-      assert.equal(status, 200);
-      assert.equal(body.name, 'Flat');
+      const building = await treeBuilding(created.id);
+      assert.equal(building?.name, 'Flat');
     });
 
     it('updates building name', async () => {
@@ -50,8 +65,7 @@ describe('shelf', () => {
       const { body: created } = await req('POST', '/api/shelf/buildings', { name: 'Doomed' });
       const { status } = await req('DELETE', `/api/shelf/buildings/${created.id}`);
       assert.equal(status, 204);
-      const { status: s } = await req('GET', `/api/shelf/buildings/${created.id}`);
-      assert.equal(s, 404);
+      assert.equal(await treeBuilding(created.id), undefined, 'deleted building leaves the tree');
     });
 
   });
@@ -74,21 +88,15 @@ describe('shelf', () => {
     });
 
     it('creates room under building', async () => {
-      const { status, body } = await req('GET', `/api/shelf/buildings/${buildingId}/rooms`);
-      assert.equal(status, 200);
-      assert.ok(body.some(r => r.id === roomId));
+      assert.ok((await treeRooms(buildingId)).some(r => r.id === roomId));
     });
 
     it('creates unit under room', async () => {
-      const { status, body } = await req('GET', `/api/shelf/rooms/${roomId}/units`);
-      assert.equal(status, 200);
-      assert.ok(body.some(u => u.id === unitId));
+      assert.ok((await treeUnits(roomId)).some(u => u.id === unitId));
     });
 
     it('creates shelf under unit', async () => {
-      const { status, body } = await req('GET', `/api/shelf/units/${unitId}/shelves`);
-      assert.equal(status, 200);
-      assert.ok(body.some(s => s.id === shelfId));
+      assert.ok((await treeShelves(unitId)).some(s => s.id === shelfId));
     });
 
     it('room POST rejects missing building_id', async () => {
@@ -454,12 +462,8 @@ describe('shelf', () => {
       }
     });
 
-    it('GET singletons and children/location on malformed ids return 400 Invalid id', async () => {
+    it('GET location on a malformed id returns 400 Invalid id', async () => {
       const paths = [
-        '/api/shelf/buildings/abc',
-        '/api/shelf/buildings/abc/rooms',
-        '/api/shelf/rooms/abc/units',
-        '/api/shelf/units/abc/shelves',
         '/api/shelf/location/abc',
       ];
       for (const path of paths) {
@@ -467,12 +471,6 @@ describe('shelf', () => {
         assert.equal(status, 400, `GET ${path} should be 400`);
         assert.equal(body.error, 'Invalid id', `GET ${path} should have 'Invalid id'`);
       }
-    });
-
-    it('GET /api/shelf/buildings/:id returns 404 for unknown id', async () => {
-      const { status, body } = await req('GET', '/api/shelf/buildings/999999');
-      assert.equal(status, 404);
-      assert.equal(body.error, 'Not found');
     });
 
     it('GET .../books on malformed shelf hierarchy ids return 400 Invalid id', async () => {
@@ -905,13 +903,13 @@ describe('shelf', () => {
       await req('POST', '/api/books', { title: `${stem} unowned`,     format: 'physical', owned: false, shelf_id: sh.id });
 
       // Room: shelf + unit + room-level → 3. Building-level and unowned excluded.
-      const { body: rooms } = await req('GET', `/api/shelf/buildings/${bldg.id}/rooms`);
+      const rooms = await treeRooms(bldg.id);
       const room = rooms.find(r => r.id === rm.id);
       assert.ok(room, 'created room should appear');
       assert.equal(room.book_count, 3, `room.book_count should be exactly 3, got ${room.book_count}`);
 
       // Unit: shelf + unit-level → 2. Room/building-level and unowned excluded.
-      const { body: units } = await req('GET', `/api/shelf/rooms/${rm.id}/units`);
+      const units = await treeUnits(rm.id);
       const unit = units.find(x => x.id === u.id);
       assert.ok(unit, 'created unit should appear');
       assert.equal(unit.book_count, 2, `unit.book_count should be exactly 2, got ${unit.book_count}`);
@@ -930,7 +928,7 @@ describe('shelf', () => {
       const { body: rA2 } = await req('POST', '/api/shelf/rooms', { building_id: bldgA.id, name: `${stem} rA2` });
       // Reorder targeting bldgB but with bldgA's room ids.
       await req('PUT', '/api/shelf/rooms/order', { building_id: bldgB.id, ids: [rA2.id, rA1.id] });
-      const { body: roomsA } = await req('GET', `/api/shelf/buildings/${bldgA.id}/rooms`);
+      const roomsA = await treeRooms(bldgA.id);
       const rIdx = (id) => roomsA.findIndex(r => r.id === id);
       assert.ok(rIdx(rA1.id) < rIdx(rA2.id),
         `rooms in bldgA should be unchanged; got ${roomsA.map(r => r.id).join(',')}`);
@@ -941,7 +939,7 @@ describe('shelf', () => {
       const { body: uA1 } = await req('POST', '/api/shelf/units', { room_id: rmA.id, name: `${stem} uA1` });
       const { body: uA2 } = await req('POST', '/api/shelf/units', { room_id: rmA.id, name: `${stem} uA2` });
       await req('PUT', '/api/shelf/units/order', { room_id: rmB.id, ids: [uA2.id, uA1.id] });
-      const { body: unitsA } = await req('GET', `/api/shelf/rooms/${rmA.id}/units`);
+      const unitsA = await treeUnits(rmA.id);
       const uIdx = (id) => unitsA.findIndex(u => u.id === id);
       assert.ok(uIdx(uA1.id) < uIdx(uA2.id),
         `units in rmA should be unchanged; got ${unitsA.map(u => u.id).join(',')}`);
@@ -952,21 +950,20 @@ describe('shelf', () => {
       const { body: sA1 } = await req('POST', '/api/shelf/shelves', { unit_id: utA.id, label: `${stem} sA1` });
       const { body: sA2 } = await req('POST', '/api/shelf/shelves', { unit_id: utA.id, label: `${stem} sA2` });
       await req('PUT', '/api/shelf/shelves/order', { unit_id: utB.id, ids: [sA2.id, sA1.id] });
-      const { body: shelvesA } = await req('GET', `/api/shelf/units/${utA.id}/shelves`);
+      const shelvesA = await treeShelves(utA.id);
       const sIdx = (id) => shelvesA.findIndex(s => s.id === id);
       assert.ok(sIdx(sA1.id) < sIdx(sA2.id),
         `shelves in utA should be unchanged; got ${shelvesA.map(s => s.id).join(',')}`);
     });
 
-    it('GET /api/shelf/buildings orders by order_index', async () => {
+    it('the tree orders buildings by order_index', async () => {
       // Top-level buildings list is what ShelfView shows on initial render.
       // New buildings get monotonically increasing order_index (max+1), so
       // the earlier-created building should always come back first.
       const stem = 'bldg-list-order-' + Math.random().toString(36).slice(2, 6);
       const { body: first }  = await req('POST', '/api/shelf/buildings', { name: `${stem} first` });
       const { body: second } = await req('POST', '/api/shelf/buildings', { name: `${stem} second` });
-      const { body: list } = await req('GET', '/api/shelf/buildings');
-      const ids = list.map(b => b.id);
+      const ids = (await getTree()).map(b => b.id);
       const fi = ids.indexOf(first.id);
       const si = ids.indexOf(second.id);
       assert.ok(fi !== -1 && si !== -1, 'both buildings should appear');
@@ -974,9 +971,8 @@ describe('shelf', () => {
         `first-created should come before second; got ${ids.join(',')}`);
     });
 
-    it('GET /api/shelf/buildings reports exact room_count and book_count per building', async () => {
-      // Separate SQL from /tree (routes/shelf.js:60). Pin it on an isolated
-      // building to keep counts assertable.
+    it('the tree reports exact rooms and book_count per building', async () => {
+      // Pinned on an isolated building to keep counts assertable.
       const stem = 'list-count-' + Math.random().toString(36).slice(2, 6);
       const { body: bldg } = await req('POST', '/api/shelf/buildings', { name: `${stem} bldg` });
       // Two rooms, then place owned books at every tier.
@@ -990,10 +986,9 @@ describe('shelf', () => {
       await req('POST', '/api/books', { title: `${stem} on building`, format: 'physical', owned: true,  building_id: bldg.id });
       await req('POST', '/api/books', { title: `${stem} unowned`,     format: 'physical', owned: false, shelf_id: sh.id });
 
-      const { body: list } = await req('GET', '/api/shelf/buildings');
-      const found = list.find(b => b.id === bldg.id);
-      assert.ok(found, 'created building should appear in the list');
-      assert.equal(found.room_count, 2, `room_count: ${found.room_count}`);
+      const found = await treeBuilding(bldg.id);
+      assert.ok(found, 'created building should appear in the tree');
+      assert.equal(found.rooms.length, 2, `rooms: ${found.rooms.length}`);
       assert.equal(found.book_count, 4, `book_count: ${found.book_count}`);
     });
 
@@ -1007,7 +1002,7 @@ describe('shelf', () => {
       const { body: sB } = await req('POST', '/api/shelf/shelves', { unit_id: u.id, label: `${stem} sB` });
       const { status } = await req('PUT', '/api/shelf/shelves/order', { unit_id: u.id, ids: [sB.id, sA.id] });
       assert.equal(status, 204);
-      const { body: shelves } = await req('GET', `/api/shelf/units/${u.id}/shelves`);
+      const shelves = await treeShelves(u.id);
       const idx = (id) => shelves.findIndex(s => s.id === id);
       assert.ok(idx(sB.id) < idx(sA.id),
         `sB should come before sA after reorder; got ${shelves.map(s => s.id).join(',')}`);
@@ -1017,14 +1012,14 @@ describe('shelf', () => {
       // The 400-rejection branch is covered above; this pins the success
       // branch — the actual drag-and-drop contract used by ShelfManager.
       // Create two fresh siblings at each level, send a reversed id list,
-      // and assert the children-list GET surfaces the new order.
+      // and assert the tree surfaces the new order.
       const stem = 'reorder-' + Math.random().toString(36).slice(2, 6);
 
       // Buildings: top-level, no parent context.
       const { body: bA } = await req('POST', '/api/shelf/buildings', { name: `${stem} bA` });
       const { body: bB } = await req('POST', '/api/shelf/buildings', { name: `${stem} bB` });
       await req('PUT', '/api/shelf/buildings/order', { ids: [bB.id, bA.id] });
-      const { body: buildings } = await req('GET', '/api/shelf/buildings');
+      const buildings = await getTree();
       const bIdx = (id) => buildings.findIndex(x => x.id === id);
       assert.ok(bIdx(bB.id) < bIdx(bA.id),
         `bB should come before bA after reorder; got order ${buildings.map(x => x.id).join(',')}`);
@@ -1034,7 +1029,7 @@ describe('shelf', () => {
       const { body: rA } = await req('POST', '/api/shelf/rooms', { building_id: bldg.id, name: `${stem} rA` });
       const { body: rB } = await req('POST', '/api/shelf/rooms', { building_id: bldg.id, name: `${stem} rB` });
       await req('PUT', '/api/shelf/rooms/order', { building_id: bldg.id, ids: [rB.id, rA.id] });
-      const { body: rooms } = await req('GET', `/api/shelf/buildings/${bldg.id}/rooms`);
+      const rooms = await treeRooms(bldg.id);
       const rIdx = (id) => rooms.findIndex(x => x.id === id);
       assert.ok(rIdx(rB.id) < rIdx(rA.id),
         `rB should come before rA after reorder; got order ${rooms.map(x => x.id).join(',')}`);
@@ -1044,14 +1039,14 @@ describe('shelf', () => {
       const { body: uA } = await req('POST', '/api/shelf/units', { room_id: parentRoom.id, name: `${stem} uA` });
       const { body: uB } = await req('POST', '/api/shelf/units', { room_id: parentRoom.id, name: `${stem} uB` });
       await req('PUT', '/api/shelf/units/order', { room_id: parentRoom.id, ids: [uB.id, uA.id] });
-      const { body: units } = await req('GET', `/api/shelf/rooms/${parentRoom.id}/units`);
+      const units = await treeUnits(parentRoom.id);
       const uIdx = (id) => units.findIndex(x => x.id === id);
       assert.ok(uIdx(uB.id) < uIdx(uA.id),
         `uB should come before uA after reorder; got order ${units.map(x => x.id).join(',')}`);
     });
 
-    it('children-list endpoints order by order_index', async () => {
-      // Each "children of X" route ORDER BY order_index, name. New siblings
+    it('the tree orders children by order_index', async () => {
+      // Each level is ORDER BY order_index, name. New siblings
       // get monotonically increasing order_index (max+1), so the existing
       // fixtures should come back before any newly-created sibling.
       const stem = 'children-order-' + Math.random().toString(36).slice(2, 6);
@@ -1060,13 +1055,12 @@ describe('shelf', () => {
       const { body: shelf2 } = await req('POST', '/api/shelf/shelves',{ unit_id: unitId,         label: `${stem} S` });
 
       const cases = [
-        { path: `/api/shelf/buildings/${buildingId}/rooms`,  first: roomId, second: room2.id },
-        { path: `/api/shelf/rooms/${roomId}/units`,          first: unitId, second: unit2.id },
-        { path: `/api/shelf/units/${unitId}/shelves`,        first: shelfId, second: shelf2.id },
+        { path: 'rooms of the building', list: () => treeRooms(buildingId), first: roomId,  second: room2.id },
+        { path: 'units of the room',     list: () => treeUnits(roomId),     first: unitId,  second: unit2.id },
+        { path: 'shelves of the unit',   list: () => treeShelves(unitId),   first: shelfId, second: shelf2.id },
       ];
-      for (const { path, first, second } of cases) {
-        const { body } = await req('GET', path);
-        const ids = body.map(x => x.id);
+      for (const { path, list, first, second } of cases) {
+        const ids = (await list()).map(x => x.id);
         const fi = ids.indexOf(first);
         const si = ids.indexOf(second);
         assert.ok(fi !== -1 && si !== -1, `both children should appear in ${path}`);

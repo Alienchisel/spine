@@ -587,10 +587,13 @@ Books reference a single level via `shelf_id` / `unit_id` / `room_id` /
 book is assigned at upward to the building. `GET /api/shelf/unshelfed` returns
 owned physical (or format-unset) books with no location assigned.
 
-API: `GET/POST/PUT/DELETE` endpoints under `/api/shelf/buildings`,
-`/api/shelf/rooms`, `/api/shelf/units`, `/api/shelf/shelves`, plus
-`/api/shelf/tree`, `/api/shelf/unshelfed`, `/api/shelf/location/:bookId`,
-and book-listing endpoints (`/api/shelf/buildings/:id/books`, etc.).
+API: `POST/PUT/DELETE` endpoints under `/api/shelf/buildings`,
+`/api/shelf/rooms`, `/api/shelf/units`, `/api/shelf/shelves` (plus their
+`/order` reorder routes). Reading the layout is one call —
+`GET /api/shelf/tree` returns every building with its rooms, units and
+shelves nested, each carrying `book_count`; the old per-level GETs were
+removed. Also `/api/shelf/unshelfed`, `/api/shelf/location/:bookId`, and
+the book-listing endpoints (`/api/shelf/buildings/:id/books`, etc.).
 
 ---
 

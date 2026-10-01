@@ -65,21 +65,6 @@ router.get('/tree', (_req, res) => {
 
 // ── Buildings ──────────────────────────────────────────────────────────────
 
-router.get('/buildings', (_req, res) => {
-  const buildings = db.prepare(`
-    SELECT b.*,
-      (SELECT COUNT(*) FROM rooms WHERE building_id = b.id) AS room_count,
-      (SELECT COUNT(*) FROM books WHERE building_id = b.id AND owned = 1 AND COALESCE(archived,0) = 0)
-      + (SELECT COUNT(*) FROM books WHERE room_id IN (SELECT id FROM rooms WHERE building_id = b.id) AND owned = 1 AND COALESCE(archived,0) = 0)
-      + (SELECT COUNT(*) FROM books WHERE unit_id IN (SELECT u.id FROM units u JOIN rooms r ON u.room_id = r.id WHERE r.building_id = b.id) AND owned = 1 AND COALESCE(archived,0) = 0)
-      + (SELECT COUNT(*) FROM books bk JOIN shelves s ON bk.shelf_id = s.id JOIN units u ON s.unit_id = u.id JOIN rooms r ON u.room_id = r.id WHERE r.building_id = b.id AND bk.owned = 1 AND COALESCE(bk.archived,0) = 0)
-      AS book_count
-    FROM buildings b
-    ORDER BY b.order_index, b.name
-  `).all();
-  res.json(buildings);
-});
-
 router.post('/buildings', (req, res) => {
   const { name, proximity, notes } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
@@ -99,14 +84,6 @@ router.put('/buildings/order', (req, res) => {
   const update = db.prepare('UPDATE buildings SET order_index = ? WHERE id = ?');
   db.transaction(() => ids.forEach((id, i) => update.run(i, id)))();
   res.status(204).end();
-});
-
-router.get('/buildings/:id', (req, res) => {
-  const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid id' });
-  const building = db.prepare('SELECT * FROM buildings WHERE id = ?').get(id);
-  if (!building) return res.status(404).json({ error: 'Not found' });
-  res.json(building);
 });
 
 router.put('/buildings/:id', (req, res) => {
@@ -132,27 +109,6 @@ router.delete('/buildings/:id', (req, res) => {
 });
 
 // ── Rooms ──────────────────────────────────────────────────────────────────
-
-router.get('/buildings/:id/rooms', (req, res) => {
-  const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid id' });
-  const rooms = db.prepare(`
-    SELECT r.*,
-      (SELECT COUNT(*) FROM units WHERE room_id = r.id) AS unit_count,
-      (
-        (SELECT COUNT(*) FROM books WHERE room_id = r.id AND owned = 1 AND COALESCE(archived,0) = 0)
-        + (SELECT COUNT(*) FROM books WHERE unit_id IN (SELECT id FROM units WHERE room_id = r.id) AND owned = 1 AND COALESCE(archived,0) = 0)
-        + (SELECT COUNT(*) FROM books bk
-            JOIN shelves s ON bk.shelf_id = s.id
-            JOIN units u ON s.unit_id = u.id
-            WHERE u.room_id = r.id AND bk.owned = 1 AND COALESCE(bk.archived,0) = 0)
-      ) AS book_count
-    FROM rooms r
-    WHERE r.building_id = ?
-    ORDER BY r.order_index, r.name
-  `).all(id);
-  res.json(rooms);
-});
 
 router.post('/rooms', (req, res) => {
   const { building_id, name } = req.body;
@@ -200,25 +156,6 @@ router.delete('/rooms/:id', (req, res) => {
 
 // ── Units ──────────────────────────────────────────────────────────────────
 
-router.get('/rooms/:id/units', (req, res) => {
-  const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid id' });
-  const units = db.prepare(`
-    SELECT u.*,
-      (SELECT COUNT(*) FROM shelves WHERE unit_id = u.id) AS shelf_count,
-      (
-        (SELECT COUNT(*) FROM books WHERE unit_id = u.id AND owned = 1 AND COALESCE(archived,0) = 0)
-        + (SELECT COUNT(*) FROM books bk
-            JOIN shelves s ON bk.shelf_id = s.id
-            WHERE s.unit_id = u.id AND bk.owned = 1 AND COALESCE(bk.archived,0) = 0)
-      ) AS book_count
-    FROM units u
-    WHERE u.room_id = ?
-    ORDER BY u.order_index, u.name
-  `).all(id);
-  res.json(units);
-});
-
 router.post('/units', (req, res) => {
   const { room_id, name } = req.body;
   if (!room_id) return res.status(400).json({ error: 'room_id is required' });
@@ -264,19 +201,6 @@ router.delete('/units/:id', (req, res) => {
 });
 
 // ── Shelves ────────────────────────────────────────────────────────────────
-
-router.get('/units/:id/shelves', (req, res) => {
-  const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid id' });
-  const shelves = db.prepare(`
-    SELECT s.*,
-      (SELECT COUNT(*) FROM books WHERE shelf_id = s.id AND owned = 1 AND COALESCE(archived,0) = 0) AS book_count
-    FROM shelves s
-    WHERE s.unit_id = ?
-    ORDER BY s.order_index, s.label
-  `).all(id);
-  res.json(shelves);
-});
 
 router.post('/shelves', (req, res) => {
   const { unit_id, label } = req.body;
