@@ -8,6 +8,7 @@ import { useStaleGuard } from '../hooks/useStaleGuard.js';
 import { useSpineEvent, dispatchSpineEvent } from '../hooks/useSpineEvent.js';
 import { SORTS } from './library/sorts.js';
 import CoverThumb from './CoverThumb.jsx';
+import { matchesQuery } from '../lib/textMatch.js';
 
 // Global command palette, opened with Ctrl/Cmd+K (universal) or
 // Ctrl/Cmd+Shift+P (VS Code muscle memory; Chrome/Edge/Safari only —
@@ -185,12 +186,6 @@ function parseCursorContext(input, cursorPos) {
 // drop filler words ("sort author" matches "Sort by Author A–Z") without
 // pulling in a full fuzzy-search dependency. Book search stays on the
 // backend FTS path for its smarter ranking.
-function matchesQuery(text, q) {
-  if (!q) return true;
-  const haystack = text.toLowerCase();
-  const tokens = q.split(/\s+/).filter(Boolean);
-  return tokens.every(t => haystack.includes(t));
-}
 
 const MRU_KEY = 'spine-palette-mru';
 const MRU_MAX = 20;
