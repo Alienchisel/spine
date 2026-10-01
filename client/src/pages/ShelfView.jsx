@@ -192,10 +192,17 @@ const BookCoverThumb = memo(function BookCoverThumb({ book, compact, linkState, 
     book.authors?.map(a => a.name).join(', '),
     book.is_stub && !book.owned ? '(wishlist placeholder)' : null,
   ].filter(Boolean).join(' — ');
+  // content-visibility per card, not just per group: a whole-building view
+  // renders every cover (1,288 in Home) and one room group can hold
+  // ~1,245, so a group is never fully off-screen and the group-level
+  // setting skipped nothing. Per card, off-screen covers skip layout and
+  // paint while the grid stays one continuous layout at any column count.
+  // `auto` remembers each card's real height once it has rendered; the
+  // second value is only the first-pass estimate.
   return (
     <div
       data-book-id={book.id}
-      className={`transition-[background-color] ease-out duration-150 ${compact ? '' : 'bg-card rounded-lg p-1.5'} ${dimming} ${focused ? 'ring-2 ring-oak rounded animate-pulse' : ''}`}
+      className={`[content-visibility:auto] ${compact ? '[contain-intrinsic-size:auto_170px]' : '[contain-intrinsic-size:auto_260px]'} transition-[background-color] ease-out duration-150 ${compact ? '' : 'bg-card rounded-lg p-1.5'} ${dimming} ${focused ? 'ring-2 ring-oak rounded animate-pulse' : ''}`}
     >
       <Link to={`/books/${book.id}`} state={linkState} draggable={false} className="group block" title={coverTitle}>
         <div className={`relative bg-neutral-800 overflow-hidden ${compact ? 'aspect-[2/3] rounded-sm' : 'aspect-[2/3] rounded shadow-lg'}`}>
