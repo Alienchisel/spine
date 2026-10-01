@@ -16,6 +16,9 @@ async function request(path, options = {}) {
     // Validation routes echo the offending field name so forms can
     // switch to the right tab / highlight the input inline.
     if (err.field) e.field = err.field;
+    // A 409 that names the record it clashes with (e.g. renaming an
+    // author to another author's name) — lets the UI link to it.
+    if (err.conflict_id != null) e.conflictId = err.conflict_id;
     throw e;
   }
   // Any successful write, announced from the single choke point. The

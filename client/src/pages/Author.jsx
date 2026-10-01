@@ -77,6 +77,91 @@ function autoFormatDate(raw) {
 // or YYYY-MM-DD (BCE: "-428"). Enter commits, Esc cancels. Same hover-
 // reveal aesthetic as GenderPicker so the dates feel like ambient
 // metadata rather than a form control.
+// Author name with a hover-revealed ✎ that swaps in a text input (Enter
+// saves, Esc cancels) — same ambient-metadata feel as DatesPicker.
+// Renaming is the safe way to fix a misspelt name: books and stories link
+// authors by id, so every byline follows. (Editing a book's byline instead
+// creates a second author.) A name that already belongs to another author
+// is refused with a link to them — that's a duplicate to merge, not a
+// rename.
+function NameEditor({ author, onSaved, linkState }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [error, setError] = useState(null);
+  const [conflictId, setConflictId] = useState(null);
+  const [busy, setBusy] = useState(false);
+  function start() {
+    setDraft(author.name);
+    setError(null);
+    setConflictId(null);
+    setEditing(true);
+  }
+  function cancel() { setEditing(false); setError(null); setConflictId(null); }
+  async function commit() {
+    if (busy) return;
+    const next = draft.trim();
+    if (!next) return setError('Name cannot be empty');
+    if (next === author.name) return cancel();
+    setBusy(true);
+    setError(null);
+    setConflictId(null);
+    try {
+      const updated = await api.updateAuthor(author.id, { name: next });
+      onSaved(updated);
+      setEditing(false);
+    } catch (e) {
+      setError(e.message || 'Failed to rename');
+      setConflictId(e.conflictId ?? null);
+    } finally {
+      setBusy(false);
+    }
+  }
+  function onKey(e) {
+    if (e.key === 'Escape') cancel();
+    if (e.key === 'Enter')  { e.preventDefault(); commit(); }
+  }
+  if (editing) {
+    return (
+      <div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <input
+            type="text" value={draft} onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={onKey} autoFocus aria-label="Author name" disabled={busy}
+            className="min-w-0 flex-1 max-w-md bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xl font-bold text-white focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20"
+          />
+          <button type="button" onClick={commit} disabled={busy} className="text-xs text-oak hover:text-leather transition-colors disabled:opacity-60">
+            {busy ? 'Saving…' : 'Save'}
+          </button>
+          <button type="button" onClick={cancel} disabled={busy} className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors">Cancel</button>
+        </div>
+        {error && (
+          <p role="alert" className="mt-1 text-xs text-warn">
+            {error}
+            {conflictId != null && (
+              <>
+                {' · '}
+                <Link to={`/authors/${conflictId}`} state={linkState} className="underline hover:text-leather">open that author</Link>
+              </>
+            )}
+          </p>
+        )}
+      </div>
+    );
+  }
+  return (
+    <h1 className="group text-2xl font-bold text-white">
+      {author.name}
+      <button
+        type="button" onClick={start}
+        className="ml-2 align-middle text-sm font-normal text-neutral-600 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-neutral-300 transition-opacity"
+        title="Rename author" aria-label={`Rename ${author.name}`}
+      >
+        ✎
+      </button>
+    </h1>
+  );
+}
+
 function DatesPicker({ birth, death, onChange }) {
   const [editing, setEditing] = useState(false);
   const [birthDraft, setBirthDraft] = useState('');
@@ -611,7 +696,9 @@ export default function Author() {
 
         <div className="flex-1 min-w-0">
           <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1">Author</p>
-          <h1 className="text-2xl font-bold text-white">{author?.name ?? (loading || errorKind === 'fetch' ? ' ' : 'Author not found')}</h1>
+          {author
+            ? <NameEditor author={author} linkState={fromState} onSaved={(updated) => setAuthor(a => (a ? { ...a, ...updated } : a))} />
+            : <h1 className="text-2xl font-bold text-white">{loading || errorKind === 'fetch' ? ' ' : 'Author not found'}</h1>}
           {author?.aliases?.length > 0 && (
             <p className="text-neutral-600 text-xs mt-1">
               also writes as{' '}

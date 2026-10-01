@@ -1068,3 +1068,90 @@ describe('authors — merge', () => {
     }
   });
 });
+
+describe('authors — keeping curated profiles, and rename', () => {
+  let close;
+  let req;
+  before(async () => {
+    const server = await createTestServer();
+    close = server.close;
+    req = server.req;
+  });
+  after(() => close());
+
+  const stem = () => Math.random().toString(36).slice(2, 7);
+  const authorOf = async (bookId) => (await req('GET', `/api/books/${bookId}`)).body.authors[0];
+
+  it('changing a curated author\'s only byline keeps their profile, and the name re-attaches it', async () => {
+    // Regression: the orphan prune deleted any author with no credits —
+    // bio, portrait, dates, loved and all — so fixing a byline typo on an
+    // author's only book wiped the profile.
+    const s = stem();
+    const { body: book } = await req('POST', '/api/books', { title: `Curated ${s}`, authors: [`Ursla Le Guin ${s}`] });
+    const original = await authorOf(book.id);
+    await req('PATCH', `/api/authors/${original.id}`, { bio: 'An American author.', loved: true, birth_date: '1929-10-21' });
+
+    await req('PATCH', `/api/books/${book.id}`, { authors: [`Ursula K. Le Guin ${s}`] });
+    const { status, body: kept } = await req('GET', `/api/authors/${original.id}`);
+    assert.equal(status, 200, 'curated author survives losing their last credit');
+    assert.equal(kept.bio, 'An American author.');
+    assert.equal(kept.loved, 1);
+    assert.equal(kept.birth_date, '1929-10-21');
+
+    await req('PATCH', `/api/books/${book.id}`, { authors: [`Ursla Le Guin ${s}`] });
+    assert.equal((await authorOf(book.id)).id, original.id, 'the same row is re-attached by name');
+  });
+
+  it('still prunes a bare author left with no credits', async () => {
+    const s = stem();
+    const { body: book } = await req('POST', '/api/books', { title: `Bare ${s}`, authors: [`Typo Name ${s}`] });
+    const typo = await authorOf(book.id);
+    await req('PATCH', `/api/books/${book.id}`, { authors: [`Fixed Name ${s}`] });
+    const { status } = await req('GET', `/api/authors/${typo.id}`);
+    assert.equal(status, 404);
+  });
+
+  it('renames an author in place — every byline follows, same id', async () => {
+    const s = stem();
+    const { body: b1 } = await req('POST', '/api/books', { title: `Rename A ${s}`, authors: [`Misspelt ${s}`] });
+    const { body: b2 } = await req('POST', '/api/books', { title: `Rename B ${s}`, authors: [`Misspelt ${s}`] });
+    const a = await authorOf(b1.id);
+    const { status, body } = await req('PATCH', `/api/authors/${a.id}`, { name: `  Spelt Right ${s} ` });
+    assert.equal(status, 200);
+    assert.equal(body.name, `Spelt Right ${s}`, 'trimmed like bylines are');
+    for (const b of [b1, b2]) {
+      const now = await authorOf(b.id);
+      assert.equal(now.id, a.id);
+      assert.equal(now.name, `Spelt Right ${s}`);
+    }
+  });
+
+  it('refuses a name another author already has (any casing) and points at them', async () => {
+    const s = stem();
+    const { body: b1 } = await req('POST', '/api/books', { title: `Clash A ${s}`, authors: [`Alpha Writer ${s}`] });
+    const { body: b2 } = await req('POST', '/api/books', { title: `Clash B ${s}`, authors: [`Beta Writer ${s}`] });
+    const alpha = await authorOf(b1.id);
+    const beta  = await authorOf(b2.id);
+    const res = await req('PATCH', `/api/authors/${alpha.id}`, { name: `beta writer ${s}` });
+    assert.equal(res.status, 409);
+    assert.equal(res.body.conflict_id, beta.id);
+    assert.equal((await authorOf(b1.id)).name, `Alpha Writer ${s}`, 'unchanged');
+  });
+
+  it('allows a case-only change to the author\'s own name', async () => {
+    const s = stem();
+    const { body: b } = await req('POST', '/api/books', { title: `Case ${s}`, authors: [`le carre ${s}`] });
+    const a = await authorOf(b.id);
+    const res = await req('PATCH', `/api/authors/${a.id}`, { name: `Le Carre ${s}` });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.name, `Le Carre ${s}`);
+  });
+
+  it('rejects an empty name', async () => {
+    const s = stem();
+    const { body: b } = await req('POST', '/api/books', { title: `Empty ${s}`, authors: [`Someone ${s}`] });
+    const a = await authorOf(b.id);
+    const res = await req('PATCH', `/api/authors/${a.id}`, { name: '   ' });
+    assert.equal(res.status, 400);
+  });
+});

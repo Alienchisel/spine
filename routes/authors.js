@@ -3,6 +3,7 @@ import multer from 'multer';
 import db, { nrm } from '../db.js';
 import { linkAuthorAliases, unlinkAuthorAlias, mergeAuthors } from '../lib/books/people.js';
 import { listBooks } from '../lib/books/repository.js';
+import { stripWrap } from '../lib/books/normalization.js';
 import { lookupAuthor, searchAuthorsMulti, downloadAuthorPhotoByUrl } from '../lib/authors/openLibrary.js';
 import { saveAuthorPhotoFromBuffer, deleteAuthorPhoto } from '../lib/authors/photos.js';
 
@@ -337,7 +338,8 @@ router.patch('/:id', (req, res) => {
   const hasDeath  = 'death_date'   in body;
   const hasSort   = 'default_sort' in body;
   const hasLoved  = 'loved'        in body;
-  if (!hasGender && !hasBio && !hasBirth && !hasDeath && !hasSort && !hasLoved) {
+  const hasName   = 'name'         in body;
+  if (!hasGender && !hasBio && !hasBirth && !hasDeath && !hasSort && !hasLoved && !hasName) {
     return res.status(400).json({ error: 'No supported fields to update' });
   }
   const sets = [];
@@ -386,6 +388,28 @@ router.patch('/:id', (req, res) => {
   if (hasLoved) {
     sets.push('loved = ?');
     params.push(body.loved ? 1 : 0);
+  }
+  // Rename. Books and stories link authors by id, so every byline follows
+  // automatically — the safe way to fix a misspelt name, where editing a
+  // book's byline would create a second author. Bylines match names
+  // case-insensitively (syncPeople), so a name another author already has
+  // in any casing is refused with its id: that's a duplicate to merge
+  // (POST /:id/merge), not a rename. A case-only change to this author's
+  // own name is fine.
+  if (hasName) {
+    // Same normalization bylines get in syncPeople, so names compare alike.
+    const next = typeof body.name === 'string' ? stripWrap(body.name.trim()) : null;
+    if (!next) return res.status(400).json({ error: 'Name cannot be empty', field: 'name' });
+    if (next.length > 200) return res.status(400).json({ error: 'Name is too long', field: 'name' });
+    const clash = db.prepare('SELECT id, name FROM authors WHERE name = ? COLLATE NOCASE AND id != ?').get(next, id);
+    if (clash) {
+      return res.status(409).json({
+        error: `${clash.name} is already an author — merge them instead`,
+        field: 'name', conflict_id: clash.id,
+      });
+    }
+    sets.push('name = ?');
+    params.push(next);
   }
   db.prepare(`UPDATE authors SET ${sets.join(', ')} WHERE id = ?`).run(...params, id);
   res.json(loadAuthor(id));
