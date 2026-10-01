@@ -489,8 +489,7 @@ export default function Library() {
   const countsError = countsQ.isError;
 
   // Facets — cached per view. Keeps previous facets visible during
-  // transitions (no flicker on filter change). Tab-change prune runs
-  // in a side effect once the new facets land.
+  // transitions (no flicker on filter change).
   const facetsQ = useQuery({
     queryKey: ['library-facets', tab, sort, filters, query, randomSeed],
     queryFn: () => api.getBookFacets(buildApiParams(tab, sort, filters, query, 0, randomSeed)),
@@ -498,13 +497,34 @@ export default function Library() {
   });
   const facets      = facetsQ.data ?? null;
   const facetsError = facetsQ.isError;
+
+  // On landing on a tab (first load or a tab switch), drop filter chips
+  // that can't apply here: values NO book in this tab has. Pruned against
+  // the tab's UNFILTERED facets. The view's own facets were the wrong
+  // reference twice over: they're computed with every filter applied, so
+  // a combination with zero matches yields empty facets and pruning
+  // against them wiped every filter; and right after a switch they were
+  // still the previous tab's placeholder data. Zero results with all
+  // chips still showing is honest and one click to clear; silently
+  // dropping them was not. Same cache key shape as facetsQ, so the
+  // unfiltered facets are reused if the user clears their filters.
+  const setFiltersRef = useLatest(setFilters);
   useEffect(() => {
-    if (!facetsQ.data) return;
-    const isTabChange = prevTabRef.current !== tab;
+    if (prevTabRef.current === tab) return;
     prevTabRef.current = tab;
-    if (isTabChange) setFilters(prev => pruneFilters(prev, facetsQ.data, tab));
+    if (countFilters(filters) === 0) return;
+    let cancelled = false;
+    queryClient.fetchQuery({
+      queryKey: ['library-facets', tab, sort, EMPTY_FILTERS, '', randomSeed],
+      queryFn: () => api.getBookFacets(buildApiParams(tab, sort, EMPTY_FILTERS, '', 0, randomSeed)),
+    }).then((tabFacets) => {
+      // setFiltersRef: the user may have changed filters while this was
+      // in flight — prune their current set, not this render's.
+      if (!cancelled) setFiltersRef.current(prev => pruneFilters(prev, tabFacets, tab));
+    }).catch(() => {});
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [facetsQ.data, tab]);
+  }, [tab]);
 
   // Cohort — the full view up to the 200 server cap, used by
   // BookDetail's prev/next threading. Same cache key shape as the
