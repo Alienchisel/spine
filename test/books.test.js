@@ -1174,7 +1174,8 @@ describe('books', () => {
       // Regression: PATCH used to store these three raw while PUT ran
       // them through t()/tProse(), so the same input produced different
       // stored shapes depending on verb.
-      const { body: created } = await req('POST', '/api/books', { title: 'Patch Normalization Book' });
+      // Owned: acquisition data is only kept on owned / previously-owned books.
+      const { body: created } = await req('POST', '/api/books', { title: 'Patch Normalization Book', owned: true });
       const { status, body } = await req('PATCH', `/api/books/${created.id}`, {
         acquisition_source: '  Audible  ',
         description: '  A fine blurb.  ',
@@ -1394,14 +1395,12 @@ describe('books', () => {
         { col: 'acquisition_date',            val: '2024',                 expect: '2024' },
         // numeric
         { col: 'page_count',                  val: 200,                    expect: 200 },
-        { col: 'duration_minutes',            val: 360,                    expect: 360 },
         { col: 'year_published',              val: 2020,                   expect: 2020 },
         { col: 'year_edition',                val: 2021,                   expect: 2021 },
         { col: 'series_number',               val: 1.5,                    expect: 1.5 },
         { col: 'rating',                      val: 4.5,                    expect: 4.5 },
         // booleans
         { col: 'owned',                       val: 1, expect: 1 },
-        { col: 'previously_owned',            val: 1, expect: 1 },
         { col: 'loved',                       val: 1, expect: 1 },
         { col: 'fiction',                     val: 0, expect: 0 },
         // is_stub is intentionally NOT in this loop. The cases run in
@@ -1415,9 +1414,25 @@ describe('books', () => {
         { col: 'abridged',                    val: 1, expect: 1 },
       ];
       // Z-prefixed title so sort=title doesn't displace earlier fixtures.
+      // Seeded as an owned physical copy so the ownership/format-gated
+      // columns (acquisition data, condition, binding) are valid on it.
+      // duration_minutes (audiobook-only) and previously_owned (exclusive
+      // with owned) need a different shape — see GATED_CASES below.
       const { body: created } = await req('POST', '/api/books', {
-        title: 'Zzz Coverage Seed', authors: ['Z coverage_seed'], format: 'physical',
+        title: 'Zzz Coverage Seed', authors: ['Z coverage_seed'], format: 'physical', owned: true,
       });
+      const GATED_CASES = [
+        { seed: { format: 'audiobook' }, col: 'duration_minutes', val: 360, expect: 360 },
+        { seed: { owned: false },        col: 'previously_owned', val: 1,   expect: 1 },
+      ];
+      for (const g of GATED_CASES) {
+        const { body: book } = await req('POST', '/api/books', { title: `Zzz Coverage ${g.col}`, ...g.seed });
+        const { status, body: patched } = await req('PATCH', `/api/books/${book.id}`, { [g.col]: g.val });
+        assert.equal(status, 200, `${g.col}: PATCH returned ${status}`);
+        assert.equal(patched[g.col], g.expect, `${g.col}: response did not reflect PATCH`);
+        const { body: refetched } = await req('GET', `/api/books/${book.id}`);
+        assert.equal(refetched[g.col], g.expect, `${g.col}: GET after PATCH did not reflect the value`);
+      }
       for (const c of CASES) {
         const { status, body: patched } = await req('PATCH', `/api/books/${created.id}`, { [c.col]: c.val });
         assert.equal(status, 200, `${c.col}: PATCH returned ${status}`);
@@ -1436,6 +1451,7 @@ describe('books', () => {
       // acquisition_date). Downstream stats that use strftime/julianday
       // silently exclude partial-date rows — see lib/stats/activity.js.
       const { body: created } = await req('POST', '/api/books', {
+        owned: true, // acquisition_date is kept only on owned / previously-owned books
         title: 'Zzz Partial Date Accept', authors: ['Z partial_date'],
       });
       for (const col of ['date_started', 'date_finished', 'acquisition_date']) {
@@ -1747,16 +1763,24 @@ describe('books', () => {
       // the limit-capped 200.
       const { body: created } = await req('POST', '/api/books', { title: 'Zzz Owned Flip', authors: ['Z owned_test'] });
       assert.equal(created.owned, 0);
+      // Acquire it. owned and previously_owned are exclusive and owned wins
+      // (the full-save rule), so a patch setting both stores owned only.
       const { status, body } = await req('PATCH', `/api/books/${created.id}`, {
         owned: 1, previously_owned: 1, acquisition_source: 'Audible',
       });
       assert.equal(status, 200);
       assert.equal(body.owned, 1);
-      assert.equal(body.previously_owned, 1);
+      assert.equal(body.previously_owned, 0, 'owned wins over previously_owned');
       assert.equal(body.acquisition_source, 'Audible');
-      // Flip back.
-      const { body: cleared } = await req('PATCH', `/api/books/${created.id}`, { owned: 0 });
-      assert.equal(cleared.owned, 0);
+      // Sell it: previously owned keeps the acquisition history.
+      const { body: sold } = await req('PATCH', `/api/books/${created.id}`, { owned: 0, previously_owned: 1 });
+      assert.equal(sold.owned, 0);
+      assert.equal(sold.previously_owned, 1);
+      assert.equal(sold.acquisition_source, 'Audible');
+      // Never owned after all: acquisition data has nothing to describe.
+      const { body: cleared } = await req('PATCH', `/api/books/${created.id}`, { previously_owned: 0 });
+      assert.equal(cleared.previously_owned, 0);
+      assert.equal(cleared.acquisition_source, null);
     });
 
     it('does not bump updated_at when re-submitting the same current_page', async () => {
@@ -3765,6 +3789,86 @@ describe('books', () => {
       assert.ok(!ids.has(c.id), 'custom book must not appear');
       assert.ok(ids.has(r.id), 'owned book without acquisition_date should appear');
       assert.ok(!ids.has(p.id), 'owned book with acquisition_date must not appear');
+    });
+  });
+
+  describe('cross-field rules apply on PATCH as on PUT', () => {
+    let shelfId;
+    before(async () => {
+      const stem = 'gate-' + Math.random().toString(36).slice(2, 6);
+      const { body: bl } = await req('POST', '/api/shelf/buildings', { name: `${stem} bldg` });
+      const { body: rm } = await req('POST', '/api/shelf/rooms',     { building_id: bl.id, name: `${stem} room` });
+      const { body: u }  = await req('POST', '/api/shelf/units',     { room_id: rm.id, name: `${stem} unit` });
+      const { body: sh } = await req('POST', '/api/shelf/shelves',   { unit_id: u.id, label: stem });
+      shelfId = sh.id;
+    });
+    const shelvedCopy = async (title, extra = {}) => (await req('POST', '/api/books', {
+      title, format: 'physical', owned: true, shelf_id: shelfId, condition: 'good', binding: 'hardcover',
+      acquisition_source: 'Bookshop', ...extra,
+    })).body;
+
+    it('unowning a book clears its shelf, condition and acquisition data', async () => {
+      // Regression: PATCH {owned:0} left the location (unowned books were
+      // still on shelves) and condition behind.
+      const b = await shelvedCopy('Gate Unown');
+      const { body } = await req('PATCH', `/api/books/${b.id}`, { owned: 0 });
+      assert.equal(body.shelf_id, null);
+      assert.equal(body.condition, null);
+      assert.equal(body.acquisition_source, null, 'never-owned: nothing to describe');
+    });
+
+    it('selling (owned → previously owned) clears the shelf but keeps acquisition data', async () => {
+      const b = await shelvedCopy('Gate Sold');
+      const { body } = await req('PATCH', `/api/books/${b.id}`, { owned: 0, previously_owned: 1 });
+      assert.equal(body.shelf_id, null);
+      assert.equal(body.acquisition_source, 'Bookshop');
+    });
+
+    it('changing format clears what no longer applies', async () => {
+      // Regression: PATCH {format} left binding / location behind (two
+      // digital books had shelf locations).
+      const b = await shelvedCopy('Gate Format');
+      const { body: ebook } = await req('PATCH', `/api/books/${b.id}`, { format: 'ebook' });
+      assert.equal(ebook.binding, null);
+      assert.equal(ebook.shelf_id, null);
+      assert.equal(ebook.condition, null);
+      const { body: audio } = await req('POST', '/api/books', { title: 'Gate Audio', format: 'audiobook', duration_minutes: 600 });
+      const { body: printed } = await req('PATCH', `/api/books/${audio.id}`, { format: 'physical' });
+      assert.equal(printed.duration_minutes, null);
+    });
+
+    it('a shelf can\'t be patched onto a digital or unowned book', async () => {
+      const { body: e } = await req('POST', '/api/books', { title: 'Gate Ebook Shelf', format: 'ebook', owned: true });
+      const { body } = await req('PATCH', `/api/books/${e.id}`, { shelf_id: shelfId });
+      assert.equal(body.shelf_id, null);
+    });
+
+    it('marking a book fiction clears source_type', async () => {
+      const { body: nf } = await req('POST', '/api/books', { title: 'Gate Source', fiction: false, source_type: 'primary' });
+      assert.equal(nf.source_type, 'primary');
+      const { body } = await req('PATCH', `/api/books/${nf.id}`, { fiction: true });
+      assert.equal(body.source_type, null);
+    });
+
+    it('an empty language falls back to English instead of a 500', async () => {
+      const { body: b } = await req('POST', '/api/books', { title: 'Gate Language', language: 'French' });
+      const res = await req('PATCH', `/api/books/${b.id}`, { language: '' });
+      assert.equal(res.status, 200);
+      assert.equal(res.body.language, 'English');
+    });
+
+    it('archived books stay off the readlist on every path', async () => {
+      const { body: a } = await req('POST', '/api/books', { title: 'Gate Archived', archived: true });
+      const { body: patched } = await req('PATCH', `/api/books/${a.id}`, { on_readlist: 1 });
+      assert.equal(patched.on_readlist, 0, 'PATCH can\'t readlist an archived book');
+
+      const { body: r } = await req('POST', '/api/books', { title: 'Gate Readlisted', on_readlist: true });
+      assert.equal(r.on_readlist, 1);
+      const { body: put } = await req('PUT', `/api/books/${r.id}`, { title: 'Gate Readlisted', archived: true });
+      assert.equal(put.on_readlist, 0, 'archiving through a full save clears the readlist');
+
+      const { body: c } = await req('POST', '/api/books', { title: 'Gate Created Archived', archived: true, on_readlist: true });
+      assert.equal(c.on_readlist, 0);
     });
   });
 
@@ -5940,7 +6044,7 @@ describe('books', () => {
     });
 
     it('patches acquisition_source', async () => {
-      const { body: b } = await req('POST', '/api/books', { title: 'Source Test' });
+      const { body: b } = await req('POST', '/api/books', { title: 'Source Test', owned: true });
       const { body } = await req('PATCH', `/api/books/${b.id}`, { acquisition_source: 'Library' });
       assert.equal(body.acquisition_source, 'Library');
     });

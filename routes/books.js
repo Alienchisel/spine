@@ -426,20 +426,17 @@ router.patch('/:id', (req, res) => {
     req.body.current_minutes = n;
   }
   // Enum-validate binding when present. Empty string / null clears the
-  // field; any other value must be in the binding enum. Caller is trusted
-  // to only patch this on physical books (the audit wizard does so; other
-  // callers can validate their own format gating).
+  // field; any other value must be in the binding enum. Format gating is
+  // applied in patchBook (gatedColumns): binding on a non-physical book is
+  // dropped, exactly as on PUT.
   if (req.body.binding !== undefined && req.body.binding !== null && req.body.binding !== '') {
     if (!ENUM_VALUES.binding.includes(req.body.binding)) {
       return res.status(400).json({ error: 'Invalid binding' });
     }
   }
-  // Same shape for format. Note: PATCH'ing format doesn't clear
-  // format-specific fields (binding, narrator, duration, shelf_id).
-  // Safe in the audit-wizard case because the pool is books with
-  // format IS NULL — there's no existing format-specific data to
-  // inconsistency. Other callers should use PUT for a format-change
-  // workflow that needs to clean up.
+  // Same shape for format. Changing it clears what no longer applies
+  // (binding, condition, duration, shelf location) via patchBook's
+  // gatedColumns pass — the same rules PUT applies.
   if (req.body.format !== undefined && req.body.format !== null && req.body.format !== '') {
     if (!ENUM_VALUES.format.includes(req.body.format)) {
       return res.status(400).json({ error: 'Invalid format' });
