@@ -3792,6 +3792,54 @@ describe('books', () => {
     });
   });
 
+  describe('PATCH validation is the shared validator (partial mode)', () => {
+    it('rejects what PUT rejects, with the offending field', async () => {
+      // Regression: PATCH re-implemented validation inline and skipped the
+      // ASIN format and title length, and never returned `field`.
+      const { body: b } = await req('POST', '/api/books', { title: 'Patch Validator' });
+      let res = await req('PATCH', `/api/books/${b.id}`, { asin: 'not-an-asin' });
+      assert.equal(res.status, 400);
+      assert.equal(res.body.field, 'asin');
+      res = await req('PATCH', `/api/books/${b.id}`, { title: 'x'.repeat(501) });
+      assert.equal(res.status, 400);
+      assert.equal(res.body.field, 'title');
+      res = await req('PATCH', `/api/books/${b.id}`, { rating: 4.3 });
+      assert.equal(res.status, 400);
+      assert.equal(res.body.field, 'rating');
+      res = await req('PATCH', `/api/books/${b.id}`, { title: '  ' });
+      assert.equal(res.status, 400, 'a present title must not be empty');
+    });
+
+    it('only checks fields that are present, and \'\' clears a nullable number', async () => {
+      const { body: b } = await req('POST', '/api/books', { title: 'Patch Clears', rating: 4, page_count: 300 });
+      const { status, body } = await req('PATCH', `/api/books/${b.id}`, { rating: '', page_count: '' });
+      assert.equal(status, 200, 'no title in the patch is fine; empty strings clear');
+      assert.equal(body.rating, null);
+      assert.equal(body.page_count, null);
+    });
+
+    it('tidies values like PUT: hyphenated ISBN stripped, numeric strings stored as numbers', async () => {
+      const { body: b } = await req('POST', '/api/books', { title: 'Patch Tidy' });
+      const { body } = await req('PATCH', `/api/books/${b.id}`, { isbn_13: '978-0-306-40615-7', year_published: '1987', rating: '3.5' });
+      assert.equal(body.isbn_13, '9780306406157');
+      assert.equal(body.year_published, 1987);
+      assert.equal(body.rating, 3.5);
+    });
+
+    it('routes a generic isbn on PATCH, as on POST', async () => {
+      const { body: b } = await req('POST', '/api/books', { title: 'Patch Generic ISBN' });
+      const { body } = await req('PATCH', `/api/books/${b.id}`, { isbn: '0306406152' });
+      assert.equal(body.isbn_10, '0306406152');
+    });
+
+    it('still checks source_type against the stored fiction flag', async () => {
+      const { body: f } = await req('POST', '/api/books', { title: 'Patch Fiction Source', fiction: true });
+      const res = await req('PATCH', `/api/books/${f.id}`, { source_type: 'primary' });
+      assert.equal(res.status, 400);
+      assert.equal(res.body.field, 'source_type');
+    });
+  });
+
   describe('cross-field rules apply on PATCH as on PUT', () => {
     let shelfId;
     before(async () => {

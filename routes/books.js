@@ -425,127 +425,22 @@ router.patch('/:id', (req, res) => {
     }
     req.body.current_minutes = n;
   }
-  // Enum-validate binding when present. Empty string / null clears the
-  // field; any other value must be in the binding enum. Format gating is
-  // applied in patchBook (gatedColumns): binding on a non-physical book is
-  // dropped, exactly as on PUT.
-  if (req.body.binding !== undefined && req.body.binding !== null && req.body.binding !== '') {
-    if (!ENUM_VALUES.binding.includes(req.body.binding)) {
-      return res.status(400).json({ error: 'Invalid binding' });
+  // Field rules shared with POST/PUT (validateBook), in partial mode: only
+  // the fields present are checked, the title only if it's being changed,
+  // and '' on a nullable number clears it. This route used to re-implement
+  // them inline and had drifted (no ASIN or title-length check, no generic
+  // `isbn` routing, errors without `field`). Value tidying (ISBN stripping,
+  // date trimming, numbers) happens in patchBook, as bookColumns does for PUT.
+  const errors = validateBook(req.body, { partial: true });
+  if (errors.length) return res.status(400).json({ error: errors[0].message, field: errors[0].field });
+  // source_type is non-fiction-only. When the patch doesn't carry `fiction`,
+  // validateBook can't see it, so check the stored row here.
+  if (req.body.source_type && req.body.fiction === undefined) {
+    const row = db.prepare('SELECT fiction FROM books WHERE id = ?').get(id);
+    if (!row) return res.status(404).json({ error: 'Not found' });
+    if (row.fiction !== 0) {
+      return res.status(400).json({ error: 'source_type requires fiction: false', field: 'source_type' });
     }
-  }
-  // Same shape for format. Changing it clears what no longer applies
-  // (binding, condition, duration, shelf location) via patchBook's
-  // gatedColumns pass — the same rules PUT applies.
-  if (req.body.format !== undefined && req.body.format !== null && req.body.format !== '') {
-    if (!ENUM_VALUES.format.includes(req.body.format)) {
-      return res.status(400).json({ error: 'Invalid format' });
-    }
-  }
-  if (req.body.condition !== undefined && req.body.condition !== null && req.body.condition !== '') {
-    if (!ENUM_VALUES.condition.includes(req.body.condition)) {
-      return res.status(400).json({ error: 'Invalid condition' });
-    }
-  }
-  // Rating: 0.5–5 in 0.5-step increments, or null/empty to clear.
-  // The DB has a CHECK constraint matching the same shape (see
-  // migration 053); validating here gives a friendlier error and
-  // matches the half-stars-everywhere convention in feedback memory.
-  if (req.body.rating !== undefined && req.body.rating !== null && req.body.rating !== '') {
-    const r = Number(req.body.rating);
-    if (Number.isNaN(r) || r < 0.5 || r > 5 || (r * 2) % 1 !== 0) {
-      return res.status(400).json({ error: 'Invalid rating' });
-    }
-    req.body.rating = r;
-  }
-  // ISBN columns share validateBook's regex shape so a PATCH writes
-  // exactly what a full PUT would. Caller picks the right column based
-  // on length (the wizard does this client-side). Hyphens / spaces are
-  // accepted on input and stripped before length-checking, since
-  // ISBN-10s are conventionally typed as "0-471-12345-X" etc.
-  for (const col of ['isbn_10', 'isbn_13']) {
-    if (req.body[col] !== undefined && req.body[col] !== null && req.body[col] !== '') {
-      const stripped = String(req.body[col]).replace(/[-\s]/g, '');
-      const ok = col === 'isbn_10' ? /^\d{9}[\dX]$/.test(stripped) : /^\d{13}$/.test(stripped);
-      if (!ok) return res.status(400).json({ error: `Invalid ${col.replace('_', '-').toUpperCase()}` });
-      req.body[col] = stripped;
-    }
-  }
-  // Partial-date fields share the YYYY / YYYY-MM / YYYY-MM-DD shape
-  // (server's isValidPartialDate). Empty / null clears. Mirrors validateBook —
-  // the book row's start/finish dates accept partials so the rule is uniform
-  // across reads / stories / acquisition_date.
-  for (const col of ['acquisition_date', 'date_started', 'date_finished']) {
-    if (req.body[col] !== undefined && req.body[col] !== null && req.body[col] !== '') {
-      const trimmed = String(req.body[col]).trim();
-      if (!isValidPartialDate(trimmed)) {
-        return res.status(400).json({ error: `Invalid ${col} — must be YYYY, YYYY-MM, or YYYY-MM-DD` });
-      }
-      req.body[col] = trimmed;
-    }
-  }
-  // Number fields. Validation mirrors validateBook (PUT path) so PATCH
-  // can't sneak in shapes a PUT would reject. year_* allow negatives
-  // (BCE) but reject 0 (no year zero in BC/AD convention). page_count
-  // / duration_minutes must be positive integers. series_number is
-  // numeric (BookForm UI restricts to 0.5 steps, but the column
-  // accepts any number — wizard does the same).
-  for (const col of ['year_published', 'year_edition']) {
-    if (req.body[col] !== undefined && req.body[col] !== null && req.body[col] !== '') {
-      const n = Number(req.body[col]);
-      if (!Number.isInteger(n) || n === 0) {
-        return res.status(400).json({ error: `Invalid ${col} — must be a non-zero integer (negatives are BCE)` });
-      }
-      req.body[col] = n;
-    }
-  }
-  for (const col of ['page_count', 'duration_minutes']) {
-    if (req.body[col] !== undefined && req.body[col] !== null && req.body[col] !== '') {
-      const n = Number(req.body[col]);
-      if (!Number.isInteger(n) || n < 1) {
-        return res.status(400).json({ error: `Invalid ${col} — must be a positive integer` });
-      }
-      req.body[col] = n;
-    }
-  }
-  if (req.body.title !== undefined && (req.body.title == null || !String(req.body.title).trim())) {
-    return res.status(400).json({ error: 'Title cannot be empty' });
-  }
-  if (req.body.status !== undefined && req.body.status !== null && req.body.status !== '') {
-    if (!ENUM_VALUES.status.includes(req.body.status)) {
-      return res.status(400).json({ error: 'Invalid status' });
-    }
-  }
-  // source_type is non-fiction-only (mirrors validation.js for POST/PUT).
-  // Patches that set source_type must also leave the book on fiction=0
-  // (either by patching fiction:false here, or the book is already
-  // non-fiction). Enum-check the value first; then gate on effective
-  // fiction by reading the existing row when fiction isn't in the patch.
-  if (req.body.source_type !== undefined && req.body.source_type !== null && req.body.source_type !== '') {
-    if (!ENUM_VALUES.source_type.includes(req.body.source_type)) {
-      return res.status(400).json({ error: 'Invalid source_type' });
-    }
-    const incomingFiction = req.body.fiction;
-    let effectiveFiction;
-    if (incomingFiction !== undefined) {
-      effectiveFiction = (incomingFiction === false || incomingFiction === 0 || incomingFiction === '0') ? 0 : 1;
-    } else {
-      const row = db.prepare('SELECT fiction FROM books WHERE id = ?').get(id);
-      if (!row) return res.status(404).json({ error: 'Not found' });
-      effectiveFiction = row.fiction;
-    }
-    if (effectiveFiction !== 0) {
-      return res.status(400).json({ error: 'source_type requires fiction: false' });
-    }
-  }
-  if (req.body.series_number !== undefined && req.body.series_number !== null && req.body.series_number !== '') {
-    const n = Number(req.body.series_number);
-    if (Number.isNaN(n)) return res.status(400).json({ error: 'Invalid series_number' });
-    // Series numbering is whole or half-volume only — matches BookForm's
-    // step="0.5" and the wizard's HTML5 step constraint. Without this the
-    // server-side path (curl, scripts, etc.) would silently accept 1.3 / 1.7.
-    if ((n * 2) % 1 !== 0) return res.status(400).json({ error: 'series_number must be a multiple of 0.5' });
-    req.body.series_number = n;
   }
   // Join-table arrays. Caller passes a list of strings or {name}
   // objects; the syncPeople helper handles both shapes. Empty array
