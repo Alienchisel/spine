@@ -195,7 +195,7 @@ function buildCalendar(rows) {
 function CalendarYearRow({ year, byDate, cellSize = 10, gap = 2 }) {
   // Build positions for every day of the year. col = weeks since the
   // year's first display column (Sunday on or before Jan 1); row = day
-  // of week (Sun=0). 53 cols covers leap years and Sunday-aligned starts.
+  // of week (Sun=0).
   const cells = [];
   const jan1 = new Date(year, 0, 1);
   // Day-of-week offset of Jan 1 in the year-start display grid.
@@ -219,7 +219,10 @@ function CalendarYearRow({ year, byDate, cellSize = 10, gap = 2 }) {
     }
   }
 
-  const cols = 53;
+  // 54 columns, not 53: a leap year starting on a Saturday (2000, 2028)
+  // puts Dec 31 in a 54th week, which was drawn past the SVG edge and
+  // clipped. Fixed rather than per-year so stacked year rows stay aligned.
+  const cols = 54;
   const W = cols * (cellSize + gap) - gap;
   const H = 7 * (cellSize + gap) - gap;
 

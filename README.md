@@ -125,7 +125,9 @@ node scripts/import-kindle-reading-sessions.js path/to/Reading-Sessions.csv --ap
 node scripts/import-kindle-reading-sessions.js path/to/Reading-Sessions.csv --apply --asin=B075MRHZBV
 ```
 
-Kindle parallel to the Audible listening importer. Groups CSV rows by (ASIN, date), sums `total_reading_millis` to per-day minutes, and upserts into `reading_log` using the same idempotent shape so re-runs are safe. Books are matched by ASIN; filter to specific titles with `--asin=<id>[,...]` or `--book-id=<n>[,...]`. Short sessions are dropped via `--min-event-seconds` (default 60); pass `--include-page-flips` to keep them.
+Kindle parallel to the Audible listening importer. Groups CSV rows by (ASIN, date), sums `total_reading_millis` to per-day minutes, and upserts into `reading_log` using the same idempotent shape so re-runs are safe. Sessions are bucketed by the local calendar day (Kindle timestamps are UTC). Books are matched by ASIN; filter to specific titles with `--asin=<id>[,...]` or `--book-id=<n>[,...]`. Short sessions are dropped via `--min-event-seconds` (default 60); pass `--include-page-flips` to keep them.
+
+> **Re-importing an old CSV:** before Spine 1.287.2 this importer bucketed sessions by UTC day, so evening sessions landed on the following day. Re-running a CSV imported before then writes those sessions to the correct day but leaves the old next-day rows in place, double-counting them. Clear the affected books' `reading_log` rows for the import's date range first.
 
 ## Maintenance
 

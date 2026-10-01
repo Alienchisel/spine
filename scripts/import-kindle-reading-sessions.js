@@ -128,12 +128,23 @@ function val(cell) {
   return s;
 }
 
-// Extract YYYY-MM-DD from an ISO 8601 timestamp (UTC). Returns null on
-// unparseable input.
-function isoToUtcDate(ts) {
+// Local calendar date (this machine's timezone — the clock every other
+// reading_log writer uses via date('now', 'localtime')) of an ISO 8601
+// timestamp. Kindle exports UTC ('...Z'), and taking its first ten
+// characters filed an evening session in Eastern time under the NEXT day,
+// skewing streaks and the heatmap. A timestamp without an offset parses as
+// local time, so it keeps its own date. Returns null on unparseable input.
+//
+// Re-import caution: CSVs imported before this change had those evening
+// sessions on the following day. Re-running such a CSV now writes them to
+// the correct day but leaves the old next-day rows in place — the same
+// minutes counted twice. Clear the affected books' reading_log rows for
+// the import's date range first.
+function isoToLocalDate(ts) {
   if (!ts) return null;
-  const m = /^(\d{4}-\d{2}-\d{2})/.exec(ts);
-  return m ? m[1] : null;
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 // ─── Aggregation ───────────────────────────────────────────────────────
@@ -153,7 +164,7 @@ for (const r of allRows) {
   if (!asin) { droppedNoDate++; continue; }
   asinsSeen.add(asin);
   const ts = val(r[I_END_TS]) || val(r[I_START_TS]);
-  const date = isoToUtcDate(ts);
+  const date = isoToLocalDate(ts);
   if (!date) { droppedNoDate++; continue; }
   // page_flips can be missing on rows where Kindle recorded reading time
   // but no navigation events — fall back to 0 rather than skipping the row.

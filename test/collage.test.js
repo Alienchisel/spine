@@ -205,3 +205,25 @@ describe('collage', () => {
     }
   });
 });
+
+describe('collage — period windows', () => {
+  let close, req;
+  before(async () => ({ close, req } = await createTestServer()));
+  after(() => close());
+
+  it('"Last 7 days" covers today and the six days before — not eight days', async () => {
+    // Regression: periodStart went back the full N days and compared
+    // inclusively (rl.date >= start), so every window was N + 1 days long.
+    const db = (await import('../db.js')).default;
+    const day = (n) => db.prepare("SELECT date('now', 'localtime', ?) AS d").get(`-${n} days`).d;
+    const { body: inside }  = await req('POST', '/api/books', { title: 'Window Edge Inside',  page_count: 100 });
+    const { body: outside } = await req('POST', '/api/books', { title: 'Window Edge Outside', page_count: 100 });
+    const log = db.prepare('INSERT INTO reading_log (book_id, date, pages_read, minutes_read) VALUES (?, ?, 40, 0)');
+    log.run(inside.id,  day(6));
+    log.run(outside.id, day(7));
+    const { body } = await req('GET', '/api/collage?mode=top_books&period=7d&size=10');
+    const hrefs = body.tiles.map(t => t.href);
+    assert.ok(hrefs.includes(`/books/${inside.id}`),  '6 days ago is inside the 7-day window');
+    assert.ok(!hrefs.includes(`/books/${outside.id}`), '7 days ago is outside it');
+  });
+});
