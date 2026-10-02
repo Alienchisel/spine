@@ -39,6 +39,13 @@ password — otherwise it crosses the wire in cleartext. Currently unknown
 (check the URL scheme / padlock in the browser, or that Slipway has a
 cert). If it's plain HTTP, get TLS in place first.
 
+**Status 2026-10-02:** HTTPS now exists — the fleet's `tailscale serve` at
+`https://yard.tail14703a.ts.net:13001` (berth + 10000), a real certificate,
+terminated by Tailscale. But plain `http://yard:3001` still answers too, so
+a password could still be typed into the plain address. Before enabling a
+reusable password: have the app refuse or redirect plain HTTP, or decide
+that the tailnet's own WireGuard encryption is the transport security.
+
 Lower-priority companion: no security-header middleware (helmet / CSP /
 X-Frame-Options). Minor for a single-user app, but cheap to add whenever
 auth lands.
