@@ -55,6 +55,16 @@ describe('authors — Open Library refresh', () => {
     assert.equal(parseDate('Dec 1950'),        '1950-12');
   });
 
+  it('parseDate leaves century-only dates blank rather than reading the ordinal as a year', () => {
+    // Regression (1.286.4): with an era marker the short-year allowance let
+    // the fallback grab the ordinal — '5th century BC' became -5.
+    for (const str of ['5th century BC', '4th century B.C.', '1st c. BC', '1st century AD', '12th Century']) {
+      assert.equal(parseDate(str), null, str);
+    }
+    assert.equal(parseDate('March 1st, 1990'), '1990', 'an ordinal day is not a century');
+    assert.equal(parseDate('428 BC'), '-428', 'plain era years still parse');
+  });
+
   it('parseDate normalizes OL date strings into YYYY / YYYY-MM-DD form', () => {
     assert.equal(parseDate('1938'),                 '1938');
     assert.equal(parseDate('1938-07-18'),           '1938-07-18');
