@@ -5,9 +5,10 @@ import PartialDateInput from '../PartialDateInput.jsx';
 import { input, inputNoWidth, label } from './styles.js';
 import { enumOptions } from '../../../../shared/bookFields.js';
 import { localToday } from '../../utils.js';
+import { applyStatusChange } from './statusChange.js';
 
 export default function CoreFields({
-  form, setForm, set, ic, isEdit,
+  form, setForm, set, ic, isEdit, savedStatus,
   pastAuthors, pastSeries, pastNarrators,
   authorInput,   setAuthorInput,
   narratorInput, setNarratorInput,
@@ -154,28 +155,7 @@ export default function CoreFields({
         <select id={idFor('status')} className={input} value={form.status}
           onChange={(e) => {
             const s = e.target.value;
-            const today = localToday();
-            // The date fields hold the LATEST read's dates. A transition
-            // starts or completes a read, so don't carry those over:
-            // finished → reading is a re-read that starts today, and moving
-            // into finished completes the current read today. Skip the
-            // today-default on previously-owned books — typically a
-            // historical read with an unknown date; auto-filling today
-            // silently fabricates one. (The server also ignores an
-            // unchanged echo of the old dates on a status change.)
-            setForm(f => {
-              const reread    = s === 'reading' && f.status === 'finished';
-              const finishing = s === 'finished' && f.status !== 'finished';
-              return {
-                ...f,
-                status: s,
-                read_count: s === 'finished' && f.read_count === 0 ? 1 : f.read_count,
-                date_started: reread ? today
-                  : s === 'reading' && !f.date_started ? today : f.date_started,
-                date_finished: reread ? ''
-                  : finishing && !f.previously_owned ? today : f.date_finished,
-              };
-            });
+            setForm(f => applyStatusChange(f, s, savedStatus, localToday()));
           }}>
           {enumOptions('status').map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>

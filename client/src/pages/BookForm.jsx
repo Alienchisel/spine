@@ -57,6 +57,9 @@ export default function BookForm() {
   const { state: navState } = useLocation();
   const isEdit = Boolean(id);
   const [form, setForm] = useState(FORM_DEFAULTS);
+  // The loaded book's status / read dates / read_count: the Status
+  // select measures transitions from these (see applyStatusChange).
+  const [savedStatus, setSavedStatus] = useState(null);
   const [activeTab, setActiveTab] = useState('core');
   const [tagInput,        setTagInput]        = useState('');
   const [narratorInput,   setNarratorInput]   = useState('');
@@ -187,6 +190,7 @@ export default function BookForm() {
       setLoadingBook(false);
       setLoadError(null);
       setForm(FORM_DEFAULTS);
+      setSavedStatus(null);
       setDurationH('');
       setDurationM('');
       setCoverPreview(null);
@@ -204,6 +208,7 @@ export default function BookForm() {
     setLoadError(null);
     setLoadingBook(true);
     setForm(FORM_DEFAULTS);
+    setSavedStatus(null);
     setDurationH('');
     setDurationM('');
     setCoverPreview(null);
@@ -211,7 +216,10 @@ export default function BookForm() {
     setFilledByLookup(new Set());
     api.getBook(id).then((book) => {
       if (!editGuard.isFresh(epoch)) return;
-      setForm(bookToFormState(book));
+      const loaded = bookToFormState(book);
+      setForm(loaded);
+      setSavedStatus({ status: loaded.status, date_started: loaded.date_started,
+        date_finished: loaded.date_finished, read_count: loaded.read_count });
       if (book.duration_minutes) {
         setDurationH(String(Math.floor(book.duration_minutes / 60)));
         setDurationM(String(book.duration_minutes % 60));
@@ -605,7 +613,7 @@ export default function BookForm() {
             {activeTab === 'core' && (
               <div role="tabpanel" id="book-form-panel-core" aria-labelledby="book-form-tab-core">
                 <CoreFields
-                  form={form} setForm={setFormDirty} set={set} ic={ic} isEdit={isEdit}
+                  form={form} setForm={setFormDirty} set={set} ic={ic} isEdit={isEdit} savedStatus={savedStatus}
                   pastAuthors={pastAuthors} pastSeries={pastSeries} pastNarrators={pastNarrators}
                   authorInput={authorInput}     setAuthorInput={setAuthorInput}
                   narratorInput={narratorInput} setNarratorInput={setNarratorInput}
