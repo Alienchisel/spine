@@ -77,8 +77,12 @@ function autoFormatDate(raw) {
 // or YYYY-MM-DD (BCE: "-428"). Enter commits, Esc cancels. Same hover-
 // reveal aesthetic as GenderPicker so the dates feel like ambient
 // metadata rather than a form control.
-// Author name with a hover-revealed ✎ that swaps in a text input (Enter
-// saves, Esc cancels) — same ambient-metadata feel as DatesPicker.
+// Author name with a ✎ (hover-revealed where there is hover, always shown
+// on touch screens) that swaps in a text input (Enter saves, Esc cancels)
+// — same ambient-metadata feel as DatesPicker. Keyed by author id at the
+// call site: moving to another author whose page is cached never passes
+// through a null author, so without the key an open editor, its draft and
+// any conflict link carried over onto the next author.
 // Renaming is the safe way to fix a misspelt name: books and stories link
 // authors by id, so every byline follows. (Editing a book's byline instead
 // creates a second author.) A name that already belongs to another author
@@ -153,7 +157,7 @@ function NameEditor({ author, onSaved, linkState }) {
       {author.name}
       <button
         type="button" onClick={start}
-        className="ml-2 align-middle text-sm font-normal text-neutral-600 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-neutral-300 transition-opacity"
+        className="ml-2 align-middle text-sm font-normal text-neutral-600 [@media(hover:hover)]:opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-neutral-300 transition-opacity"
         title="Rename author" aria-label={`Rename ${author.name}`}
       >
         ✎
@@ -697,7 +701,7 @@ export default function Author() {
         <div className="flex-1 min-w-0">
           <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1">Author</p>
           {author
-            ? <NameEditor author={author} linkState={fromState} onSaved={(updated) => setAuthor(a => (a ? { ...a, ...updated } : a))} />
+            ? <NameEditor key={author.id} author={author} linkState={fromState} onSaved={(updated) => setAuthor(a => (a ? { ...a, ...updated } : a))} />
             : <h1 className="text-2xl font-bold text-white">{loading || errorKind === 'fetch' ? ' ' : 'Author not found'}</h1>}
           {author?.aliases?.length > 0 && (
             <p className="text-neutral-600 text-xs mt-1">
