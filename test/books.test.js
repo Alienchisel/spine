@@ -4018,6 +4018,98 @@ describe('books', () => {
       assert.equal(reads[0].date_started, '2026-01-05', 'original start kept');
     });
 
+    // A finished book whose read has a start but no known finish: the
+    // unfinished-looking row is a counted completion, not an open session.
+    async function finishedNoFinishDate(title, extra = {}) {
+      const { body: b } = await req('POST', '/api/books', {
+        title, status: 'finished', date_started: '2020-01-01', page_count: 300, ...extra,
+      });
+      const reads = await readsOf(b.id);
+      assert.equal(reads.length, 1, 'fixture: one read');
+      assert.equal(reads[0].date_finished, null, 'fixture: finish unknown');
+      assert.equal(b.read_count, 1, 'fixture: counted once');
+      return b;
+    }
+
+    it('finished → unread → finished logs a new completion instead of stretching the old read', async () => {
+      // Regression: the old (2020-01-01, NULL) completion was taken for an
+      // open session once the book was unread, so finishing closed it as
+      // 2020-01-01 → today — a fabricated six-year read.
+      const b = await finishedNoFinishDate('Unread Then Finished');
+      await req('PATCH', `/api/books/${b.id}`, { status: 'unread' });
+      const { body: done } = await req('PATCH', `/api/books/${b.id}`, { status: 'finished', date_finished: today() });
+      const reads = await readsOf(b.id);
+      assert.ok(reads.some(r => r.date_started === '2020-01-01' && r.date_finished == null), 'old completion untouched');
+      assert.ok(reads.some(r => r.date_started == null && r.date_finished === today()), 'new completion logged');
+      assert.equal(done.read_count, 2);
+    });
+
+    it('finished → unread → reading starts a fresh read rather than resuming the old completion', async () => {
+      const b = await finishedNoFinishDate('Unread Then Reading');
+      await req('PATCH', `/api/books/${b.id}`, { current_page: 300 });
+      await req('PATCH', `/api/books/${b.id}`, { status: 'unread' });
+      const { body: reading } = await req('PATCH', `/api/books/${b.id}`, { status: 'reading' });
+      assert.equal(reading.current_page, 0, 'progress resets for the re-read');
+      const reads = await readsOf(b.id);
+      assert.equal(reads.length, 2);
+      assert.ok(reads.some(r => r.date_started === today() && r.date_finished == null), 'new read starts today');
+      const { body: progressed } = await req('PATCH', `/api/books/${b.id}`, { current_page: 30 });
+      assert.equal(progressed.current_page, 30, 'not clamped to the old read\'s end');
+    });
+
+    it('a previously-owned book toggled unread → finished does not keep raising read_count', async () => {
+      // Regression: each Mark-as-unread / Mark-as-finished cycle on a
+      // previously-owned book with an undated read bumped read_count.
+      const { body: b } = await req('POST', '/api/books', { title: 'Prev Owned Cycle', status: 'finished', previously_owned: 1 });
+      assert.equal(b.read_count, 1);
+      for (let i = 0; i < 2; i++) {
+        await req('PATCH', `/api/books/${b.id}`, { status: 'unread' });
+        await req('PATCH', `/api/books/${b.id}`, { status: 'finished', date_finished: null });
+      }
+      const { body: after } = await req('GET', `/api/books/${b.id}`);
+      assert.equal(after.read_count, 1);
+      assert.equal((await readsOf(b.id)).length, 1);
+    });
+
+    it('a past read added mid-session does not hide the open read', async () => {
+      // Regression: the open read was "the newest row", so a backfilled
+      // past read (higher id) hid it; finishing then orphaned the real
+      // session and logged a start-less completion.
+      const { body: b } = await req('POST', '/api/books', { title: 'Backfill Mid Session' });
+      await req('PATCH', `/api/books/${b.id}`, { status: 'reading', date_started: '2026-09-01' });
+      await req('POST', `/api/books/${b.id}/reads`, { date_started: '2015-01-01', date_finished: '2015-02-01' });
+
+      await req('PATCH', `/api/books/${b.id}`, { status: 'unread' });
+      await req('PATCH', `/api/books/${b.id}`, { status: 'reading' });
+      let reads = await readsOf(b.id);
+      assert.equal(reads.length, 2, 'the toggle resumes the session — no second open read');
+
+      await req('PATCH', `/api/books/${b.id}`, { status: 'finished', date_finished: '2026-09-20' });
+      reads = await readsOf(b.id);
+      assert.equal(reads.length, 2);
+      assert.ok(reads.some(r => r.date_started === '2026-09-01' && r.date_finished === '2026-09-20'), 'the session is closed');
+      assert.ok(reads.some(r => r.date_started === '2015-01-01' && r.date_finished === '2015-02-01'), 'the past read is untouched');
+    });
+
+    it('edit form: re-finishing a previously-owned book with its shown finish date logs nothing new', async () => {
+      // Regression: the form leaves a previously-owned book's finish date
+      // as shown; the server ignored that echo and defaulted to today,
+      // adding a second read and bumping read_count.
+      const { body: b } = await req('POST', '/api/books', {
+        title: 'Prev Owned Form', status: 'finished', previously_owned: 1,
+        date_started: '2019-01-01', date_finished: '2019-02-01',
+      });
+      await req('PATCH', `/api/books/${b.id}`, { status: 'unread' });
+      const { body: shown } = await req('GET', `/api/books/${b.id}`);
+      const { body: saved } = await req('PUT', `/api/books/${b.id}`, {
+        ...shown, status: 'finished', date_started: shown.date_started, date_finished: shown.date_finished,
+      });
+      assert.equal(saved.read_count, 1);
+      const reads = await readsOf(b.id);
+      assert.equal(reads.length, 1);
+      assert.equal(reads[0].date_finished, '2019-02-01');
+    });
+
     it('finishing a book being read closes its open read — no orphaned open row', async () => {
       // Regression: finishing inserted a completed row BESIDE the open one
       // (three live books had open + closed rows sharing a start date).
