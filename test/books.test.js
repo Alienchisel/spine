@@ -3793,6 +3793,40 @@ describe('books', () => {
   });
 
   describe('PATCH validation is the shared validator (partial mode)', () => {
+    it('trims enum values instead of storing the padding or failing a CHECK', async () => {
+      // Regression (1.288.4): the validator trimmed before checking but the
+      // writers stored the raw value — ' primary ' was saved padded, and a
+      // padded status/format/binding/condition hit a column CHECK (500).
+      const { body: b } = await req('POST', '/api/books', { title: 'Padded Enums', fiction: false, owned: true, format: 'physical' });
+      let res = await req('PATCH', `/api/books/${b.id}`, { source_type: ' primary ' });
+      assert.equal(res.status, 200);
+      assert.equal(res.body.source_type, 'primary');
+      res = await req('PATCH', `/api/books/${b.id}`, { binding: 'hardcover ', condition: 'good ' });
+      assert.equal(res.status, 200);
+      assert.deepEqual([res.body.binding, res.body.condition], ['hardcover', 'good']);
+      res = await req('PATCH', `/api/books/${b.id}`, { status: 'finished ', date_finished: '2026-01-02' });
+      assert.equal(res.status, 200);
+      assert.equal(res.body.status, 'finished');
+      assert.equal(res.body.read_count, 1, 'a padded status is still a finish transition');
+      res = await req('PATCH', `/api/books/${b.id}`, { format: ' ebook' });
+      assert.equal(res.status, 200);
+      assert.equal(res.body.format, 'ebook');
+      const { body: put } = await req('PUT', `/api/books/${b.id}`, { ...res.body, format: ' audiobook ' });
+      assert.equal(put.format, 'audiobook', 'PUT trims too');
+    });
+
+    it('accepts a JSON number where a string field is expected', async () => {
+      // Regression (1.288.4): .trim() on a number threw — 500 instead of
+      // storing the value as text.
+      const { body: b } = await req('POST', '/api/books', { title: 'Numeric Fields' });
+      const res = await req('PATCH', `/api/books/${b.id}`, { title: 1984, isbn_13: 9781614876434, asin: 1234567890 });
+      assert.equal(res.status, 200);
+      assert.deepEqual([res.body.title, res.body.isbn_13, res.body.asin], ['1984', '9781614876434', '1234567890']);
+      const bad = await req('PATCH', `/api/books/${b.id}`, { isbn_10: 12345 });
+      assert.equal(bad.status, 400);
+      assert.equal(bad.body.field, 'isbn_10');
+    });
+
     it('rejects what PUT rejects, with the offending field', async () => {
       // Regression: PATCH re-implemented validation inline and skipped the
       // ASIN format and title length, and never returned `field`.
