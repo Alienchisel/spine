@@ -212,9 +212,6 @@ If you suspect data loss:
    pulls orphan records into a `lost_and_found` table — useful when
    pages haven't been overwritten yet by subsequent activity.
 
-The 2026-05-10 conversation transcript (in the JSONL files) walks
-through a complete cascade-and-recover for reference.
-
 ### Restoring from a snapshot
 
 Concrete commands. The dance is: stop the server (releases the WAL
@@ -225,10 +222,11 @@ restart, verify.
 ```bash
 cd ~/scripts/spine
 
-# 1. Stop whatever is holding the DB. The dev stack is launched via
-#    `concurrently npm run dev:server npm run dev:client` — kill the
-#    server watcher; vite can keep running.
-pkill -f 'node --watch server.js'
+# 1. Stop whatever is holding the DB. The live instance runs as the
+#    systemd user service; in dev it's the `npm run dev:server` watcher
+#    (vite can keep running).
+systemctl --user stop spine.service     # live
+pkill -f 'node --watch server.js'       # dev
 
 # 2. Move the broken DB aside (don't delete — wrong snapshot can leave
 #    you worse off, and the broken state may have data the snapshot
@@ -246,10 +244,12 @@ mv /tmp/spine.db .
 # 3c. OR restore from an hourly snapshot (last 48h):
 cp backups/hourly/hourly-spine-2026-05-09-15.db spine.db
 
-# 4. Restart and verify.
-./scripts/with-toolchain.sh node --watch server.js >> /tmp/spine-server.log 2>&1 &
+# 4. Restart and verify. The live service binds HOST from its
+#    EnvironmentFile, not localhost; the startup line prints the address.
+systemctl --user start spine.service    # live (dev: npm run dev:server)
 sleep 2
-curl -s 'http://localhost:3001/api/books?limit=1' \
+journalctl --user -u spine.service -n 5 --no-pager | grep 'Spine running on'
+curl -s 'http://<host>:3001/api/books?limit=1' \
   | python3 -c "import sys,json; d=json.load(sys.stdin); print('total:', d.get('total'))"
 ```
 
@@ -278,7 +278,9 @@ mounted at `app.use('/api/shelf', shelfRouter)` (see
 `routes/shelf.js`). To find a unit/shelf id from a human name:
 
 ```bash
-curl -s 'http://localhost:3001/api/shelf/tree' | python3 -c "
+# <host>: the live server's bound address (see "Restoring from a
+# snapshot"); localhost only answers in dev.
+curl -s 'http://<host>:3001/api/shelf/tree' | python3 -c "
 import json, sys
 def walk(node, depth=0):
     if isinstance(node, list):
@@ -335,11 +337,10 @@ title before grouping. "Odyssey" vs "The Odyssey" evaded the
 exact-title match and left the same work split across two work groups
 until the 2026-07-05 sweep caught it.
 
-Sweep performed 2026-06-20 brought the linkage count from 7 groups to
-64; subsequent ingests should keep editions linked at the moment of
-ingest rather than collecting another backlog.
+Link editions at the moment of ingest rather than letting a backlog
+collect.
 
-The sweep is automated as of 1.261.0: `GET /api/books/duplicate-clusters`
+The sweep is automated: `GET /api/books/duplicate-clusters`
 returns the unresolved clusters (article-normalised title + author
 bucketing; clusters whose members all share one non-null `work_id`
 count as resolved), the Audit page surfaces the count as "Same-work
@@ -352,7 +353,7 @@ above stays useful for ad-hoc variants of the scan.
 When a duplicate record is not an alternate edition but a true
 duplicate (same physical book ingested twice, identical title +
 publisher + year + format and no distinguishing field), merge rather
-than link. As of 1.261.0 there's a dedicated endpoint —
+than link. Use the dedicated endpoint —
 `POST /api/books/:id/merge {other_id}` merges the loser (`other_id`)
 into the `:id` survivor in one transaction: survivor-first field fill,
 join-table union, reads moved with exact-duplicate skip, reading-log
@@ -378,23 +379,12 @@ the reference for what "merge" means (and for partial/custom merges):
    API auto-merges work groups if both members were already linked
    into different groups.
 
-Precedent runs:
-
-- **2026-06-20 Saul merge.** `Voltaire's Bastards` #93 (Penguin 1993,
-  shelved Grey 5) survived; #2015 (Penguin Canada 1992, Grey 3) was
-  PATCHed into #93's record for its better description and the four
-  tags it carried, then deleted.
-- **2026-06-20 Letters trio cleanup.** Three identical records each
-  for McLuhan / Wyndham Lewis / Burroughs Letters were ingestion
-  duplicates of a single physical copy. Kept the lowest-id record in
-  each set; deleted the other two. Plotinus Enneads (#1067 +
-  #2365) was flagged for the user to verify before deletion —
-  reserve this for genuinely ambiguous cases.
+When it isn't clear that two records are the same physical copy, ask
+the user before deleting either.
 
 The duplicates wizard (`/audit/wizard/duplicates`) surfaces edition
-candidates and ingestion duplicates alike — the audit row's count is
-the standing trigger that used to be a "run the scan periodically"
-chore.
+candidates and ingestion duplicates alike; the audit row's count is
+the standing trigger to run it.
 
 ### Dormant schema (intentionally retained)
 
