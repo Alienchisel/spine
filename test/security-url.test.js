@@ -115,3 +115,25 @@ describe('fetchFollowingRedirects (SSRF redirect guard)', () => {
     await assert.rejects(() => assertPublicHttpsUrl(METADATA), UrlError);
   });
 });
+
+describe('image downloads: who is blamed for a redirect problem', () => {
+  // Regression (1.289.0): downloadImage turned every UrlError into a 400,
+  // so an upstream redirect loop was reported as the caller's mistake.
+  it('a redirect loop on a cover or portrait URL is a 502, a blocked hop a 400', async () => {
+    process.env.DB_PATH ??= ':memory:';
+    const { downloadCoverByUrl } = await import('../lib/books/covers.js');
+    const { downloadAuthorPhotoByUrl } = await import('../lib/authors/openLibrary.js');
+
+    let fetchMock = mock.method(globalThis, 'fetch', async () => redirectTo(PUBLIC2));
+    try {
+      await assert.rejects(() => downloadCoverByUrl(PUBLIC), (e) => e.status === 502);
+      await assert.rejects(() => downloadAuthorPhotoByUrl(1, PUBLIC), (e) => e.status === 502 && !e.clientError);
+    } finally { fetchMock.mock.restore(); }
+
+    fetchMock = mock.method(globalThis, 'fetch', async () => redirectTo(METADATA));
+    try {
+      await assert.rejects(() => downloadCoverByUrl(PUBLIC), (e) => e.status === 400);
+      await assert.rejects(() => downloadAuthorPhotoByUrl(1, PUBLIC), (e) => e.status === 400);
+    } finally { fetchMock.mock.restore(); }
+  });
+});
