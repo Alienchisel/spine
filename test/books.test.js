@@ -3124,10 +3124,14 @@ describe('books', () => {
     it('missing=date_started surfaces reading books with no recorded start date', async () => {
       const stem = 'ZZZ-startdate' + Math.random().toString(36).slice(2, 6);
       const author = `ZZZ-StartDate ${stem}`;
-      // Reading, no date_started — should appear.
+      // Reading, no date_started — should appear. Creating a book as
+      // 'reading' opens a read starting today, so clear that start: the
+      // shape of a book whose start was never known.
       const { body: noStart } = await req('POST', '/api/books', {
         title: `${stem}-no-start`, status: 'reading', authors: [author],
       });
+      const { body: [openRead] } = await req('GET', `/api/books/${noStart.id}/reads`);
+      await req('PUT', `/api/books/${noStart.id}/reads/${openRead.id}`, { date_started: null });
       // Reading with date_started — should NOT appear.
       const { body: started } = await req('POST', '/api/books', {
         title: `${stem}-started`, status: 'reading', date_started: '2026-05-15', authors: [author],
@@ -4048,6 +4052,28 @@ describe('books', () => {
       const reads = await readsOf(b.id);
       assert.equal(reads.length, 1, 'no second session');
       assert.equal(reads[0].date_started, '2026-01-05', 'original start kept');
+    });
+
+    it('a book created as reading opens its read — today when no start is given', async () => {
+      // Regression: POST with status 'reading' and no date_started created
+      // no reads row at all, so the start (and later days-to-finish) was lost.
+      const { body: b } = await req('POST', '/api/books', { title: 'Created Reading', status: 'reading' });
+      let reads = await readsOf(b.id);
+      assert.equal(reads.length, 1);
+      assert.deepEqual([reads[0].date_started, reads[0].date_finished], [today(), null]);
+      assert.equal(b.read_count, 0, 'an open read is not a completion');
+
+      const { body: dated } = await req('POST', '/api/books', { title: 'Created Reading Dated', status: 'reading', date_started: '2026-03-01' });
+      reads = await readsOf(dated.id);
+      assert.deepEqual(reads.map(r => [r.date_started, r.date_finished]), [['2026-03-01', null]]);
+
+      const { body: done } = await req('PATCH', `/api/books/${dated.id}`, { status: 'finished', date_finished: '2026-03-20' });
+      reads = await readsOf(dated.id);
+      assert.deepEqual(reads.map(r => [r.date_started, r.date_finished]), [['2026-03-01', '2026-03-20']], 'finishing closes that read');
+      assert.equal(done.read_count, 1);
+
+      const { body: unread } = await req('POST', '/api/books', { title: 'Created Unread' });
+      assert.equal((await readsOf(unread.id)).length, 0, 'other statuses still get no read');
     });
 
     // A finished book whose read has a start but no known finish: the
@@ -6102,8 +6128,11 @@ describe('books', () => {
       const { body: created } = await req('POST', '/api/books', {
         title: 'Auto-Reads Book', status: 'reading',
       });
+      // Created as 'reading', the book already has its open read; the
+      // finish transition closes it with the supplied dates.
       const { body: before } = await req('GET', `/api/books/${created.id}/reads`);
-      assert.equal(before.length, 0);
+      assert.equal(before.length, 1);
+      assert.equal(before[0].date_finished, null);
       await req('PUT', `/api/books/${created.id}`, {
         title: 'Auto-Reads Book', status: 'finished',
         date_started: '2024-08-01', date_finished: '2024-08-15',
