@@ -2745,9 +2745,7 @@ describe('books', () => {
       // gates correctly on the 40KB threshold.
       const fs   = await import('fs');
       const path = await import('path');
-      const { fileURLToPath } = await import('url');
-      const here = path.dirname(fileURLToPath(import.meta.url));
-      const uploadsDir = path.join(here, '..', 'uploads');
+      const { UPLOADS_DIR: uploadsDir } = await import('../lib/paths.js');
       // Ensure the dir exists (tests may run on a fresh clone).
       try { fs.mkdirSync(uploadsDir, { recursive: true }); } catch {}
 

@@ -52,6 +52,12 @@ const ALL_ARCHIVIST_STATES = [
 // min) survives route changes and the global spine-event bridge in
 // queryClient.js invalidates the ['audit'] key on book mutations. Same
 // UX, less bookkeeping.
+// "October 15, 12:00 AM" — US order, as everywhere in Spine.
+function formatBackupTime(iso) {
+  if (!iso) return 'unknown';
+  return new Date(iso).toLocaleString('en-US', { month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
 export default function Audit() {
   const auditQ = useQuery({
     queryKey: ['audit'],
@@ -115,6 +121,15 @@ export default function Audit() {
           <p className="text-xs text-neutral-600 mt-2">
             Resolved audits show <span className="text-neutral-500">✓</span>.
           </p>
+          {/* Nightly backup health (lib/backupStatus.js) — not part of the
+              clean %. Absent where backups were never set up. */}
+          {data.backup && (
+            <p role={data.backup.stale ? 'alert' : undefined}
+              className={`text-xs mt-2 ${data.backup.stale ? 'text-warn' : 'text-neutral-600'}`}>
+              Last nightly backup: {formatBackupTime(data.backup.lastSuccess)}
+              {data.backup.stale && <> — overdue; check backups/backup.log.</>}
+            </p>
+          )}
 
           {/* The Archivist — visual library-health indicator. Six PNGs
               live at client/public/audit-archivist/<key>.png, served at

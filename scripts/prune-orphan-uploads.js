@@ -14,8 +14,11 @@
 // Motivating case (2026-07-16 integrity audit): 946 orphan author
 // photos and 27 orphan covers accumulated over months from paths I
 // couldn't nail down statically (bio_fetched_at doesn't match the
-// orphan timestamps, so the leak wasn't /refresh alone). Rather than
-// chase phantom code, this script closes the loop periodically.
+// orphan timestamps, so the leak wasn't /refresh alone). Found
+// 2026-10-15: the test suite saved its fixture portraits into the real
+// uploads/ (188 more by then, all the same 2,061-byte image). Since
+// 1.290.8 lib/paths.js gives test runs a throwaway uploads dir; this
+// script remains the periodic check.
 //
 // Run:  ./scripts/with-toolchain.sh node scripts/prune-orphan-uploads.js
 //   --apply       actually delete (default: dry-run listing counts)

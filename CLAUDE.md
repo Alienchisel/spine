@@ -16,6 +16,21 @@ nightly run (truncate-and-overwrite, not `mv` — preserves cron's open fd).
 | `backup-hourly.sh` | hourly, :05 | 48 h | DB only (`sqlite3 .backup`), files prefixed `hourly-spine-` so they don't collide with any `spine-*.db` glob |
 | `backup-transcripts.sh` | weekly, Sun 00:30 | newest archive (older ones kept if the new one shrinks >10%) | `~/.claude/projects/.../*.jsonl` — Claude Code transcripts that proved decisive in the 2026-05-09 recovery |
 
+**Safeguards in the scripts:**
+
+- DB copies are written to `.tmp` and renamed when complete, and switched
+  out of WAL mode — a failed run (the 2026-06-04 disk-full night) can't
+  leave a truncated file that looks valid, and reading a copy leaves no
+  `-wal`/`-shm` files beside it.
+- **Wipe guard:** `backup.sh` refuses to snapshot or sync (exit 1) if
+  `uploads/` has >10% fewer files than the previous snapshot, and the B2
+  uploads sync stops after 200 deletions. For a deliberate large removal:
+  `SPINE_BACKUP_ALLOW_SHRINK=1 ./backup.sh`.
+- **Success marker:** a fully successful night writes
+  `backups/last-success`; the Audit page shows "Last nightly backup: …"
+  and turns it into a warning after 26 hours (`lib/backupStatus.js`).
+  Failures otherwise only reach `backups/backup.log`.
+
 ### Off-VM sync (Backblaze B2)
 
 `backup.sh` ends with an `rclone sync` to the B2 bucket via the

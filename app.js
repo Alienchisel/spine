@@ -18,6 +18,7 @@ import tagsRouter from './routes/tags.js';
 import seriesRouter from './routes/series.js';
 import todayRouter from './routes/today.js';
 import { bumpDataVersion, getDataVersion } from './lib/dataVersion.js';
+import { UPLOADS_DIR } from './lib/paths.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -32,7 +33,7 @@ app.use(express.json({ limit: '1mb' }));
 // URL's bytes never change: let browsers keep them for 30 days instead of
 // revalidating every cover on every page view. Not `immutable` — a thumb
 // could one day be regenerated at a different size under the same name.
-app.use('/uploads', express.static(path.join(__dirname, 'uploads'), { maxAge: '30d' }));
+app.use('/uploads', express.static(UPLOADS_DIR, { maxAge: '30d' }));
 
 // Any successful mutation bumps the data version (see lib/dataVersion.js).
 // Method-based rather than per-route so new routers are covered by

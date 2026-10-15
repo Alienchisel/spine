@@ -7,6 +7,7 @@ import fs from 'fs';
 import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { UPLOADS_DIR } from '../lib/paths.js';
 
 process.env.NODE_ENV = 'production';
 const { createTestServer } = await import('./helpers.js');
@@ -43,7 +44,7 @@ describe('compression and cache headers', () => {
 
   it('caches uploads for 30 days (every upload has a unique name)', async () => {
     const name = `zz-cache-test-${process.pid}.txt`;
-    const file = path.join(root, 'uploads', name);
+    const file = path.join(UPLOADS_DIR, name);
     fs.writeFileSync(file, 'cache header probe');
     try {
       const res = await rawGet(`${url}/uploads/${name}`);

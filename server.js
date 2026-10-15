@@ -1,11 +1,9 @@
 import app from './app.js';
 import db from './db.js';
 import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { UPLOADS_DIR } from './lib/paths.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-fs.mkdirSync(path.join(__dirname, 'uploads'), { recursive: true });
+fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 const PORT = process.env.PORT || 3001;
 // Bind to loopback by default so the raw port is never reachable from the
