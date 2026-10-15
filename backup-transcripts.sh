@@ -7,9 +7,13 @@
 # Cadence: weekly (transcripts are append-only, so daily snapshots would
 # be wasteful — the same ~480 MB of historical content would be copied 30×
 # in our daily-backup retention window).
-# Retention: 3 weeks. The transcripts themselves still live in
-# ~/.claude/projects, so this is purely a "what if that directory dies"
-# defense.
+# Retention: the newest archive only. Each archive holds every transcript
+# still in ~/.claude/projects, so older ones were near-identical copies
+# (~1.4 GB each). The transcripts themselves still live there, so this is
+# purely a "what if that directory dies" defense — and if the new archive
+# comes out noticeably smaller than the previous one (transcripts removed
+# or the directory damaged), nothing is pruned, so the older, fuller
+# archive survives until someone looks.
 
 set -euo pipefail
 
@@ -18,7 +22,7 @@ SPINE_DIR="$(cd "$(dirname "$0")" && pwd)"
 # every '/' turned into '-'. Derive it from SPINE_DIR so this works on any box.
 TRANSCRIPT_DIR="$HOME/.claude/projects/$(printf '%s' "$SPINE_DIR" | tr / -)"
 BACKUP_DIR="$SPINE_DIR/backups"
-KEEP=3
+KEEP=1
 
 if [ ! -d "$TRANSCRIPT_DIR" ]; then
   echo "Transcript dir not found: $TRANSCRIPT_DIR" >&2
@@ -57,5 +61,11 @@ fi
 SIZE="$(du -h "$DEST" | cut -f1)"
 echo "Backed up transcripts to $DEST ($SIZE)"
 
-# Retain the most recent $KEEP snapshots.
-ls -1t "$BACKUP_DIR"/transcripts-*.tar.gz 2>/dev/null | tail -n +$((KEEP + 1)) | xargs -r rm --
+# Retain the most recent $KEEP snapshots — unless this one shrank by more
+# than 10% against the newest older archive (see the header).
+PREV="$({ ls -1t "$BACKUP_DIR"/transcripts-*.tar.gz 2>/dev/null || true; } | grep -vxF "$DEST" | head -n 1 || true)"
+if [ -n "$PREV" ] && [ "$(stat -c %s "$DEST")" -lt $(( $(stat -c %s "$PREV") * 9 / 10 )) ]; then
+  echo "WARNING: $DEST is >10% smaller than $PREV — transcripts may have been removed; keeping older archives" >&2
+else
+  { ls -1t "$BACKUP_DIR"/transcripts-*.tar.gz 2>/dev/null || true; } | tail -n +$((KEEP + 1)) | xargs -r rm --
+fi

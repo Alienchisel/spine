@@ -12,9 +12,9 @@ nightly run (truncate-and-overwrite, not `mv` — preserves cron's open fd).
 
 | Script | Cadence | Retention | What it captures |
 |---|---|---|---|
-| `backup.sh` | daily, 00:00 | 30 days | full DB + `uploads/` as a tarball (local); plus a dated DB-only snapshot in `backups/daily-db/` (mirrored to B2) |
+| `backup.sh` | daily, 00:00 | 14 days | a dated DB snapshot in `backups/daily-db/` (mirrored to B2) plus a hard-linked snapshot of `uploads/` in `backups/uploads-snapshots/YYYY-MM-DD/` (local) |
 | `backup-hourly.sh` | hourly, :05 | 48 h | DB only (`sqlite3 .backup`), files prefixed `hourly-spine-` so they don't collide with any `spine-*.db` glob |
-| `backup-transcripts.sh` | weekly, Sun 00:30 | 3 weeks | `~/.claude/projects/.../*.jsonl` — Claude Code transcripts that proved decisive in the 2026-05-09 recovery |
+| `backup-transcripts.sh` | weekly, Sun 00:30 | newest archive (older ones kept if the new one shrinks >10%) | `~/.claude/projects/.../*.jsonl` — Claude Code transcripts that proved decisive in the 2026-05-09 recovery |
 
 ### Off-VM sync (Backblaze B2)
 
@@ -22,8 +22,8 @@ nightly run (truncate-and-overwrite, not `mv` — preserves cron's open fd).
 `spine-b2:` remote (configured locally via `rclone config`, see
 `~/.rclone.conf`). It pushes two things:
 
-- `backups/daily-db/` → `spine-b2:spine-backups/db/` — one ~3 MB DB
-  snapshot per day, mirroring the local 30-day retention.
+- `backups/daily-db/` → `spine-b2:spine-backups/db/` — one ~5 MB DB
+  snapshot per day, mirroring the local 14-day retention.
 - `uploads/` → `spine-b2:spine-backups/uploads/` — per-file incremental
   mirror. Only changed/added files upload each night. Both thumb
   subdirectories are excluded — `--exclude 'thumbs/**'` for book
@@ -35,11 +35,17 @@ nightly run (truncate-and-overwrite, not `mv` — preserves cron's open fd).
   shipping them off-VM would only waste ~116 MB of B2 storage without
   buying any state we can't reproduce locally in ~2 minutes.
 
-The **daily tarballs are not pushed**. They're ~1 GB each and 95%+
-redundant day-over-day (uploads/ dominates and barely changes); pushing
-them would balloon B2 storage by ~30 GB without buying any recoverable
-state we don't already have from the DB-snapshot + uploads-mirror pair.
-The tarballs stay local for fast atomic-snapshot recovery within the VM.
+The **local uploads snapshots are not pushed** — B2's per-file mirror
+plus its 30-day lifecycle on hidden versions already covers changed and
+deleted files off-VM. Locally, each `uploads-snapshots/YYYY-MM-DD/` is a
+complete, browsable copy built with `rsync --link-dest` against the
+previous day's, so unchanged files share inodes and a day costs only the
+covers / portraits added or changed (~2.3 GB for all 14 days). They
+replaced a nightly tarball of DB + `uploads/` that cost ~2 GB a day and
+filled the disk (28 GB at 14 days); leftover `spine-*.tar.gz` files age
+out after 14 days. A file rewritten *in place* would change in every
+snapshot sharing it — Spine names new uploads uniquely; only the thumb
+backfills' `--force` rewrites in place, and thumbs are derived.
 
 **Bucket setup:**
 
@@ -143,7 +149,7 @@ new dev machine, those need re-adding manually:
 
 The hourly fires at `:05` rather than `:00` so it doesn't race the daily
 backup at midnight — both invoke `sqlite3 .backup` and the daily then
-tarballs `uploads/` (slow). Staggering by 5 minutes keeps them from
+snapshots `uploads/`. Staggering by 5 minutes keeps them from
 contending for the SQLite write lock and disk.
 
 ## Migration runner safeguards
@@ -200,8 +206,8 @@ If you suspect data loss:
 
 1. **Look at startup logs.** A failed sanity check throws with an
    error message that includes the path of the relevant pre-snapshot.
-2. **Check `backups/`** — daily tarballs cover up to 30 days, hourly
-   snapshots cover up to 48 hours, pre-migration snapshots cover the
+2. **Check `backups/`** — daily DB snapshots and uploads snapshots cover
+   up to 14 days, hourly DB snapshots cover up to 48 hours, pre-migration snapshots cover the
    exact pre-state of any migration applied in the last 90 days.
 3. **The transcripts** at `~/.claude/projects/<repo-path-with-slashes-as-dashes>/*.jsonl`
    record every Claude-driven write. If the loss involved tool-driven
@@ -237,9 +243,10 @@ rm -f spine.db-wal spine.db-shm
 # 3a. Restore from a pre-migration snapshot (the most precise option):
 cp backups/spine-pre-053_relax_books_rating_check-<ts>.db spine.db
 
-# 3b. OR restore from a daily tarball:
-tar -xzf backups/spine-2026-05-09.tar.gz -C /tmp/ spine.db
-mv /tmp/spine.db .
+# 3b. OR restore from a daily DB snapshot (last 14 days):
+cp backups/daily-db/spine-2026-05-09.db spine.db
+#     …and, if covers/portraits need rolling back too, that day's uploads:
+#     rsync -a --delete backups/uploads-snapshots/2026-05-09/ uploads/
 
 # 3c. OR restore from an hourly snapshot (last 48h):
 cp backups/hourly/hourly-spine-2026-05-09-15.db spine.db

@@ -9,35 +9,42 @@ DAILY_DB_DIR="$BACKUP_DIR/daily-db"
 KEEP=14
 RCLONE_REMOTE="spine-b2:spine-backups"
 
-mkdir -p "$BACKUP_DIR" "$DAILY_DB_DIR"
+SNAP_DIR="$BACKUP_DIR/uploads-snapshots"
+mkdir -p "$BACKUP_DIR" "$DAILY_DB_DIR" "$SNAP_DIR"
 
 STAMP="$(date +%Y-%m-%d)"
-DEST_TAR="$BACKUP_DIR/spine-$STAMP.tar.gz"
 DEST_DB_DAILY="$DAILY_DB_DIR/spine-$STAMP.db"
+DEST_SNAP="$SNAP_DIR/$STAMP"
 
-# Snapshot the DB into a tempdir first so the tarball captures a consistent
-# copy (sqlite3 .backup is safe under concurrent writes, plain cp is not).
-# Also keep a dated daily-only copy in $DAILY_DB_DIR — that's what the B2
-# sync below mirrors. Off-VM storage stays small because DB snapshots are
-# ~3 MB each, whereas tarballs are ~1 GB and 95% redundant day-over-day
-# (uploads/ dominates and barely changes).
-TMP="$(mktemp -d)"
-trap 'rm -rf "$TMP"' EXIT
-sqlite3 "$DB" ".backup '$TMP/spine.db'"
-cp "$TMP/spine.db" "$DEST_DB_DAILY"
+# DB: a dated daily copy (sqlite3 .backup is safe under concurrent writes,
+# plain cp is not). The B2 sync below mirrors this directory.
+sqlite3 "$DB" ".backup '$DEST_DB_DAILY'"
 
-tar -czf "$DEST_TAR" -C "$TMP" spine.db -C "$SPINE_DIR" uploads
-SIZE="$(du -h "$DEST_TAR" | cut -f1)"
-echo "Backed up to $DEST_TAR ($SIZE)"
+# uploads/: a dated snapshot hard-linked against the previous day's
+# (rsync --link-dest). Each snapshot is a complete, browsable copy, but a
+# file unchanged since yesterday shares yesterday's inode, so a day costs
+# only the covers / portraits added or changed. This replaced a nightly
+# tarball of DB + uploads/ — ~2 GB a day, 95%+ identical day to day,
+# 28 GB at 14 days. Restore: rsync -a --delete <snapshot>/ uploads/.
+# Hard links mean a file rewritten IN PLACE changes in every snapshot that
+# shares it; Spine gives new covers and portraits new filenames, and the
+# only in-place writer is the thumb backfills' --force (derived data).
+# Built under .partial and renamed, so a failed run never leaves a
+# half-copied snapshot looking complete.
+PREV="$(ls -1d "$SNAP_DIR"/* 2>/dev/null | grep -E '/[0-9]{4}-[0-9]{2}-[0-9]{2}$' | grep -v "/$STAMP\$" | tail -n 1 || true)"
+rsync -a --delete ${PREV:+--link-dest="$PREV"} "$UPLOADS/" "$DEST_SNAP.partial/"
+rm -rf "$DEST_SNAP"
+mv "$DEST_SNAP.partial" "$DEST_SNAP"
+echo "Backed up DB to $DEST_DB_DAILY; uploads snapshot $DEST_SNAP (all snapshots: $(du -sh "$SNAP_DIR" | cut -f1))"
 
-# Retain the most recent $KEEP tarballs + DB snapshots; trim older.
-ls -1t "$BACKUP_DIR"/spine-*.tar.gz 2>/dev/null | tail -n +$((KEEP + 1)) | xargs -r rm --
-ls -1t "$DAILY_DB_DIR"/spine-*.db   2>/dev/null | tail -n +$((KEEP + 1)) | xargs -r rm --
+# Retain the most recent $KEEP uploads snapshots + DB copies; trim older.
+{ ls -1d "$SNAP_DIR"/* 2>/dev/null | grep -E '/[0-9]{4}-[0-9]{2}-[0-9]{2}$' || true; } | head -n -"$KEEP" | xargs -r rm -rf --
+{ ls -1t "$DAILY_DB_DIR"/spine-*.db 2>/dev/null || true; } | tail -n +$((KEEP + 1)) | xargs -r rm --
+# Legacy spine-YYYY-MM-DD.tar.gz files from before the snapshots age out.
+find "$BACKUP_DIR" -maxdepth 1 -name 'spine-*.tar.gz' -mtime +"$KEEP" -delete
 
-# Off-VM sync to B2 (Backblaze). We deliberately don't push the daily
-# tarball — uploads/ dominates its size and is 95%+ redundant day-over-day.
-# Instead push the dated DB snapshot (~3 MB) and a per-file mirror of
-# uploads/. rclone sync is incremental: only new/changed files upload.
+# Off-VM sync to B2 (Backblaze): the dated DB copies (~5 MB each) and a
+# per-file mirror of uploads/. rclone sync is incremental: only new/changed files upload.
 # Deleted-locally files become hidden in B2 and the bucket's lifecycle
 # rule fully removes them after its retention window (configure in the
 # Backblaze console), so accidental local deletions remain recoverable.
