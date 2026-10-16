@@ -3363,6 +3363,42 @@ describe('books', () => {
         assert.equal(bookRows.length, 1);
         assert.equal(storyRows.length, 1);
       });
+
+      it('deleting a story whose day also has a book-level row folds the two', async () => {
+        // ON DELETE SET NULL would turn the story row into a second
+        // book-level row for the same day — a unique-index violation.
+        const { body: b } = await req('POST', '/api/books', { title: 'L3 Delete Fold', page_count: 500 });
+        await req('POST', `/api/books/${b.id}/stories`, { title: 'Sibling', status: 'unread' });
+        await req('PATCH', `/api/books/${b.id}`, { current_page: 25 });
+        const todayIso = new Date().toLocaleDateString('en-CA');
+        const { body: s } = await req('POST', `/api/books/${b.id}/stories`, {
+          title: 'Doomed', status: 'finished', date_finished: todayIso,
+          page_start: 100, page_end: 109,
+        });
+        const { status } = await req('DELETE', `/api/books/${b.id}/stories/${s.id}`);
+        assert.equal(status, 204);
+        const { body: diary } = await req('GET', '/api/diary');
+        const rows = diaryEntries(diary, e => e.book_id === b.id);
+        assert.equal(rows.length, 1, 'one book-level row for the day');
+        assert.equal(rows[0].story_id, null);
+        assert.equal(rows[0].pages_read, 25 + 10, 'story pages fold into the book row');
+      });
+
+      it('deleting two stories finished the same day leaves one book-level row', async () => {
+        const { body: b } = await req('POST', '/api/books', { title: 'L3 Delete Two' });
+        await req('POST', `/api/books/${b.id}/stories`, { title: 'Keeper', status: 'unread' });
+        const mk = title => req('POST', `/api/books/${b.id}/stories`, {
+          title, status: 'finished', date_finished: '2025-04-21', page_start: 1, page_end: 20,
+        });
+        const { body: s1 } = await mk('First');
+        const { body: s2 } = await mk('Second');
+        assert.equal((await req('DELETE', `/api/books/${b.id}/stories/${s1.id}`)).status, 204);
+        assert.equal((await req('DELETE', `/api/books/${b.id}/stories/${s2.id}`)).status, 204);
+        const { body: diary } = await req('GET', '/api/diary?year=2025');
+        const rows = diaryEntries(diary, e => e.book_id === b.id);
+        assert.equal(rows.length, 1);
+        assert.equal(rows[0].pages_read, 40);
+      });
     });
 
     // Layer 3 pass 2: parent auto-roll. When every story in a collection

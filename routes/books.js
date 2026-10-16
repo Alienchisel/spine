@@ -364,6 +364,23 @@ router.delete('/:id/stories/:storyId', (req, res) => {
   // the books-without-stories rule), already-finished parent returns
   // false (no double-roll).
   db.transaction(() => {
+    // The story's reading_log rows survive as book-level rows (ON DELETE
+    // SET NULL), but a day that already has a book-level row would then
+    // hold two — a unique-index violation. Fold those days into the
+    // existing row first, summing like the book merge does.
+    db.prepare(`
+      UPDATE reading_log AS b
+         SET pages_read   = b.pages_read   + s.pages_read,
+             minutes_read = b.minutes_read + s.minutes_read
+        FROM reading_log AS s
+       WHERE s.story_id = ? AND b.book_id = s.book_id AND b.date = s.date AND b.story_id IS NULL
+    `).run(storyId);
+    db.prepare(`
+      DELETE FROM reading_log
+       WHERE story_id = ? AND EXISTS (
+         SELECT 1 FROM reading_log b
+          WHERE b.book_id = reading_log.book_id AND b.date = reading_log.date AND b.story_id IS NULL)
+    `).run(storyId);
     db.prepare('DELETE FROM stories WHERE id = ?').run(storyId);
     // story_authors cascades on the stories delete; the author rows
     // themselves may now be orphaned if this was their last credit.
