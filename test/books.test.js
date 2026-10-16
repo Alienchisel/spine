@@ -7304,6 +7304,29 @@ describe('books', () => {
         assert.equal(body.acquisition_source, 'Thrift');
       });
 
+      it('applies the cross-field rules to the merged record', async () => {
+        // Regression: the fill decided each column on its own, so an ebook
+        // survivor inherited a physical loser's binding, condition and
+        // shelf, and a fiction survivor a non-fiction loser's source_type.
+        const { body: bldg } = await req('POST', '/api/shelf/buildings', { name: 'Merge Gate Building' });
+        const { body: rm }   = await req('POST', '/api/shelf/rooms',     { building_id: bldg.id, name: 'Merge Gate Room' });
+        const { body: u }    = await req('POST', '/api/shelf/units',     { room_id: rm.id, name: 'Merge Gate Unit' });
+        const { body: sh }   = await req('POST', '/api/shelf/shelves',   { unit_id: u.id, label: 'Merge Gate Shelf' });
+        const s = await mkBook({ title: 'Merge Gates', format: 'ebook', owned: 1, fiction: true });
+        const l = await mkBook({
+          title: 'Merge Gates', format: 'physical', owned: 1, fiction: false, source_type: 'primary',
+          binding: 'hardcover', condition: 'good', shelf_id: sh.id,
+        });
+        assert.equal(l.shelf_id, sh.id, 'fixture: the loser is shelved');
+        const { status, body } = await req('POST', `/api/books/${s.id}/merge`, { other_id: l.id });
+        assert.equal(status, 200);
+        assert.equal(body.format, 'ebook', 'survivor keeps its format');
+        assert.deepEqual(
+          [body.binding, body.condition, body.shelf_id, body.unit_id, body.room_id, body.building_id, body.source_type],
+          [null, null, null, null, null, null, null],
+          'nothing a physical non-fiction copy carries survives onto an ebook fiction record');
+      });
+
       it('deletes the loser', async () => {
         const s = await mkBook({ title: 'Merge Delete' });
         const l = await mkBook({ title: 'Merge Delete' });
