@@ -216,7 +216,7 @@ function BookCard({ book: initialBook, onProgressUpdate, compact, coverOverlay, 
     ? (audioMins != null ? (hasPct ? `${pct}%` : audioElapsed) : null)
     : (book.current_page != null ? (hasPct ? `${pct}%` : `p. ${book.current_page}`) : null);
 
-  const numCls = 'bg-neutral-800 border border-neutral-700 text-parchment text-xs rounded px-2 py-1 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none';
+  const numCls = 'bg-neutral-800 border border-neutral-700 text-parchment text-xs rounded py-1 focus:outline-none focus:border-oak/50 focus:ring-1 focus:ring-oak/20 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none';
 
   // Archived books are dimmed and slightly desaturated so the state reads at
   // a glance — used on the Archived tab and on search-result cards (search
@@ -463,7 +463,7 @@ function BookCard({ book: initialBook, onProgressUpdate, compact, coverOverlay, 
                     onChange={(e) => { setError(null); setInputH(e.target.value); }}
                     placeholder="h"
                     aria-label="Hours"
-                    className={`w-12 text-sm ${numCls}`}
+                    className={`w-12 px-2 text-sm ${numCls}`}
                   />
                   <span className="text-neutral-500 text-xs">h</span>
                   <input
@@ -473,7 +473,7 @@ function BookCard({ book: initialBook, onProgressUpdate, compact, coverOverlay, 
                     onBlur={(e) => setInputM(clampMinutes(e.target.value))}
                     placeholder="m"
                     aria-label="Minutes"
-                    className={`w-12 text-sm ${numCls}`}
+                    className={`w-12 px-2 text-sm ${numCls}`}
                   />
                   <span className="text-neutral-500 text-xs">m</span>
                 </div>
@@ -487,7 +487,9 @@ function BookCard({ book: initialBook, onProgressUpdate, compact, coverOverlay, 
                   onChange={(e) => { setError(null); setInputVal(e.target.value); }}
                   placeholder={mode === 'pct' ? '0–100' : '#'}
                   aria-label={mode === 'pct' ? 'Percent complete' : 'Current page'}
-                  className={`flex-1 min-w-[3rem] text-sm ${numCls}`}
+                  // px-1, not px-2: on a narrow card the input bottoms out at
+                  // min-w-[3rem], and the '0–100' placeholder needs the room.
+                  className={`flex-1 min-w-[3rem] px-1 text-sm ${numCls}`}
                 />
               )}
               <button
