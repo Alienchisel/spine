@@ -999,6 +999,25 @@ describe('books', () => {
       assert.equal(updated.acquisition_date, null);
     });
 
+    it('PATCH is_custom applies the same rules (it used to be silently dropped)', async () => {
+      const { body: stub } = await req('POST', '/api/books', {
+        title: 'Patch Custom ' + Math.random().toString(36).slice(2, 6),
+        owned: false, previously_owned: true, is_stub: true,
+        acquisition_source: 'Amazon', acquisition_date: '2024',
+      });
+      const { status, body } = await req('PATCH', `/api/books/${stub.id}`, { is_custom: true });
+      assert.equal(status, 200);
+      assert.equal(body.is_custom, 1);
+      assert.equal(body.owned, 1);
+      assert.equal(body.previously_owned, 0);
+      assert.equal(body.is_stub, 0, 'custom means owned, so the wishlist flag clears');
+      assert.equal(body.acquisition_source, null);
+      assert.equal(body.acquisition_date, null);
+      const { body: off } = await req('PATCH', `/api/books/${stub.id}`, { is_custom: false });
+      assert.equal(off.is_custom, 0);
+      assert.equal(off.owned, 1, 'unticking custom keeps the copy owned');
+    });
+
     it('clears acquisition fields when neither owned nor previously_owned is set', async () => {
       // Mirrors AcquisitionFields.jsx:56 — the form hides the acquisition
       // inputs when (owned || previously_owned) is false, so a book left
@@ -1367,7 +1386,7 @@ describe('books', () => {
       //   archived, on_readlist,
       //     readlist_position, desire_rank     — readlist / archive cascades
       //   status, read_count, work_id          — reads / editions logic
-      //   is_custom                            — set at creation only
+      //   is_custom                            — gating rules, own test above
       // source_type is covered separately below because it requires
       // fiction=0 on the row; seeding the coverage book with
       // fiction:false would change the shape of every other case here.
