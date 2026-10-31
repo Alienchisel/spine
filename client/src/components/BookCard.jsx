@@ -437,7 +437,7 @@ function BookCard({ book: initialBook, onProgressUpdate, compact, coverOverlay, 
             // Framed editor: gives the form a discrete control area
             // distinct from the surrounding card text, so the select / input /
             // buttons read as one widget rather than four floating fragments.
-            <form onSubmit={handleSubmit} className="mt-1.5 bg-neutral-900/60 border border-neutral-800 rounded-md p-1.5 flex gap-1.5 items-center flex-wrap">
+            <form onSubmit={handleSubmit} className="mt-1.5 bg-neutral-900/60 border border-neutral-800 rounded-md p-1.5 flex gap-1 items-center flex-wrap">
               <select
                 value={mode}
                 onChange={(e) => changeMode(e.target.value)}
@@ -492,22 +492,26 @@ function BookCard({ book: initialBook, onProgressUpdate, compact, coverOverlay, 
                   className={`flex-1 min-w-[3rem] px-1 text-sm ${numCls}`}
                 />
               )}
-              <button
-                type="submit"
-                disabled={saveGuard.busy || isEmpty}
-                aria-label={`${saveGuard.busy ? 'Saving progress' : 'Save progress'}: ${book.title}`}
-                className="text-sm bg-binding hover:bg-binding/80 motion-safe:active:scale-[0.98] disabled:opacity-60 text-parchment px-2.5 py-1 rounded transition-[transform,background-color] ease-out duration-150"
-              >
-                {saveGuard.busy ? '…' : '✓'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                aria-label={`Close progress editor for ${book.title}`}
-                className="text-sm text-neutral-600 hover:text-neutral-400 px-1 py-1 transition-colors"
-              >
-                ✕
-              </button>
+              {/* ✓ and ✕ wrap as one unit: on a card too narrow for one row
+                  they drop to a second line together instead of stranding ✕. */}
+              <div className="flex items-center gap-1 ml-auto">
+                <button
+                  type="submit"
+                  disabled={saveGuard.busy || isEmpty}
+                  aria-label={`${saveGuard.busy ? 'Saving progress' : 'Save progress'}: ${book.title}`}
+                  className="text-sm bg-binding hover:bg-binding/80 motion-safe:active:scale-[0.98] disabled:opacity-60 text-parchment px-2.5 py-1 rounded transition-[transform,background-color] ease-out duration-150"
+                >
+                  {saveGuard.busy ? '…' : '✓'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  aria-label={`Close progress editor for ${book.title}`}
+                  className="text-sm text-neutral-600 hover:text-neutral-400 px-1 py-1 transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
             </form>
           )}
         </div>
